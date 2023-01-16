@@ -1,5 +1,5 @@
 import requests
-from DiffieHellman import DiffieHellman
+from libs.DiffieHellman import DiffieHellman
 
 SERVER = "127.0.0.1:5000"
 

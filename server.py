@@ -1,5 +1,5 @@
 import json
-from DiffieHellman import DiffieHellman
+from libs.DiffieHellman import DiffieHellman
 from secrets import token_hex
 from redis import Redis
 from flask import Flask, request
@@ -15,12 +15,12 @@ def index():
 @app.route("/simulation/set_source_public_key", methods=["POST"])
 def simulation_set_source_public_key():
 	assert("source_public_key" in request.json)
-	redis.set("source_public_key", request.json["source_public_key"])
+	redis.set("simulation:source_public_key", request.json["source_public_key"])
 	return {"status": "OK"}, 200
 
 @app.route("/simulation/get_source_public_key", methods=["GET"])
 def simulation_get_source_public_key():
-	source_public_key = redis.get("source_public_key")
+	source_public_key = redis.get("simulation:source_public_key")
 	if source_public_key is None:
 		return {"status": "KO"}, 404
 	else:
@@ -28,13 +28,13 @@ def simulation_get_source_public_key():
 
 @app.route("/simulation/set_source_private_key", methods=["POST"])
 def simulation_set_source_private_key():
-	assert("source_private_key" in request.json)
+	assert("simulation:source_private_key" in request.json)
 	redis.set("source_private_key", request.json["source_private_key"])
 	return {"status": "OK"}, 200
 
 @app.route("/simulation/get_source_private_key", methods=["GET"])
 def simulation_get_source_private_key():
-	source_private_key = redis.get("source_private_key")
+	source_private_key = redis.get("simulation:source_private_key")
 	if source_private_key is None:
 		return {"status": "KO"}, 404
 	else:
