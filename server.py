@@ -1,8 +1,16 @@
 import json
+import libs.pki
 from libs.DiffieHellman import DiffieHellman
 from secrets import token_hex
 from redis import Redis
 from flask import Flask, request
+
+SERVER = "127.0.0.1:5000"
+DIR = "keys/"
+JOURNALISTS = 10
+
+# bootstrap keys
+journalist_verifying_keys = pki.load_and_verify_journalist_verifying_keys()
 
 redis = Redis()
 app = Flask(__name__)
@@ -62,7 +70,7 @@ def send_j2s_message():
 	redis.set(f"message:{token_hex(32)}", json.dumps(message_dict))
 	return {"status": "OK"}, 200
 
-@app.route("/get_messages_challenge", methods=["GET"])
+@app.route("/get_message_challenges", methods=["GET"])
 def get_messages_challenge():
 	s = DiffieHellman()
 	# generate a challenge id
@@ -123,3 +131,5 @@ def send_message_challenges_response(challenge_id):
 	if len(valid_messages) > 0:
 		return {"status": "OK", "messages": valid_messages}, 200
 	return "SAAAAAD", 404
+
+

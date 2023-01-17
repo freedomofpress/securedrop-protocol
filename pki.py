@@ -1,31 +1,34 @@
 import sys
 from os import rmdir, mkdir
-from ecdsa import SigningKey, VerifyingKey, Ed25519
+#from ecdsa import SigningKey, VerifyingKey, Ed25519
+from ecdsa import SigningKey, VerifyingKey, SECP256k1
 from ecdsa.util import sigencode_der, sigdecode_der
 from hashlib import sha3_256
 
 DIR = "keys/"
 JOURNALISTS = 10
+CURVE = SECP256k1
 
 def reset():
 	rmdir(DIR)
-
 
 def load_key(name):
 	with open(f"{DIR}/{name}.key", "rb") as f:
 		key = SigningKey.from_pem(f.read())
 
-
 	with open(f"{DIR}/{name}.pem", "rb") as f:
-		public_key = VerifyingKey.from_pem(f.read())
+		verifying_key = VerifyingKey.from_pem(f.read())
 
-	assert(key.verifying_key == public_key)
-
+	assert(key.verifying_key == verifying_key)
 	return key
 
+def load_verifying_key(name):
+	with open(f"{DIR}/{name}.pem", "rb") as f:
+		verifying_key = VerifyingKey.from_pem(f.read())
+	return verifying_key
 
 def generate_key(name):
-	key = SigningKey.generate(curve=Ed25519)
+	key = SigningKey.generate(curve=CURVE)
 
 	with open(f"{DIR}/{name}.key", "wb") as f:
 		f.write(key.to_pem(format="pkcs8"))
@@ -48,6 +51,7 @@ def sign_key(signing_pivate_key, signed_public_key, signature_name):
 
 	return True
 
+
 def verify_key(signing_public_key, signed_public_key, signature_name):
 	with open(signature_name, "rb") as f:
 		sig = f.read()
@@ -65,16 +69,47 @@ def generate_pki():
 	journalist_keys = generate_journalists(intermediate_key)
 	return root_key, intermediate_key, journalist_keys
 
+def verify_root_intermediate():
+	root_verifying_key = load_verifying_key("root")
+	intermediate_verifying_key = load_verifying_key("intermediate")
+	verify_key(root_verifying_key, intermediate_verifying_key, f"{DIR}intermediate.sig")
+	return intermediate_verifying_key
+
 def load_pki():
 	root_key = load_key("root")
 	intermediate_key = load_key("intermediate")
 	verify_key(root_key.verifying_key, intermediate_key.verifying_key, f"{DIR}intermediate.sig")
 	journalist_keys = []
 	for j in range(JOURNALISTS):
-		journalist_key = load_key(f"journalists/journalist_{j}")
+		journalist_key = load_key(f"{DIR}journalists/journalist_{j}")
 		journalist_keys.append(journalist_key)
 		verify_key(intermediate_key.verifying_key, journalist_key.verifying_key, f"{DIR}journalists/journalist_{j}.sig")
 	return root_key, intermediate_key, journalist_keys
+
+def load_public_pki():
+	intermediate_verifying_key = verify_root_intermediate()
+	journalist_keys = []
+	for j in range(JOURNALISTS):
+		journalist_key = load_key(f"{DIR}journalists/journalist_{j}")
+		journalist_keys.append(journalist_key)
+		verify_key(intermediate_key.verifying_key, journalist_key.verifying_key, f"{DIR}journalists/journalist_{j}.sig")
+	return root_key, intermediate_key, journalist_keys
+
+
+def load_and_verify_journalist_keypair(journalist_id):
+	intermediate_verifying_key = verify_root_intermediate()
+	journalist_key = load_key(f"journalists/journalist_{journalist_id}")
+	verify_key(intermediate_verifying_key, journalist_key.verifying_key, f"{DIR}journalists/journalist_{journalist_id}.sig")
+	return journalist_key
+
+def load_and_verify_journalist_verifying_keys():
+	intermediate_verifying_key = verify_root_intermediate()
+	journalist_verying_keys = []
+	for j in range(JOURNALISTS):
+		journalist_verifying_key = load_verifying_key(f"journalists/journalist_{j}")
+		verify_key(intermediate_verifying_key, journalist_verifying_key, f"{DIR}journalists/journalist_{j}.sig")
+		journalist_verying_keys.append(journalist_verifying_key)
+	return journalist_verying_keys
 
 def generate_journalists(intermediate_key):
 	journalist_keys = []
@@ -86,10 +121,5 @@ def generate_journalists(intermediate_key):
 	return journalist_keys
 
 def main():
-
 	root_key, intermediate_key, journalist_keys = generate_pki()
 	#root_key, intermediate_key, journalist_keys = load_pki()
-	
-
-
-main()

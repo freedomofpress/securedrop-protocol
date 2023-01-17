@@ -1,7 +1,10 @@
 import requests
+import libs.pki
 from libs.DiffieHellman import DiffieHellman
 
 SERVER = "127.0.0.1:5000"
+DIR = "keys/"
+JOURNALISTS = 10
 
 def generate_keypair():
 	k = DiffieHellman()
@@ -33,8 +36,8 @@ def simulation_set_source_public_key_in_server(publicKey):
 	response = requests.post(f"http://{SERVER}/simulation/set_source_public_key", json={"source_public_key": publicKey})
 	assert(response.status_code == 200)
 
-def get_messages_challenges():
-	response = requests.get(f"http://{SERVER}/get_messages_challenge")
+def get_message_challenges():
+	response = requests.get(f"http://{SERVER}/get_message_challenges")
 	assert(response.status_code == 200)
 	return response.json()
 

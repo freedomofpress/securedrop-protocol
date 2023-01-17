@@ -15,10 +15,10 @@ import ecdsa
 
 from ecdsa.util import randrange
 from ecdsa.ecdsa import curve_secp256k1
-from ecdsa.curves import SECP256k1
+from ecdsa import SECP256k1
 from ecdsa import numbertheory
 
-def ring_signature(siging_key, key_idx, M, y, G=SECP256k1.generator, hash_func=hashlib.sha3_256):
+def ring_signature(signing_key, key_idx, M, y, curve=SECP256k1, hash_func=hashlib.sha3_256):
     """
         Generates a ring signature for a message given a specific set of
         public keys and a signing key belonging to one of the public keys
@@ -52,34 +52,40 @@ def ring_signature(siging_key, key_idx, M, y, G=SECP256k1.generator, hash_func=h
                 Y = Link for current signer.
 
     """
+
+    # Trasform public/private keys in the format expected by this function
+    signing_key = int.from_bytes(signing_key.to_string(), 'big')
+    y = list(map(lambda k: curve.generator.from_bytes(curve.curve, k.to_string()), y))
+
+
     n = len(y)
     c = [0] * n
     s = [0] * n
 
     # STEP 1
     H = H2(y, hash_func=hash_func)
-    Y =  H * siging_key
+    Y =  H * signing_key
 
     # STEP 2
-    u = randrange(SECP256k1.order)
-    c[(key_idx + 1) % n] = H1([y, Y, M, G * u, H * u], hash_func=hash_func)
+    u = randrange(curve.order)
+    c[(key_idx + 1) % n] = H1([y, Y, M, curve.generator * u, H * u], hash_func=hash_func)
 
     # STEP 3
     for i in [ i for i in range(key_idx + 1, n) ] + [i for i in range(key_idx)]:
 
-        s[i] = randrange(SECP256k1.order)
+        s[i] = randrange(curve.order)
 
-        z_1 = (G * s[i]) + (y[i] * c[i])
+        z_1 = (curve.generator * s[i]) + (y[i] * c[i])
         z_2 = (H * s[i]) + (Y * c[i])
 
         c[(i + 1) % n] = H1([y, Y, M, z_1, z_2], hash_func=hash_func)
 
     # STEP 4
-    s[key_idx] = (u - siging_key * c[key_idx]) % SECP256k1.order
+    s[key_idx] = (u - signing_key * c[key_idx]) % curve.order
     return (c[0], s, Y)
 
 
-def verify_ring_signature(message, y, c_0, s, Y, G=SECP256k1.generator, hash_func=hashlib.sha3_256):
+def verify_ring_signature(message, y, c_0, s, Y, curve=SECP256k1, hash_func=hashlib.sha3_256):
     """
         Verifies if a valid signature was made by a key inside a set of keys.
 
@@ -107,13 +113,15 @@ def verify_ring_signature(message, y, c_0, s, Y, G=SECP256k1.generator, hash_fun
             Boolean value indicating if signature is valid.
 
     """
+    y = list(map(lambda k: curve.generator.from_bytes(curve.curve, k.to_string()), y))
+
     n = len(y)
     c = [c_0] + [0] * (n - 1)
 
     H = H2(y, hash_func=hash_func)
 
     for i in range(n):
-        z_1 = (G * s[i]) + (y[i] * c[i])
+        z_1 = (curve.generator * s[i]) + (y[i] * c[i])
         z_2 = (H * s[i]) + (Y * c[i])
 
         if i < n - 1:
@@ -247,23 +255,6 @@ def stringify_point(p):
     return '{},{}'.format(p.x(), p.y())
 
 
-def stringify_point_js(p):
-    """
-        Represents an elliptic curve point as a string coordinate, the
-        string format is javascript so other javascript scripts can
-        consume this.
-
-        PARAMS
-        ------
-            p: ecdsa.ellipticcurve.Point - Point to represent as string.
-
-        RETURNS
-        -------
-            (str) Javascript string representation of a point (x, y)
-    """
-    return 'new BigNumber("{}"), new BigNumber("{}")'.format(p.x(), p.y())
-
-
 def export_signature(y, message, signature, foler_name='./data', file_name='signature.txt'):
     """ Exports a signature to a specific folder and filename provided.
 
@@ -307,44 +298,22 @@ def export_private_keys(s_keys, foler_name='./data', file_name='secrets.txt'):
     arch.close()
 
 
-def export_signature_javascript(y, message, signature, foler_name='./data', file_name='signature.js'):
-    """ Exports a signatrue in javascript format to a file and folder.
-    """
-    if not os.path.exists(foler_name):
-        os.makedirs(foler_name)
-
-    arch = open(os.path.join(foler_name, file_name), 'w')
-
-    S = ''.join(map(lambda x: 'new BigNumber("' + str(x) + '"),', signature[1]))[:-1]
-    Y = stringify_point_js(signature[2])
-
-    dump = 'var c_0 = new BigNumber("{}");\n'.format(signature[0])
-    dump += 'var s = [{}];\n'.format(S)
-    dump += 'var Y = [{}];\n'.format(Y)
-
-    arch.write(dump)
-
-    pub_keys = ''.join(map(lambda yi: stringify_point_js(yi) + ',', y))[:-1]
-
-    data = 'var message = [{}];\n'.format(''.join([ 'new BigNumber("{}"),'.format(m) for m in message])[:-1])
-    data += 'var pub_keys = [{}];'.format(pub_keys)
-
-    arch.write(data + '\n')
-    arch.close()
-
-
 def main():
+    curve  = ecdsa.SECP256k1
     number_participants = 10
-
-    x = [ randrange(SECP256k1.order) for i in range(number_participants)]
-    y = list(map(lambda xi: SECP256k1.generator * xi, x))
+    x = []
+    y = []
+    for i in range(number_participants):
+        key = ecdsa.SigningKey.generate(curve=curve)
+        x.append(key)
+        y.append(key.verifying_key)
 
     message = "Every move we made was a kiss"
 
     i = 2
-    signature = ring_signature(x[i], i, message, y)
+    signature = ring_signature(x[i], i, message, y, curve=curve)
 
-    assert(verify_ring_signature(message, y, *signature))
+    assert(verify_ring_signature(message, y, *signature, curve=curve))
 
 if __name__ == '__main__':
     main()
