@@ -1,13 +1,12 @@
 import sys
 from os import rmdir, mkdir
-#from ecdsa import SigningKey, VerifyingKey, Ed25519
-from ecdsa import SigningKey, VerifyingKey, SECP256k1
+from ecdsa import SigningKey, VerifyingKey, Ed25519
 from ecdsa.util import sigencode_der, sigdecode_der
 from hashlib import sha3_256
 
 DIR = "keys/"
 JOURNALISTS = 10
-CURVE = SECP256k1
+CURVE = Ed25519
 
 def reset():
 	rmdir(DIR)
@@ -49,13 +48,15 @@ def sign_key(signing_pivate_key, signed_public_key, signature_name):
 	with open(signature_name, "wb") as f:
 		f.write(sig)
 
-	return True
+	return sig
 
 
-def verify_key(signing_public_key, signed_public_key, signature_name):
-	with open(signature_name, "rb") as f:
-		sig = f.read()
+def verify_key(signing_public_key, signed_public_key, signature_name, sig=None):
+	if not sig:
+		with open(signature_name, "rb") as f:
+			sig = f.read()
 	signing_public_key.verify(sig, signed_public_key.to_string(), sha3_256, sigdecode=sigdecode_der)
+	return sig
 
 def generate_pki():
 	try:
@@ -99,8 +100,8 @@ def load_public_pki():
 def load_and_verify_journalist_keypair(journalist_id):
 	intermediate_verifying_key = verify_root_intermediate()
 	journalist_key = load_key(f"journalists/journalist_{journalist_id}")
-	verify_key(intermediate_verifying_key, journalist_key.verifying_key, f"{DIR}journalists/journalist_{journalist_id}.sig")
-	return journalist_key
+	sig = verify_key(intermediate_verifying_key, journalist_key.verifying_key, f"{DIR}journalists/journalist_{journalist_id}.sig")
+	return sig, journalist_key
 
 def load_and_verify_journalist_verifying_keys():
 	intermediate_verifying_key = verify_root_intermediate()
@@ -120,6 +121,25 @@ def generate_journalists(intermediate_key):
 		sign_key(intermediate_key, journalist_key.verifying_key, f"{DIR}journalists/journalist_{j}.sig")
 	return journalist_keys
 
+def generate_ephemeral(journalist_key, journalist_id):
+	try:
+		mkdir(f"{DIR}/journalists/ephemeral_{journalist_id}")
+	except:
+		pass
+	key = SigningKey.generate(curve=CURVE)
+	name = sha3_256(key.verifying_key.to_string()).hexdigest()
+
+	with open(f"{DIR}/journalists/ephemeral_{journalist_id}/{name}.key", "wb") as f:
+		f.write(key.to_pem(format="pkcs8"))
+
+	with open(f"{DIR}/journalists/ephemeral_{journalist_id}/{name}.pem", "wb") as f:
+		f.write(key.verifying_key.to_pem())
+
+	sig = sign_key(journalist_key, key.verifying_key, f"{DIR}/journalists/ephemeral_{journalist_id}/{name}.sig")
+
+	return sig, key
+
 def main():
-	root_key, intermediate_key, journalist_keys = generate_pki()
+	if sys.argv[1] == 'generate':
+		generate_pki()
 	#root_key, intermediate_key, journalist_keys = load_pki()

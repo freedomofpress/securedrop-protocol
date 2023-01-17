@@ -1,16 +1,20 @@
 import json
-import libs.pki
+import pki
+from hashlib import sha3_256
+from ecdsa import SigningKey, VerifyingKey, Ed25519
 from libs.DiffieHellman import DiffieHellman
 from secrets import token_hex
 from redis import Redis
 from flask import Flask, request
+from base64 import b64decode, b64encode
 
 SERVER = "127.0.0.1:5000"
 DIR = "keys/"
 JOURNALISTS = 10
+SERVER_JOURNALISTS_SHARED_SECRET = "63f9f34d01987f51ebab1e7408b8e7cf8c1e58444d2ab89bd2df98c9d16e0a14"
 
 # bootstrap keys
-journalist_verifying_keys = pki.load_and_verify_journalist_verifying_keys()
+intermediate_verifying_key = pki.verify_root_intermediate()
 
 redis = Redis()
 app = Flask(__name__)
@@ -19,38 +23,89 @@ app = Flask(__name__)
 def index():
     return {"status": "OK"}, 200
 
-########################################################################
-@app.route("/simulation/set_source_public_key", methods=["POST"])
-def simulation_set_source_public_key():
-	assert("source_public_key" in request.json)
-	redis.set("simulation:source_public_key", request.json["source_public_key"])
+@app.route("/journalists", methods=["POST"])
+def add_journalist():
+	content = request.json
+	try:
+		assert("journalist_key" in content)
+		assert("journalist_sig" in content)
+	except:
+		return {"status": "KO"}, 400
+
+	journalist_verifying_key = VerifyingKey.from_string(b64decode(content["journalist_key"]), curve=pki.CURVE)
+	try:
+		journalist_sig = pki.verify_key(intermediate_verifying_key, journalist_verifying_key, None, b64decode(content["journalist_sig"]))
+	except:
+		return {"status": "KO"}, 400
+	journalist_uid = sha3_256(journalist_verifying_key.to_string()).hexdigest()
+	redis.sadd("journalists", json.dumps({"journalist_uid": journalist_uid,
+										  "journalist_key": b64encode(journalist_verifying_key.to_string()).decode("ascii"),
+										  "journalist_sig": b64encode(journalist_sig).decode("ascii")}))
 	return {"status": "OK"}, 200
 
-@app.route("/simulation/get_source_public_key", methods=["GET"])
-def simulation_get_source_public_key():
-	source_public_key = redis.get("simulation:source_public_key")
-	if source_public_key is None:
-		return {"status": "KO"}, 404
-	else:
-		return {"source_public_key": int(source_public_key.decode('ascii'))}, 200
+@app.route("/journalists", methods=["GET"])
+def get_journalists():
+	journalists_list = []
+	journalists = redis.smembers("journalists")
+	for journalist_json in journalists:
+		journalists_list.append(json.loads(journalist_json.decode("ascii")))
+	return {"status": "OK", "count": len(journalists), "journalists": journalists_list}, 200
 
-@app.route("/simulation/set_source_private_key", methods=["POST"])
-def simulation_set_source_private_key():
-	assert("simulation:source_private_key" in request.json)
-	redis.set("source_private_key", request.json["source_private_key"])
+@app.route("/ephemeral_keys", methods=["POST"])
+def add_ephemeral_keys():
+	content = request.json
+	try:
+		assert("journalist_uid" in content)
+		assert("ephemeral_keys" in content)
+	except:
+		return {"status": "KO"}, 400
+
+	journalist_uid = content["journalist_uid"]
+	journalists = redis.smembers("journalists")
+	
+	for journalist in journalists:
+		journalist_dict = json.loads(journalist.decode("ascii"))
+		if journalist_dict["journalist_uid"] == journalist_uid:
+			journalist_verifying_key = VerifyingKey.from_string(b64decode(journalist_dict["journalist_key"]), curve=pki.CURVE)
+	ephemeral_keys = content["ephemeral_keys"]
+	
+	for ephemeral_key_dict in ephemeral_keys:
+		ephemeral_key = b64decode(ephemeral_key_dict["ephemeral_key"])
+		ephemeral_key_verifying_key = VerifyingKey.from_string(ephemeral_key, curve=pki.CURVE)
+		ephemeral_sig = b64decode(ephemeral_key_dict["ephemeral_sig"])
+		ephemeral_sig = pki.verify_key(journalist_verifying_key, ephemeral_key_verifying_key, None, ephemeral_sig)
+		redis.sadd(f"journalist:{journalist_uid}", json.dumps({"ephemeral_key": b64encode(ephemeral_key_verifying_key.to_string()).decode("ascii"),
+															   "ephemeral_sig": b64encode(ephemeral_sig).decode("ascii")}))
+
 	return {"status": "OK"}, 200
 
-@app.route("/simulation/get_source_private_key", methods=["GET"])
-def simulation_get_source_private_key():
-	source_private_key = redis.get("simulation:source_private_key")
-	if source_private_key is None:
-		return {"status": "KO"}, 404
-	else:
-		return {"source_private_key": int(source_private_key.decode('ascii'))}, 200
-########################################################################
+@app.route("/ephemeral_keys", methods=["GET"])
+def get_ephemeral_keys():
+	journalists = redis.smembers("journalists")
+	ephemeral_keys = []
 
-@app.route("/send_j2s_message", methods=["POST"])
-def send_j2s_message():
+	for journalist in journalists:
+		journalist_dict = json.loads(journalist.decode("ascii"))
+		journalist_uid = journalist_dict["journalist_uid"]
+		ephemeral_key_dict = json.loads(redis.spop(f"journalist:{journalist_uid}").decode("ascii"))
+		ephemeral_key_dict["journalist_uid"] = journalist_uid
+		ephemeral_keys.append(ephemeral_key_dict)
+
+	return {"status": "OK", "count": len(ephemeral_keys), "ephemeral_keys": ephemeral_keys}, 200
+
+@app.route("/get_root_key", methods=["GET"])
+def get_root_key():
+
+	return {"status": "OK"}, 200
+
+@app.route("/get_intermediate_key", methods=["GET"])
+def get_intermediate_key():
+
+	return {"status": "OK"}, 200
+
+
+@app.route("/send", methods=["POST"])
+def send():
 	content = request.json
 	try:
 		assert("message" in content)
@@ -70,7 +125,7 @@ def send_j2s_message():
 	redis.set(f"message:{token_hex(32)}", json.dumps(message_dict))
 	return {"status": "OK"}, 200
 
-@app.route("/get_message_challenges", methods=["GET"])
+@app.route("/get_challenges", methods=["GET"])
 def get_messages_challenge():
 	s = DiffieHellman()
 	# generate a challenge id
@@ -91,7 +146,7 @@ def get_messages_challenge():
 	response_dict = {"status": "OK", "challenge_id": challenge_id, "message_challenges": messages_challenge}
 	return response_dict, 200
 
-@app.route("/send_message_challenges_responses/<challenge_id>", methods=["POST"])
+@app.route("/send_responses/<challenge_id>", methods=["POST"])
 def send_message_challenges_response(challenge_id):
 	# retrieve the challenge secret key from the challenge id in redis
 	privateKey = redis.get(f"challenge:{challenge_id}")
