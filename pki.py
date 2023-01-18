@@ -1,12 +1,13 @@
 import sys
 from os import rmdir, mkdir
-from ecdsa import SigningKey, VerifyingKey, Ed25519
+from ecdsa import SigningKey, VerifyingKey, NIST256p
 from ecdsa.util import sigencode_der, sigdecode_der
 from hashlib import sha3_256
 
 DIR = "keys/"
 JOURNALISTS = 10
-CURVE = Ed25519
+#CURVE = Ed25519
+CURVE = NIST256p
 
 def reset():
 	rmdir(DIR)
@@ -49,7 +50,6 @@ def sign_key(signing_pivate_key, signed_public_key, signature_name):
 		f.write(sig)
 
 	return sig
-
 
 def verify_key(signing_public_key, signed_public_key, signature_name, sig=None):
 	if not sig:
@@ -96,7 +96,6 @@ def load_public_pki():
 		verify_key(intermediate_key.verifying_key, journalist_key.verifying_key, f"{DIR}journalists/journalist_{j}.sig")
 	return root_key, intermediate_key, journalist_keys
 
-
 def load_and_verify_journalist_keypair(journalist_id):
 	intermediate_verifying_key = verify_root_intermediate()
 	journalist_key = load_key(f"journalists/journalist_{journalist_id}")
@@ -140,6 +139,9 @@ def generate_ephemeral(journalist_key, journalist_id):
 	return sig, key
 
 def main():
-	if sys.argv[1] == 'generate':
-		generate_pki()
+	if len(sys.argv) > 1:
+		if sys.argv[1] == 'generate':
+			generate_pki()
 	#root_key, intermediate_key, journalist_keys = load_pki()
+
+main()

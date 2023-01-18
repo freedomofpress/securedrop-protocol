@@ -1,6 +1,8 @@
 import requests
 import pki
-from ecdsa import SigningKey, VerifyingKey, Ed25519
+import nacl.secret
+import json
+from ecdsa import SigningKey, VerifyingKey, ECDH
 from base64 import b64decode, b64encode
 from libs.DiffieHellman import DiffieHellman
 
@@ -37,17 +39,34 @@ def get_ephemeral_keys(journalists):
 	ephemeral_keys = response.json()["ephemeral_keys"]
 	assert(len(ephemeral_keys) == JOURNALISTS)
 	ephemeral_keys_return = []
+	checked_uids = set()
 	for ephemeral_key_dict in ephemeral_keys:
 		journalist_uid = ephemeral_key_dict["journalist_uid"]
 		for journalist in journalists:
 			if journalist_uid == journalist["journalist_uid"]:
 				ephemeral_key_dict["journalist_uid"] = journalist["journalist_uid"]
 				ephemeral_key_dict["journalist_key"] = journalist["journalist_key"]
+				# add uids to a set
+				checked_uids.add(journalist_uid)
 				journalist_verifying_key = VerifyingKey.from_string(b64decode(journalist["journalist_key"]), curve=pki.CURVE) 
 		ephemeral_verifying_key = VerifyingKey.from_string(b64decode(ephemeral_key_dict["ephemeral_key"]), curve=pki.CURVE)
 		ephemeral_sig = pki.verify_key(journalist_verifying_key, ephemeral_verifying_key, None, b64decode(ephemeral_key_dict["ephemeral_sig"]))
 		ephemeral_keys_return.append(ephemeral_key_dict)
+	# check that all keys are from different journalists
+	assert(len(checked_uids) == JOURNALISTS)
 	return ephemeral_keys_return
+
+def send_message(message_ciphertext, message_public_key, message_challenge):
+	send_dict = {"message_ciphertext": message_ciphertext,
+				 "message_public_key": message_public_key,
+				 "message_challenge": message_challenge
+				}
+
+	response = requests.post(f"http://{SERVER}/send", json=send_dict)
+	if response.status_code != 200:
+		return False
+	else:
+		return response.json()
 
 def send_messages_challenges_responses(challenge_id, message_challenges_responses):
 	message_challenges_responses_dict = {"message_challenges_responses": message_challenges_responses}
@@ -63,9 +82,28 @@ def main():
 	journalists = get_journalists(intermediate_verifying_key)
 	ephemeral_keys = get_ephemeral_keys(journalists)
 	for ephemeral_key_dict in ephemeral_keys:
-		message_key = SigningKey.generate(curve=CURVE)
-		encryption_shared_secret = 
-		challenge_shared_secret = 
+
+		ecdh = ECDH(curve=pki.CURVE)
+		message_public_key = b64encode(ecdh.generate_private_key().to_string()).decode("ascii")
+		ecdh.load_received_public_key_bytes(b64decode(ephemeral_key_dict["ephemeral_key"]))
+		encryption_shared_secret = ecdh.generate_sharedsecret_bytes() 
+
+		ecdh.load_received_public_key_bytes(b64decode(ephemeral_key_dict["journalist_key"]))
+		challenge_shared_secret = ecdh.generate_sharedsecret_bytes()
+
+		box = nacl.secret.SecretBox(encryption_shared_secret)
+
+		message_dict = {"message": message,
+						"sender": "a source, maybe a one way func of the passphrase",
+						"receiver": ephemeral_key_dict["journalist_uid"],
+						"date": "a date here",
+						"attachments": [],
+						"attachments_keys": []
+					   }
+
+		message_ciphertext = b64encode(box.encrypt(json.dumps(message_dict).ljust(1024).encode('ascii'))).decode("ascii")
+		message_challenge = "bogus"
+		send_message(message_ciphertext, message_public_key, message_challenge)
 
 	'''if not simulation_get_source_private_key_from_server():
 		print("[+] Generating a new keypair")

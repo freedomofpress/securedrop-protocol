@@ -14,7 +14,6 @@ SERVER = "127.0.0.1:5000"
 DIR = "keys/"
 JOURNALISTS = 10
 ONETIMEKEYS = 30
-SERVER_JOURNALISTS_SHARED_SECRET = "63f9f34d01987f51ebab1e7408b8e7cf8c1e58444d2ab89bd2df98c9d16e0a14"
 
 def send_message(source_public_key):
 	j = generate_keypair()
