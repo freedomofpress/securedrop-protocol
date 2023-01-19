@@ -100,7 +100,11 @@ def main():
 	print(f"[+] Generating source passphrase: {passphrase.hex()}")
 	message = "will this ever work?" 
 	intermediate_verifying_key = pki.verify_root_intermediate()
+	# get all the journalists, their keys, and the signatures of their keys from the server API
+	# and verify the trust chain, otherwise the function will hard fail
 	journalists = get_journalists(intermediate_verifying_key)
+	# get on ephemeral key for each journalist, check that the signatures are good and that
+	# we have different journalists
 	ephemeral_keys = get_ephemeral_keys(journalists)
 
 	# we deterministically derive the source long term keys from the passphrase
@@ -124,6 +128,7 @@ def main():
 		# [SOURCE] PERMESSAGE-EPHEMERAL KEY (private)
 		message_key = SigningKey.generate(curve=pki.CURVE)
 		message_public_key = b64encode(message_key.to_string()).decode("ascii")
+		# load the private key to generate the shared secret
 		ecdh.load_private_key(message_key)
 
 		# [JOURNALIST] PERMESSAGE-EPHEMERAL KEY (public)
@@ -140,44 +145,28 @@ def main():
 		# [JOURNALIST] LONG-TERM CHALLENGE KEY
 		journalist_long_term_key = b64decode(ephemeral_key_dict["journalist_key"])
 
+		# generate the message challenge to send the server
 		message_challenge = b64encode(VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(journalist_long_term_key, curve=pki.CURVE), message_key), curve=pki.CURVE).to_string()).decode('ascii')
 
+
 		message_dict = {"message": message,
+						# do we want to sign messages? how do we attest source authoriship?
 						#"sender": source_id,
 						"receiver": ephemeral_key_dict["journalist_uid"],
+						# we could list the journalists involved in the conversation here
+						# if the source choose not to pick everybody
 						"group": [],
 						"timestamp": int(time()),
+						# we can add attachmenet pieces/id here
 						"attachments": [],
+						# and respective keys
 						"attachments_keys": [],
-						#"secret_challenge": secret_challenge
 					   }
 
 		# we later use "MSGHDR" to test for proper decryption
 		message_ciphertext = b64encode(box.encrypt(("MSGHDR" + json.dumps(message_dict)).ljust(1024).encode('ascii'))).decode("ascii")
 
+		# send the message to the server API using the generic /send endpoint
 		send_message(message_ciphertext, message_public_key, message_challenge)
-
-	'''if not simulation_get_source_private_key_from_server():
-		print("[+] Generating a new keypair")
-		k = generate_keypair()
-		simulation_set_source_private_key_in_server(k.privateKey)
-		simulation_set_source_public_key_in_server(k.publicKey)
-	else:
-		print("[+] Loading keypair")
-		privateKey = simulation_get_source_private_key_from_server()
-		k = load_keypair(privateKey)
-
-	message_challenges_resp = get_challenges()
-	message_challenges = message_challenges_resp['message_challenges']
-	challenge_id = message_challenges_resp['challenge_id']
-	inv_source = pow(k.privateKey, -1, k.prime-1)
-	
-	message_challenges_responses = []
-
-	for message_challenge in message_challenges:
-		message_challenges_responses.append(pow(message_challenge, inv_source, k.prime))
-
-	res = send_messages_challenges_responses(challenge_id, message_challenges_responses)
-	print(res)'''
 
 main()
