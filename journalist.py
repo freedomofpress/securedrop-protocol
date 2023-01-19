@@ -37,18 +37,6 @@ def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 			ephemeral_keys.append(SigningKey.from_pem(key))
 	return ephemeral_keys
 
-def decrypt_message_ciphertext(ephemeral_private_key, message_public_key, message_ciphertext):
-	ecdh = ECDH(curve=pki.CURVE)
-	ecdh.load_private_key(ephemeral_private_key)
-	ecdh.load_received_public_key_bytes(b64decode(message_public_key))
-	encryption_shared_secret = ecdh.generate_sharedsecret_bytes() 
-	box = nacl.secret.SecretBox(encryption_shared_secret)
-	try:
-		message_plaintext = json.loads(box.decrypt(b64decode(message_ciphertext)).decode('ascii'))
-		return message_plaintext
-	except:
-		return False
-
 def decrypt_messages(ephemeral_keys, messages_list):
 	plaintexts = []
 	for message in messages_list:
@@ -123,8 +111,14 @@ def main():
 
 		plaintext_messages = decrypt_messages(ephemeral_keys, messages_list)
 
+		print("[+] Got submissions :)")
 		for plaintext_message in plaintext_messages:
-			print(plaintext_message)
+			#print(plaintext_message)
+			print("---BEGIN SUBMISSION---")
+			print(f"\t\tMessage: {plaintext_message['message']}")
+			print(f"\t\tTimestamp: {plaintext_message['timestamp']}")
+			print(f"\t\tSource Public Key (encryption): {plaintext_message['source_encryption_public_key']}")
+			print("---END SUBMISSION---")
 			journalist_reply(plaintext_message, "message reply :)", journalist_uid)
 
 main()

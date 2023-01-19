@@ -97,9 +97,6 @@ def fetch_messages_source(passphrase):
 	messages_list = fetch_messages(challenge_key)
 	return messages_list
 
-#def decrypt_message_ciphertext(passphrase, message_public_key, message_ciphertext):
-
-
 def main():
 	# generate or load a passphrase
 	if (len(sys.argv) == 1):
@@ -114,6 +111,13 @@ def main():
 		passphrase = bytes.fromhex(sys.argv[1])
 
 		messages_list = fetch_messages_source(passphrase)
-		print(messages_list)
+		source_key = derive_key(passphrase, "source_key-")
 
+		for message in messages_list:
+			plaintext_message = decrypt_message_ciphertext(source_key, message["message_public_key"], message["message_ciphertext"])
+			print("---BEGIN JOURNALIST REPLY---")
+			print(f"\t\tMessage: {plaintext_message['message']}")
+			print(f"\t\tTimestamp: {plaintext_message['timestamp']}")
+			print(f"\t\tJournalist UID: {plaintext_message['sender']}")
+			print("---END JOURNALIST REPLY---")
 main()

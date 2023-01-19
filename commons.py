@@ -1,7 +1,9 @@
 import pki
 import requests
+import nacl.secret
+import json
 from base64 import b64decode, b64encode
-from ecdsa import SigningKey, VerifyingKey
+from ecdsa import SigningKey, VerifyingKey, ECDH
 from hashlib import sha3_256
 
 SERVER = "127.0.0.1:5000"
@@ -107,4 +109,16 @@ def fetch_messages(challenge_key):
 			#delete_message(message_id)
 		return messages_list
 	else:
+		return False
+
+def decrypt_message_ciphertext(private_key, message_public_key, message_ciphertext):
+	ecdh = ECDH(curve=pki.CURVE)
+	ecdh.load_private_key(private_key)
+	ecdh.load_received_public_key_bytes(b64decode(message_public_key))
+	encryption_shared_secret = ecdh.generate_sharedsecret_bytes() 
+	box = nacl.secret.SecretBox(encryption_shared_secret)
+	try:
+		message_plaintext = json.loads(box.decrypt(b64decode(message_ciphertext)).decode('ascii'))
+		return message_plaintext
+	except:
 		return False
