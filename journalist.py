@@ -71,9 +71,9 @@ def main():
 
 	messages_list = fetch_messages(journalist_key)
 
-	#print(messages_list)
-	ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
+	if messages_list:
+		ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
 
-	print(decrypt_messages(ephemeral_keys, messages_list))
+		print(decrypt_messages(ephemeral_keys, messages_list))
 
 main()

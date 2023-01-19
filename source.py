@@ -16,24 +16,16 @@ SERVER = "127.0.0.1:5000"
 DIR = "keys/"
 JOURNALISTS = 10
 
-# used for deterministally generate keys based on the passphrase
-class PRNG:
-	def __init__(self, seed):
-		assert(len(seed) == 32)
-		self.total_size = 4096
-		self.seed = seed
-		self.status = 0
-		self.data = nacl.utils.randombytes_deterministic(self.total_size, self.seed)
-
-	def deterministic_random(self, size):
-		if self.status + size >= self.total_size:
-			raise RuntimeError("Ran out of buffered random values")
-		return_data = self.data[self.status:self.status+size]
-		self.status += size
-		return return_data
-
 def generate_passphrase():
 	return token_bytes(32)
+
+# this function derives an EC keypair given the passphrase
+# the prefix is useful for isolating key. A hash/kdf is used to generate the actual seeds
+def derive_key(passphrase, key_isolation_prefix):
+	key_seed = sha3_256(key_isolation_prefix.encode("ascii") + passphrase).digest()
+	key_prng = pki.PRNG(key_seed[0:32])
+	key = SigningKey.generate(curve=pki.CURVE, entropy=key_prng.deterministic_random)
+	return key
 
 def send_submission(intermediate_verifying_key, passphrase, message):
 	# get all the journalists, their keys, and the signatures of their keys from the server API
@@ -45,17 +37,13 @@ def send_submission(intermediate_verifying_key, passphrase, message):
 
 	# we deterministically derive the source long term keys from the passphrase
 	# add prefix for key isolation
-	source_key_seed = sha3_256(b"source_key-" + passphrase).digest()
-	source_key_prng = PRNG(source_key_seed[0:32])
-
 	# [SOURCE] LONG-TERM MESSAGE KEY
-	source_key = SigningKey.generate(curve=pki.CURVE, entropy=source_key_prng.deterministic_random)
-
-	challenge_key_seed = sha3_256(b"challenge_key-" + passphrase).digest()
-	challenge_key_prng = PRNG(challenge_key_seed[0:32])
+	source_key = derive_key(passphrase, "source_key-")
+	source_encryption_public_key = b64encode(source_key.verifying_key.to_string()).decode("ascii") 
 
 	# [SOURCE] LONG-TERM CHALLENGE KEY
-	challenge_key = SigningKey.generate(curve=pki.CURVE, entropy=challenge_key_prng.deterministic_random)
+	challenge_key = derive_key(passphrase, "challenge_key-")
+	source_challenge_public_key = b64encode(challenge_key.verifying_key.to_string()).decode("ascii") 
 
 	# for every receiver (journalists), create a message
 	for ephemeral_key_dict in ephemeral_keys:
@@ -84,14 +72,14 @@ def send_submission(intermediate_verifying_key, passphrase, message):
 		# generate the message challenge to send the server
 		message_challenge = b64encode(VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(journalist_long_term_key, curve=pki.CURVE), message_key), curve=pki.CURVE).to_string()).decode('ascii')
 
-
 		message_dict = {"message": message,
 						# do we want to sign messages? how do we attest source authoriship?
-						#"sender": source_id,
+						"source_challenge_public_key": source_encryption_public_key,
+						"source_encryption_public_key": source_encryption_public_key,
 						"receiver": ephemeral_key_dict["journalist_uid"],
 						# we could list the journalists involved in the conversation here
 						# if the source choose not to pick everybody
-						"group": [],
+						"group_members": [],
 						"timestamp": int(time()),
 						# we can add attachmenet pieces/id here
 						"attachments": [],

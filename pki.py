@@ -1,4 +1,5 @@
 import sys
+import nacl.utils
 from os import rmdir, mkdir
 from ecdsa import SigningKey, VerifyingKey, NIST256p
 from ecdsa.util import sigencode_der, sigdecode_der
@@ -9,6 +10,22 @@ DIR = "keys/"
 JOURNALISTS = 10
 #CURVE = Ed25519
 CURVE = NIST256p
+
+# used for deterministally generate keys based on the passphrase
+class PRNG:
+	def __init__(self, seed):
+		assert(len(seed) == 32)
+		self.total_size = 4096
+		self.seed = seed
+		self.status = 0
+		self.data = nacl.utils.randombytes_deterministic(self.total_size, self.seed)
+
+	def deterministic_random(self, size):
+		if self.status + size >= self.total_size:
+			raise RuntimeError("Ran out of buffered random values")
+		return_data = self.data[self.status:self.status+size]
+		self.status += size
+		return return_data
 
 def ec_mod_inverse(signing_key):
     # sanity checks??
@@ -154,10 +171,6 @@ def generate_ephemeral(journalist_key, journalist_id, journalist_uid):
 
 	return sig, key
 
-def main():
-	if len(sys.argv) > 1:
-		if sys.argv[1] == 'generate':
-			generate_pki()
+if __name__ == '__main__':
+	generate_pki()
 	#root_key, intermediate_key, journalist_keys = load_pki()
-
-main()

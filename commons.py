@@ -101,7 +101,7 @@ def fetch_messages(challenge_key):
 	messages_list = []
 	if res:
 		messages = res["messages"]
-		print(f"[+] Fetched {len(messages)} messages :)")
+		#print(f"[+] Fetched {len(messages)} messages :)")
 		for message_id in messages:
 			messages_list.append(get_message(message_id))
 			#delete_message(message_id)
