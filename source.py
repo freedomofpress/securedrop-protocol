@@ -108,7 +108,7 @@ def main():
 					   }
 
 		# we later use "MSGHDR" to test for proper decryption
-		message_ciphertext = b64encode(box.encrypt(("MSGHDR" + json.dumps(message_dict)).ljust(1024).encode('ascii'))).decode("ascii")
+		message_ciphertext = b64encode(box.encrypt((json.dumps(message_dict)).ljust(1024).encode('ascii'))).decode("ascii")
 
 		# send the message to the server API using the generic /send endpoint
 		send_message(message_ciphertext, message_public_key, message_challenge)

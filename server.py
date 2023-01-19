@@ -96,12 +96,6 @@ def get_root_key():
 
 	return {"status": "OK"}, 200
 
-@app.route("/get_intermediate_key", methods=["GET"])
-def get_intermediate_key():
-
-	return {"status": "OK"}, 200
-
-
 @app.route("/message", methods=["POST"])
 def send():
 	content = request.json
@@ -190,16 +184,13 @@ def send_message_challenges_response(challenge_id):
 			if potential_messages_public_key == message["message_public_key"]:
 				valid_messages.append(message["message_id"])
 
-	#from pprint import pprint
-	#pprint(potential_messages_public_keys)
-	#pprint(message_public_keys)
-
 	# only one attempt please :)
 	redis.delete(f"challenge:{challenge_id}")
 
 	if len(valid_messages) > 0:
-		return {"status": "OK", "messages": valid_messages}, 200
-	return "SAAAAAD", 404
+		return {"status": "OK", "count": len(valid_messages), "messages": valid_messages}, 200
+	else:
+		return {"status": "KO"}, 404
 
 @app.route("/message/<message_id>", methods=["GET"])
 def get_message(message_id):

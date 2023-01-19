@@ -79,6 +79,6 @@ def get_message(message_id):
 	return response.json()["message"]
 
 def delete_message(message_id):
-	requests.delete(f"http://{SERVER}/message/{message_id}")
+	response = requests.delete(f"http://{SERVER}/message/{message_id}")
 	assert(response.status_code == 200)
 	return response.status_code == 200

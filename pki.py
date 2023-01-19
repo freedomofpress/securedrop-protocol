@@ -136,21 +136,21 @@ def generate_journalists(intermediate_key):
 		sign_key(intermediate_key, journalist_key.verifying_key, f"{DIR}journalists/journalist_{j}.sig")
 	return journalist_keys
 
-def generate_ephemeral(journalist_key, journalist_id):
+def generate_ephemeral(journalist_key, journalist_id, journalist_uid):
 	try:
-		mkdir(f"{DIR}/journalists/ephemeral_{journalist_id}")
+		mkdir(f"{DIR}/journalists/{journalist_uid}")
 	except:
 		pass
 	key = SigningKey.generate(curve=CURVE)
 	name = sha3_256(key.verifying_key.to_string()).hexdigest()
 
-	with open(f"{DIR}/journalists/ephemeral_{journalist_id}/{name}.key", "wb") as f:
+	with open(f"{DIR}/journalists/{journalist_uid}/{name}.key", "wb") as f:
 		f.write(key.to_pem(format="pkcs8"))
 
-	with open(f"{DIR}/journalists/ephemeral_{journalist_id}/{name}.pem", "wb") as f:
+	with open(f"{DIR}/journalists/{journalist_uid}/{name}.pem", "wb") as f:
 		f.write(key.verifying_key.to_pem())
 
-	sig = sign_key(journalist_key, key.verifying_key, f"{DIR}/journalists/ephemeral_{journalist_id}/{name}.sig")
+	sig = sign_key(journalist_key, key.verifying_key, f"{DIR}/journalists/{journalist_uid}/{name}.sig")
 
 	return sig, key
 
