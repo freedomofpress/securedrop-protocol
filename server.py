@@ -102,7 +102,7 @@ def get_intermediate_key():
 	return {"status": "OK"}, 200
 
 
-@app.route("/send", methods=["POST"])
+@app.route("/message", methods=["POST"])
 def send():
 	content = request.json
 	try:
@@ -138,7 +138,9 @@ def get_messages_challenge():
 		# retrieve the message and load the json
 		message_dict = json.loads(redis.get(message_key).decode('ascii'))
 		# calculate the per request per message challenge
+		#print(f"msg_chall: {len(b64decode(message_dict['message_challenge']))}")
 		message_server_challenge = VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(b64decode(message_dict["message_challenge"]), curve=pki.CURVE), request_ephemeral_key), curve=pki.CURVE)
+		#print(f"msg_server_chall: {len(message_server_challenge.to_string())}")
 		message_server_challenges.append(b64encode(message_server_challenge.to_string()).decode('ascii'))
 
 	# return all the message challenges
@@ -149,21 +151,22 @@ def get_messages_challenge():
 @app.route("/send_responses/<challenge_id>", methods=["POST"])
 def send_message_challenges_response(challenge_id):
 	# retrieve the challenge secret key from the challenge id in redis
-	privateKey = redis.get(f"challenge:{challenge_id}")
-	if privateKey is not None:
-		privateKey = int(privateKey.decode('ascii'))
+	request_ephemeral_key_bytes = redis.get(f"challenge:{challenge_id}")
+	if request_ephemeral_key_bytes is not None:
+		# re instantiate the key object for the given challenge id from redis
+		request_ephemeral_key = SigningKey.from_string(b64decode(request_ephemeral_key_bytes.decode('ascii')), curve=pki.CURVE)
 	else:
 		return {"status": "KO"}, 400
 
-	# load the secret key and derive the public key
-	s = DiffieHellman(privateKey=privateKey)
+	# check that we have some challenges responses back
 	try:
 		assert("message_challenges_responses" in request.json)
+		assert(len(request.json["message_challenges_responses"]) > 0)
 	except:
 		return {"status": "KO"}, 400
 
 	# calculate the inverse of the per request server key
-	inv_server = pow(s.privateKey, -1, s.prime - 1)
+	inv_server = SigningKey.from_secret_exponent(pki.ec_mod_inverse(request_ephemeral_key), curve=pki.CURVE)
 
 	# fetch all the messages again from redis
 	message_keys = redis.keys("message:*")
@@ -175,16 +178,46 @@ def send_message_challenges_response(challenge_id):
 	# check all the challenges responses
 	potential_messages_public_keys = []
 	for message_challenge_response in request.json["message_challenges_responses"]:
-		potential_messages_public_keys.append(pow(message_challenge_response, inv_server, s.prime))
+		potential_messages_public_key = VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(b64decode(message_challenge_response), curve=pki.CURVE), inv_server), curve=pki.CURVE)
+		potential_messages_public_keys.append(b64encode(potential_messages_public_key.to_string()).decode('ascii'))
 
 	# check if any public key in the computed challenge/responses matches any message and return them
 	valid_messages = []
+	message_public_keys = []
 	for message in messages:
+		message_public_keys.append(message["message_public_key"])
 		for potential_messages_public_key in potential_messages_public_keys:
 			if potential_messages_public_key == message["message_public_key"]:
 				valid_messages.append(message["message_id"])
+
+	#from pprint import pprint
+	#pprint(potential_messages_public_keys)
+	#pprint(message_public_keys)
+
+	# only one attempt please :)
+	redis.delete(f"challenge:{challenge_id}")
+
 	if len(valid_messages) > 0:
 		return {"status": "OK", "messages": valid_messages}, 200
 	return "SAAAAAD", 404
 
+@app.route("/message/<message_id>", methods=["GET"])
+def get_message(message_id):
+	assert(len(message_id) == 64)
+	message = redis.get(f"message:{message_id}")
+	if message is not None:
+		message_dict = json.loads(message.decode('ascii'))
+		del message_dict["message_challenge"]
+		response = {"status": "OK", "message": message_dict}
+		return response, 200
+	else:
+		return {"status": "KO"}, 404
 
+@app.route("/message/<message_id>", methods=["DELETE"])
+def delete_message(message_id):
+	assert(len(message_id) == 64)
+	res = redis.delete(f"message:{message_id}")
+	if res > 0:
+		return {"status": "OK"}, 200
+	else:
+		return {"status": "KO"}, 404
