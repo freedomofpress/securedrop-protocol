@@ -48,6 +48,19 @@ def decrypt_message_ciphertext(ephemeral_private_key, message_public_key, messag
 	except:
 		return False
 
+def decrypt_messages(ephemeral_keys, messages_list):
+	plaintexts = []
+	for message in messages_list:
+		for ephemeral_key in ephemeral_keys:
+			message_plaintext = decrypt_message_ciphertext(ephemeral_key, message["message_public_key"], message["message_ciphertext"])
+			if message_plaintext:
+				plaintexts.append(message_plaintext)
+				break
+	if len(plaintexts) > 0:
+		return plaintexts
+	else:
+		return False
+
 def main():
 	assert(len(sys.argv) == 2)
 	journalist_id = int(sys.argv[1])
@@ -56,39 +69,11 @@ def main():
 	journalist_uid = add_journalist(journalist_key, journalist_sig)
 	add_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
 
-
-	challenge_id, message_challenges = get_challenges()
-
-	inv_secret = pki.ec_mod_inverse(journalist_key)
-	inv_journalist = SigningKey.from_secret_exponent(inv_secret, curve=pki.CURVE)
-	
-	message_challenges_responses = []
-
-	for message_challenge in message_challenges:
-		#print(f"chall: {len(b64decode(message_challenge))}")
-		message_challenges_response = VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(b64decode(message_challenge), curve=pki.CURVE), inv_journalist), curve=pki.CURVE)
-		#print(f"resp: {len(message_challenges_response.to_string())}")
-		message_challenges_responses.append(b64encode(message_challenges_response.to_string()).decode('ascii'))
-
-	res = send_messages_challenges_responses(challenge_id, message_challenges_responses)
-	messages_list = []
-	if res:
-		messages = res["messages"]
-		print(f"[+] Fetched {len(messages)} messages :)")
-		for message_id in messages:
-			messages_list.append(get_message(message_id))
-			#delete_message(message_id)
-	else:
-		print("[-] There are no messages to fetch.")
+	messages_list = fetch_messages(journalist_key)
 
 	#print(messages_list)
 	ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
-	
-	for message in messages_list:
-		for ephemeral_key in ephemeral_keys:
-			message_plaintext = decrypt_message_ciphertext(ephemeral_key, message["message_public_key"], message["message_ciphertext"])
-			if message_plaintext:
-				print(message_plaintext)
-				break
+
+	print(decrypt_messages(ephemeral_keys, messages_list))
 
 main()

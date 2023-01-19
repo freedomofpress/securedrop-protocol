@@ -35,15 +35,7 @@ class PRNG:
 def generate_passphrase():
 	return token_bytes(32)
 
-def main():
-	# generate or load a passphrase
-	if (len(sys.argv) == 1):
-		passphrase = generate_passphrase()
-	else:
-		passphrase = bytes.fromhex(sys.argv[1])
-	print(f"[+] Generating source passphrase: {passphrase.hex()}")
-	message = "will this ever work?" 
-	intermediate_verifying_key = pki.verify_root_intermediate()
+def send_submission(intermediate_verifying_key, passphrase, message):
 	# get all the journalists, their keys, and the signatures of their keys from the server API
 	# and verify the trust chain, otherwise the function will hard fail
 	journalists = get_journalists(intermediate_verifying_key)
@@ -112,5 +104,21 @@ def main():
 
 		# send the message to the server API using the generic /send endpoint
 		send_message(message_ciphertext, message_public_key, message_challenge)
+
+def fetch_messages(passphrase):
+	pass
+
+def main():
+	# generate or load a passphrase
+	if (len(sys.argv) == 1):
+		passphrase = generate_passphrase()
+	else:
+		passphrase = bytes.fromhex(sys.argv[1])
+	print(f"[+] Generating source passphrase: {passphrase.hex()}")
+
+	intermediate_verifying_key = pki.verify_root_intermediate()
+	message = "wewelolol"
+	send_submission(intermediate_verifying_key, passphrase, message)
+
 
 main()
