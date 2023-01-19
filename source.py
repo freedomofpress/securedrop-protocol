@@ -74,7 +74,7 @@ def send_submission(intermediate_verifying_key, passphrase, message):
 
 		message_dict = {"message": message,
 						# do we want to sign messages? how do we attest source authoriship?
-						"source_challenge_public_key": source_encryption_public_key,
+						"source_challenge_public_key": source_challenge_public_key,
 						"source_encryption_public_key": source_encryption_public_key,
 						"receiver": ephemeral_key_dict["journalist_uid"],
 						# we could list the journalists involved in the conversation here
@@ -87,26 +87,33 @@ def send_submission(intermediate_verifying_key, passphrase, message):
 						"attachments_keys": [],
 					   }
 
-		# we later use "MSGHDR" to test for proper decryption
 		message_ciphertext = b64encode(box.encrypt((json.dumps(message_dict)).ljust(1024).encode('ascii'))).decode("ascii")
 
 		# send the message to the server API using the generic /send endpoint
 		send_message(message_ciphertext, message_public_key, message_challenge)
 
-def fetch_messages(passphrase):
-	pass
+def fetch_messages_source(passphrase):
+	challenge_key = derive_key(passphrase, "challenge_key-")
+	messages_list = fetch_messages(challenge_key)
+	return messages_list
+
+#def decrypt_message_ciphertext(passphrase, message_public_key, message_ciphertext):
+
 
 def main():
 	# generate or load a passphrase
 	if (len(sys.argv) == 1):
 		passphrase = generate_passphrase()
+		print(f"[+] Generating source passphrase: {passphrase.hex()}")
+
+		intermediate_verifying_key = pki.verify_root_intermediate()
+		message = "source message submission demo"
+		send_submission(intermediate_verifying_key, passphrase, message)
+
 	else:
 		passphrase = bytes.fromhex(sys.argv[1])
-	print(f"[+] Generating source passphrase: {passphrase.hex()}")
 
-	intermediate_verifying_key = pki.verify_root_intermediate()
-	message = "wewelolol"
-	send_submission(intermediate_verifying_key, passphrase, message)
-
+		messages_list = fetch_messages_source(passphrase)
+		print(messages_list)
 
 main()
