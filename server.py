@@ -2,7 +2,6 @@ import json
 import pki
 from hashlib import sha3_256
 from ecdsa import SigningKey, VerifyingKey
-from libs.DiffieHellman import DiffieHellman
 from secrets import token_hex
 from redis import Redis
 from flask import Flask, request
@@ -126,23 +125,25 @@ def send():
 
 @app.route("/get_challenges", methods=["GET"])
 def get_messages_challenge():
-	s = DiffieHellman()
+	# SERVER EPHEMERAL CHALLENGE KEY
+	request_ephemeral_key = SigningKey.generate(curve=pki.CURVE)
 	# generate a challenge id
 	challenge_id = token_hex(32)
 	# save it in redis as an expiring key
-	redis.setex(f"challenge:{challenge_id}", 120, s.privateKey)
-	messages_challenge = []
+	redis.setex(f"challenge:{challenge_id}", 120, b64encode(request_ephemeral_key.to_string()).decode('ascii'))
+	message_server_challenges = []
 	# retrieve all the message keys
 	message_keys = redis.keys("message:*")
 	for message_key in message_keys:
 		# retrieve the message and load the json
 		message_dict = json.loads(redis.get(message_key).decode('ascii'))
-		# calculate the "gkjs" challenge
-		messages_challenge.append(pow(message_dict["message_challenge"], s.privateKey, s.prime))
+		# calculate the per request per message challenge
+		message_server_challenge = VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(b64decode(message_dict["message_challenge"]), curve=pki.CURVE), request_ephemeral_key), curve=pki.CURVE)
+		message_server_challenges.append(b64encode(message_server_challenge.to_string()).decode('ascii'))
 
 	# return all the message challenges
 	# padding to hide the number of meesages to be added later
-	response_dict = {"status": "OK", "challenge_id": challenge_id, "message_challenges": messages_challenge}
+	response_dict = {"status": "OK", "challenge_id": challenge_id, "message_challenges": message_server_challenges}
 	return response_dict, 200
 
 @app.route("/send_responses/<challenge_id>", methods=["POST"])
