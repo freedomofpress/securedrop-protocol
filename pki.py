@@ -3,14 +3,30 @@ from os import rmdir, mkdir
 from ecdsa import SigningKey, VerifyingKey, NIST256p
 from ecdsa.util import sigencode_der, sigdecode_der
 from hashlib import sha3_256
+from ecdsa.ellipticcurve import INFINITY
 
 DIR = "keys/"
 JOURNALISTS = 10
 #CURVE = Ed25519
 CURVE = NIST256p
 
-def reset():
-	rmdir(DIR)
+def ec_mod_inverse(signing_key):
+    # sanity checks??
+    d = signing_key.privkey.secret_multiplier
+    order = signing_key.privkey.order
+    d_inv = pow(d, order-2, order)
+    return d_inv
+
+def get_shared_secret(remote_pubkey, local_privkey):
+    if not (local_privkey.curve == remote_pubkey.curve):
+        raise InvalidCurveError("Curves for public key and private key is not equal.")
+
+    # shared secret = PUBKEYtheirs * PRIVATEKEYours
+    result = (remote_pubkey.pubkey.point * local_privkey.privkey.secret_multiplier)
+    if result == INFINITY:
+        raise InvalidSharedSecretError("Invalid shared secret (INFINITY).")
+
+    return result
 
 def load_key(name):
 	with open(f"{DIR}/{name}.key", "rb") as f:

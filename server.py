@@ -1,7 +1,7 @@
 import json
 import pki
 from hashlib import sha3_256
-from ecdsa import SigningKey, VerifyingKey, Ed25519
+from ecdsa import SigningKey, VerifyingKey
 from libs.DiffieHellman import DiffieHellman
 from secrets import token_hex
 from redis import Redis

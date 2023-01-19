@@ -2,6 +2,7 @@ import pki
 import requests
 import sys
 import ecdsa
+import nacl.secret
 from base64 import b64decode, b64encode
 from hashlib import sha3_256
 from os import mkdir
@@ -42,6 +43,31 @@ def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 
 	response = requests.post(f"http://{SERVER}/ephemeral_keys", json={"journalist_uid": journalist_uid,
 																		  "ephemeral_keys": ephemeral_keys})
+
+def send_message(message_ciphertext, message_public_key, message_challenge):
+	send_dict = {"message_ciphertext": message_ciphertext,
+				 "message_public_key": message_public_key,
+				 "message_challenge": message_challenge
+				}
+
+	response = requests.post(f"http://{SERVER}/send", json=send_dict)
+	if response.status_code != 200:
+		return False
+	else:
+		return response.json()
+
+def decrypt_message_ciphertext(ephemeral_private_key, message_public_key, message_ciphertext):
+	ecdh = ECDH(curve=pki.CURVE)
+	ecdh.load_private_key_pem(ephemeral_private_key)
+	ecdh.load_received_public_key_bytes(b64decode(message_public_key))
+	encryption_shared_secret = ecdh.generate_sharedsecret_bytes() 
+	box = nacl.secret.SecretBox(encryption_shared_secret)
+	message_plaintext = box.decrypt(b64ecode(message_ciphertext))
+	# if we find the header then we most likely decrypted succesfully
+	if b"MSGHDR" in message_plaintext:
+		return message_plaintext
+	else:
+		return False
 
 def main():
 	assert(len(sys.argv) == 2)
