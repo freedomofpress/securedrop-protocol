@@ -7,6 +7,7 @@ from ecdsa import SigningKey, VerifyingKey
 from flask import Flask, request
 from redis import Redis
 
+import commons
 import pki
 
 SERVER = "127.0.0.1:5000"
@@ -34,7 +35,7 @@ def add_journalist():
     except Exception:
         return {"status": "KO"}, 400
 
-    journalist_verifying_key = VerifyingKey.from_string(b64decode(content["journalist_key"]), curve=pki.CURVE)
+    journalist_verifying_key = VerifyingKey.from_string(b64decode(content["journalist_key"]), curve=commons.CURVE)
     try:
         journalist_sig = pki.verify_key(intermediate_verifying_key, journalist_verifying_key, None, b64decode(content["journalist_sig"]))
     except Exception:
@@ -70,12 +71,12 @@ def add_ephemeral_keys():
     for journalist in journalists:
         journalist_dict = json.loads(journalist.decode("ascii"))
         if journalist_dict["journalist_uid"] == journalist_uid:
-            journalist_verifying_key = VerifyingKey.from_string(b64decode(journalist_dict["journalist_key"]), curve=pki.CURVE)
+            journalist_verifying_key = VerifyingKey.from_string(b64decode(journalist_dict["journalist_key"]), curve=commons.CURVE)
     ephemeral_keys = content["ephemeral_keys"]
 
     for ephemeral_key_dict in ephemeral_keys:
         ephemeral_key = b64decode(ephemeral_key_dict["ephemeral_key"])
-        ephemeral_key_verifying_key = VerifyingKey.from_string(ephemeral_key, curve=pki.CURVE)
+        ephemeral_key_verifying_key = VerifyingKey.from_string(ephemeral_key, curve=commons.CURVE)
         ephemeral_sig = b64decode(ephemeral_key_dict["ephemeral_sig"])
         ephemeral_sig = pki.verify_key(journalist_verifying_key, ephemeral_key_verifying_key, None, ephemeral_sig)
         redis.sadd(f"journalist:{journalist_uid}", json.dumps({"ephemeral_key": b64encode(ephemeral_key_verifying_key.to_string()).decode("ascii"),
@@ -124,7 +125,7 @@ def send():
 @app.route("/get_challenges", methods=["GET"])
 def get_messages_challenge():
     # SERVER EPHEMERAL CHALLENGE KEY
-    request_ephemeral_key = SigningKey.generate(curve=pki.CURVE)
+    request_ephemeral_key = SigningKey.generate(curve=commons.CURVE)
     # generate a challenge id
     challenge_id = token_hex(32)
     # save it in redis as an expiring key
@@ -136,7 +137,7 @@ def get_messages_challenge():
         # retrieve the message and load the json
         message_dict = json.loads(redis.get(message_key).decode('ascii'))
         # calculate the per request per message challenge
-        message_server_challenge = VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(b64decode(message_dict["message_challenge"]), curve=pki.CURVE), request_ephemeral_key), curve=pki.CURVE)
+        message_server_challenge = VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(b64decode(message_dict["message_challenge"]), curve=commons.CURVE), request_ephemeral_key), curve=commons.CURVE)
         message_server_challenges.append(b64encode(message_server_challenge.to_string()).decode('ascii'))
 
     # return all the message challenges
@@ -151,7 +152,7 @@ def send_message_challenges_response(challenge_id):
     request_ephemeral_key_bytes = redis.get(f"challenge:{challenge_id}")
     if request_ephemeral_key_bytes is not None:
         # re instantiate the key object for the given challenge id from redis
-        request_ephemeral_key = SigningKey.from_string(b64decode(request_ephemeral_key_bytes.decode('ascii')), curve=pki.CURVE)
+        request_ephemeral_key = SigningKey.from_string(b64decode(request_ephemeral_key_bytes.decode('ascii')), curve=commons.CURVE)
     else:
         return {"status": "KO"}, 400
 
@@ -163,7 +164,7 @@ def send_message_challenges_response(challenge_id):
         return {"status": "KO"}, 400
 
     # calculate the inverse of the per request server key
-    inv_server = SigningKey.from_secret_exponent(pki.ec_mod_inverse(request_ephemeral_key), curve=pki.CURVE)
+    inv_server = SigningKey.from_secret_exponent(pki.ec_mod_inverse(request_ephemeral_key), curve=commons.CURVE)
 
     # fetch all the messages again from redis
     message_keys = redis.keys("message:*")
@@ -175,7 +176,7 @@ def send_message_challenges_response(challenge_id):
     # check all the challenges responses
     potential_messages_public_keys = []
     for message_challenge_response in request.json["message_challenges_responses"]:
-        potential_messages_public_key = VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(b64decode(message_challenge_response), curve=pki.CURVE), inv_server), curve=pki.CURVE)
+        potential_messages_public_key = VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(b64decode(message_challenge_response), curve=commons.CURVE), inv_server), curve=commons.CURVE)
         potential_messages_public_keys.append(b64encode(potential_messages_public_key.to_string()).decode('ascii'))
 
     # check if any public key in the computed challenge/responses matches any message and return them

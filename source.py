@@ -20,7 +20,7 @@ def generate_passphrase():
 def derive_key(passphrase, key_isolation_prefix):
     key_seed = sha3_256(key_isolation_prefix.encode("ascii") + passphrase).digest()
     key_prng = pki.PRNG(key_seed[0:32])
-    key = SigningKey.generate(curve=pki.CURVE, entropy=key_prng.deterministic_random)
+    key = SigningKey.generate(curve=commons.CURVE, entropy=key_prng.deterministic_random)
     return key
 
 
