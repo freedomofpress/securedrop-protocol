@@ -34,7 +34,7 @@ def get_journalists(intermediate_verifying_key):
     journalists = response.json()["journalists"]
     assert (len(journalists) == JOURNALISTS)
     for content in journalists:
-        journalist_verifying_key = VerifyingKey.from_string(b64decode(content["journalist_key"]), curve=CURVE)
+        journalist_verifying_key = pki.public_b642key(content["journalist_key"])
         # pki.verify_key shall give an hard fault is a signature is off
         pki.verify_key(intermediate_verifying_key,
                        journalist_verifying_key,
@@ -62,7 +62,10 @@ def get_ephemeral_keys(journalists):
                 journalist_verifying_key = pki.public_b642key(journalist["journalist_key"])
         ephemeral_verifying_key = pki.public_b642key(ephemeral_key_dict["ephemeral_key"])
         # We rely again on verify_key raising an exception in case of failure
-        pki.verify_key(journalist_verifying_key, ephemeral_verifying_key, None, b64decode(ephemeral_key_dict["ephemeral_sig"]))
+        pki.verify_key(journalist_verifying_key,
+                       ephemeral_verifying_key,
+                       None,
+                       b64decode(ephemeral_key_dict["ephemeral_sig"]))
         ephemeral_keys_return.append(ephemeral_key_dict)
     # check that all keys are from different journalists
     assert (len(checked_uids) == JOURNALISTS)
@@ -94,7 +97,9 @@ def build_message(challenge_public_key, encryption_public_key):
     # [JOURNALIST] LONG-TERM CHALLENGE KEY
 
     # generate the message challenge to send the server
-    message_challenge = b64encode(VerifyingKey.from_public_point(pki.get_shared_secret(challenge_public_key, message_key), curve=CURVE).to_string()).decode('ascii')
+    message_challenge = b64encode(VerifyingKey.from_public_point(
+        pki.get_shared_secret(challenge_public_key, message_key),
+        curve=CURVE).to_string()).decode('ascii')
 
     return message_public_key, message_challenge, box
 
@@ -119,7 +124,8 @@ def get_challenges():
 
 def send_messages_challenges_responses(challenge_id, message_challenges_responses):
     message_challenges_responses_dict = {"message_challenges_responses": message_challenges_responses}
-    response = requests.post(f"http://{SERVER}/send_responses/{challenge_id}", json=message_challenges_responses_dict)
+    response = requests.post(f"http://{SERVER}/send_responses/{challenge_id}",
+                             json=message_challenges_responses_dict)
     if response.status_code != 200:
         return False
     else:
@@ -148,8 +154,14 @@ def fetch_messages(challenge_key):
     message_challenges_responses = []
 
     for message_challenge in message_challenges:
-        message_challenges_response = VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(b64decode(message_challenge), curve=CURVE), inv_journalist), curve=CURVE)
-        message_challenges_responses.append(b64encode(message_challenges_response.to_string()).decode('ascii'))
+        message_challenges_response = VerifyingKey.from_public_point(
+                            pki.get_shared_secret(
+                                pki.public_b642key(message_challenge), inv_journalist
+                            ),
+                            curve=CURVE
+                        )
+        message_challenges_responses.append(
+            b64encode(message_challenges_response.to_string()).decode('ascii'))
 
     res = send_messages_challenges_responses(challenge_id, message_challenges_responses)
     messages_list = []
