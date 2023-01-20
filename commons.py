@@ -9,6 +9,7 @@ from hashlib import sha3_256
 SERVER = "127.0.0.1:5000"
 DIR = "keys/"
 JOURNALISTS = 10
+ONETIMEKEYS = 30
 CURVE = NIST256p
 
 def add_journalist(journalist_key, journalist_sig):

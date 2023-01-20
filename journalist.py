@@ -12,8 +12,6 @@ from time import time
 
 from commons import *
 
-ONETIMEKEYS = 30
-
 def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 	ephemeral_keys = []
 	for key in range(ONETIMEKEYS):
@@ -23,7 +21,9 @@ def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 
 	response = requests.post(f"http://{SERVER}/ephemeral_keys", json={"journalist_uid": journalist_uid,
 																	  "ephemeral_keys": ephemeral_keys})
-
+# Load the journalist ephemeral keys from the journalist key dirrectory.
+# On an actual implementation this would more likely be a sqlite (or sqlcipher)
+# database.
 def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 	ephemeral_keys = []
 	key_file_list = listdir(f"{DIR}journalists/{journalist_uid}/")
@@ -34,6 +34,8 @@ def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 			ephemeral_keys.append(SigningKey.from_pem(key))
 	return ephemeral_keys
 
+# Try all the ephemeral keys to build an encryption shared secret to decrypt a message.
+# This is inefficient, but on an actual implementation we would discard already used keys
 def decrypt_messages(ephemeral_keys, messages_list):
 	plaintexts = []
 	for message in messages_list:
@@ -48,9 +50,11 @@ def decrypt_messages(ephemeral_keys, messages_list):
 		return False
 
 def journalist_reply(message, reply, journalist_uid):
-	# this function builds the per-message keys and returns a nacl encrypting box
+	# This function builds the per-message keys and returns a nacl encrypting box
 	message_public_key, message_challenge, box = build_message(message["source_challenge_public_key"], message["source_encryption_public_key"])
 
+	# The actual message struct varies depending on the sending party.
+	# Still it is client controlled, so in each client we shall watch out a bit.
 	message_dict = {"message": reply,
 					# do we want to sign messages? how do we attest source authoriship?
 					"sender": journalist_uid,
@@ -67,24 +71,34 @@ def journalist_reply(message, reply, journalist_uid):
 
 	message_ciphertext = b64encode(box.encrypt((json.dumps(message_dict)).ljust(1024).encode('ascii'))).decode("ascii")
 
-	# send the message to the server API using the generic /send endpoint
+	# Send the message to the server API using the generic /send endpoint
 	send_message(message_ciphertext, message_public_key, message_challenge)
 
 def main():
+	# Get and check the journalist number we are impersonating
 	assert(len(sys.argv) == 2)
 	journalist_id = int(sys.argv[1])
 	assert(journalist_id >= 0 and journalist_id < JOURNALISTS)
 	journalist_sig, journalist_key = pki.load_and_verify_journalist_keypair(journalist_id)
 	journalist_uid = add_journalist(journalist_key, journalist_sig)
+
+	# Generate and upload a bunch (30) of ephemeral keys
 	add_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
 
+	# Check if there are messages
 	messages_list = fetch_messages(journalist_key)
 
+	# Delete those messages
+	#delete_messages()
+
 	if messages_list:
+		# Load all the ephemeral keys back
 		ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
 
+		# Try to decrypt with the loaded ephemeral keys
 		plaintext_messages = decrypt_messages(ephemeral_keys, messages_list)
 
+		# Print the plaintext messages
 		print("[+] Got submissions :)")
 		for plaintext_message in plaintext_messages:
 			#print(plaintext_message)
@@ -93,6 +107,8 @@ def main():
 			print(f"\t\tTimestamp: {plaintext_message['timestamp']}")
 			print(f"\t\tSource Public Key (encryption): {plaintext_message['source_encryption_public_key']}")
 			print("---END SUBMISSION---")
+
+			# Send a reply to each message for demo purposes
 			journalist_reply(plaintext_message, "message reply :)", journalist_uid)
 
 main()

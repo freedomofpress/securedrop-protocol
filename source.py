@@ -24,15 +24,16 @@ def derive_key(passphrase, key_isolation_prefix):
 	return key
 
 def send_submission(intermediate_verifying_key, passphrase, message):
-	# get all the journalists, their keys, and the signatures of their keys from the server API
+	# Get all the journalists, their keys, and the signatures of their keys from the server API
 	# and verify the trust chain, otherwise the function will hard fail
 	journalists = get_journalists(intermediate_verifying_key)
-	# get on ephemeral key for each journalist, check that the signatures are good and that
+	
+	# Get an ephemeral key for each journalist, check that the signatures are good and that
 	# we have different journalists
 	ephemeral_keys = get_ephemeral_keys(journalists)
 
-	# we deterministically derive the source long term keys from the passphrase
-	# add prefix for key isolation
+	# We deterministically derive the source long term keys from the passphrase
+	# Add prefix for key isolation
 	# [SOURCE] LONG-TERM MESSAGE KEY
 	source_key = derive_key(passphrase, "source_key-")
 	source_encryption_public_key = b64encode(source_key.verifying_key.to_string()).decode("ascii") 
@@ -41,11 +42,13 @@ def send_submission(intermediate_verifying_key, passphrase, message):
 	challenge_key = derive_key(passphrase, "challenge_key-")
 	source_challenge_public_key = b64encode(challenge_key.verifying_key.to_string()).decode("ascii") 
 
-	# for every receiver (journalists), create a message
+	# For every receiver (journalists), create a message
 	for ephemeral_key_dict in ephemeral_keys:
-		# this function builds the per-message keys and returns a nacl encrypting box
+		# This function builds the per-message keys and returns a nacl encrypting box
 		message_public_key, message_challenge, box = build_message(ephemeral_key_dict["journalist_key"], ephemeral_key_dict["ephemeral_key"])
 		
+		# Same as on the journalist side: this structure is built by the clients
+		# and thus potentially "untrusted"
 		message_dict = {"message": message,
 						# do we want to sign messages? how do we attest source authoriship?
 						"source_challenge_public_key": source_challenge_public_key,
@@ -63,7 +66,7 @@ def send_submission(intermediate_verifying_key, passphrase, message):
 
 		message_ciphertext = b64encode(box.encrypt((json.dumps(message_dict)).ljust(1024).encode('ascii'))).decode("ascii")
 
-		# send the message to the server API using the generic /send endpoint
+		# Send the message to the server API using the generic /send endpoint
 		send_message(message_ciphertext, message_public_key, message_challenge)
 
 def fetch_messages_source(passphrase):
@@ -72,7 +75,7 @@ def fetch_messages_source(passphrase):
 	return messages_list
 
 def main():
-	# generate or load a passphrase
+	# Generate or load a passphrase
 	if (len(sys.argv) == 1):
 		passphrase = generate_passphrase()
 		print(f"[+] Generating source passphrase: {passphrase.hex()}")
@@ -88,6 +91,10 @@ def main():
 		source_key = derive_key(passphrase, "source_key-")
 
 		for message in messages_list:
+			# Decrypt every message building a shared encryption key using
+			# the source long term key and the ephemeral per-message public key
+			# This is the sad bit where, even if one of the two keys is ephemeral,
+			# the other is not and thus no forward secrecy.
 			plaintext_message = decrypt_message_ciphertext(source_key, message["message_public_key"], message["message_ciphertext"])
 			print("---BEGIN JOURNALIST REPLY---")
 			print(f"\t\tMessage: {plaintext_message['message']}")
