@@ -1,10 +1,12 @@
-import pki
-import requests
-import nacl.secret
 import json
 from base64 import b64decode, b64encode
-from ecdsa import SigningKey, VerifyingKey, ECDH, NIST256p
 from hashlib import sha3_256
+
+import nacl.secret
+import requests
+from ecdsa import ECDH, NIST256p, SigningKey, VerifyingKey
+
+import pki
 
 SERVER = "127.0.0.1:5000"
 DIR = "keys/"

@@ -1,12 +1,14 @@
-import pki
 import json
 import sys
-from time import time
-from secrets import token_bytes
-from hashlib import sha3_256
-from ecdsa import SigningKey
 from base64 import b64encode
+from hashlib import sha3_256
+from secrets import token_bytes
+from time import time
+
+from ecdsa import SigningKey
+
 import commons
+import pki
 
 
 def generate_passphrase():

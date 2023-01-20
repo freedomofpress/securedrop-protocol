@@ -1,11 +1,13 @@
 import json
-import pki
-from hashlib import sha3_256
-from ecdsa import SigningKey, VerifyingKey
-from secrets import token_hex
-from redis import Redis
-from flask import Flask, request
 from base64 import b64decode, b64encode
+from hashlib import sha3_256
+from secrets import token_hex
+
+from ecdsa import SigningKey, VerifyingKey
+from flask import Flask, request
+from redis import Redis
+
+import pki
 
 SERVER = "127.0.0.1:5000"
 DIR = "keys/"

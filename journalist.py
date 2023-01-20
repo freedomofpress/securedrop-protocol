@@ -1,12 +1,14 @@
-import commons
-import pki
-import requests
-import sys
 import json
+import sys
 from base64 import b64encode
 from os import listdir
-from ecdsa import SigningKey
 from time import time
+
+import requests
+from ecdsa import SigningKey
+
+import commons
+import pki
 
 
 def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):

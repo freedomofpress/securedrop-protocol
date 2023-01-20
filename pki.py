@@ -1,10 +1,13 @@
-import nacl.utils
-import commons
-from os import rmdir, mkdir
-from ecdsa import SigningKey, VerifyingKey, InvalidCurveError, InvalidSharedSecretError
-from ecdsa.util import sigencode_der, sigdecode_der
 from hashlib import sha3_256
+from os import mkdir, rmdir
+
+import nacl.utils
+from ecdsa import (InvalidCurveError, InvalidSharedSecretError, SigningKey,
+                   VerifyingKey)
 from ecdsa.ellipticcurve import INFINITY
+from ecdsa.util import sigdecode_der, sigencode_der
+
+import commons
 
 
 # Used to deterministally generate keys based on the passphrase, only on the source side
