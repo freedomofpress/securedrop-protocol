@@ -46,7 +46,9 @@ def decrypt_messages(ephemeral_keys, messages_list):
     plaintexts = []
     for message in messages_list:
         for ephemeral_key in ephemeral_keys:
-            message_plaintext = commons.decrypt_message_ciphertext(ephemeral_key, message["message_public_key"], message["message_ciphertext"])
+            message_plaintext = commons.decrypt_message_ciphertext(
+                ephemeral_key, message["message_public_key"],
+                message["message_ciphertext"])
             if message_plaintext:
                 plaintexts.append(message_plaintext)
                 break
@@ -58,7 +60,9 @@ def decrypt_messages(ephemeral_keys, messages_list):
 
 def journalist_reply(message, reply, journalist_uid):
     # This function builds the per-message keys and returns a nacl encrypting box
-    message_public_key, message_challenge, box = commons.build_message(message["source_challenge_public_key"], message["source_encryption_public_key"])
+    message_public_key, message_challenge, box = commons.build_message(
+        message["source_challenge_public_key"],
+        message["source_encryption_public_key"])
 
     # The actual message struct varies depending on the sending party.
     # Still it is client controlled, so in each client we shall watch out a bit.
@@ -75,7 +79,9 @@ def journalist_reply(message, reply, journalist_uid):
                     # and respective keys
                     "attachments_keys": []}
 
-    message_ciphertext = b64encode(box.encrypt((json.dumps(message_dict)).ljust(1024).encode('ascii'))).decode("ascii")
+    message_ciphertext = b64encode(
+        box.encrypt((json.dumps(message_dict)).ljust(1024).encode('ascii'))
+    ).decode("ascii")
 
     # Send the message to the server API using the generic /send endpoint
     commons.send_message(message_ciphertext, message_public_key, message_challenge)

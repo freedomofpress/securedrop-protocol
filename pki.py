@@ -56,8 +56,10 @@ def get_shared_secret(remote_pubkey, local_privkey):
 
     return result
 
+
 def public_b642key(b64_verifying_key):
-	return VerifyingKey.from_string(b64decode(b64_verifying_key), curve=commons.CURVE)
+    return VerifyingKey.from_string(b64decode(b64_verifying_key), curve=commons.CURVE)
+
 
 # Loads a saved python ecdsa key from disk, if signing=False, load just the public-key
 def load_key(name, signing=True):
@@ -138,14 +140,18 @@ def load_pki():
     for j in range(commons.JOURNALISTS):
         journalist_key = load_key(f"{commons.DIR}journalists/journalist_{j}")
         journalist_keys.append(journalist_key)
-        verify_key(intermediate_key.verifying_key, journalist_key.verifying_key, f"{commons.DIR}journalists/journalist_{j}.sig")
+        verify_key(intermediate_key.verifying_key,
+                   journalist_key.verifying_key,
+                   f"{commons.DIR}journalists/journalist_{j}.sig")
     return root_key, intermediate_key, journalist_keys
 
 
 def load_and_verify_journalist_keypair(journalist_id):
     intermediate_verifying_key = verify_root_intermediate()
     journalist_key = load_key(f"journalists/journalist_{journalist_id}")
-    sig = verify_key(intermediate_verifying_key, journalist_key.verifying_key, f"{commons.DIR}journalists/journalist_{journalist_id}.sig")
+    sig = verify_key(intermediate_verifying_key,
+                     journalist_key.verifying_key,
+                     f"{commons.DIR}journalists/journalist_{journalist_id}.sig")
     return sig, journalist_key
 
 
@@ -154,7 +160,9 @@ def load_and_verify_journalist_verifying_keys():
     journalist_verying_keys = []
     for j in range(commons.JOURNALISTS):
         journalist_verifying_key = load_key(f"journalists/journalist_{j}", signing=False)
-        verify_key(intermediate_verifying_key, journalist_verifying_key, f"{commons.DIR}journalists/journalist_{j}.sig")
+        verify_key(intermediate_verifying_key,
+                   journalist_verifying_key,
+                   f"{commons.DIR}journalists/journalist_{j}.sig")
         journalist_verying_keys.append(journalist_verifying_key)
     return journalist_verying_keys
 
