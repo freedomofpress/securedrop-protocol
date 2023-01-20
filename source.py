@@ -12,10 +12,6 @@ from base64 import b64decode, b64encode
 
 from commons import *
 
-SERVER = "127.0.0.1:5000"
-DIR = "keys/"
-JOURNALISTS = 10
-
 def generate_passphrase():
 	return token_bytes(32)
 

@@ -124,7 +124,7 @@ def get_messages_challenge():
 	# generate a challenge id
 	challenge_id = token_hex(32)
 	# save it in redis as an expiring key
-	redis.setex(f"challenge:{challenge_id}", 120, b64encode(request_ephemeral_key.to_string()).decode('ascii'))
+	redis.setex(f"challenge:{challenge_id}", 30, b64encode(request_ephemeral_key.to_string()).decode('ascii'))
 	message_server_challenges = []
 	# retrieve all the message keys
 	message_keys = redis.keys("message:*")

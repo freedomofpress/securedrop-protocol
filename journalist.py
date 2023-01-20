@@ -12,9 +12,6 @@ from time import time
 
 from commons import *
 
-SERVER = "127.0.0.1:5000"
-DIR = "keys/"
-JOURNALISTS = 10
 ONETIMEKEYS = 30
 
 def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):

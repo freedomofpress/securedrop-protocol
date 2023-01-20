@@ -5,11 +5,7 @@ from ecdsa import SigningKey, VerifyingKey, NIST256p
 from ecdsa.util import sigencode_der, sigdecode_der
 from hashlib import sha3_256
 from ecdsa.ellipticcurve import INFINITY
-
-DIR = "keys/"
-JOURNALISTS = 10
-#CURVE = Ed25519
-CURVE = NIST256p
+from commons import *
 
 # used for deterministally generate keys based on the passphrase
 class PRNG:

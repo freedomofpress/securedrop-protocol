@@ -3,11 +3,13 @@ import requests
 import nacl.secret
 import json
 from base64 import b64decode, b64encode
-from ecdsa import SigningKey, VerifyingKey, ECDH
+from ecdsa import SigningKey, VerifyingKey, ECDH, NIST256p
 from hashlib import sha3_256
 
 SERVER = "127.0.0.1:5000"
+DIR = "keys/"
 JOURNALISTS = 10
+CURVE = NIST256p
 
 def add_journalist(journalist_key, journalist_sig):
 	journalist_uid = sha3_256(journalist_key.verifying_key.to_string()).hexdigest()
