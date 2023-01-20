@@ -35,7 +35,7 @@ def add_journalist():
     except Exception:
         return {"status": "KO"}, 400
 
-    journalist_verifying_key = VerifyingKey.from_string(b64decode(content["journalist_key"]), curve=commons.CURVE)
+    journalist_verifying_key = pki.public_b642key(content["journalist_key"])
     try:
         journalist_sig = pki.verify_key(intermediate_verifying_key, journalist_verifying_key, None, b64decode(content["journalist_sig"]))
     except Exception:
@@ -71,7 +71,7 @@ def add_ephemeral_keys():
     for journalist in journalists:
         journalist_dict = json.loads(journalist.decode("ascii"))
         if journalist_dict["journalist_uid"] == journalist_uid:
-            journalist_verifying_key = VerifyingKey.from_string(b64decode(journalist_dict["journalist_key"]), curve=commons.CURVE)
+            journalist_verifying_key = pki.public_b642key(journalist_dict["journalist_key"])
     ephemeral_keys = content["ephemeral_keys"]
 
     for ephemeral_key_dict in ephemeral_keys:
@@ -176,7 +176,7 @@ def send_message_challenges_response(challenge_id):
     # check all the challenges responses
     potential_messages_public_keys = []
     for message_challenge_response in request.json["message_challenges_responses"]:
-        potential_messages_public_key = VerifyingKey.from_public_point(pki.get_shared_secret(VerifyingKey.from_string(b64decode(message_challenge_response), curve=commons.CURVE), inv_server), curve=commons.CURVE)
+        potential_messages_public_key = VerifyingKey.from_public_point(pki.get_shared_secret(pki.public_b642key(message_challenge_response), inv_server), curve=commons.CURVE)
         potential_messages_public_keys.append(b64encode(potential_messages_public_key.to_string()).decode('ascii'))
 
     # check if any public key in the computed challenge/responses matches any message and return them

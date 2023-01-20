@@ -59,8 +59,8 @@ def get_ephemeral_keys(journalists):
                 ephemeral_key_dict["journalist_key"] = journalist["journalist_key"]
                 # add uids to a set
                 checked_uids.add(journalist_uid)
-                journalist_verifying_key = VerifyingKey.from_string(b64decode(journalist["journalist_key"]), curve=CURVE)
-        ephemeral_verifying_key = VerifyingKey.from_string(b64decode(ephemeral_key_dict["ephemeral_key"]), curve=CURVE)
+                journalist_verifying_key = pki.public_b642key(journalist["journalist_key"])
+        ephemeral_verifying_key = pki.public_b642key(ephemeral_key_dict["ephemeral_key"])
         # We rely again on verify_key raising an exception in case of failure
         pki.verify_key(journalist_verifying_key, ephemeral_verifying_key, None, b64decode(ephemeral_key_dict["ephemeral_sig"]))
         ephemeral_keys_return.append(ephemeral_key_dict)

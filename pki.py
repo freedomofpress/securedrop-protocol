@@ -1,3 +1,4 @@
+from base64 import b64decode
 from hashlib import sha3_256
 from os import mkdir, rmdir
 
@@ -55,6 +56,8 @@ def get_shared_secret(remote_pubkey, local_privkey):
 
     return result
 
+def public_b642key(b64_verifying_key):
+	return VerifyingKey.from_string(b64decode(b64_verifying_key), curve=commons.CURVE)
 
 # Loads a saved python ecdsa key from disk, if signing=False, load just the public-key
 def load_key(name, signing=True):
