@@ -48,31 +48,8 @@ def decrypt_messages(ephemeral_keys, messages_list):
 		return False
 
 def journalist_reply(message, reply, journalist_uid):
-	source_challenge_public_key = VerifyingKey.from_string(b64decode(message["source_challenge_public_key"]), curve=pki.CURVE)
-	source_encryption_public_key = VerifyingKey.from_string(b64decode(message["source_encryption_public_key"]), curve=pki.CURVE)
-
-	ecdh = ECDH(curve=pki.CURVE)
-	# [SOURCE] PERMESSAGE-EPHEMERAL KEY (private)
-	message_key = SigningKey.generate(curve=pki.CURVE)
-	message_public_key = b64encode(message_key.verifying_key.to_string()).decode("ascii")
-	# load the private key to generate the shared secret
-	ecdh.load_private_key(message_key)
-
-	# [JOURNALIST] PERMESSAGE-EPHEMERAL KEY (public)
-	ecdh.load_received_public_key(source_encryption_public_key)
-	# generate the secret for encrypting the secret with the source_ephemeral+journo_ephemeral
-	# so that we have forward secrecy
-	encryption_shared_secret = ecdh.generate_sharedsecret_bytes() 
-
-	# encrypt the message, we trust nacl safe defaults
-	box = nacl.secret.SecretBox(encryption_shared_secret)
-
-	# generate the shared secret for the challenge/response using
-	# source_ephemeral+journo_longterm
-	# [JOURNALIST] LONG-TERM CHALLENGE KEY
-
-	# generate the message challenge to send the server
-	message_challenge = b64encode(VerifyingKey.from_public_point(pki.get_shared_secret(source_challenge_public_key, message_key), curve=pki.CURVE).to_string()).decode('ascii')
+	# this function builds the per-message keys and returns a nacl encrypting box
+	message_public_key, message_challenge, box = build_message(message["source_challenge_public_key"], message["source_encryption_public_key"])
 
 	message_dict = {"message": reply,
 					# do we want to sign messages? how do we attest source authoriship?
