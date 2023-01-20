@@ -7,7 +7,11 @@ from hashlib import sha3_256
 from ecdsa.ellipticcurve import INFINITY
 from commons import *
 
-# used for deterministally generate keys based on the passphrase
+# Used to deterministally generate keys based on the passphrase, only on the source side
+# the class is kind of a hack: python-ecdsa wants a os.urandom() kind of interface
+# but nacl.utils does not have an internal state even if seeded.
+# Thus we use a seed to generate enough randoness for all the needed calls. Shall the
+# pre-generated randomness end, an exception is forcefully raised.
 class PRNG:
 	def __init__(self, seed):
 		assert(len(seed) == 32)
@@ -23,6 +27,11 @@ class PRNG:
 		self.status += size
 		return return_data
 
+# We need to cryptographically veify this as these are the two functions
+# used to process the challenge response. Refer to the documentation for
+# a decription of the actual mechanism.
+# Even if everything is ok, we must make sure that the server cannot leak stuff
+# by serving crafted challenges instead of random ones
 def ec_mod_inverse(signing_key):
     # sanity checks??
     d = signing_key.privkey.secret_multiplier
@@ -41,21 +50,21 @@ def get_shared_secret(remote_pubkey, local_privkey):
 
     return result
 
-def load_key(name):
-	with open(f"{DIR}/{name}.key", "rb") as f:
-		key = SigningKey.from_pem(f.read())
+# Loads a saved python ecdsa key from disk, if signing=False, load just the public-key
+def load_key(name, signing=True):
 
 	with open(f"{DIR}/{name}.pem", "rb") as f:
 		verifying_key = VerifyingKey.from_pem(f.read())
 
-	assert(key.verifying_key == verifying_key)
-	return key
+	if signing:
+		with open(f"{DIR}/{name}.key", "rb") as f:
+			key = SigningKey.from_pem(f.read())
+		assert(key.verifying_key == verifying_key)
+		return key
+	else:
+		return verifying_key
 
-def load_verifying_key(name):
-	with open(f"{DIR}/{name}.pem", "rb") as f:
-		verifying_key = VerifyingKey.from_pem(f.read())
-	return verifying_key
-
+# Generate a python-ecdsa keypair and save it to disk
 def generate_key(name):
 	key = SigningKey.generate(curve=CURVE)
 
@@ -67,7 +76,7 @@ def generate_key(name):
 
 	return key
 
-
+# Sign a given public key with the pubblid private key
 def sign_key(signing_pivate_key, signed_public_key, signature_name):
 	sig = signing_pivate_key.sign_deterministic(
 		signed_public_key.to_string(),
@@ -80,6 +89,7 @@ def sign_key(signing_pivate_key, signed_public_key, signature_name):
 
 	return sig
 
+# Verify a signature
 def verify_key(signing_public_key, signed_public_key, signature_name, sig=None):
 	if not sig:
 		with open(signature_name, "rb") as f:
@@ -100,8 +110,8 @@ def generate_pki():
 	return root_key, intermediate_key, journalist_keys
 
 def verify_root_intermediate():
-	root_verifying_key = load_verifying_key("root")
-	intermediate_verifying_key = load_verifying_key("intermediate")
+	root_verifying_key = load_key("root", signing=False)
+	intermediate_verifying_key = load_key("intermediate", signing=False)
 	verify_key(root_verifying_key, intermediate_verifying_key, f"{DIR}intermediate.sig")
 	return intermediate_verifying_key
 
@@ -135,7 +145,7 @@ def load_and_verify_journalist_verifying_keys():
 	intermediate_verifying_key = verify_root_intermediate()
 	journalist_verying_keys = []
 	for j in range(JOURNALISTS):
-		journalist_verifying_key = load_verifying_key(f"journalists/journalist_{j}")
+		journalist_verifying_key = load_key(f"journalists/journalist_{j}", signing=False)
 		verify_key(intermediate_verifying_key, journalist_verifying_key, f"{DIR}journalists/journalist_{j}.sig")
 		journalist_verying_keys.append(journalist_verifying_key)
 	return journalist_verying_keys
