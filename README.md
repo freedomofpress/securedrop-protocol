@@ -1,4 +1,46 @@
 # securedrop-poc
+## Installation (Qubes)
+Install dependencies and create the virtual environment.
+```
+sudo dnf install redis
+sudo systemctl start redis
+python3 -m virtualenv .venv
+source .venv/bin/activate
+pip3 install -r requirements.txt
+```
+
+Generate the FPF root key, the intermediate key, and the journalists long term keys and sign them all hierarchically.
+```
+python3 pki.py
+```
+
+Run the server:
+```
+FLASK_DEBUG=1 flask --app server run
+```
+
+Impersonate the journalists and generate ephemeral keys for each of them. Upload all the public keys and their signature to the server.
+```
+for i in $(seq 0 9); do python3 journalist.py $i; done;
+```
+
+Send a message from the source to all journalists:
+```
+python3 source.py
+```
+
+Check the message from a journalist (0..9) and reply:
+```
+python3 journalists.py 7
+```
+
+Check the submission reply on the source side:
+```
+python3 source.py <source_passphrase>
+```
+
+## Demo instructions
+
 ## Parties
   * **Source**: A source is someone who wants to leak a document. A source is unknown prior its first contact. A source may want to send a text message and/or add attachments. The anonymity and safety of the source is vital. The source must use Tor Browser to preserve their anonymity and no persistance shall be required. The highest degree of deniability a source has, the better.
   * **Journalist(s)**: Journalists are those designated to receive, check and reply to submissions. Journalists are known, or at least the newsroom they work for is known and trusted. Journalists are expected to use the Securedrop Workstation with an ad-hoc client, which has dedicated encrypted storage.
