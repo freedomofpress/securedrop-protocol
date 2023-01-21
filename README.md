@@ -78,3 +78,10 @@ python3 source.py <source_passphrase>
      * *ME<sub>PK</sub>*: Ephemeral per-message key agreement public key
  * **Server**:
      * *DE<sub>PK</sub>*: Per-request, ephemeral decoy public key
+
+## Functions
+ * *c = E(k, m)*    → Encrypt message *m* to ciphertext *c* using symmetric key *k*
+ * *m = D(k, c)*    → Decrypt ciphertext *c* to message *m* using symmetric key *k*
+ * *h = H(m)*       → Hash message *m* to hash *h*
+ * *p = KDF(m)*     → Derive a key *k* from message *m*
+ * *SK, PK = G(s)*  → Generate a private key *SK* public key *PK* pair using seed *s*; if seed is empty generation is securely random
