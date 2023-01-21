@@ -4,7 +4,7 @@ from hashlib import sha3_256
 
 import nacl.secret
 import requests
-from ecdsa import ECDH, NIST256p, SigningKey, VerifyingKey
+from ecdsa import ECDH, NIST384p, SigningKey, VerifyingKey
 
 import pki
 
@@ -12,7 +12,7 @@ SERVER = "127.0.0.1:5000"
 DIR = "keys/"
 JOURNALISTS = 10
 ONETIMEKEYS = 30
-CURVE = NIST256p
+CURVE = NIST384p
 CHALLENGES = 100
 
 
@@ -102,7 +102,7 @@ def build_message(challenge_public_key, encryption_public_key):
     encryption_shared_secret = ecdh.generate_sharedsecret_bytes()
 
     # encrypt the message, we trust nacl safe defaults
-    box = nacl.secret.SecretBox(encryption_shared_secret)
+    box = nacl.secret.SecretBox(encryption_shared_secret[0:32])
 
     # generate the shared secret for the challenge/response using
     # source_ephemeral+journo_longterm
@@ -192,7 +192,7 @@ def decrypt_message_ciphertext(private_key, message_public_key, message_cipherte
     ecdh.load_private_key(private_key)
     ecdh.load_received_public_key_bytes(b64decode(message_public_key))
     encryption_shared_secret = ecdh.generate_sharedsecret_bytes()
-    box = nacl.secret.SecretBox(encryption_shared_secret)
+    box = nacl.secret.SecretBox(encryption_shared_secret[0:32])
     try:
         message_plaintext = json.loads(box.decrypt(b64decode(message_ciphertext)).decode('ascii'))
         return message_plaintext

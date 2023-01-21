@@ -108,7 +108,7 @@ def verify_key(signing_public_key, signed_public_key, signature_name, sig=None):
     if not sig:
         with open(signature_name, "rb") as f:
             sig = f.read()
-    signing_public_key.verify(sig, signed_public_key.to_string(), hashdunc=sha3_256, sigdecode=sigdecode_der)
+    signing_public_key.verify(sig, signed_public_key.to_string(), hashfunc=sha3_256, sigdecode=sigdecode_der)
     return sig
 
 
