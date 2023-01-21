@@ -34,5 +34,5 @@
  * **Messages**:
      * *ME<sub>SK</sub>*: Ephemeral per-message key agreement private key
      * *ME<sub>PK</sub>*: Ephemeral per-message key agreement public key
-
-
+ * **Server**:
+     * *DE<sub>PK</sub>*: Per-request, ephemeral decoy public key
