@@ -162,6 +162,14 @@ def get_messages_challenge():
             curve=commons.CURVE)
         message_server_challenges.append(b64encode(message_server_challenge.to_string()).decode('ascii'))
 
+    # add the decoy challenges
+    for decoy in range(commons.CHALLENGES - len(message_server_challenges)):
+        message_server_challenges.append(
+            b64encode(SigningKey.generate(curve=commons.CURVE).verifying_key.to_string()).decode('ascii')
+        )
+
+    assert (len(message_server_challenges) == commons.CHALLENGES)
+
     # return all the message challenges
     # padding to hide the number of meesages to be added later
     response_dict = {"status": "OK", "challenge_id": challenge_id, "message_challenges": message_server_challenges}

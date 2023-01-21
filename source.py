@@ -100,19 +100,20 @@ def main():
         messages_list = fetch_messages_source(passphrase)
         source_key = derive_key(passphrase, "source_key-")
 
-        for message in messages_list:
-            # Decrypt every message building a shared encryption key using
-            # the source long term key and the ephemeral per-message public key
-            # This is the sad bit where, even if one of the two keys is ephemeral,
-            # the other is not and thus no forward secrecy.
-            plaintext_message = commons.decrypt_message_ciphertext(source_key,
-                                                                   message["message_public_key"],
-                                                                   message["message_ciphertext"])
-            print("---BEGIN JOURNALIST REPLY---")
-            print(f"\t\tMessage: {plaintext_message['message']}")
-            print(f"\t\tTimestamp: {plaintext_message['timestamp']}")
-            print(f"\t\tJournalist UID: {plaintext_message['sender']}")
-            print("---END JOURNALIST REPLY---")
+        if messages_list:
+            for message in messages_list:
+                # Decrypt every message building a shared encryption key using
+                # the source long term key and the ephemeral per-message public key
+                # This is the sad bit where, even if one of the two keys is ephemeral,
+                # the other is not and thus no forward secrecy.
+                plaintext_message = commons.decrypt_message_ciphertext(source_key,
+                                                                       message["message_public_key"],
+                                                                       message["message_ciphertext"])
+                print("---BEGIN JOURNALIST REPLY---")
+                print(f"\t\tMessage: {plaintext_message['message']}")
+                print(f"\t\tTimestamp: {plaintext_message['timestamp']}")
+                print(f"\t\tJournalist UID: {plaintext_message['sender']}")
+                print("---END JOURNALIST REPLY---")
 
 
 main()

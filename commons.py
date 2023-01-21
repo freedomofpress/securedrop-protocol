@@ -13,6 +13,7 @@ DIR = "keys/"
 JOURNALISTS = 10
 ONETIMEKEYS = 30
 CURVE = NIST256p
+CHALLENGES = 500
 
 
 def add_journalist(journalist_key, journalist_sig):
