@@ -92,14 +92,16 @@ def main():
     assert (len(sys.argv) == 2)
     journalist_id = int(sys.argv[1])
     assert (journalist_id >= 0 and journalist_id < commons.JOURNALISTS)
-    journalist_sig, journalist_key = pki.load_and_verify_journalist_keypair(journalist_id)
-    journalist_uid = commons.add_journalist(journalist_key, journalist_sig)
+
+    journalist_sig, journalist_key, journalist_chal_sig, journalist_chal_key = pki.load_and_verify_journalist_keypair(journalist_id)
+
+    journalist_uid = commons.add_journalist(journalist_key, journalist_sig, journalist_chal_key, journalist_chal_sig)
 
     # Generate and upload a bunch (30) of ephemeral keys
     add_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
 
     # Check if there are messages
-    messages_list = commons.fetch_messages(journalist_key)
+    messages_list = commons.fetch_messages(journalist_chal_key)
 
     if messages_list:
         # Load all the ephemeral keys back

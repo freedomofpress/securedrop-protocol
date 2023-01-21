@@ -32,15 +32,24 @@ def add_journalist():
     try:
         assert ("journalist_key" in content)
         assert ("journalist_sig" in content)
+        assert ("journalist_chal_key" in content)
+        assert ("journalist_chal_sig" in content)
     except Exception:
         return {"status": "KO"}, 400
 
     journalist_verifying_key = pki.public_b642key(content["journalist_key"])
+    journalist_chal_verifying_key = pki.public_b642key(content["journalist_chal_key"])
     try:
         journalist_sig = pki.verify_key(intermediate_verifying_key,
                                         journalist_verifying_key,
                                         None,
                                         b64decode(content["journalist_sig"]))
+
+        journalist_chal_sig = pki.verify_key(intermediate_verifying_key,
+                                             journalist_chal_verifying_key,
+                                             None,
+                                             b64decode(content["journalist_chal_sig"]))
+
     except Exception:
         return {"status": "KO"}, 400
     journalist_uid = sha3_256(journalist_verifying_key.to_string()).hexdigest()
@@ -50,7 +59,14 @@ def add_journalist():
                                           ).decode("ascii"),
                                           "journalist_sig": b64encode(
                                             journalist_sig
-                                          ).decode("ascii")}))
+                                          ).decode("ascii"),
+                                          "journalist_chal_key": b64encode(
+                                            journalist_chal_verifying_key.to_string()
+                                          ).decode("ascii"),
+                                          "journalist_chal_sig": b64encode(
+                                            journalist_chal_sig
+                                          ).decode("ascii"),
+                                          }))
     return {"status": "OK"}, 200
 
 

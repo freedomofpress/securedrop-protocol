@@ -121,8 +121,8 @@ def generate_pki():
     root_key = generate_key("root")
     intermediate_key = generate_key("intermediate")
     sign_key(root_key, intermediate_key.verifying_key, f"{commons.DIR}intermediate.sig")
-    journalist_keys = generate_journalists(intermediate_key)
-    return root_key, intermediate_key, journalist_keys
+    journalist_chal_keys, journalist_keys = generate_journalists(intermediate_key)
+    return root_key, intermediate_key, journalist_chal_keys, journalist_keys
 
 
 def verify_root_intermediate():
@@ -149,10 +149,15 @@ def load_pki():
 def load_and_verify_journalist_keypair(journalist_id):
     intermediate_verifying_key = verify_root_intermediate()
     journalist_key = load_key(f"journalists/journalist_{journalist_id}")
-    sig = verify_key(intermediate_verifying_key,
-                     journalist_key.verifying_key,
-                     f"{commons.DIR}journalists/journalist_{journalist_id}.sig")
-    return sig, journalist_key
+    journalist_sig = verify_key(intermediate_verifying_key,
+                                journalist_key.verifying_key,
+                                f"{commons.DIR}journalists/journalist_{journalist_id}.sig")
+    journalist_chal_key = load_key(f"journalists/journalist_chal_{journalist_id}")
+    journalist_chal_sig = verify_key(intermediate_verifying_key,
+                                     journalist_chal_key.verifying_key,
+                                     f"{commons.DIR}journalists/journalist_chal_{journalist_id}.sig")
+
+    return journalist_sig, journalist_key, journalist_chal_sig, journalist_chal_key
 
 
 def load_and_verify_journalist_verifying_keys():
@@ -169,12 +174,17 @@ def load_and_verify_journalist_verifying_keys():
 
 def generate_journalists(intermediate_key):
     journalist_keys = []
+    journalist_chal_keys = []
     mkdir(f"{commons.DIR}/journalists/")
     for j in range(commons.JOURNALISTS):
         journalist_key = generate_key(f"journalists/journalist_{j}")
         journalist_keys.append(journalist_key)
         sign_key(intermediate_key, journalist_key.verifying_key, f"{commons.DIR}journalists/journalist_{j}.sig")
-    return journalist_keys
+        journalist_chal_key = generate_key(f"journalists/journalist_chal_{j}")
+        journalist_chal_keys.append(journalist_chal_key)
+        sign_key(intermediate_key, journalist_chal_key.verifying_key, f"{commons.DIR}journalists/journalist_chal_{j}.sig")
+
+    return journalist_chal_keys, journalist_keys
 
 
 def generate_ephemeral(journalist_key, journalist_id, journalist_uid):

@@ -46,7 +46,7 @@ def send_submission(intermediate_verifying_key, passphrase, message):
     # For every receiver (journalists), create a message
     for ephemeral_key_dict in ephemeral_keys:
         # This function builds the per-message keys and returns a nacl encrypting box
-        message_public_key, message_challenge, box = commons.build_message(ephemeral_key_dict["journalist_key"],
+        message_public_key, message_challenge, box = commons.build_message(ephemeral_key_dict["journalist_chal_key"],
                                                                            ephemeral_key_dict["ephemeral_key"])
 
         # Same as on the journalist side: this structure is built by the clients

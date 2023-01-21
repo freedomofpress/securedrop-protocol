@@ -13,17 +13,21 @@ DIR = "keys/"
 JOURNALISTS = 10
 ONETIMEKEYS = 30
 CURVE = NIST256p
-CHALLENGES = 500
+CHALLENGES = 100
 
 
-def add_journalist(journalist_key, journalist_sig):
+def add_journalist(journalist_key, journalist_sig, journalist_chal_key, journalist_chal_sig):
     journalist_uid = sha3_256(journalist_key.verifying_key.to_string()).hexdigest()
     journalist_key = b64encode(journalist_key.verifying_key.to_string()).decode("ascii")
     journalist_sig = b64encode(journalist_sig).decode("ascii")
+    journalist_chal_key = b64encode(journalist_chal_key.verifying_key.to_string()).decode("ascii")
+    journalist_chal_sig = b64encode(journalist_chal_sig).decode("ascii")
 
     response = requests.post(f"http://{SERVER}/journalists", json={
                 "journalist_key": journalist_key,
-                "journalist_sig": journalist_sig
+                "journalist_sig": journalist_sig,
+                "journalist_chal_key": journalist_chal_key,
+                "journalist_chal_sig": journalist_chal_sig
     })
     assert (response.status_code == 200)
     return journalist_uid
@@ -36,11 +40,17 @@ def get_journalists(intermediate_verifying_key):
     assert (len(journalists) == JOURNALISTS)
     for content in journalists:
         journalist_verifying_key = pki.public_b642key(content["journalist_key"])
+        journalist_chal_verifying_key = pki.public_b642key(content["journalist_chal_key"])
         # pki.verify_key shall give an hard fault is a signature is off
         pki.verify_key(intermediate_verifying_key,
                        journalist_verifying_key,
                        None,
                        b64decode(content["journalist_sig"])
+                       )
+        pki.verify_key(intermediate_verifying_key,
+                       journalist_chal_verifying_key,
+                       None,
+                       b64decode(content["journalist_chal_sig"])
                        )
     return journalists
 
@@ -58,6 +68,7 @@ def get_ephemeral_keys(journalists):
             if journalist_uid == journalist["journalist_uid"]:
                 ephemeral_key_dict["journalist_uid"] = journalist["journalist_uid"]
                 ephemeral_key_dict["journalist_key"] = journalist["journalist_key"]
+                ephemeral_key_dict["journalist_chal_key"] = journalist["journalist_chal_key"]
                 # add uids to a set
                 checked_uids.add(journalist_uid)
                 journalist_verifying_key = pki.public_b642key(journalist["journalist_key"])
@@ -162,7 +173,8 @@ def fetch_messages(challenge_key):
                             curve=CURVE
                         )
         message_challenges_responses.append(
-            b64encode(message_challenges_response.to_string()).decode('ascii'))
+            b64encode(message_challenges_response.to_string()).decode('ascii')
+        )
 
     res = send_messages_challenges_responses(challenge_id, message_challenges_responses)
     messages_list = []
