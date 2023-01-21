@@ -31,7 +31,7 @@ python3 source.py
 
 Check the message from a journalist (0..9) and reply:
 ```
-python3 journalists.py 7
+python3 journalist.py 7
 ```
 
 Check the submission reply on the source side:
