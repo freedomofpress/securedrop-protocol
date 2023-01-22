@@ -1,7 +1,7 @@
 import json
 from base64 import b64decode, b64encode
 from hashlib import sha3_256
-from os import mkdir, remove, stat
+from os import mkdir, remove
 from secrets import token_hex
 
 from ecdsa import SigningKey, VerifyingKey
@@ -11,7 +11,6 @@ from redis import Redis
 import commons
 import pki
 
-
 # bootstrap keys
 intermediate_verifying_key = pki.verify_root_intermediate()
 
@@ -19,9 +18,10 @@ redis = Redis()
 app = Flask(__name__)
 
 try:
-	mkdir(f"{commons.UPLOADS}")
+    mkdir(f"{commons.UPLOADS}")
 except Exception:
-	pass
+    pass
+
 
 @app.route("/")
 def index():
