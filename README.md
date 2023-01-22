@@ -80,17 +80,19 @@ python3 source.py <source_passphrase>
      * *DE<sub>PK</sub>*: Per-request, ephemeral decoy public key
 
 ## Functions
- * *c = E(k, m)*    → Encrypt message *m* to ciphertext *c* using symmetric key *k*
- * *m = D(k, c)*    → Decrypt ciphertext *c* to message *m* using symmetric key *k*
- * *h = H(m)*       → Hash message *m* to hash *h*
- * *p = KDF(m)*     → Derive a key *k* from message *m*
- * *SK, PK = G(s)*  → Generate a private key *SK* public key *PK* pair using seed *s*; if seed is empty generation is securely random
- * *sig = Sig(SK, m)* → Create signature *sig* using *SK* as the signer key and *m* as the signed message
+| Formula | Description |
+|---|---|
+| *c = E(k, m)* | Encrypt message *m* to ciphertext *c* using symmetric key *k* |
+| *m = D(k, c)* | Decrypt ciphertext *c* to message *m* using symmetric key *k* |
+| *h = H(m)* | Hash message *m* to hash *h* |
+| *p = KDF(m)* | Derive a key *k* from message *m* |
+| *SK, PK = G(s)* | Generate a private key *SK* public key *PK* pair using seed *s*; if seed is empty generation is securely random |
+| *sig = Sig(SK, m)* | Create signature *sig* using *SK* as the signer key and *m* as the signed message |
 
 ## Initial Trust Chain Setup
  * **FPF**:
-     * *FPF<sub>SK</sub>, *FPF<sub>PK</sub> = G()* - FPF generates a random keypair (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes)
+     * *FPF<sub>SK</sub>, FPF<sub>PK</sub> = G()* - FPF generates a random keypair (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes)
  * **Newsroom**:
-     * *NR<sub>SK</sub>, NR<sub>PK</sub> = G()* - Newsroom generate a random keypair with similar security of the FPF one
+     * *NR<sub>SK</sub>, NR<sub>PK</sub> = G()* - Newsroom generates a random keypair with similar security of the FPF one
      * *sig<sub>NR</sub> = Sig(FPF<sub>SK</sub>, NR<sub>PK</sub>)* - Newsroom sends a CSR or the public key to FPF for signing
-  
+
