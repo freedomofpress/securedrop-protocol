@@ -1,10 +1,11 @@
 import json
 from base64 import b64decode, b64encode
 from hashlib import sha3_256
+from os import mkdir, remove, stat
 from secrets import token_hex
 
 from ecdsa import SigningKey, VerifyingKey
-from flask import Flask, request
+from flask import Flask, request, send_file
 from redis import Redis
 
 import commons
@@ -17,6 +18,10 @@ intermediate_verifying_key = pki.verify_root_intermediate()
 redis = Redis()
 app = Flask(__name__)
 
+try:
+	mkdir(f"{commons.UPLOADS}")
+except Exception:
+	pass
 
 @app.route("/")
 def index():
@@ -74,6 +79,46 @@ def get_journalists():
     for journalist_json in journalists:
         journalists_list.append(json.loads(journalist_json.decode("ascii")))
     return {"status": "OK", "count": len(journalists), "journalists": journalists_list}, 200
+
+
+@app.route("/file", methods=["POST"])
+def download_file():
+    try:
+        assert ('file' in request.files)
+        file = request.files['file']
+        assert (len(file.filename) > 0)
+    except Exception:
+        return {"status": "KO"}, 400
+
+    file_id = token_hex(32)
+    redis.set(f"file:{file_id}", file_id.encode("ascii"))
+
+    file.save(f"{commons.UPLOADS}{file_id}.enc")
+
+    return {"status": "OK", "file_id": file_id}, 200
+
+
+@app.route("/file/<file_id>", methods=["GET"])
+def get_file(file_id):
+    file = redis.get(f"file:{file_id}")
+    if not file:
+        return {"status": "KO"}, 404
+    else:
+        file = file.decode('ascii')
+        return send_file(f"{commons.UPLOADS}{file}.enc")
+
+
+@app.route("/file/<file_id>", methods=["DELETE"])
+def delete_file(file_id):
+    file = redis.get(f"file:{file_id}")
+    if not file:
+        return {"status": "KO"}, 404
+    else:
+        file = file.decode('ascii')
+
+        redis.delete(f"file:{file_id}")
+        remove(f"{commons.UPLOADS}{file}.enc")
+    return {"status": "OK"}, 200
 
 
 @app.route("/ephemeral_keys", methods=["POST"])

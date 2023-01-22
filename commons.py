@@ -10,10 +10,12 @@ import pki
 
 SERVER = "127.0.0.1:5000"
 DIR = "keys/"
+UPLOADS = "files/"
 JOURNALISTS = 10
 ONETIMEKEYS = 30
 CURVE = NIST384p
 CHALLENGES = 500
+FILE_SLICE = 512 * 1024
 
 
 def add_journalist(journalist_key, journalist_sig, journalist_chal_key, journalist_chal_sig):
