@@ -103,6 +103,10 @@ def main(args):
 
         messages_list = commons.fetch_messages_id(source_chal_key)
 
+        if not messages_list:
+            print("[-] The server did not return any message")
+            return -1
+
         nmessages = len(messages_list)
 
         if nmessages > 0:

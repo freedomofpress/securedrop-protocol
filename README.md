@@ -27,6 +27,25 @@ for i in $(seq 0 9); do python3 journalist.py -j $i -a upload_keys; done;
 _Following CLI refactoring instructions need a refactor as well_
 
 ### Source
+#### Help
+
+```
+# python3 source.py -h
+usage: source.py [-h] [-p PASSPHRASE] -a {fetch,read,reply,submit,delete} [-i ID] [-m MESSAGE] [-f FILES [FILES ...]]
+
+options:
+  -h, --help            show this help message and exit
+  -p PASSPHRASE, --passphrase PASSPHRASE
+                        Source passphrase if returning
+  -a {fetch,read,reply,submit,delete}, --action {fetch,read,reply,submit,delete}
+                        Action to perform
+  -i ID, --id ID        Message id
+  -m MESSAGE, --message MESSAGE
+                        Plaintext message content for submissions or replies
+  -f FILES [FILES ...], --files FILES [FILES ...]
+                        List of local files to submit
+```
+
 #### Send a submission (without attachments)
 ```
 # python3 source.py -a submit -m "My first contact message with a newsroom :)"
@@ -75,6 +94,22 @@ _Following CLI refactoring instructions need a refactor as well_
 ```
 
 ### Journalist
+#### Help
+```
+# python3 journalist.py -h
+usage: journalist.py [-h] -j [0, 9] [-a {upload_keys,fetch,read,reply,delete}] [-i ID] [-m MESSAGE]
+
+options:
+  -h, --help            show this help message and exit
+  -j [0, 9], --journalist [0, 9]
+                        Journalist number
+  -a {upload_keys,fetch,read,reply,delete}, --action {upload_keys,fetch,read,reply,delete}
+                        Action to perform
+  -i ID, --id ID        Message id
+  -m MESSAGE, --message MESSAGE
+                        Plaintext message content for replies
+
+```
 #### Fetch replies and submissions
 
 ```
