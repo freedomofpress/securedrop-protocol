@@ -2,9 +2,10 @@ import argparse
 import json
 from base64 import b64encode
 from datetime import datetime
-from os import listdir
+from os import listdir, mkdir, path
 from time import time
 
+import nacl.secret
 import requests
 from ecdsa import SigningKey
 
@@ -112,6 +113,13 @@ def main(args):
         message_plaintext = decrypt_message(ephemeral_keys, message)
 
         if message_plaintext:
+            # Create a download folder if we have attachments
+            if len(message_plaintext["attachments"]) > 0:
+                try:
+                    mkdir('downloads/')
+                except Exception:
+                    pass
+
             print(f"[+] Successfully decrypted message {message_id}")
             print()
             print(f"\tID: {message_id}")
@@ -119,6 +127,21 @@ def main(args):
             print(f"\tDate: {datetime.fromtimestamp(message_plaintext['timestamp'])}")
             for attachment in message_plaintext["attachments"]:
                 print(f"\tAttachment: name={attachment['name']};size={attachment['size']};parts_count={attachment['parts_count']}")
+                attachment_name = path.basename(attachment['name'])
+                attachment_size = attachment['size']
+                with open(f"downloads/{int(time())}_{attachment_name}", "wb") as f:
+                    part_number = 0
+                    written_size = 0
+                    while written_size < attachment_size:
+                        for part in attachment["parts"]:
+                            if part["number"] == part_number:
+                                part_key = bytes.fromhex(part['key'])
+                                encrypted_part = commons.get_file(part["id"])
+                                written_size += part["size"]
+                                box = nacl.secret.SecretBox(part_key)
+                                f.write(box.decrypt(encrypted_part)[0:part["size"]])
+                                part_number += 1
+
             print(f"\tText: {message_plaintext['message']}")
             print()
 

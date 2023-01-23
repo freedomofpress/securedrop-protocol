@@ -6,7 +6,6 @@ from hashlib import sha3_256
 from secrets import token_bytes
 from time import time
 
-import nacl.secret
 from ecdsa import SigningKey
 
 import commons
@@ -89,8 +88,8 @@ def main(args):
             if attachment:
                 attachments.append(attachment)
             else:
-                print(f"[-] Failed attaching {file}") 
-                return -1   
+                print(f"[-] Failed attaching {file}")
+                return -1
 
         send_submission(intermediate_verifying_key, passphrase, args.message, attachments)
 

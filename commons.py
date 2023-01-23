@@ -142,6 +142,14 @@ def send_file(encrypted_file):
         return response.json()
 
 
+def get_file(file_id):
+    response = requests.get(f"http://{SERVER}/file/{file_id}")
+    if response.status_code != 200:
+        return False
+    else:
+        return response.content
+
+
 def get_challenges():
     response = requests.get(f"http://{SERVER}/get_challenges")
     assert (response.status_code == 200)
@@ -214,6 +222,7 @@ def decrypt_message_ciphertext(private_key, message_public_key, message_cipherte
         return message_plaintext
     except Exception:
         return False
+
 
 def upload_attachment(filename):
     try:
