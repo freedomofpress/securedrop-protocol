@@ -63,15 +63,11 @@ def journalist_reply(message, reply, journalist_uid):
     message_dict = {"message": reply,
                     # do we want to sign messages? how do we attest source authoriship?
                     "sender": journalist_uid,
-                    "receiver": "source_id_placeholder",
+                    # "receiver": "source_id_placeholder",
                     # we could list the journalists involved in the conversation here
                     # if the source choose not to pick everybody
                     "group_members": [],
-                    "timestamp": int(time()),
-                    # we can add attachmenet pieces/id here
-                    "attachments": [],
-                    # and respective keys
-                    "attachments_keys": []}
+                    "timestamp": int(time())}
 
     message_ciphertext = b64encode(
         box.encrypt((json.dumps(message_dict)).ljust(1024).encode('ascii'))
@@ -121,10 +117,10 @@ def main(args):
             print(f"[+] Successfully decrypted message {message_id}")
             print()
             print(f"\tID: {message_id}")
-            #print(f"\tFrom: {message_plaintext['sender']}")
+            # print(f"\tFrom: {message_plaintext['sender']}")
             print(f"\tDate: {datetime.fromtimestamp(message_plaintext['timestamp'])}")
             for attachment in message_plaintext["attachments"]:
-                print(f"\tAttachment: {attachment['name']}")
+                print(f"\tAttachment: name={attachment['name']};size={attachment['size']};parts_count={attachment['parts_count']}")
             print(f"\tText: {message_plaintext['message']}")
             print()
 

@@ -15,7 +15,7 @@ JOURNALISTS = 10
 ONETIMEKEYS = 30
 CURVE = NIST384p
 CHALLENGES = 500
-FILE_SLICE = 512 * 1024
+CHUNK = 512 * 1024
 
 
 def add_journalist(journalist_key, journalist_sig, journalist_chal_key, journalist_chal_sig):
@@ -124,6 +124,16 @@ def send_message(message_ciphertext, message_public_key, message_challenge):
                  "message_challenge": message_challenge}
 
     response = requests.post(f"http://{SERVER}/message", json=send_dict)
+    if response.status_code != 200:
+        return False
+    else:
+        return response.json()
+
+
+def send_file(encrypted_file):
+    file_dict = {"file": encrypted_file}
+
+    response = requests.post(f"http://{SERVER}/file", files=file_dict)
     if response.status_code != 200:
         return False
     else:
