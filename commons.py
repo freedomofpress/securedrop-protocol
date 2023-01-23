@@ -1,6 +1,8 @@
 import json
 from base64 import b64decode, b64encode
 from hashlib import sha3_256
+from secrets import token_bytes
+from os import path, stat
 
 import nacl.secret
 import requests
@@ -212,3 +214,40 @@ def decrypt_message_ciphertext(private_key, message_public_key, message_cipherte
         return message_plaintext
     except Exception:
         return False
+
+def upload_attachment(filename):
+    try:
+        size = stat(filename).st_size
+
+    except Exception:
+        return False
+
+    attachment = {"name": path.basename(filename),
+                  "size": size,
+                  "parts": []}
+    parts_count = 0
+    read_size = 0
+    with open(filename, "rb") as f:
+        key = token_bytes(32)
+        # Read file in chunks so that we do not consume too much memory
+        # And we can make all chunks equal and pad the last one
+        while read_size < size:
+            part = f.read(CHUNK)
+            part_len = len(part)
+            read_size += part_len
+
+            box = nacl.secret.SecretBox(key)
+            encrypted_part = box.encrypt(part.ljust(CHUNK))
+
+            upload_response = send_file(encrypted_part)
+
+            part = {"number": parts_count,
+                    "id": upload_response["file_id"],
+                    "size": part_len,
+                    "key": key.hex()}
+            attachment["parts"].append(part)
+            parts_count += 1
+
+    attachment["parts_count"] = parts_count
+
+    return attachment

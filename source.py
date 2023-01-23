@@ -3,7 +3,6 @@ import json
 from base64 import b64encode
 from datetime import datetime
 from hashlib import sha3_256
-from os import path, stat
 from secrets import token_bytes
 from time import time
 
@@ -86,41 +85,12 @@ def main(args):
 
         attachments = []
         for file in args.files:
-            try:
-                size = stat(file).st_size
-
-            except Exception:
-                print(f"[-] Error opening {file}")
-                return -1
-
-            attachment = {"name": path.basename(file),
-                          "size": size,
-                          "parts": []}
-            parts_count = 0
-            read_size = 0
-            with open(file, "rb") as f:
-                key = token_bytes(32)
-                # Read file in chunks so that we do not consume too much memory
-                # And we can make all chunks equal and pad the last one
-                while read_size < size:
-                    part = f.read(commons.CHUNK)
-                    part_len = len(part)
-                    read_size += part_len
-
-                    box = nacl.secret.SecretBox(key)
-                    encrypted_part = box.encrypt(part.ljust(commons.CHUNK))
-
-                    upload_response = commons.send_file(encrypted_part)
-
-                    part = {"number": parts_count,
-                            "id": upload_response["file_id"],
-                            "size": part_len,
-                            "key": key.hex()}
-                    attachment["parts"].append(part)
-                    parts_count += 1
-
-            attachment["parts_count"] = parts_count
-            attachments.append(attachment)
+            attachment = commons.upload_attachment(file)
+            if attachment:
+                attachments.append(attachment)
+            else:
+                print(f"[-] Failed attaching {file}") 
+                return -1   
 
         send_submission(intermediate_verifying_key, passphrase, args.message, attachments)
 

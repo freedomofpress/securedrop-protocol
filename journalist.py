@@ -82,9 +82,7 @@ def main(args):
     journalist_id = args.journalist
     assert (journalist_id >= 0 and journalist_id < commons.JOURNALISTS)
 
-    journalist_sig, journalist_key, journalist_chal_sig, journalist_chal_key = pki.load_and_verify_journalist_keypair(journalist_id)
-
-    journalist_uid = commons.add_journalist(journalist_key, journalist_sig, journalist_chal_key, journalist_chal_sig)
+    journalist_uid, journalist_sig, journalist_key, journalist_chal_sig, journalist_chal_key = pki.load_and_verify_journalist_keypair(journalist_id)
 
     if args.action == "upload_keys":
         journalist_uid = commons.add_journalist(journalist_key, journalist_sig, journalist_chal_key, journalist_chal_sig)

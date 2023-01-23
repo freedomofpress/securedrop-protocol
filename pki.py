@@ -149,6 +149,7 @@ def load_pki():
 def load_and_verify_journalist_keypair(journalist_id):
     intermediate_verifying_key = verify_root_intermediate()
     journalist_key = load_key(f"journalists/journalist_{journalist_id}")
+    journalist_uid = sha3_256(journalist_key.verifying_key.to_string()).hexdigest()
     journalist_sig = verify_key(intermediate_verifying_key,
                                 journalist_key.verifying_key,
                                 f"{commons.DIR}journalists/journalist_{journalist_id}.sig")
@@ -157,7 +158,7 @@ def load_and_verify_journalist_keypair(journalist_id):
                                      journalist_chal_key.verifying_key,
                                      f"{commons.DIR}journalists/journalist_chal_{journalist_id}.sig")
 
-    return journalist_sig, journalist_key, journalist_chal_sig, journalist_chal_key
+    return journalist_uid, journalist_sig, journalist_key, journalist_chal_sig, journalist_chal_key
 
 
 def load_and_verify_journalist_verifying_keys():
