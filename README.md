@@ -1,4 +1,12 @@
 # securedrop-poc
+## Selling points
+ * All messages are equal
+ * There are no accounts
+ * Everything is end to end encrypted with one time symmetric keys
+ * Source to journalist key agreement has forward secrecy
+ * Zero explicit metadata on the server; there are implicit metadata such as access patterns to the API
+ * Key isolation: each key is used only for a cryptographic purpose: signing, encryption, NIZK
+
 ## Installation (Qubes)
 Install dependencies and create the virtual environment.
 ```
@@ -23,8 +31,6 @@ Impersonate the journalists and generate ephemeral keys for each of them. Upload
 ```
 for i in $(seq 0 9); do python3 journalist.py -j $i -a upload_keys; done;
 ```
-
-_Following CLI refactoring instructions need a refactor as well_
 
 ### Source
 #### Help
