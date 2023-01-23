@@ -1,8 +1,8 @@
 import json
 from base64 import b64decode, b64encode
 from hashlib import sha3_256
-from secrets import token_bytes
 from os import path, stat
+from secrets import token_bytes
 
 import nacl.secret
 import requests
