@@ -159,7 +159,7 @@ def delete_message(message_id):
     return response.status_code == 200
 
 
-def fetch_messages(challenge_key):
+def fetch_messages_id(challenge_key):
     challenge_id, message_challenges = get_challenges()
 
     inv_secret = pki.ec_mod_inverse(challenge_key)
@@ -179,14 +179,16 @@ def fetch_messages(challenge_key):
         )
 
     res = send_messages_challenges_responses(challenge_id, message_challenges_responses)
-    messages_list = []
     if res:
         messages = res["messages"]
-        for message_id in messages:
-            messages_list.append(get_message(message_id))
+        return messages
+
+
+def fetch_messages_content(messages_id):
+    messages_list = []
+    for message_id in messages_id:
+        messages_list.append(get_message(message_id))
         return messages_list
-    else:
-        return False
 
 
 def decrypt_message_ciphertext(private_key, message_public_key, message_ciphertext):

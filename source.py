@@ -77,7 +77,7 @@ def fetch_messages_source(passphrase):
     # Derive the static challenge key from the passphrase
     challenge_key = derive_key(passphrase, "challenge_key-")
     # Fetch the challenges, answer them and in case fetch own messages
-    messages_list = commons.fetch_messages(challenge_key)
+    messages_list = commons.fetch_messages_content(commons.fetch_messages_id(challenge_key))
     return messages_list
 
 

@@ -1,5 +1,5 @@
+import argparse
 import json
-import sys
 from base64 import b64encode
 from os import listdir
 from time import time
@@ -42,20 +42,13 @@ def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 
 # Try all the ephemeral keys to build an encryption shared secret to decrypt a message.
 # This is inefficient, but on an actual implementation we would discard already used keys
-def decrypt_messages(ephemeral_keys, messages_list):
-    plaintexts = []
-    for message in messages_list:
-        for ephemeral_key in ephemeral_keys:
-            message_plaintext = commons.decrypt_message_ciphertext(
-                ephemeral_key, message["message_public_key"],
-                message["message_ciphertext"])
-            if message_plaintext:
-                plaintexts.append(message_plaintext)
-                break
-    if len(plaintexts) > 0:
-        return plaintexts
-    else:
-        return False
+def decrypt_messages(ephemeral_keys, message):
+    for ephemeral_key in ephemeral_keys:
+        message_plaintext = commons.decrypt_message_ciphertext(
+            ephemeral_key, message["message_public_key"],
+            message["message_ciphertext"])
+        if message_plaintext:
+            return message_plaintext
 
 
 def journalist_reply(message, reply, journalist_uid):
@@ -87,22 +80,51 @@ def journalist_reply(message, reply, journalist_uid):
     commons.send_message(message_ciphertext, message_public_key, message_challenge)
 
 
-def main():
+def main(args):
     # Get and check the journalist number we are impersonating
-    assert (len(sys.argv) == 2)
-    journalist_id = int(sys.argv[1])
+    journalist_id = args.journalist
     assert (journalist_id >= 0 and journalist_id < commons.JOURNALISTS)
 
     journalist_sig, journalist_key, journalist_chal_sig, journalist_chal_key = pki.load_and_verify_journalist_keypair(journalist_id)
 
     journalist_uid = commons.add_journalist(journalist_key, journalist_sig, journalist_chal_key, journalist_chal_sig)
 
-    # Generate and upload a bunch (30) of ephemeral keys
-    add_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
+    if args.action == "upload_keys":
+        journalist_uid = commons.add_journalist(journalist_key, journalist_sig, journalist_chal_key, journalist_chal_sig)
 
-    # Check if there are messages
-    messages_list = commons.fetch_messages(journalist_chal_key)
+        # Generate and upload a bunch (30) of ephemeral keys
+        add_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
 
+    elif args.action == "fetch":
+        # Check if there are messages
+        messages_list = commons.fetch_messages_id(journalist_chal_key)
+
+        nmessages = len(messages_list)
+
+        if nmessages > 0:
+            print(f"[+] Found {nmessages} messages")
+            for message_id in messages_list:
+                print(f"\t{message_id}")
+            print()
+        else:
+            print("[-] There are no messages")
+            print()
+
+    elif args.action == "read":
+        message_id = args.id
+        message = commons.get_message(message_id)
+        ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
+        plaintext_messages = decrypt_messages(ephemeral_keys, message)
+        print(plaintext_messages)
+
+    elif args.action == "reply":
+        pass
+
+    elif args.action == "delete":
+        pass
+
+
+'''
     if messages_list:
         # Load all the ephemeral keys back
         ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
@@ -121,6 +143,14 @@ def main():
 
             # Send a reply to each message for demo purposes
             journalist_reply(plaintext_message, "message reply :)", journalist_uid)
+'''
 
 
-main()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-j", "--journalist", help="Journalist number", type=int, choices=range(0, commons.JOURNALISTS), metavar=f"[0, {commons.JOURNALISTS - 1}]", required=True)
+    parser.add_argument("-a", "--action", help="Action to perform", default="fetch", choices=["upload_keys", "fetch", "read", "reply", "delete"])
+    parser.add_argument("-i", "--id", help="Message id")
+    parser.add_argument("-m", "--message", help="Plaintext message content for replies")
+    args = parser.parse_args()
+    main(args)
