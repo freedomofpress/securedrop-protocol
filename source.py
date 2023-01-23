@@ -1,6 +1,7 @@
+import argparse
 import json
-import sys
 from base64 import b64encode
+from datetime import datetime
 from hashlib import sha3_256
 from secrets import token_bytes
 from time import time
@@ -24,7 +25,7 @@ def derive_key(passphrase, key_isolation_prefix):
     return key
 
 
-def send_submission(intermediate_verifying_key, passphrase, message):
+def send_submission(intermediate_verifying_key, passphrase, message, attachments):
     # Get all the journalists, their keys, and the signatures of their keys from the server API
     # and verify the trust chain, otherwise the function will hard fail
     journalists = commons.get_journalists(intermediate_verifying_key)
@@ -73,47 +74,83 @@ def send_submission(intermediate_verifying_key, passphrase, message):
         commons.send_message(message_ciphertext, message_public_key, message_challenge)
 
 
-def fetch_messages_source(passphrase):
-    # Derive the static challenge key from the passphrase
-    challenge_key = derive_key(passphrase, "challenge_key-")
-    # Fetch the challenges, answer them and in case fetch own messages
-    messages_list = commons.fetch_messages_content(commons.fetch_messages_id(challenge_key))
-    return messages_list
-
-
-def main():
+def main(args):
+    intermediate_verifying_key = pki.verify_root_intermediate()
     # Generate or load a passphrase
-    if (len(sys.argv) == 1):
+    if args.action == "submit":
+        if not args.message:
+            print("[-] Please specify a text message using -m")
+            return -1
         passphrase = generate_passphrase()
-        print(f"[+] Generating source passphrase: {passphrase.hex()}")
+        print(f"[+] New submission passphrase: {passphrase.hex()}")
 
-        # Load the trust chain (root public key, intermediate public key signature
-        # and intermediate pulic key)
-        intermediate_verifying_key = pki.verify_root_intermediate()
-        # A demo message
-        message = "source message submission demo"
-        # And send the submission to all journalists
-        send_submission(intermediate_verifying_key, passphrase, message)
-    else:
-        passphrase = bytes.fromhex(sys.argv[1])
+        attachments = []
+        send_submission(intermediate_verifying_key, passphrase, args.message, attachments)
 
-        messages_list = fetch_messages_source(passphrase)
+    elif args.passphrase and args.action == "fetch":
+        # Different from the journo side: we first parse the passphrase
+        # and pass it to a different function where the challenge key will be derived
+        passphrase = bytes.fromhex(args.passphrase)
+
+        source_chal_key = derive_key(passphrase, "challenge_key-")
+
+        messages_list = commons.fetch_messages_id(source_chal_key)
+
+        nmessages = len(messages_list)
+
+        if nmessages > 0:
+            print(f"[+] Found {nmessages} message(s)")
+            for message_id in messages_list:
+                print(f"\t{message_id}")
+            print()
+        else:
+            print("[-] There are no messages")
+            print()
+
+    elif args.passphrase and args.action in ["read", "reply"]:
+        if not args.id:
+            print("[-] Please specify a message id using -i")
+            return -1
+
+        passphrase = bytes.fromhex(args.passphrase)
+        message_id = args.id
+        message = commons.get_message(message_id)
         source_key = derive_key(passphrase, "source_key-")
+        message_plaintext = commons.decrypt_message_ciphertext(source_key,
+                                                               message["message_public_key"],
+                                                               message["message_ciphertext"])
 
-        if messages_list:
-            for message in messages_list:
-                # Decrypt every message building a shared encryption key using
-                # the source long term key and the ephemeral per-message public key
-                # This is the sad bit where, even if one of the two keys is ephemeral,
-                # the other is not and thus no forward secrecy.
-                plaintext_message = commons.decrypt_message_ciphertext(source_key,
-                                                                       message["message_public_key"],
-                                                                       message["message_ciphertext"])
-                print("---BEGIN JOURNALIST REPLY---")
-                print(f"\t\tMessage: {plaintext_message['message']}")
-                print(f"\t\tTimestamp: {plaintext_message['timestamp']}")
-                print(f"\t\tJournalist UID: {plaintext_message['sender']}")
-                print("---END JOURNALIST REPLY---")
+        if args.action == "read" and message_plaintext:
+            print(f"[+] Successfully decrypted message {message_id}")
+            print()
+            print(f"\tID: {message_id}")
+            print(f"\tFrom: {message_plaintext['sender']}")
+            print(f"\tDate: {datetime.fromtimestamp(message_plaintext['timestamp'])}")
+            print(f"\tText: {message_plaintext['message']}")
+            print()
+
+        elif args.action == "reply":
+            if not args.message:
+                print("[-] Please specify a text message using -m")
+                return -1
+            send_submission(intermediate_verifying_key, passphrase, args.message, None)
+
+    elif args.action == "delete":
+        message_id = args.id
+        commons.delete_message(message_id)
+        print(f"[+] Message {message_id} deleted")
+        print()
+
+    else:
+        print("[-] Invalid arguments combination")
 
 
-main()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--passphrase", help="Source passphrase if returning")
+    parser.add_argument("-a", "--action", help="Action to perform", default="fetch", choices=["fetch", "read", "reply", "submit", "delete"], required=True)
+    parser.add_argument("-i", "--id", help="Message id")
+    parser.add_argument("-m", "--message", help="Plaintext message content for submissions or replies")
+    parser.add_argument("-f", "--files", nargs="+", help="List of local files to submit")
+    args = parser.parse_args()
+    main(args)

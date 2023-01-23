@@ -1,6 +1,7 @@
 import argparse
 import json
 from base64 import b64encode
+from datetime import datetime
 from os import listdir
 from time import time
 
@@ -42,7 +43,7 @@ def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 
 # Try all the ephemeral keys to build an encryption shared secret to decrypt a message.
 # This is inefficient, but on an actual implementation we would discard already used keys
-def decrypt_messages(ephemeral_keys, message):
+def decrypt_message(ephemeral_keys, message):
     for ephemeral_key in ephemeral_keys:
         message_plaintext = commons.decrypt_message_ciphertext(
             ephemeral_key, message["message_public_key"],
@@ -102,7 +103,7 @@ def main(args):
         nmessages = len(messages_list)
 
         if nmessages > 0:
-            print(f"[+] Found {nmessages} messages")
+            print(f"[+] Found {nmessages} message(s)")
             for message_id in messages_list:
                 print(f"\t{message_id}")
             print()
@@ -114,36 +115,31 @@ def main(args):
         message_id = args.id
         message = commons.get_message(message_id)
         ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
-        plaintext_messages = decrypt_messages(ephemeral_keys, message)
-        print(plaintext_messages)
+        message_plaintext = decrypt_message(ephemeral_keys, message)
+
+        if message_plaintext:
+            print(f"[+] Successfully decrypted message {message_id}")
+            print()
+            print(f"\tID: {message_id}")
+            #print(f"\tFrom: {message_plaintext['sender']}")
+            print(f"\tDate: {datetime.fromtimestamp(message_plaintext['timestamp'])}")
+            for attachment in message_plaintext["attachments"]:
+                print(f"\tAttachment: {attachment['name']}")
+            print(f"\tText: {message_plaintext['message']}")
+            print()
 
     elif args.action == "reply":
-        pass
+        message_id = args.id
+        message = commons.get_message(message_id)
+        ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
+        message_plaintext = decrypt_message(ephemeral_keys, message)
+        journalist_reply(message_plaintext, args.message, journalist_uid)
 
     elif args.action == "delete":
-        pass
-
-
-'''
-    if messages_list:
-        # Load all the ephemeral keys back
-        ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
-
-        # Try to decrypt with the loaded ephemeral keys
-        plaintext_messages = decrypt_messages(ephemeral_keys, messages_list)
-
-        # Print the plaintext messages
-        print("[+] Got submissions :)")
-        for plaintext_message in plaintext_messages:
-            print("---BEGIN SUBMISSION---")
-            print(f"\t\tMessage: {plaintext_message['message']}")
-            print(f"\t\tTimestamp: {plaintext_message['timestamp']}")
-            print(f"\t\tSource Public Key (encryption): {plaintext_message['source_encryption_public_key']}")
-            print("---END SUBMISSION---")
-
-            # Send a reply to each message for demo purposes
-            journalist_reply(plaintext_message, "message reply :)", journalist_uid)
-'''
+        message_id = args.id
+        commons.delete_message(message_id)
+        print(f"[+] Message {message_id} deleted")
+        print()
 
 
 if __name__ == '__main__':
