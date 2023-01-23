@@ -83,13 +83,14 @@ def main(args):
         print(f"[+] New submission passphrase: {passphrase.hex()}")
 
         attachments = []
-        for file in args.files:
-            attachment = commons.upload_attachment(file)
-            if attachment:
-                attachments.append(attachment)
-            else:
-                print(f"[-] Failed attaching {file}")
-                return -1
+        if args.files:
+            for file in args.files:
+                attachment = commons.upload_attachment(file)
+                if attachment:
+                    attachments.append(attachment)
+                else:
+                    print(f"[-] Failed attaching {file}")
+                    return -1
 
         send_submission(intermediate_verifying_key, passphrase, args.message, attachments)
 
