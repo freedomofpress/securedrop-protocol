@@ -44,17 +44,20 @@ options:
                         Plaintext message content for submissions or replies
   -f FILES [FILES ...], --files FILES [FILES ...]
                         List of local files to submit
+
 ```
 
 #### Send a submission (without attachments)
 ```
 # python3 source.py -a submit -m "My first contact message with a newsroom :)"
 [+] New submission passphrase: 23a90f6499c5f3bc630e7103a4e63c131a8248c1ae5223541660b7bcbda8b2a9
+
 ```
 #### Send a submission (with attachments)
 ```
 # python3 source.py -a submit -m "My first contact message with a newsroom with collected evidences and a supporting video :)" -f /tmp/secret_files/file1.mkv /tmp/secret_files/file2.zip 
 [+] New submission passphrase: c2cf422563cd2dc2813150faf2f40cf6c2032e3be6d57d1cd4737c70925743f6
+
 ```
 #### Fetch replies
 
@@ -62,7 +65,6 @@ options:
 # python3 source.py -p 23a90f6499c5f3bc630e7103a4e63c131a8248c1ae5223541660b7bcbda8b2a9 -a fetch
 [+] Found 1 message(s)
     de55e92ca3d89de37855cea52e77c182111ca3fd00cf623a11c1f41ceb2a19ca
-
 
 ```
 
@@ -77,7 +79,6 @@ options:
     Date: 2023-01-23 23:42:14
     Text: This is a reply to the message without attachments, it is identified only by the id
 
-
 ```
 
 #### Send an additional reply
@@ -91,6 +92,7 @@ options:
 ```
 # python3 source.py -p 23a90f6499c5f3bc630e7103a4e63c131a8248c1ae5223541660b7bcbda8b2a9 -a delete -i de55e92ca3d89de37855cea52e77c182111ca3fd00cf623a11c1f41ceb2a19ca
 [+] Message de55e92ca3d89de37855cea52e77c182111ca3fd00cf623a11c1f41ceb2a19ca deleted
+
 ```
 
 ### Journalist
@@ -130,7 +132,6 @@ options:
     Date: 2023-01-23 23:37:15
     Text: My first contact message with a newsroom :)
 
-
 ```
 
 #### Read a submission/reply (with attachments)
@@ -158,7 +159,6 @@ options:
 ```
 python3 journalist.py -j 7 -a delete -i 1216789eab54869259e168b02825151b665f04b0b9f01f654c913e3bbea1f627
 [+] Message 1216789eab54869259e168b02825151b665f04b0b9f01f654c913e3bbea1f627 deleted
-
 
 ```
 
