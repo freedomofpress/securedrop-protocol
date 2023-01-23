@@ -21,23 +21,10 @@ FLASK_DEBUG=1 flask --app server run
 
 Impersonate the journalists and generate ephemeral keys for each of them. Upload all the public keys and their signature to the server.
 ```
-for i in $(seq 0 9); do python3 journalist.py $i; done;
+for i in $(seq 0 9); do python3 journalist.py -j $i -a upload_keys; done;
 ```
 
-Send a message from the source to all journalists:
-```
-python3 source.py
-```
-
-Check the message from a journalist (0..9) and reply:
-```
-python3 journalist.py 7
-```
-
-Check the submission reply on the source side:
-```
-python3 source.py <source_passphrase>
-```
+_Following CLI refactoring instructions need a refactor as well_
 
 ## Demo instructions
 
