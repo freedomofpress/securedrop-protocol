@@ -309,17 +309,20 @@ options:
  * **FPF**:
      * *FPF<sub>SK</sub>, FPF<sub>PK</sub> = G()* - FPF generates a random keypair (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes)
 
-    _FPF_ pins FPF<sub>PK</sub> in the Journalist client, in the Source client and in the Server code.
+    **FPF** pins *FPF<sub>PK</sub>* in the **Journalist** client, in the **Source** client and in the **Server** code.
 
  * **Newsroom**:
      * *NR<sub>SK</sub>, NR<sub>PK</sub> = G()* - Newsroom generates a random keypair with similar security of the FPF one
      * *sig<sub>NR</sub> = Sig(FPF<sub>SK</sub>, NR<sub>PK</sub>)* - Newsroom sends a CSR or the public key to FPF for signing
 
-    _Newsroom_ pins NR<sub>PK</sub> in the server during initial server setup.
+    **Newsroom** pins *NR<sub>PK</sub>* in the **Server** during initial server setup.
 
- * **Journalist**:
+ * **Journalist [0-n]**:
      * *J<sub>SK</sub>, J<sub>PK</sub> = G()* - Journalist generates the long-term signing key randomly
      * *sig<sub>J</sub> = Sig(NR<sub>SK</sub>, J<sub>PK</sub>)* - Journalist sends a CSR or the public key to the Newsroom admin/managers for signing
      * *JC<sub>SK</sub>, JC<sub>PK</sub> = G()* - Journalist generate the long-term challenge key randomly
      * *sig<sub>JC</sub> = Sig(J<sub>SK</sub>, JC<sub>PK</sub>)* - Journalist signs the long-term challenge key with the long-term signing key
-     
+     * *JE<sup>[0-n]</sup><sub>SK</sub>, JE<sup>{0-n}</sup><sub>PK</sub> = G()* - Journalist generates a number *n* of ephemeral key agreement keys randomly
+     * *sig<sup>[0-n]</sup><sub>JE</sub>* - Journalist individually signs the ephemeral key agreement keys (TODO: add key hard expiration)
+
+    *Journalist* sends **JE<sub>PK</sub>**, **sig<sub>JE</sub>** and *sig<sup>[0-n]</sup><sub>JE</sub>* to **Server** which verifies and publishes them.
