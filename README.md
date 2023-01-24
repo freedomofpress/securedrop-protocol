@@ -324,11 +324,20 @@ options:
  * **Journalist [0-n]**:
      | Operation | Description |
      |---|---|
-     | *J<sub>SK</sub>, J<sub>PK</sub> = G()* - Journalist generates the long-term signing key randomly |
+     | *J<sub>SK</sub>, J<sub>PK</sub> = G()* | Journalist generates the long-term signing key randomly |
      | *sig<sub>J</sub> = Sig(NR<sub>SK</sub>, J<sub>PK</sub>)* | Journalist sends a CSR or the public key to the Newsroom admin/managers for signing |
      | *JC<sub>SK</sub>, JC<sub>PK</sub> = G()* | Journalist generate the long-term challenge key randomly |
      | *sig<sub>JC</sub> = Sig(J<sub>SK</sub>, JC<sub>PK</sub>)* | Journalist signs the long-term challenge key with the long-term signing key |
-     | *JE<sup>[0-n]</sup><sub>SK</sub>, JE<sup>[0-n]</sup><sub>PK</sub> = G()* - Journalist generates a number *n* of ephemeral key agreement keys randomly |
+     | *JE<sup>[0-n]</sup><sub>SK</sub>, JE<sup>[0-n]</sup><sub>PK</sub> = G()* | Journalist generates a number *n* of ephemeral key agreement keys randomly |
      | *sig<sup>[0-n]</sup><sub>JE</sub> = Sig(J<sub>SK</sub>, JE<sup>[0-n]</sup><sub>PK</sub>)* | Journalist individually signs the ephemeral key agreement keys (TODO: add key hard expiration) |
 
-    *Journalist* sends **JE<sub>PK</sub>**, **sig<sub>JE</sub>** and *sig<sup>[0-n]</sup><sub>JE</sub>* to **Server** which verifies and publishes them.
+    **Journalist** sends *JE<sub>PK</sub>*, *sig<sub>JE</sub>* and *sig<sup>[0-n]</sup><sub>JE</sub>* to **Server** which verifies and publishes them.
+
+ * **Source [0-m]**:
+     | Operation | Description |
+     |---|---|
+     | *PW* = G() | Source generates a secure passphrase which is the only state available to clients|
+     | *S<sub>SK</sub>, S<sub>PK</sub> = G(KDF(encryption_salt \|\| PW))* | Source deterministically generates the long-term key agreement keypair using a specific hardcoded salt |
+     | *SC<sub>SK</sub>, SC<sub>PK</sub> = G(KDF(challenge_salt \|\| PW))* | Source deterministically generates the long-term challenge keypair using a specific hardcoded salt |
+
+    **Source** does not need to publish anything until the first submission is sent.
