@@ -196,7 +196,7 @@ def send():
     return {"status": "OK"}, 200
 
 
-@app.route("/get_challenges", methods=["GET"])
+@app.route("/challenge", methods=["GET"])
 def get_messages_challenge():
     # SERVER EPHEMERAL CHALLENGE KEY
     request_ephemeral_key = SigningKey.generate(curve=commons.CURVE)
@@ -234,7 +234,7 @@ def get_messages_challenge():
     return response_dict, 200
 
 
-@app.route("/send_responses/<challenge_id>", methods=["POST"])
+@app.route("/challenge/<challenge_id>", methods=["POST"])
 def send_message_challenges_response(challenge_id):
     # retrieve the challenge secret key from the challenge id in redis
     request_ephemeral_key_bytes = redis.get(f"challenge:{challenge_id}")

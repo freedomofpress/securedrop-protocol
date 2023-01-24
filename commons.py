@@ -167,14 +167,14 @@ def get_file(file_id):
 
 
 def get_challenges():
-    response = requests.get(f"http://{SERVER}/get_challenges")
+    response = requests.get(f"http://{SERVER}/challenge")
     assert (response.status_code == 200)
     return response.json()["challenge_id"], response.json()["message_challenges"]
 
 
 def send_messages_challenges_responses(challenge_id, message_challenges_responses):
     message_challenges_responses_dict = {"message_challenges_responses": message_challenges_responses}
-    response = requests.post(f"http://{SERVER}/send_responses/{challenge_id}",
+    response = requests.post(f"http://{SERVER}/challenge/{challenge_id}",
                              json=message_challenges_responses_dict)
     if response.status_code != 200:
         return False
