@@ -202,7 +202,7 @@ options:
 #### Delete a message
 
 ```
-python3 journalist.py -j 7 -a delete -i 1216789eab54869259e168b02825151b665f04b0b9f01f654c913e3bbea1f627
+# python3 journalist.py -j 7 -a delete -i 1216789eab54869259e168b02825151b665f04b0b9f01f654c913e3bbea1f627
 [+] Message 1216789eab54869259e168b02825151b665f04b0b9f01f654c913e3bbea1f627 deleted
 
 ```
@@ -218,6 +218,54 @@ python3 journalist.py -j 7 -a delete -i 1216789eab54869259e168b02825151b665f04b0
   * **Server**: For this project a server might be a physical dedicated server housed in a trusted location, a physical server in an untrusted location, or a virtual server in a trusted or untrusted context. Besides the initial setup, all the connection to the server have to happen though the Tor Hidden Service Protocol. However, we can expect that a powerful attacker can find the server location and provider (through financial records, legal orders, deanonymization attacks, logs of the setup phase).
 
 ## Threat model
+ * *FPF*
+     * Is generally trusted
+     * Is based in the US
+     * Might get compromised technically
+     * Might get compromised legally
+     * Develop all the components ans signs them
+     * Enrolls newsrooms
+
+ * *Newsroom*
+     * Is generally trusted
+     * Can be based anywhere
+     * Might get compromised legally
+     * Might get compromised technically
+     * Manage a server instance
+     * Enrolls journalists
+
+ * *Server*
+     * Is generally untrusted
+     * Compromise require effort
+     * There might be backup and snapshots from every point in time
+     * RAM might be silently read
+     * Managed and paid for by *Newsroom* or third party for them 
+
+ * *Journalist*
+     * Number can vary per *Newsroom*
+     * Is generally trusted
+     * Can travel
+     * Physical and endpoint security depends on the workstation and client; out of scope here
+     * Can be compromised occasionally
+     * Read submissions
+     * Reply to submissions
+     * Identity id generally known
+
+ * *Source*:
+     * Is completely untrusted
+     * Anybody can be a source at anytime
+     * Identity is secret
+     * Can read journalist replies to them
+     * Can send messages to journalists
+     * Can attach files
+
+ * *Submission*:
+     * Always from source to journalist
+     * Generally specific for a single instance
+     * Can be anything
+     * Content is secret
+     * Origin is secret
+
 
 ## Keys summary
  * **FPF**:
