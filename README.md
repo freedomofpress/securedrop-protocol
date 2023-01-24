@@ -320,6 +320,18 @@ options:
 ## Server endpoints
 All endpoints do not require authentication or sessions. The only data store is Redis for more objects and is schema-less. Encrypted file chinks are stored to disk. No database bootstrap is required.
 ### /journalists
+
+**Legend**:
+
+| JSON Name | Value |
+|---|---|
+|`count` | Number of returned enrolled *Journalists*. |
+|`journalist_key` | *base64(J<sub>PK</sub>)* |
+|`journalist_sig` | *base64(sig<sub>J</sub>)* |
+|`journalist_chal_key` | *base64(JC<sub>PK</sub>)* |
+|`journalist_chal_sig` | *base64(sig<sub>JC</sub>)* |
+|`journalist_uid` | *hex(H(J<sub>PK</sub>))* |
+
 #### POST
 Adds *Newsroom* signed *Journalist* to the *Server*.
 ```
@@ -331,20 +343,38 @@ curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/journali
     "journalist_chal_sig": <journalist_chal_sig>
 }
 ```
+```
+200 OK
+```
 
 The server checks for proper signature using *NR<sub>PK</sub>*. If both signatures are valid, the request fields are added to the `journalists` Redis *set*.
 
-| JSON Name | Value |
-|---|---|
-|`journalist_key` | *J<sub>PK</sub>& |
-|`journalist_sig` | *sig<sub>J</sub>* |
-|`journalist_chal_key` | *JC<sub>PK</sub>* |
-|`journalist_chal_sig` | *sig<sub>JC</sub>* |
-
 #### GET
+Gets the journalists enrolled in *Newsroom* and published in the *Server*.
+The *Journalist* UID is a hex encoded hash of the Journalist long-term signing key.
 
+```
+curl -X GET "http://127.0.0.1:5000/journalists"
+```
+```
+200 OK
+{
+  "count": <count>,
+  "journalists": [
+    {
+      "journalist_chal_key": <journalist_chal_key>,
+      "journalist_chal_sig": <journalist_chal_sig>,
+      "journalist_key": <journalist_key>,
+      "journalist_sig": <journalist_sig>,
+      "journalist_uid": <journalist_uid>
+    },
+    ...
+  ]
+}
+```
 
 #### DELETE (TODO)
+*Not implemented yet. A Newsroom shall be able to remove Journalists.*
 
 ### /ephemeral_keys
 #### POST
