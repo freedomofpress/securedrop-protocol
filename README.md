@@ -302,14 +302,24 @@ options:
 | *k = KDF(m)* | Derive a key *k* from message *m* |
 | *SK, PK = G(s)* | Generate a private key *SK* public key *PK* pair using seed *s*; if seed is empty generation is securely random |
 | *sig = Sig(SK, m)* | Create signature *sig* using *SK* as the signer key and *m* as the signed message |
-| *k = DH(A<sub>SK</sub>, B<sub>PK</sub>) == DH(A<sub>PK</sub>, B<sub>SK</sub>)* | Generate shared key *k* using a key agreement pritimitive |
+| *k = DH(A<sub>SK</sub>, B<sub>PK</sub>) == DH(A<sub>PK</sub>, B<sub>SK</sub>)* | Generate shared key *k* using a key agreement primitive |
 
 ## Initial Trust Chain Setup
 
  * **FPF**:
      * *FPF<sub>SK</sub>, FPF<sub>PK</sub> = G()* - FPF generates a random keypair (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes)
 
+    _FPF_ pins FPF<sub>PK</sub> in the Journalist client, in the Source client and in the Server code.
+
  * **Newsroom**:
      * *NR<sub>SK</sub>, NR<sub>PK</sub> = G()* - Newsroom generates a random keypair with similar security of the FPF one
      * *sig<sub>NR</sub> = Sig(FPF<sub>SK</sub>, NR<sub>PK</sub>)* - Newsroom sends a CSR or the public key to FPF for signing
 
+    _Newsroom_ pins NR<sub>PK</sub> in the server during initial server setup.
+
+ * **Journalist**:
+     * *J<sub>SK</sub>, J<sub>PK</sub> = G()* - Journalist generates the long-term signing key randomly
+     * *sig<sub>J</sub> = Sig(NR<sub>SK</sub>, J<sub>PK</sub>)* - Journalist sends a CSR or the public key to the Newsroom admin/managers for signing
+     * *JC<sub>SK</sub>, JC<sub>PK</sub> = G()* - Journalist generate the long-term challenge key randomly
+     * *sig<sub>JC</sub> = Sig(J<sub>SK</sub>, JC<sub>PK</sub>)* - Journalist signs the long-term challenge key with the long-term signing key
+     
