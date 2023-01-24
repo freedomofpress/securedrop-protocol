@@ -95,7 +95,10 @@ def main(args):
         # Check if there are messages
         messages_list = commons.fetch_messages_id(journalist_chal_key)
 
-        nmessages = len(messages_list)
+        try:
+            nmessages = len(messages_list)
+        except Exception:
+            nmessages = 0
 
         if nmessages > 0:
             print(f"[+] Found {nmessages} message(s)")
@@ -114,11 +117,14 @@ def main(args):
 
         if message_plaintext:
             # Create a download folder if we have attachments
-            if len(message_plaintext["attachments"]) > 0:
+            if (message_plaintext["attachments"] and
+               len(message_plaintext["attachments"]) > 0):
                 try:
                     mkdir('downloads/')
                 except Exception:
                     pass
+            else:
+                message_plaintext["attachments"] = []
 
             print(f"[+] Successfully decrypted message {message_id}")
             print()
