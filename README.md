@@ -369,18 +369,68 @@ curl -X GET "http://127.0.0.1:5000/journalists"
       "journalist_uid": <journalist_uid>
     },
     ...
-  ]
+  ],
+  "status": "OK"
 }
 ```
 
 #### DELETE (TODO)
-*Not implemented yet. A Newsroom shall be able to remove Journalists.*
+*Not implemented yet. A Newsroom must be able to remove Journalists.*
 
 ### /ephemeral_keys
-#### POST
-#### GET
-#### DELETE (TODO)
 
+**Legend**:
+
+| JSON Name | Value |
+|---|---|
+|`count` | Number of returned ephemeral keys. It should match the number of *Journalists*. If it does not, a specific *Journalist* bucket might be out of keys. |
+|`ephemeral_key` | *base64(JE<sub>PK</sub>)* |
+|`ephemeral_sig` | *base64(sig<sub>JE</sub>)* |
+|`journalist_uid` | *hex(H(J<sub>PK</sub>))* |
+
+
+#### POST
+Adds *n* *Journalist* signed ephemeral key agreement keys to Server.
+The keys are stored is a Redis *set* specific per *Journalist*, which key is `journalist:<journalist_uid>`. In the demo implementation, the number of ephemeral keys to generate and upload each time is `ONETIMEKEYS`. 
+
+```
+curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/ephemeral_keys"
+{
+  "journalist_uid": <journalist_uid>,
+  "ephemeral_keys": [
+    {
+      "ephemeral_key": <ephemeral_key>,  
+      "epheneral_sig": <ephemeral_sig>
+    },
+    ...
+  ]
+}
+```
+```
+200 OK
+```
+#### GET
+The server pops a random ephemeral_key from every enrolled journalist bucket and returns it. The `pop` operation effectively removes the returned keys from the corresponding *Journalist* bucket.
+```
+curl http://127.0.0.1:5000/ephemeral_keys
+```
+```
+200 OK
+{
+  "count": <count>,
+  "ephemeral_keys": [
+    {
+      "ephemeral_key": <ephemeral_key>,
+      "ephemeral_sig": <ephemeral_sig>,
+      "journalist_uid": <journalist_uid>
+    },
+    ...
+  ],
+  "status": "OK"
+
+```
+#### DELETE (TODO)
+*Not implemented yet. A Journalist shall be able to revoke keys from the server.*
 ### /challenge/[challenge_id]
 #### GET
 #### POST
