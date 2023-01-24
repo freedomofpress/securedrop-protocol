@@ -302,10 +302,13 @@ options:
 | *k = KDF(m)* | Derive a key *k* from message *m* |
 | *SK, PK = G(s)* | Generate a private key *SK* public key *PK* pair using seed *s*; if seed is empty generation is securely random |
 | *sig = Sig(SK, m)* | Create signature *sig* using *SK* as the signer key and *m* as the signed message |
+| *k = DH(A<sub>SK</sub>, B<sub>PK</sub>) == DH(A<sub>PK</sub>, B<sub>SK</sub>)* | Generate shared key *k* using a key agreement pritimitive |
 
 ## Initial Trust Chain Setup
+
  * **FPF**:
      * *FPF<sub>SK</sub>, FPF<sub>PK</sub> = G()* - FPF generates a random keypair (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes)
+
  * **Newsroom**:
      * *NR<sub>SK</sub>, NR<sub>PK</sub> = G()* - Newsroom generates a random keypair with similar security of the FPF one
      * *sig<sub>NR</sub> = Sig(FPF<sub>SK</sub>, NR<sub>PK</sub>)* - Newsroom sends a CSR or the public key to FPF for signing
