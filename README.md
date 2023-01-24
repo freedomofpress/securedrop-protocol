@@ -10,41 +10,16 @@
 ## Config
 In `commons.py` there are the following configuration values which are global for all components, even though of course not everybody need all of them.
 
-```
-# The url the flask srever listens on; used by both the journalist and the source clients
-# Components: [source, journalist]
-SERVER = "127.0.0.1:5000"
-# The folder where everybody will load the keys from. There is no separation for demo simplicity
-# of course in an actual implementation, everybody will only have their keys and the
-# required public one to ensure the trust chain
-# Components: [server, source, journalist]
-DIR = "keys/"
-# Where the flask server will store uploaded files
-# Components: [server]
-UPLOADS = "files/"
-# How many journalists do we create and enroll. In general, this is realistic, in current
-# securedrop usage it is way less. For demo purposes everybody knows it, in a real scenario
-# it would not be needed.
-Components: [server, source]
-JOURNALISTS = 10
-# How many ephemeral keys each journalist create, sign and auploads when required
-Components: [journalist] 
-ONETIMEKEYS = 30
-# The curve for all elliptic curve operations. It must be imported first from the python-ecdsa
-# library. Ed25519 and Ed448, although supported by the lib, are not fully implemented
-# Components: [server, source, journalist]
-CURVE = NIST384p
-# How may challenges the server sends to each party when they try to fetch messages
-# This basically must be more than the msssages in the database, otherwise we need
-# to develop a mechanism to group challenges adding some bits of metadata
-# Components: [server]
-CHALLENGES = 500
-# The base size of every parts in which attachment are splitted/padded to. This
-# is not the actual size on disk, cause thet will be a bit more depending on
-# the nacl SecretBox implementation
-# Components: [source]
-CHUNK = 512 * 1024
-```
+| Variable | Value | Components | Description |
+|---|---|---|---|
+| `SERVER` | `127.0.0.1:5000` | source, journalist | The url the Flask srever listens on; used by both the journalist and the source clients. |
+| `DIR` | `keys/` | server, source, journalist | The folder where everybody will load the keys from. There is no separation for demo simplicity of course in an actual implementation, everybody will only have their keys and the required public one to ensure the trust chain. |
+| `UPLOADS` | `files/` | server | The folder where the Flask server will store uploaded files
+| `JOURNALISTS` | `10` | server, source |  How many journalists do we create and enroll. In general, this is realistic, in current SecureDrop usage it is way less. For demo purposes everybody knows it, in a real scenario it would not be needed. |
+| `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist create, sign and uploads when required. |
+| `CURVE` | `NIST384p` | server, source, journalist | The curve for all elliptic curve operations. It must be imported first from the python-ecdsa library. Ed25519 and Ed448, although supported by the lib, are not fully implemented. |
+| `CHALLENGES` | `500` | server | How may challenges the server sends to each party when they try to fetch messages. This basically must be more than the msssages in the database, otherwise we need to develop a mechanism to group challenges adding some bits of metadata. |
+| `CHUNK` | `512 * 1024` | source | The base size of every parts in which attachment are splitted/padded to. This is not the actual size on disk, cause thet will be a bit more depending on the nacl SecretBox implementation. |
 
 ## Installation (Qubes)
 Install dependencies and create the virtual environment.
@@ -321,7 +296,7 @@ options:
 
     **Newsroom** pins *NR<sub>PK</sub>* in the **Server** during initial server setup.
 
- * **Journalist [0-n]**:
+ * **Journalist [0-i]**:
      | Operation | Description |
      |---|---|
      | *J<sub>SK</sub>, J<sub>PK</sub> = G()* | Journalist generates the long-term signing key randomly |
@@ -331,9 +306,9 @@ options:
      | *JE<sup>[0-n]</sup><sub>SK</sub>, JE<sup>[0-n]</sup><sub>PK</sub> = G()* | Journalist generates a number *n* of ephemeral key agreement keys randomly |
      | *sig<sup>[0-n]</sup><sub>JE</sub> = Sig(J<sub>SK</sub>, JE<sup>[0-n]</sup><sub>PK</sub>)* | Journalist individually signs the ephemeral key agreement keys (TODO: add key hard expiration) |
 
-    **Journalist** sends *JE<sub>PK</sub>*, *sig<sub>JE</sub>* and *sig<sup>[0-n]</sup><sub>JE</sub>* to **Server** which verifies and publishes them.
+    **Journalist** sends *J<sub>PK</sub>*, *sig<sub>J</sub>*, *JE<sup>[0-n]</sup><sub>PK</sub>* and *sig<sup>[0-n]</sup><sub>JE</sub>* to **Server** which verifies and publishes them.
 
- * **Source [0-m]**:
+ * **Source [0-j]**:
      | Operation | Description |
      |---|---|
      | *PW* = G() | Source generates a secure passphrase which is the only state available to clients|
@@ -341,3 +316,28 @@ options:
      | *SC<sub>SK</sub>, SC<sub>PK</sub> = G(KDF(challenge_salt \|\| PW))* | Source deterministically generates the long-term challenge keypair using a specific hardcoded salt |
 
     **Source** does not need to publish anything until the first submission is sent.
+
+## Server endpoints
+### /journalists
+#### POST
+#### GET
+#### DELETE (TODO)
+
+### /ephemeral_keys
+#### POST
+#### GET
+#### DELETE (TODO)
+
+### /challenge/[challenge_id]
+#### GET
+#### POST
+
+### /message/[message_id]
+#### POST
+#### GET
+#### DELETE
+
+### /file/[file_id]
+#### POST
+#### GET
+#### DELETE
