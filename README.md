@@ -318,9 +318,32 @@ options:
     **Source** does not need to publish anything until the first submission is sent.
 
 ## Server endpoints
+All endpoints do not require authentication or sessions. The only data store is Redis for more objects and is schema-less. Encrypted file chinks are stored to disk. No database bootstrap is required.
 ### /journalists
 #### POST
+Adds *Newsroom* signed *Journalist* to the *Server*.
+```
+curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/journalists"
+{
+    "journalist_key": <journalist_key>,
+    "journalist_sig": <journalist_sig>,
+    "journalist_chal_key": <journalist_chal_key>,
+    "journalist_chal_sig": <journalist_chal_sig>
+}
+```
+
+The server checks for proper signature using *NR<sub>PK</sub>*. If both signatures are valid, the request fields are added to the `journalists` Redis *set*.
+
+| JSON Name | Value |
+|---|---|
+|`journalist_key` | *J<sub>PK</sub>& |
+|`journalist_sig` | *sig<sub>J</sub>* |
+|`journalist_chal_key` | *JC<sub>PK</sub>* |
+|`journalist_chal_sig` | *sig<sub>JC</sub>* |
+
 #### GET
+
+
 #### DELETE (TODO)
 
 ### /ephemeral_keys
