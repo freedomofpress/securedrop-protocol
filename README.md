@@ -12,14 +12,14 @@ In `commons.py` there are the following configuration values which are global fo
 
 | Variable | Value | Components | Description |
 |---|---|---|---|
-| `SERVER` | `127.0.0.1:5000` | source, journalist | The url the Flask srever listens on; used by both the journalist and the source clients. |
+| `SERVER` | `127.0.0.1:5000` | source, journalist | The URL the Flask server listens on; used by both the journalist and the source clients. |
 | `DIR` | `keys/` | server, source, journalist | The folder where everybody will load the keys from. There is no separation for demo simplicity of course in an actual implementation, everybody will only have their keys and the required public one to ensure the trust chain. |
 | `UPLOADS` | `files/` | server | The folder where the Flask server will store uploaded files
 | `JOURNALISTS` | `10` | server, source |  How many journalists do we create and enroll. In general, this is realistic, in current SecureDrop usage it is way less. For demo purposes everybody knows it, in a real scenario it would not be needed. |
 | `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist create, sign and uploads when required. |
 | `CURVE` | `NIST384p` | server, source, journalist | The curve for all elliptic curve operations. It must be imported first from the python-ecdsa library. Ed25519 and Ed448, although supported by the lib, are not fully implemented. |
-| `CHALLENGES` | `500` | server | How may challenges the server sends to each party when they try to fetch messages. This basically must be more than the msssages in the database, otherwise we need to develop a mechanism to group challenges adding some bits of metadata. |
-| `CHUNK` | `512 * 1024` | source | The base size of every parts in which attachment are splitted/padded to. This is not the actual size on disk, cause thet will be a bit more depending on the nacl SecretBox implementation. |
+| `CHALLENGES` | `500` | server | How may challenges the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group challenges adding some bits of metadata. |
+| `CHUNK` | `512 * 1024` | source | The base size of every parts in which attachment are split/padded to. This is not the actual size on disk, cause that will be a bit more depending on the nacl SecretBox implementation. |
 
 ## Installation (Qubes)
 Install dependencies and create the virtual environment.
@@ -183,14 +183,14 @@ options:
 ```
 
 ## Parties
-  * **Source**: A source is someone who wants to leak a document. A source is unknown prior its first contact. A source may want to send a text message and/or add attachments. The anonymity and safety of the source is vital. The source must use Tor Browser to preserve their anonymity and no persistance shall be required. The highest degree of deniability a source has, the better.
-  * **Journalist(s)**: Journalists are those designated to receive, check and reply to submissions. Journalists are known, or at least the newsroom they work for is known and trusted. Journalists are expected to use the Securedrop Workstation with an ad-hoc client, which has dedicated encrypted storage.
-  * **Newsroom**: A newsroom is the entity responsible or at least with formal ownership of a Securedrop instance. The newsroom is trusted, and is expected to publish their Securedrop instance somewhere, their tips page, their social media channel or wherever they want the necessary outreach. In the traditional model, newsroom are also technically in charge of their own server instances and of journalist enrollment.
-  * **FPF**: FPF is the entity responsible for maintaining and developing Securedrop. FPF can offer additional services, such as dedicated support. FPF has already a leading role, in the context that, while the project is open source, releases and Onion Lists for Tor Browser are signed with FPF keys. However, the full stack must remain completely usable without any FPF involvement or knowledge.
+  * **Source**: A source is someone who wants to leak a document. A source is unknown prior its first contact. A source may want to send a text message and/or add attachments. The anonymity and safety of the source is vital. The source must use Tor Browser to preserve their anonymity and no persistence shall be required. The highest degree of deniability a source has, the better.
+  * **Journalist(s)**: Journalists are those designated to receive, check and reply to submissions. Journalists are known, or at least the newsroom they work for is known and trusted. Journalists are expected to use the SecureDrop Workstation with an ad-hoc client, which has dedicated encrypted storage.
+  * **Newsroom**: A newsroom is the entity responsible or at least with formal ownership of a SecureDrop instance. The newsroom is trusted, and is expected to publish their SecureDrop instance somewhere, their tips page, their social media channel or wherever they want the necessary outreach. In the traditional model, newsroom are also technically in charge of their own server instances and of journalist enrollment.
+  * **FPF**: FPF is the entity responsible for maintaining and developing SecureDrop. FPF can offer additional services, such as dedicated support. FPF has already a leading role, in the context that, while the project is open source, releases and Onion Lists for Tor Browser are signed with FPF keys. However, the full stack must remain completely usable without any FPF involvement or knowledge.
 
 ## Notions
-  * **Keys**: When referring to keys, either symmetric or asymmetric, depending on the context, the key storage backend (ie: the media device) may eventually vary. Especially long term keys can be stored on Hardware Security Modules or Smart Cards, and signing keys might also be a combination of multiple keys with specialy requirements (ie: 3 out of 5 signers)
-  * **Server**: For this project a server might be a physical dedicated server housed in a trusted location, a physical server in an untrusted location, or a virtual server in a trusted or untrusted context. Besides the initial setup, all the connection to the server have to happen though the Tor Hidden Service Protocol. However, we can expect that a powerful attacker can find the server location and provider (through financial records, legal orders, deanonymization attacks, logs of the setup phase).
+  * **Keys**: When referring to keys, either symmetric or asymmetric, depending on the context, the key storage back-end (ie: the media device) may eventually vary. Especially long term keys can be stored on Hardware Security Modules or Smart Cards, and signing keys might also be a combination of multiple keys with special requirements (ie: 3 out of 5 signers)
+  * **Server**: For this project a server might be a physical dedicated server housed in a trusted location, a physical server in an untrusted location, or a virtual server in a trusted or untrusted context. Besides the initial setup, all the connection to the server have to happen though the Tor Hidden Service Protocol. However, we can expect that a powerful attacker can find the server location and provider (through financial records, legal orders, de-anonymization attacks, logs of the setup phase).
 
 ## Threat model
  * *FPF*
@@ -279,19 +279,19 @@ options:
 | *sig = Sig(SK, m)* | Create signature *sig* using *SK* as the signer key and *m* as the signed message |
 | *k = DH(A<sub>SK</sub>, B<sub>PK</sub>) == DH(A<sub>PK</sub>, B<sub>SK</sub>)* | Generate shared key *k* using a key agreement primitive |
 
-## Initial Trust Chain Setup
+## Initial trust chain setup
 
  * **FPF**:
      | Operation | Description |
      |---|---|
-     |*FPF<sub>SK</sub>, FPF<sub>PK</sub> = G()* | FPF generates a random keypair (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes)|
+     |*FPF<sub>SK</sub>, FPF<sub>PK</sub> = G()* | FPF generates a random key-pair (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes)|
 
     **FPF** pins *FPF<sub>PK</sub>* in the **Journalist** client, in the **Source** client and in the **Server** code.
 
  * **Newsroom**:
      | Operation | Description |
      |---|---|
-     |NR<sub>SK</sub>, NR<sub>PK</sub> = G()* | Newsroom generates a random keypair with similar security of the FPF one |
+     |NR<sub>SK</sub>, NR<sub>PK</sub> = G()* | Newsroom generates a random key-pair with similar security of the FPF one |
      | *sig<sub>NR</sub> = Sig(FPF<sub>SK</sub>, NR<sub>PK</sub>)* | Newsroom sends a CSR or the public key to FPF for signing |
 
     **Newsroom** pins *NR<sub>PK</sub>* in the **Server** during initial server setup.
@@ -312,8 +312,8 @@ options:
      | Operation | Description |
      |---|---|
      | *PW* = G() | Source generates a secure passphrase which is the only state available to clients|
-     | *S<sub>SK</sub>, S<sub>PK</sub> = G(KDF(encryption_salt \|\| PW))* | Source deterministically generates the long-term key agreement keypair using a specific hardcoded salt |
-     | *SC<sub>SK</sub>, SC<sub>PK</sub> = G(KDF(challenge_salt \|\| PW))* | Source deterministically generates the long-term challenge keypair using a specific hardcoded salt |
+     | *S<sub>SK</sub>, S<sub>PK</sub> = G(KDF(encryption_salt \|\| PW))* | Source deterministically generates the long-term key agreement key-pair using a specific hard-coded salt |
+     | *SC<sub>SK</sub>, SC<sub>PK</sub> = G(KDF(challenge_salt \|\| PW))* | Source deterministically generates the long-term challenge key-pair using a specific hard-coded salt |
 
     **Source** does not need to publish anything until the first submission is sent.
 
