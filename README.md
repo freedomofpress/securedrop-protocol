@@ -3,6 +3,7 @@ geometry: margin=2cm
 ---
 
 # Next-Gen SecureDrop Research
+
 ## Selling points
  * All messages are equal
  * There are no accounts
@@ -479,7 +480,7 @@ At this point *Source* must have a verified *NR<sub>PK</sub>* and must verify bo
 
 #### POST
 Adds *n* *Journalist* signed ephemeral key agreement keys to Server.
-The keys are stored is a Redis *set* specific per *Journalist*, which key is `journalist:<journalist_uid>`. In the demo implementation, the number of ephemeral keys to generate and upload each time is `ONETIMEKEYS`. 
+The keys are stored is a Redis *set* specific per *Journalist*, which key is `journalist:<journalist_uid>`. In the demo implementation, the number of ephemeral keys to generate and upload each time is `commons.ONETIMEKEYS`. 
 
 ```
 curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/ephemeral_keys" --data
@@ -496,6 +497,9 @@ curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/ephemera
 ```
 ```
 200 OK
+{
+  "status": "OK"
+}
 ```
 #### GET
 The server pops a random ephemeral_key from every enrolled journalist bucket and returns it. The `pop` operation effectively removes the returned keys from the corresponding *Journalist* bucket.
