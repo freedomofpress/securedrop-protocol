@@ -334,18 +334,44 @@ Only a source can initiate a conversation; there are no other choices as sources
  6. *Source* derives *S<sub>PK</sub>, S<sub>SK</sub> = G(KDF(encryption_salt + PW))*
  7. *Source* derives *SC<sub>PK</sub>, SC<sub>SK</sub> = G(KDF(challenge_salt + PW))*
  8. *Source* splits any attachment in parts of size `commons.CHUNKS`. Any chunk smaller is padded to `commons.CHUNKS` size.
- 9. For every *Chunk*
-    - *Source* generate a random key *s = G()*
-    - *Source* encrypts *Chunk* with *s*, *f = E(s, Chunk)*
-    - *Source* uploads chunk to *Server* and obtains a `file_id`
+ 9. For every *Chunk*, *u*
+    - *Source* generate a random key *s<sup>m</sup> = G()*
+    - *Source* encrypts *u<sup>m</sup>* with *s<sup>m</sup>*, *f<sup>m</sup> = E(s<sup>m</sup>, u<sup>m</sup>)*
+    - *Source* uploads *f<sup>m</sup>* to *Server* and obtains a `file_id`
  10. *Source* calculate the shared encryption key using a key agreement protocol *k = DH(SE<sub>SK</sub>, JE<sub>PK</sub>)*
- 11. *Source* adds metadata to message *m*.
+ 11. *Source* adds metadata, *S<sub>PK</sub> and SC<sub>PK</sub> to message *m*.
  12. *Source* adds attachment info to message *m* (all the *s* keys and all the `file_id`)
  13. *Source* pads the resulting text to a fixed size, *mp* (message, metadata, attachments, padding)
  14. *Source* encrypts *mp* using *k*, *c = E(k, mp)*
  15. *Source* calculates the message_challenge (`message_challenge`) *mc =* TODO
  16. *Source* sends *c*, *SE<sub>PK</sub>* and *mc* to server
  17. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *SE<sub>PK</sub>*, *mc*
+
+### Server challenge generation
+
+### Source fetch
+
+### Journalist fetch
+
+### Journalist read
+ 1. *Journalist* fetches from server `message_ciphertext`, *c*, `message_public_key`, *SE<sub>PK</sub>* using `message_id`
+ 2. *Journalist* for every unused ephemeral key *JE<sup>k</sup><sub>SK</sub>*
+     - *Journalist* calculates a tentative shared ancryption key using the key agreemenet protocol *k<sup>k</sup> = DH(JE<sup>k</sup><sub>SK</sub>, SE<sub>PK</sub>)*
+     - *Journalist* tries to decrypt *mp = D(k<sup>k</sup>, c)*
+     - *Journalist* verifies that *mp* decrypted succesfully, if yes exit from the loop
+ 3. *Journalist* removes padding from *mp* and parse message *m*, metadata, and attachment details
+ 4. *Journalist* for every attachment *Chunk*
+     - *Journalist* fetches the encrypted *Chunk* *f<sup>m</sup>* from *Server* using `file_id`
+     - *Journalist* decrypts *f<sup>m</sup>* using *s<sup>m</sup>* *u = D(s<sup>m</sup>, f<sup>m</sup>)*
+     - *Journalist* join *Chunks* according to medatata and saves back the original files
+ 5. *Journalist* read the message *m*
+ 6. *Journalist* eventually deletes the message from the *Server* using `message_id`
+
+### Journalist reply
+
+### Source read
+
+### Source reply
 
 
 ## Server endpoints
