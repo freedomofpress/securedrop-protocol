@@ -338,23 +338,25 @@ Only a source can initiate a conversation; there are no other choices as sources
      - *Source* verifies *sig<sup>i</sup><sub>J</sub>* and *sig<sup>i</sup><sub>JC</sub>* using *NR<sub>PK</sub>*
      - *Source* fetches *JE<sup>ik</sup><sub>PK</sub>* and *sig<sup>ik</sup><sub>JE</sub>* (k is random from the pool of non used, non expired, *Journalist* ephemeral keys)
      - *Source* verifies *sig<sup>ik</sup><sub>JE</sub>* using *JE<sub>PK</sub>*
- 4. *Source* generates *ME<sup>PK</sup>, ME<sup>PK</sup> = G()* (random, per message keys)
- 5. *Source* generates the unique passphrase randomly *PW = G()* (the only state that identify the specific *Source*)
- 6. *Source* derives *S<sub>PK</sub>, S<sub>SK</sub> = G(KDF(encryption_salt + PW))*
- 7. *Source* derives *SC<sub>PK</sub>, SC<sub>SK</sub> = G(KDF(challenge_salt + PW))*
- 8. *Source* splits any attachment in parts of size `commons.CHUNKS`. Any chunk smaller is padded to `commons.CHUNKS` size.
- 9. For every *Chunk*, *u*
+ 4. *Source* generates the unique passphrase randomly *PW = G()* (the only state that identify the specific *Source*)
+ 5. *Source* derives *S<sub>PK</sub>, S<sub>SK</sub> = G(KDF(encryption_salt + PW))*
+ 6. *Source* derives *SC<sub>PK</sub>, SC<sub>SK</sub> = G(KDF(challenge_salt + PW))*
+ 7. *Source* splits any attachment in parts of size `commons.CHUNKS`. Any chunk smaller is padded to `commons.CHUNKS` size.
+ 8. For every *Chunk*, *u*
     - *Source* generate a random key *s<sup>m</sup> = G()*
     - *Source* encrypts *u<sup>m</sup>* with *s<sup>m</sup>*, *f<sup>m</sup> = E(s<sup>m</sup>, u<sup>m</sup>)*
     - *Source* uploads *f<sup>m</sup>* to *Server* and obtains a `file_id`
- 10. *Source* calculate the shared encryption key using a key agreement protocol *k = DH(ME<sub>SK</sub>, JE<sub>PK</sub>)*
- 11. *Source* adds metadata, *S<sub>PK</sub> and SC<sub>PK</sub> to message *m*.
- 12. *Source* adds attachment info to message *m* (all the *s* keys and all the `file_id`)
- 13. *Source* pads the resulting text to a fixed size, *mp* (message, metadata, attachments, padding)
- 14. *Source* encrypts *mp* using *k*, *c = E(k, mp)*
- 15. *Source* calculates the message_challenge (`message_challenge`) *mc =* TODO
- 16. *Source* sends *c*, *ME<sub>PK</sub>* and *mc* to server
- 17. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
+ 9. *Source* adds metadata, *S<sub>PK</sub> and SC<sub>PK</sub> to message *m*.
+ 10. *Source* adds attachment info to message *m* (all the *s* keys and all the `file_id`)
+ 11. *Source* pads the resulting text to a fixed size, *mp* (message, metadata, attachments, padding)
+ 12. *For every *Journalist* (i) in *Newsroom* 
+     - *Source* generates *ME<sup>i</sup><sup>PK</sup>, ME<sup>PK</sup> = G()* (random, per message keys)
+     - *Source* calculates the shared encryption key using a key agreement protocol *k<sup>ik</sup> = DH(ME<sub>SK</sub>, JE<sup>ik</sup><sub>PK</sub>)*
+
+     - *Source* encrypts *mp* using *k<sup>ik*, *c = E(k, mp)*
+     - *Source* calculates the message_challenge (`message_challenge`) *mc =* TODO
+     - *Source* sends *c*, *ME<sub>PK</sub>* and *mc* to server
+     - *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
 
 ### Server challenge generation
  1. *Server* fetches all `message_id`, `message_challenge` and `message_public_key` from Redis
