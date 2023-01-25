@@ -352,11 +352,10 @@ Only a source can initiate a conversation; there are no other choices as sources
  12. For every *Journalist* (i) in *Newsroom* 
      - *Source* generates *ME<sup>i</sup><sup>PK</sup>, ME<sup>PK</sup> = G()* (random, per message keys)
      - *Source* calculates the shared encryption key using a key agreement protocol *k<sup>ik</sup> = DH(ME<sub>SK</sub>, JE<sup>ik</sup><sub>PK</sub>)*
-
-     - *Source* encrypts *mp* using *k<sup>ik*, *c = E(k, mp)*
+     - *Source* encrypts *mp* using *k<sup>ik*, *c<sup>i</sup> = E(k<sup>i</sup>, mp)*
      - *Source* calculates the message_challenge (`message_challenge`) *mc =* TODO
-     - *Source* sends *c*, *ME<sub>PK</sub>* and *mc* to server
-     - *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
+     - *Source* sends *c<sup>i</sup>*, *ME<sup>i</sup><sub>PK</sub>* and *mc<sup>i</sup>* to server
+     - *Server* generates a random `message_id` *i* and stores `message:i` -> *c<sup>i</sup>*, *ME<sup>i</sup><sub>PK</sub>*, *mc*
 
 ### Server challenge generation
  1. *Server* fetches all `message_id`, `message_challenge` and `message_public_key` from Redis
