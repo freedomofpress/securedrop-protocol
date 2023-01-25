@@ -349,7 +349,7 @@ Only a source can initiate a conversation; there are no other choices as sources
  9. *Source* adds metadata, *S<sub>PK</sub> and SC<sub>PK</sub> to message *m*.
  10. *Source* adds attachment info to message *m* (all the *s* keys and all the `file_id`)
  11. *Source* pads the resulting text to a fixed size, *mp* (message, metadata, attachments, padding)
- 12. *For every *Journalist* (i) in *Newsroom* 
+ 12. For every *Journalist* (i) in *Newsroom* 
      - *Source* generates *ME<sup>i</sup><sup>PK</sup>, ME<sup>PK</sup> = G()* (random, per message keys)
      - *Source* calculates the shared encryption key using a key agreement protocol *k<sup>ik</sup> = DH(ME<sub>SK</sub>, JE<sup>ik</sup><sub>PK</sub>)*
 
