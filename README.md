@@ -1,4 +1,8 @@
-# securedrop-poc
+---
+geometry: margin=2cm
+---
+
+# Next-Gen SecureDrop Research
 ## Selling points
  * All messages are equal
  * There are no accounts
@@ -184,7 +188,7 @@ options:
 ```
 
 ## Parties
-  * **Source**: A source is someone who wants to leak a document. A source is unknown prior its first contact. A source may want to send a text message and/or add attachments. The anonymity and safety of the source is vital. The source must use Tor Browser to preserve their anonymity and no persistence shall be required. The highest degree of deniability a source has, the better.
+  * **Source(s)**: A source is someone who wants to leak a document. A source is unknown prior its first contact. A source may want to send a text message and/or add attachments. The anonymity and safety of the source is vital. The source must use Tor Browser to preserve their anonymity and no persistence shall be required. The highest degree of deniability a source has, the better.
   * **Journalist(s)**: Journalists are those designated to receive, check and reply to submissions. Journalists are known, or at least the newsroom they work for is known and trusted. Journalists are expected to use the SecureDrop Workstation with an ad-hoc client, which has dedicated encrypted storage.
   * **Newsroom**: A newsroom is the entity responsible or at least with formal ownership of a SecureDrop instance. The newsroom is trusted, and is expected to publish their SecureDrop instance somewhere, their tips page, their social media channel or wherever they want the necessary outreach. In the traditional model, newsroom are also technically in charge of their own server instances and of journalist enrollment.
   * **FPF**: FPF is the entity responsible for maintaining and developing SecureDrop. FPF can offer additional services, such as dedicated support. FPF has already a leading role, in the context that, while the project is open source, releases and Onion Lists for Tor Browser are signed with FPF keys. However, the full stack must remain completely usable without any FPF involvement or knowledge.
@@ -283,6 +287,7 @@ options:
 ## Initial trust chain setup
 
  * **FPF**:
+
      | Operation | Description |
      |---|---|
      |*FPF<sub>SK</sub>, FPF<sub>PK</sub> = G()* | FPF generates a random key-pair (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes)|
@@ -290,6 +295,7 @@ options:
     **FPF** pins *FPF<sub>PK</sub>* in the **Journalist** client, in the **Source** client and in the **Server** code.
 
  * **Newsroom**:
+
      | Operation | Description |
      |---|---|
      |NR<sub>SK</sub>, NR<sub>PK</sub> = G()* | Newsroom generates a random key-pair with similar security of the FPF one |
@@ -298,6 +304,7 @@ options:
     **Newsroom** pins *NR<sub>PK</sub>* in the **Server** during initial server setup.
 
  * **Journalist [0-i]**:
+
      | Operation | Description |
      |---|---|
      | *J<sub>SK</sub>, J<sub>PK</sub> = G()* | Journalist generates the long-term signing key randomly |
@@ -310,6 +317,7 @@ options:
     **Journalist** sends *J<sub>PK</sub>*, *sig<sub>J</sub>*, *JE<sup>[0-n]</sup><sub>PK</sub>* and *sig<sup>[0-n]</sup><sub>JE</sub>* to **Server** which verifies and publishes them.
 
  * **Source [0-j]**:
+
      | Operation | Description |
      |---|---|
      | *PW* = G() | Source generates a secure passphrase which is the only state available to clients|
@@ -329,7 +337,7 @@ Only a source can initiate a conversation; there are no other choices as sources
      - *Source* verifies *sig<sup>i</sup><sub>J</sub>* and *sig<sup>i</sup><sub>JC</sub>* using *NR<sub>PK</sub>*
      - *Source* fetches *JE<sup>ik</sup><sub>PK</sub>* and *sig<sup>ik</sup><sub>JE</sub>* (k is random from the pool of non used, non expired, *Journalist* ephemeral keys)
      - *Source* verifies *sig<sup>ik</sup><sub>JE</sub>* using *JE<sub>PK</sub>*
- 4. *Source* generates *SM<sup>PK</sup>, SM<sup>PK</sup> = G()* (random, per message keys)
+ 4. *Source* generates *ME<sup>PK</sup>, ME<sup>PK</sup> = G()* (random, per message keys)
  5. *Source* generates the unique passphrase randomly *PW = G()* (the only state that identify the specific *Source*)
  6. *Source* derives *S<sub>PK</sub>, S<sub>SK</sub> = G(KDF(encryption_salt + PW))*
  7. *Source* derives *SC<sub>PK</sub>, SC<sub>SK</sub> = G(KDF(challenge_salt + PW))*
@@ -348,6 +356,11 @@ Only a source can initiate a conversation; there are no other choices as sources
  17. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
 
 ### Server challenge generation
+ 1. *Server* fetches all `message_id`, `message_challenge` and `message_public_key` from Redis
+ 2. *Server* generates a per-challenge, ephemeral key-pair *RE<sub>SK</sub>, RE<sub>PK</sub> = G()*
+ 3. *Server* generates a unique, random challenge id *d*
+ 4. *Server* stores in redis `challenge_id:d` -> RE<sub>SK</sub> with TTL of `commons.CHALLENGES_TTL`
+ 5. For every message fetched from Redis
 
 ### Source fetch
 
@@ -364,10 +377,19 @@ Only a source can initiate a conversation; there are no other choices as sources
      - *Journalist* fetches the encrypted *Chunk* *f<sup>m</sup>* from *Server* using `file_id`
      - *Journalist* decrypts *f<sup>m</sup>* using *s<sup>m</sup>* *u = D(s<sup>m</sup>, f<sup>m</sup>)*
      - *Journalist* join *Chunks* according to medatata and saves back the original files
- 5. *Journalist* read the message *m*
- 6. *Journalist* eventually deletes the message from the *Server* using `message_id`
+ 5. *Journalist* reads the message *m*
+ 6. *Journalist* may delete the message from the *Server* using `message_id`
 
 ### Journalist reply
+ 1. *Journalist* has plaintext *m*, which contains also *S<sub>PK</sub>* and SC<sub>PK</sub>
+ 2. *Journalist* generates *ME<sup>PK</sup>, ME<sup>PK</sup> = G()* (random, per message keys)
+ 3. *Journalist* calculate the shared encryption key using a key agreement protocol *k = DH(ME<sub>SK</sub>, S<sub>PK</sub>)*
+ 4. *Journalist* adds metadata to message *m2*.
+ 5. *Journalist* pads the resulting text to a fixed size, *m2p* (message, metadata, padding)
+ 6. *Journalist* encrypts *mp* using *k*, *c = E(k, m2p)*
+ 7. *Journalist* calculates the message_challenge (`message_challenge`) *mc =* TODO
+ 8. *Journalist* sends *c*, *ME<sub>PK</sub>* and *m2c* to server
+ 9. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
 
 ### Source read
  1. *Source* fetches from server `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
@@ -375,12 +397,14 @@ Only a source can initiate a conversation; there are no other choices as sources
  3. *Source* calculate the shared encryption key using a key agreement protocol *k = DH(S<sub>SK</sub>, ME<sub>PK</sub>)*
  4. *Source* *mp = D(k<sup>k</sup>, c)*
  5. *Source* reads the metadata and the message *m*
- 
-### Source reply
 
+### Source reply
+*Source* replies work the exact same way as a first submission, except the source is already known to the *Journalist*.
 
 ## Server endpoints
+
 All endpoints do not require authentication or sessions. The only data store is Redis and is schema-less. Encrypted file chinks are stored to disk. No database bootstrap is required.
+
 ### /journalists
 
 **Legend**:
@@ -530,7 +554,7 @@ curl -X GET http://127.0.0.1:5000/challenge
 }
 ```
 #### POST
-`challenge_id` will expire according to `commons.CHALLENGE_TTL` value; after that a `400` error code will be returned. If no challenges are solved correctly using the corresponding challenge key, it means that there are no messages for that user and a `404` error code is returned.
+`challenge_id` will expire according to `commons.CHALLENGES_TTL` value; after that a `400` error code will be returned. If no challenges are solved correctly using the corresponding challenge key, it means that there are no messages for that user and a `404` error code is returned.
 Order is not important.
 
 ```
