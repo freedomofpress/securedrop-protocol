@@ -336,7 +336,7 @@ All endpoints do not require authentication or sessions. The only data store is 
 #### POST
 Adds *Newsroom* signed *Journalist* to the *Server*.
 ```
-curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/journalists"
+curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/journalists" --data
 {
     "journalist_key": <journalist_key>,
     "journalist_sig": <journalist_sig>,
@@ -397,7 +397,7 @@ Adds *n* *Journalist* signed ephemeral key agreement keys to Server.
 The keys are stored is a Redis *set* specific per *Journalist*, which key is `journalist:<journalist_uid>`. In the demo implementation, the number of ephemeral keys to generate and upload each time is `ONETIMEKEYS`. 
 
 ```
-curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/ephemeral_keys"
+curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/ephemeral_keys" --data
 {
   "journalist_uid": <journalist_uid>,
   "ephemeral_keys": [
@@ -473,7 +473,7 @@ curl -X GET http://127.0.0.1:5000/challenge
 Order is not important.
 
 ```
-curl -X POST -H "Content-Type: application/json" http://127.0.0.1:5000/challenge/<challenge_id>
+curl -X POST -H "Content-Type: application/json" http://127.0.0.1:5000/challenge/<challenge_id> --data
 {
   "message_challenges_responses": [
     <challenge_response_1>,
@@ -504,17 +504,44 @@ curl -X POST -H "Content-Type: application/json" http://127.0.0.1:5000/challenge
 
 | JSON Name | Value |
 |---|---|
-|`count` |  |
+| `message_id` | Randomly generated unique, per message id. |
+|`message_ciphertext` | *base64(E(k, m))* where *k* is a key agreement calculated key. The key agreement keys depend on the parties encrypting/decrypting the message. |
+|`message_public_key` | *base64(ME<sub>PK</sub>)* |
+|`message_challenge` | TODO: *base64()* |
 
 #### POST
+```
+curl -X POST -H "Content_Type: application/json" http://127.0.0.1:5000/message --data
+{
+  "message_ciphertext": <message_ciphertext>,
+  "message_public_key": <message_public_key>,
+  "message_challenge": <message_challenge>
+}
+```
+```
+200 OK
+{
+  "status": "OK"
+}
+```
+
+Note that `message_id` is not returned upon submission, so that the sanding party cannot delete or fetch it unless they maliciously crafted the challenge for themselves, but at that point it would never be delivered to any other party.
 
 #### GET
+`message_public_key` is necessary for completing the key agreement protocol and obtaining the shared symmetric ey to decrypt the message. `message_public_key`, is ephemeral, unique per message, and has no links to anything else.
 
 ```
 curl -X GET http://127.0.0.1:5000/message/<message_id>
 ```
 ```
 200 OK
+{
+  "message": {
+    "message_ciphertext": <message_ciphertext>,
+    "message_public_key": <message_public_key>
+  },
+  "status": "OK"
+}
 ```
 
 #### DELETE
@@ -531,6 +558,13 @@ curl -X DELETE http://127.0.0.1:5000/message/<message_id>
 
 ### /file/[file_id]
 Slicing and encrypting is up to the *Source* client. The server cannot enforce encryption, but it can enforce equal chunk size (TODO: not implemented).
+
+**Legend**:
+
+| JSON Name | Value |
+|---|---|
+|`file_id` | Unique, randomly generated per upload id. Files are sliced, paded and encrypted to a fixed size so that all files looks equal and there are no metadata, however that is up to the uploading client. |
+| `raw_encrypted_file_content` | Raw bytes composing the encrypted file object |
 
 #### POST
 The `file_id` is secret, meaning that any parties with knowledge of it can either download the encrypted chunk or delete it. In production, it could be possible to set `commons.UPLOADS` to a FUSE filesystem without timestamps.
