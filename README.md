@@ -272,7 +272,9 @@ options:
      * *ME<sub>SK</sub>*: Ephemeral per-message key agreement private key
      * *ME<sub>PK</sub>*: Ephemeral per-message key agreement public key
  * **Server**:
-     * *DE<sub>PK</sub>*: Per-request, ephemeral decoy public key
+     * *RE<sub>SK</sub>*: Ephemeral Server, per-challenge zero-knowledge private key 
+     * *RE<sub>PK</sub>*: Ephemeral Server, per-challenge zero-knowledge public key
+     * *DE<sup>n</sup><sub>PK</sub>*: Per-request, ephemeral decoy public key
 
 ## Functions
 | Formula | Description |
@@ -714,4 +716,7 @@ The server cannot keep too many messages with the current configuration, as more
 In having no accounts, it might be easy to flood the service, either of unwanted messages, or of bogus responses to challenges that would lead to significant waste of CPU resources. Depending on the individual *Newsroom* previous issues and threat model, classic rate limiting such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
 
 ### Minimize logging
-To minimize logging, ans mix traffic better, it could be reasonable to make all endpoints the same and POST only and remove all GET parameters.
+To minimize logging, ans mix traffic better, it could be reasonable to make all endpoints the same and POST only and remove all GET parameters. An alternative solution could be to implement the full protocol over WebSockets.
+
+### Revocation
+Revocation is a spicy topic. For ephemeral keys, we expect expiration to be generally enough. For long-term keys, including eventual journalist de-enrollment or newsroom key rotation something along the standard has to be implemented, requiring eventually more infrastructure. For example, FPF could routinely publish a revocation list and host the Newsroom ones as well; however that must work even without FPF direct involvement. A good, already deployed, protocol for serving the revocation would be OCSP stapling served back directly by the SecureDrop server, so that clients (both sources and journalists) do not have to do external requests. Otherwise we could find a way to (ab)use the current internet revocation infrastructure and build on top of that.
