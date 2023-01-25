@@ -376,7 +376,7 @@ Only a source can initiate a conversation; there are no other choices as sources
  4. *Journalist* for every attachment *Chunk*
      - *Journalist* fetches the encrypted *Chunk* *f<sup>m</sup>* from *Server* using `file_id`
      - *Journalist* decrypts *f<sup>m</sup>* using *s<sup>m</sup>* *u = D(s<sup>m</sup>, f<sup>m</sup>)*
-     - *Journalist* join *Chunks* according to medatata and saves back the original files
+     - *Journalist* join *Chunks* according to metadata and saves back the original files
  5. *Journalist* reads the message *m*
  6. *Journalist* may delete the message from the *Server* using `message_id`
 
@@ -581,7 +581,7 @@ curl -X POST -H "Content-Type: application/json" http://127.0.0.1:5000/challenge
 }
 ```
 
-`message_id` is considered secret from the source side, meaning that a `message_id` allows to fetch or delete a message. `message_id` does not give any information about the content of the message, the sender, the rceiver or any other metadata.
+`message_id` is considered secret from the source side, meaning that a `message_id` allows to fetch or delete a message. `message_id` does not give any information about the content of the message, the sender, the receiver or any other metadata.
 
 ### /message/[message_id]
 
@@ -688,10 +688,13 @@ curl -X DELETE http://127.0.0.1:5000/file/<file_id>
 
 ## Limitations
 ### Crypto
-The cryptographic protocol needs to be audited. While we do not expect any major finding in the encryption protocol as it uses known primitives and known libraries in a well established manner, we cannot state the same for the challenge-response mechanism. However, any breaking of the challenge/response keys would not hinder the confidentiality of messages. Furthermore, we expect any attack in that sense to come from the server rather than from an anonymous source that would have no information. Still, that part is potentially the weak point of this proposal.
+The cryptographic protocol needs to be audited. While we do not expect any major finding in the encryption protocol as it uses known primitives and known libraries in a well established manner, we cannot state the same for the challenge-response mechanism. However, any breaking of the challenge/response keys would not hinder the confidentiality of messages or the trust chain. Furthermore, we expect any attack in that sense to come from the server rather than from an anonymous source that would have no information. Still, that part is potentially the weak point of this proposal. We are confident that even if the challenge-response mechanism we design turns out to be insecure, there exists crypto primitives to achieve the same goal securely.
 
 ### Behavioral analysis
 While there are no accounts, and all messages are equal, the server could detect if it is interacting with a source or a journalist by observing the API request pattern. While all the clients, both source and journalist, would go through the Tor network and look the same from an HTTP perspective, they might perform different actions, such as ephemeral keys upload. A further fingerprinting mechanism could be, for instance, measuring how much time any client takes to solve the challenge-responses. It is up to the clients to mitigate this, sending decoy traffic and introducing randomness between requests.
 
 ### Ephemeral key exhaustion
 As a known problem in this kind of protocols, what happens when the ephemeral keys of a journalist are exhausted due to either malicious intent or infrequent upload by the journalist?
+
+### Denial of service
+In having no accounts, it might be easy to flood the service, either of unwanted messages, or of bogus responses to challenges that would lead to significant waste of CPU resources. Depending on the individual *Newsroom* previous issues and threat model, classic rate limiting such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
