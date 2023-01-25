@@ -318,6 +318,36 @@ options:
 
     **Source** does not need to publish anything until the first submission is sent.
 
+## Messaging protocol overview
+Only a source can initiate a conversation; there are no other choices as sources are effectively unknown until they initiate contact in the first place.
+
+### Source to Journalist
+ 1. *Source* fetches *NR<sub>PK</sub>*, *sig<sub>NR*
+ 2. *Source* verifies *sig<sub>NR* using *FPF<sub>PK</sub>*
+ 3. *For every *Journalist* (i) in *Newsroom*
+     - *Source* fetches *J<sup>i</sup><sub>PK</sub>*, *sig<sup>i</sup><sub>J</sub>*, *JC<sup>i</sup><sub>PK</sub>* and *sig<sup>i</sup><sub>JC</sub>*
+     - *Source* verifies *sig<sup>i</sup><sub>J</sub>* and *sig<sup>i</sup><sub>JC</sub>* using *NR<sub>PK</sub>*
+     - *Source* fetches *JE<sup>ik</sup><sub>PK</sub>* and *sig<sup>ik</sup><sub>JE</sub>* (k is random from the pool of non used, non expired, *Journalist* ephemeral keys)
+     - *Source* verifies *sig<sup>ik</sup><sub>JE</sub>* using *JE<sub>PK</sub>*
+ 4. *Source* generates *SM<sup>PK</sup>, SM<sup>PK</sup> = G()* (random, per message keys)
+ 5. *Source* generates the unique passphrase randomly *PW = G()* (the only state that identify the specific *Source*)
+ 6. *Source* derives *S<sub>PK</sub>, S<sub>SK</sub> = G(KDF(encryption_salt + PW))*
+ 7. *Source* derives *SC<sub>PK</sub>, SC<sub>SK</sub> = G(KDF(challenge_salt + PW))*
+ 8. *Source* splits any attachment in parts of size `commons.CHUNKS`. Any chunk smaller is padded to `commons.CHUNKS` size.
+ 9. For every *Chunk*
+    - *Source* generate a random key *s = G()*
+    - *Source* encrypts *Chunk* with *s*, *f = E(s, Chunk)*
+    - *Source* uploads chunk to *Server* and obtains a `file_id`
+ 10. *Source* calculate the shared encryption key using a key agreement protocol *k = DH(SE<sub>SK</sub>, JE<sub>PK</sub>)*
+ 11. *Source* adds metadata to message *m*.
+ 12. *Source* adds attachment info to message *m* (all the *s* keys and all the `file_id`)
+ 13. *Source* pads the resulting text to a fixed size, *mp* (message, metadata, attachments, padding)
+ 14. *Source* encrypts *mp* using *k*, *c = E(k, mp)*
+ 15. *Source* calculates the message_challenge (`message_challenge`) *mc =* TODO
+ 16. *Source* sends *c*, *SE<sub>PK</sub>* and *mc* to server
+ 17. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *SE<sub>PK</sub>*, *mc*
+
+
 ## Server endpoints
 All endpoints do not require authentication or sessions. The only data store is Redis for more objects and is schema-less. Encrypted file chinks are stored to disk. No database bootstrap is required.
 ### /journalists
@@ -564,7 +594,7 @@ Slicing and encrypting is up to the *Source* client. The server cannot enforce e
 | JSON Name | Value |
 |---|---|
 |`file_id` | Unique, randomly generated per upload id. Files are sliced, paded and encrypted to a fixed size so that all files looks equal and there are no metadata, however that is up to the uploading client. |
-| `raw_encrypted_file_content` | Raw bytes composing the encrypted file object |
+| `raw_encrypted_file_content` | Raw bytes composing the encrypted file object. |
 
 #### POST
 The `file_id` is secret, meaning that any parties with knowledge of it can either download the encrypted chunk or delete it. In production, it could be possible to set `commons.UPLOADS` to a FUSE filesystem without timestamps.
@@ -600,3 +630,4 @@ curl -X DELETE http://127.0.0.1:5000/file/<file_id>
   "status": "OK"
 }
 ```
+
