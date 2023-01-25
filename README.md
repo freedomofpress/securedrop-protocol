@@ -499,11 +499,70 @@ curl -X POST -H "Content-Type: application/json" http://127.0.0.1:5000/challenge
 `message_id` is considered secret from the source side, meaning that a `message_id` allows to fetch or delete a message. `message_id` does not give any information about the content of the message, the sender, the rceiver or any other metadata.
 
 ### /message/[message_id]
+
+**Legend**:
+
+| JSON Name | Value |
+|---|---|
+|`count` |  |
+
 #### POST
+
 #### GET
+
+```
+curl -X GET http://127.0.0.1:5000/message/<message_id>
+```
+```
+200 OK
+```
+
 #### DELETE
 
+```
+curl -X DELETE http://127.0.0.1:5000/message/<message_id>
+```
+```
+200 OK
+{
+  "status": "OK"
+}
+```
+
 ### /file/[file_id]
+Slicing and encrypting is up to the *Source* client. The server cannot enforce encryption, but it can enforce equal chunk size (TODO: not implemented).
+
 #### POST
+The `file_id` is secret, meaning that any parties with knowledge of it can either download the encrypted chunk or delete it. In production, it could be possible to set `commons.UPLOADS` to a FUSE filesystem without timestamps.
+
+```
+curl -X POST http://127.0.0.1:5000/file -F <path_to_encrypted_chunk>
+```
+```
+200 OK
+{
+  "file_id": <file_id>,
+  "status": "OK"
+}
+```
+
 #### GET
+The server will return either the raw encrypted content or a `404` status code.
+```
+curl -X GET http://127.0.0.1:5000/file/<message_id>
+```
+```
+200 OK
+<raw_encrypted_file_content>
+```
 #### DELETE
+A delete request deletes both the entry on the database and the encrypted chunk on the server storage.
+```
+curl -X DELETE http://127.0.0.1:5000/file/<file_id>
+```
+```
+200 OK
+{
+  "status": "OK"
+}
+```
