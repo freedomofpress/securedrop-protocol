@@ -301,7 +301,7 @@ options:
 
      | Operation | Description |
      |---|---|
-     |NR<sub>SK</sub>, NR<sub>PK</sub> = G()* | Newsroom generates a random key-pair with similar security of the FPF one |
+     | *NR<sub>SK</sub>, NR<sub>PK</sub> = G()* | Newsroom generates a random key-pair with similar security of the FPF one |
      | *sig<sub>NR</sub> = Sig(FPF<sub>SK</sub>, NR<sub>PK</sub>)* | Newsroom sends a CSR or the public key to FPF for signing |
 
     **Newsroom** pins *NR<sub>PK</sub>* in the **Server** during initial server setup.
@@ -366,9 +366,15 @@ Only a source can initiate a conversation; there are no other choices as sources
  4. *Server* stores in redis `challenge_id:d` -> RE<sub>SK</sub> with TTL of `commons.CHALLENGES_TTL`
  5. For every message fetched from Redis
 
+ **TODO**
+
 ### Source fetch
 
+ **TODO**
+
 ### Journalist fetch
+
+ **TODO**
 
 ### Journalist read
  1. *Journalist* fetches from *Server* `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
