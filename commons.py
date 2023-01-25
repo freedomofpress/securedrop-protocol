@@ -30,6 +30,8 @@ CURVE = NIST384p
 # This basically must be more than the msssages in the database, otherwise we need
 # to develop a mechanism to group challenges adding some bits of metadata
 CHALLENGES = 500
+# The seconds for which a challenge_id remains valid
+CHALLENGES_TTL = 30
 # The base size of every parts in which attachment are splitted/padded to. This
 # is not the actual size on disk, cause thet will be a bit more depending on
 # the nacl SecretBox implementation

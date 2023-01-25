@@ -19,6 +19,7 @@ In `commons.py` there are the following configuration values which are global fo
 | `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist create, sign and uploads when required. |
 | `CURVE` | `NIST384p` | server, source, journalist | The curve for all elliptic curve operations. It must be imported first from the python-ecdsa library. Ed25519 and Ed448, although supported by the lib, are not fully implemented. |
 | `CHALLENGES` | `500` | server | How may challenges the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group challenges adding some bits of metadata. |
+| `CHALLENGES_TTL` | `30` | server | The time windows, in seconds, that a journalist or a source has to send the responses to a given `challenge_id` |
 | `CHUNK` | `512 * 1024` | source | The base size of every parts in which attachment are split/padded to. This is not the actual size on disk, cause that will be a bit more depending on the nacl SecretBox implementation. |
 
 ## Installation (Qubes)
@@ -374,6 +375,8 @@ curl -X GET "http://127.0.0.1:5000/journalists"
 }
 ```
 
+At this point *Source* must have a verified *NR<sub>PK</sub>* and must verify both *sig<sub>J</sub>* and *sig<sub>JC</sub>*.
+
 #### DELETE (TODO)
 *Not implemented yet. A Newsroom must be able to remove Journalists.*
 
@@ -412,7 +415,7 @@ curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/ephemera
 #### GET
 The server pops a random ephemeral_key from every enrolled journalist bucket and returns it. The `pop` operation effectively removes the returned keys from the corresponding *Journalist* bucket.
 ```
-curl http://127.0.0.1:5000/ephemeral_keys
+curl -X GET http://127.0.0.1:5000/ephemeral_keys
 ```
 ```
 200 OK
@@ -429,11 +432,71 @@ curl http://127.0.0.1:5000/ephemeral_keys
   "status": "OK"
 
 ```
+At this point *Source* must have verified all the J<sup>[0-i]</sup><sub>PK</sub>*  and can thus verify all the corresponding *sig<sup>[0-n]</sup><sub>JE</sub>*.
+
 #### DELETE (TODO)
 *Not implemented yet. A Journalist shall be able to revoke keys from the server.*
 ### /challenge/[challenge_id]
+
+**Legend**:
+
+| JSON Name | Value |
+|---|---|
+|`count` (GET) | Number of returned message challenges. Must always be greater than the number of messages on the server. Equal to `commons.CHALLENGES` so that it should always be the same for every request to prevent leaking the number of messages on the server. |
+|`count` (POST) | Number of returned `message_id` values, which is the number of message for the requesting source or journalist. |
+|`challenge_id` | Unique, random-generate id of the challenge that needs to be supplied when sending the challenges responses. |
+|`message_challenges` | Array of *TODO formula here* |
+|`message_challenges_responses` | Array of *TODO formula here* |
+|`message_id` | Random, secret identifier of a given encrypted message on the server. The ID is the only thing needed to fetch or delete a message. |
+
 #### GET
+The server send some challenges and a `challenge_id`. Order is not important.
+```
+curl -X GET http://127.0.0.1:5000/challenge
+```
+```
+200 OK
+{
+  "count": <commons.CHALLENGES>,
+  "challenge_id": <challege_id>,
+  "message_challenges": [
+    <challenge_1>,
+    <challenge_2>,
+    ...
+    <challenge_commons.CHALLENGES>
+    ],
+  "status": "OK"
+}
+```
 #### POST
+`challenge_id` will expire according to `commons.CHALLENGE_TTL` value; after that a `400` error code will be returned. If no challenges are solved correctly using the corresponding challenge key, it means that there are no messages for that user and a `404` error code is returned.
+Order is not important.
+
+```
+curl -X POST -H "Content-Type: application/json" http://127.0.0.1:5000/challenge/<challenge_id>
+{
+  "message_challenges_responses": [
+    <challenge_response_1>,
+    <challenge_response_2>,
+    ...
+    <challenge_response_commons.CHALLENGES>
+  ]
+}
+```
+```
+200 OK
+{
+   "count": <count>,
+   "messages": [
+     <message_id_1>,
+     <message_id_2>,
+     ...
+   ],
+   "status": "OK"
+}
+```
+
+`message_id` is considered secret from the source side, meaning that a `message_id` allows to fetch or delete a message. `message_id` does not give any information about the content of the message, the sender, the rceiver or any other metadata.
 
 ### /message/[message_id]
 #### POST
