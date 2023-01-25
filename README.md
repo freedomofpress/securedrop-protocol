@@ -367,7 +367,7 @@ Only a source can initiate a conversation; there are no other choices as sources
 ### Journalist fetch
 
 ### Journalist read
- 1. *Journalist* fetches from server `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
+ 1. *Journalist* fetches from *Server* `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
  2. *Journalist* for every unused ephemeral key *JE<sup>k</sup><sub>SK</sub>*
      - *Journalist* calculates a tentative shared ancryption key using the key agreemenet protocol *k<sup>k</sup> = DH(JE<sup>k</sup><sub>SK</sub>, ME<sub>PK</sub>)*
      - *Journalist* tries to decrypt *mp = D(k<sup>k</sup>, c)*
@@ -392,7 +392,7 @@ Only a source can initiate a conversation; there are no other choices as sources
  9. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
 
 ### Source read
- 1. *Source* fetches from server `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
+ 1. *Source* fetches from *Server* `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
  2. *Source* derives *S<sub>PK</sub>, S<sub>SK</sub> = G(KDF(encryption_salt + PW))*
  3. *Source* calculate the shared encryption key using a key agreement protocol *k = DH(S<sub>SK</sub>, ME<sub>PK</sub>)*
  4. *Source* *mp = D(k<sup>k</sup>, c)*
@@ -686,3 +686,12 @@ curl -X DELETE http://127.0.0.1:5000/file/<file_id>
 }
 ```
 
+## Limitations
+### Crypto
+The cryptographic protocol needs to be audited. While we do not expect any major finding in the encryption protocol as it uses known primitives and known libraries in a well established manner, we cannot state the same for the challenge-response mechanism. However, any breaking of the challenge/response keys would not hinder the confidentiality of messages. Furthermore, we expect any attack in that sense to come from the server rather than from an anonymous source that would have no information. Still, that part is potentially the weak point of this proposal.
+
+### Behavioral analysis
+While there are no accounts, and all messages are equal, the server could detect if it is interacting with a source or a journalist by observing the API request pattern. While all the clients, both source and journalist, would go through the Tor network and look the same from an HTTP perspective, they might perform different actions, such as ephemeral keys upload. A further fingerprinting mechanism could be, for instance, measuring how much time any client takes to solve the challenge-responses. It is up to the clients to mitigate this, sending decoy traffic and introducing randomness between requests.
+
+### Ephemeral key exhaustion
+As a known problem in this kind of protocols, what happens when the ephemeral keys of a journalist are exhausted due to either malicious intent or infrequent upload by the journalist?
