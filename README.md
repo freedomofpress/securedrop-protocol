@@ -355,7 +355,7 @@ Only a source can initiate a conversation; there are no other choices as sources
      - *Source* generates *ME<sup>i</sup><sub>PK</sub>, ME<sub>PK</sub> = G()* (random, per message keys)
      - *Source* calculates the shared encryption key using a key agreement protocol *k<sup>ik</sup> = DH(ME<sub>SK</sub>, JE<sup>ik</sup><sub>PK</sub>)*
      - *Source* encrypts *mp* using *k<sup>ik*, *c<sup>i</sup> = E(k<sup>i</sup>, mp)*
-     - *Source* calculates the message_challenge (`message_challenge`) *mc =* TODO
+     - *Source* calculates the message_challenge (`message_challenge`) *mc = DH(ME<sub>SK</sub>, JC<sup>ik</sup><sub>PK</sub>)*
      - *Source* sends *c<sup>i</sup>*, *ME<sup>i</sup><sub>PK</sub>* and *mc<sup>i</sup>* to server
      - *Server* generates a random `message_id` *i* and stores `message:i` -> *c<sup>i</sup>*, *ME<sup>i</sup><sub>PK</sub>*, *mc*
 
@@ -363,15 +363,21 @@ Only a source can initiate a conversation; there are no other choices as sources
  1. *Server* fetches all `message_id`, `message_challenge` and `message_public_key` from Redis
  2. *Server* generates a per-challenge, ephemeral key-pair *RE<sub>SK</sub>, RE<sub>PK</sub> = G()*
  3. *Server* generates a unique, random challenge id *d*
- 4. *Server* stores in redis `challenge_id:d` -> RE<sub>SK</sub> with TTL of `commons.CHALLENGES_TTL`
- 5. For every message fetched from Redis
-
- **TODO**
+ 4. *Server* stores in redis `challenge_id:d` -> *RE<sub>SK</sub>* with TTL of `commons.CHALLENGES_TTL`
+ 5. For every message fetched from Redis, the *Server* mix the per-challenge key *RE<sub>SK</sub>* to the message_challenge *mc* resulting in *chall<sup>i</sup> = DH(DH(ME<sub>SK</sub>, JC<sup>ik</sup><sub>PK</sub>), RE<sub>SK</sub>)*
+ 6. If the messages in Redis are less then `commons.CHALLENGES`, the *Server* generates *N* decoy challenges *DE<sup>n</sup><sub>SK</sub>, DE<sup>n</sup><sub>PK</sub> = G()*
+ 7. The *Server* returns the real challenges and the decoy challenges to the client, being it a *Source* or a *Journalist*.
 
 ### Source fetch
+ 1. *Source* makes a request to the *Server* and fetch all the challenges.
+ 2. *Source* calculates the inverse of their challenge private key *inv<sub>SC</sub> = Inv(SC<sub>SK</sub>)*
+ 3. For every challenge, the *Source* calculates a response by removing their Diffie-Hellman obtaining the following *response = DH(chall<sup>i</sup>, inv<sub>SC</sub>)*
+ 4. *Source* returns all the responses to the *Server*
+ 5. *Server* fetch from Redis the challenge_id containing *RE<sub>SK</sub>*
+ 6. *Server* calculates the inverse of per-challenge key *inv<sub>RE</sub> = Inv(RE<sub>SK</sub>)* 
 
- **TODO**
-
+**TODO**
+  
 ### Journalist fetch
 
  **TODO**
@@ -379,7 +385,7 @@ Only a source can initiate a conversation; there are no other choices as sources
 ### Journalist read
  1. *Journalist* fetches from *Server* `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
  2. *Journalist* for every unused ephemeral key *JE<sup>k</sup><sub>SK</sub>*
-     - *Journalist* calculates a tentative shared ancryption key using the key agreemenet protocol *k<sup>k</sup> = DH(JE<sup>k</sup><sub>SK</sub>, ME<sub>PK</sub>)*
+     - *Journalist* calculates a tentative shared encryption key using the key agreemenet protocol *k<sup>k</sup> = DH(JE<sup>k</sup><sub>SK</sub>, ME<sub>PK</sub>)*
      - *Journalist* tries to decrypt *mp = D(k<sup>k</sup>, c)*
      - *Journalist* verifies that *mp* decrypted succesfully, if yes exits from the loop
  3. *Journalist* removes padding from *mp* and parse message *m*, metadata, and attachment details
