@@ -411,6 +411,11 @@ Only a source can initiate a conversation; there are no other choices as sources
 ### Source reply
 *Source* replies work the exact same way as a first submission, except the source is already known to the *Journalist*.
 
+### Flow Charts
+
+![chart1](https://github.com/lsd-cat/securedrop-poc/blob/main/imgs/sd2-Schema%20-%20Souce%20Submission.png?raw=true)  
+![chart2](https://github.com/lsd-cat/securedrop-poc/blob/main/imgs/sd2-Schema%20-%20Journal%20Reply.png?raw=true)
+
 ## Server endpoints
 
 All endpoints do not require authentication or sessions. The only data store is Redis and is schema-less. Encrypted file chinks are stored to disk. No database bootstrap is required.
