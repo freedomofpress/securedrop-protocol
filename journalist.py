@@ -160,7 +160,7 @@ def main(args):
         sender = args.thread
         messages = jdb.select_messages(sender)
         for message in messages:
-            print(f'{message[0]}: {message[1]}')
+            print(f'[{message[0]}]: {message[1]}')
 
     elif args.action == "reply":
         message_id = args.id
