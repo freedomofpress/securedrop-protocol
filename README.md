@@ -368,21 +368,19 @@ Only a source can initiate a conversation; there are no other choices as sources
  4. *Server* stores in redis `challenge_id:d` -> *RE<sub>SK</sub>* with TTL of `commons.CHALLENGES_TTL`
  5. For every message fetched from Redis, the *Server* mix the per-challenge key *RE<sub>SK</sub>* to the message_challenge *mc* resulting in *chall<sup>i</sup> = DH(DH(ME<sub>SK</sub>, JC<sup>ik</sup><sub>PK</sub>), RE<sub>SK</sub>)*
  6. If the messages in Redis are less then `commons.CHALLENGES`, the *Server* generates *N* decoy challenges *DE<sup>n</sup><sub>SK</sub>, DE<sup>n</sup><sub>PK</sub> = G()*
- 7. The *Server* returns the real challenges and the decoy challenges to the client, being it a *Source* or a *Journalist*.
+ 7. The *Server* returns the real challenges and the decoy challenges to the client, being it a *Source* or a *Journalist*, attaching also the `challenge_id`
 
-### Source fetch
- 1. *Source* makes a request to the *Server* and fetch all the challenges.
- 2. *Source* calculates the inverse of their challenge private key *inv<sub>SC</sub> = Inv(SC<sub>SK</sub>)*
- 3. For every challenge, the *Source* calculates a response by removing their Diffie-Hellman obtaining the following *response = DH(chall<sup>i</sup>, inv<sub>SC</sub>)*
- 4. *Source* returns all the responses to the *Server*
- 5. *Server* fetch from Redis the challenge_id containing *RE<sub>SK</sub>*
- 6. *Server* calculates the inverse of per-challenge key *inv<sub>RE</sub> = Inv(RE<sub>SK</sub>)* 
-
-**TODO**
-  
 ### Journalist fetch
-
- **TODO**
+ 1. *Journalist* makes a request to the *Server* and fetch all the challenges.
+ 2. *Journalist* calculates the inverse of their challenge private key *inv<sub>JC</sub> = Inv(JC<sub>SK</sub>)*
+ 3. For every challenge, the *Journalist* calculates a response by removing their Diffie-Hellman share obtaining the following *response = DH(chall<sup>i</sup>, inv<sub>JC</sub>)*
+ 4. *Journalist* returns all the responses to the *Server*, attaching the `challenge_id` that came from the *Server*
+ 5. *Server* fetch from Redis the `challenge_id` containing *RE<sub>SK</sub>*
+ 6. *Server* calculates the inverse of per-challenge key *inv<sub>RE</sub> = Inv(RE<sub>SK</sub>)* 
+ 7. For every challenge, the *Server*: 
+     - removes their Diffie-Hellman share obtaining the following *proof = DH(response<sup>i</sup>, inv<sub>RE</sub>)*
+     - verify that the *proof* is equal to *ME<sup>i</sup><sub>PK</sub>*
+     - if a *proof* is correct, returns to the *Journalist* the related `message_id` from Redis
 
 ### Journalist read
  1. *Journalist* fetches from *Server* `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
@@ -408,6 +406,18 @@ Only a source can initiate a conversation; there are no other choices as sources
  7. *Journalist* calculates the message_challenge (`message_challenge`) *mc =* TODO
  8. *Journalist* sends *c*, *ME<sub>PK</sub>* and *m2c* to server
  9. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
+
+### Source fetch
+ 1. *Source* makes a request to the *Server* and fetch all the challenges.
+ 2. *Source* calculates the inverse of their challenge private key *inv<sub>SC</sub> = Inv(SC<sub>SK</sub>)*
+ 3. For every challenge, the *Source* calculates a response by removing their Diffie-Hellman share obtaining the following *response = DH(chall<sup>i</sup>, inv<sub>SC</sub>)*
+ 4. *Source* returns all the responses to the *Server*, attaching the `challenge_id` that came from the *Server*
+ 5. *Server* fetch from Redis the `challenge_id` containing *RE<sub>SK</sub>*
+ 6. *Server* calculates the inverse of per-challenge key *inv<sub>RE</sub> = Inv(RE<sub>SK</sub>)* 
+ 7. For every challenge, the *Server*: 
+     - removes their Diffie-Hellman share obtaining the following *proof = DH(response<sup>i</sup>, inv<sub>RE</sub>)*
+     - verify that the *proof* is equal to *ME<sup>i</sup><sub>PK</sub>*
+     - if a *proof* is correct, returns to the *Source* the related `message_id` from Redis
 
 ### Source read
  1. *Source* fetches from *Server* `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
