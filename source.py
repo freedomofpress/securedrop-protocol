@@ -118,20 +118,20 @@ def main(args):
             print("[-] There are no messages")
             print()
 
-    elif args.passphrase and args.action in ["read", "reply"]:
+    elif args.passphrase and args.action == "read":
         if not args.id:
             print("[-] Please specify a message id using -i")
             return -1
 
         passphrase = bytes.fromhex(args.passphrase)
+        source_key = derive_key(passphrase, "source_key-")
         message_id = args.id
         message = commons.get_message(message_id)
-        source_key = derive_key(passphrase, "source_key-")
         message_plaintext = commons.decrypt_message_ciphertext(source_key,
                                                                message["message_public_key"],
                                                                message["message_ciphertext"])
 
-        if args.action == "read" and message_plaintext:
+        if message_plaintext:
             print(f"[+] Successfully decrypted message {message_id}")
             print()
             print(f"\tID: {message_id}")
@@ -140,11 +140,12 @@ def main(args):
             print(f"\tText: {message_plaintext['message']}")
             print()
 
-        elif args.action == "reply":
-            if not args.message:
-                print("[-] Please specify a text message using -m")
-                return -1
-            send_submission(intermediate_verifying_key, passphrase, args.message, None)
+    elif args.passphrase and args.action == "reply":
+        passphrase = bytes.fromhex(args.passphrase)
+        if not args.message:
+            print("[-] Please specify a text message using -m")
+            return -1
+        send_submission(intermediate_verifying_key, passphrase, args.message, None)
 
     elif args.action == "delete":
         message_id = args.id
