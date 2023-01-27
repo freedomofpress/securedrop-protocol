@@ -212,7 +212,7 @@ def get_messages_challenge():
     response_dict = {"status": "OK",
                      "count": len(message_server_challenges),
                      "challenge_id": challenge_id,
-                     "message_challenges": message_server_challengesWW}
+                     "message_challenges": message_server_challenges}
     return response_dict, 200
 
 
