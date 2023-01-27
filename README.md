@@ -403,7 +403,7 @@ Only a source can initiate a conversation; there are no other choices as sources
  4. *Journalist* adds metadata to message *m2*.
  5. *Journalist* pads the resulting text to a fixed size, *m2p* (message, metadata, padding)
  6. *Journalist* encrypts *mp* using *k*, *c = E(k, m2p)*
- 7. *Journalist* calculates the message_challenge (`message_challenge`) *mc =* TODO
+ 7. *Journalist* calculates the message_challenge (`message_challenge`) *mc = DH(ME<sub>SK</sub>, SC<sub>PK</sub>)*
  8. *Journalist* sends *c*, *ME<sub>PK</sub>* and *m2c* to server
  9. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
 
