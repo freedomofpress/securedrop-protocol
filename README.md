@@ -52,6 +52,8 @@ Impersonate the journalists and generate ephemeral keys for each of them. Upload
 for i in $(seq 0 9); do python3 journalist.py -j $i -a upload_keys; done;
 ```
 
+You can also generate call/caller graphs by running `make docs`.
+
 ### Source
 #### Help
 
