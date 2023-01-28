@@ -8,9 +8,11 @@ from time import time
 import nacl.secret
 import requests
 from ecdsa import SigningKey
+from hashlib import sha3_256
 
 import commons
 import pki
+import journalist_db
 
 
 def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
@@ -84,6 +86,7 @@ def main(args):
     assert (journalist_id >= 0 and journalist_id < commons.JOURNALISTS)
 
     journalist_uid, journalist_sig, journalist_key, journalist_chal_sig, journalist_chal_key = pki.load_and_verify_journalist_keypair(journalist_id)
+    jdb = journalist_db.JournalistDatabase('files/.jdb.sqlite3')
 
     if args.action == "upload_keys":
         journalist_uid = commons.add_journalist(journalist_key, journalist_sig, journalist_chal_key, journalist_chal_sig)
@@ -126,10 +129,11 @@ def main(args):
             else:
                 message_plaintext["attachments"] = []
 
+            sender = sha3_256(message_plaintext['source_encryption_public_key'].encode("ascii")).hexdigest()
             print(f"[+] Successfully decrypted message {message_id}")
             print()
             print(f"\tID: {message_id}")
-            # print(f"\tFrom: {message_plaintext['sender']}")
+            print(f"\tFrom: {sender}")
             print(f"\tDate: {datetime.fromtimestamp(message_plaintext['timestamp'])}")
             for attachment in message_plaintext["attachments"]:
                 print(f"\tAttachment: name={attachment['name']};size={attachment['size']};parts_count={attachment['parts_count']}")
@@ -150,6 +154,13 @@ def main(args):
 
             print(f"\tText: {message_plaintext['message']}")
             print()
+            jdb.insert_message(sender, datetime.fromtimestamp(message_plaintext['timestamp']), message_plaintext['message'])
+
+    elif args.action == "thread":
+        sender = args.thread
+        messages = jdb.select_messages(sender)
+        for message in messages:
+            print(f'[{message[0]}]: {message[1]}')
 
     elif args.action == "reply":
         message_id = args.id
@@ -168,8 +179,9 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-j", "--journalist", help="Journalist number", type=int, choices=range(0, commons.JOURNALISTS), metavar=f"[0, {commons.JOURNALISTS - 1}]", required=True)
-    parser.add_argument("-a", "--action", help="Action to perform", default="fetch", choices=["upload_keys", "fetch", "read", "reply", "delete"])
+    parser.add_argument("-a", "--action", help="Action to perform", default="fetch", choices=["upload_keys", "fetch", "read", "reply", "delete", "thread"])
     parser.add_argument("-i", "--id", help="Message id")
+    parser.add_argument("-t", "--thread", help="Thread id")
     parser.add_argument("-m", "--message", help="Plaintext message content for replies")
     args = parser.parse_args()
     main(args)
