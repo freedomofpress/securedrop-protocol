@@ -106,7 +106,7 @@ def get_file(file_id):
         return {"status": "KO"}, 404
     else:
         file_name = file_name.decode('ascii')
-        return send_file(f"{commons.UPLOADS}{file}.enc")
+        return send_file(f"{commons.UPLOADS}{file_name}.enc")
 
 
 @app.route("/file/<file_id>", methods=["DELETE"])
