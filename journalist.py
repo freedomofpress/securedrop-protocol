@@ -2,17 +2,17 @@ import argparse
 import json
 from base64 import b64encode
 from datetime import datetime
+from hashlib import sha3_256
 from os import listdir, mkdir, path
 from time import time
 
 import nacl.secret
 import requests
 from ecdsa import SigningKey
-from hashlib import sha3_256
 
 import commons
-import pki
 import journalist_db
+import pki
 
 
 def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
@@ -48,7 +48,7 @@ def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 # This is inefficient, but on an actual implementation we would discard already used keys
 def decrypt_message(ephemeral_keys, message):
     for ephemeral_key in ephemeral_keys:
-        message_plaintext = commons.decrypt_message_ciphertext(
+        message_plaintext = commons.decrypt_message_asymmetric(
             ephemeral_key, message["message_public_key"],
             message["message_ciphertext"])
         if message_plaintext:
@@ -72,8 +72,10 @@ def journalist_reply(message, reply, journalist_uid):
                     "group_members": [],
                     "timestamp": int(time())}
 
-    message_ciphertext = b64encode(
-        box.encrypt((json.dumps(message_dict)).ljust(1024).encode('ascii'))
+    file_id, key = commons.upload_message(json.dumps(message_dict))
+
+    message_ciphertext = b64encode(box.encrypt(
+        (json.dumps({"file_id": file_id, "key": key})).encode('ascii'))
     ).decode("ascii")
 
     # Send the message to the server API using the generic /send endpoint
@@ -116,14 +118,20 @@ def main(args):
         message_id = args.id
         message = commons.get_message(message_id)
         ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
+        # Get the encrypted file_id and decryption key of the message
         message_plaintext = decrypt_message(ephemeral_keys, message)
+
+        # Fetch and decrypt the actual message, that was stored as an attachment
+        key = message_plaintext['key']
+        encrypted_message_content = commons.get_file(message_plaintext['file_id'])
+        message_plaintext = commons.decrypt_message_symmetric(encrypted_message_content, bytes.fromhex(key))
 
         if message_plaintext:
             # Create a download folder if we have attachments
             if (message_plaintext["attachments"] and
                len(message_plaintext["attachments"]) > 0):
                 try:
-                    mkdir('downloads/')
+                    mkdir(commons.DOWNLOADS)
                 except Exception:
                     pass
             else:
@@ -139,7 +147,7 @@ def main(args):
                 print(f"\tAttachment: name={attachment['name']};size={attachment['size']};parts_count={attachment['parts_count']}")
                 attachment_name = path.basename(attachment['name'])
                 attachment_size = attachment['size']
-                with open(f"downloads/{int(time())}_{attachment_name}", "wb") as f:
+                with open(f"{commons.DOWNLOADS}{int(time())}_{attachment_name}", "wb") as f:
                     part_number = 0
                     written_size = 0
                     while written_size < attachment_size:
@@ -166,7 +174,11 @@ def main(args):
         message_id = args.id
         message = commons.get_message(message_id)
         ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
-        message_plaintext = decrypt_message(ephemeral_keys, message)
+        envelope_plaintext = decrypt_message(ephemeral_keys, message)
+        message_ciphertext = commons.get_file(envelope_plaintext['file_id'])
+        message_symmetric_key = bytes.fromhex(envelope_plaintext['key'])
+        message_plaintext = commons.decrypt_message_symmetric(message_ciphertext,
+                                                              message_symmetric_key)
         journalist_reply(message_plaintext, args.message, journalist_uid)
 
     elif args.action == "delete":
