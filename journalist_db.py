@@ -1,13 +1,14 @@
 import os
 import sqlite3
 
+
 class JournalistDatabase():
 
     def __init__(self, path):
         self.path = path
         self.is_valid = os.path.isfile(self.path)
         self.con = sqlite3.connect(self.path)
-        if self.is_valid == False:
+        if self.is_valid is False:
             try:
                 self.create()
             except sqlite3.OperationalError:

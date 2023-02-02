@@ -19,7 +19,8 @@ In `commons.py` there are the following configuration values which are global fo
 |---|---|---|---|
 | `SERVER` | `127.0.0.1:5000` | source, journalist | The URL the Flask server listens on; used by both the journalist and the source clients. |
 | `DIR` | `keys/` | server, source, journalist | The folder where everybody will load the keys from. There is no separation for demo simplicity of course in an actual implementation, everybody will only have their keys and the required public one to ensure the trust chain. |
-| `UPLOADS` | `files/` | server | The folder where the Flask server will store uploaded files
+| `UPLOADS` | `files/` | server | The folder where the Flask server will store uploaded files. |
+| `DOWNLOADS` | `downloads/` | journalist | The folder where submission attachments will be saved. |
 | `JOURNALISTS` | `10` | server, source |  How many journalists do we create and enroll. In general, this is realistic, in current SecureDrop usage it is way less. For demo purposes everybody knows it, in a real scenario it would not be needed. |
 | `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist create, sign and uploads when required. |
 | `CURVE` | `NIST384p` | server, source, journalist | The curve for all elliptic curve operations. It must be imported first from the python-ecdsa library. Ed25519 and Ed448, although supported by the lib, are not fully implemented. |

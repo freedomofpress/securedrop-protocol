@@ -44,28 +44,29 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
     challenge_key = derive_key(passphrase, "challenge_key-")
     source_challenge_public_key = b64encode(challenge_key.verifying_key.to_string()).decode("ascii")
 
+    # Same as on the journalist side: this structure is built by the clients
+    # and thus potentially "untrusted"
+    message_dict = {"message": message,
+                    # do we want to sign messages? how do we attest source authoriship?
+                    "source_challenge_public_key": source_challenge_public_key,
+                    "source_encryption_public_key": source_encryption_public_key,
+                    # we could list the journalists involved in the conversation here
+                    # if the source choose not to pick everybody
+                    "group_members": [],
+                    "timestamp": int(time()),
+                    # we can add attachmenet pieces/id here
+                    "attachments": attachments}
+
+    file_id, key = commons.upload_message(json.dumps(message_dict))
+
     # For every receiver (journalists), create a message
     for ephemeral_key_dict in ephemeral_keys:
         # This function builds the per-message keys and returns a nacl encrypting box
         message_public_key, message_challenge, box = commons.build_message(ephemeral_key_dict["journalist_chal_key"],
                                                                            ephemeral_key_dict["ephemeral_key"])
 
-        # Same as on the journalist side: this structure is built by the clients
-        # and thus potentially "untrusted"
-        message_dict = {"message": message,
-                        # do we want to sign messages? how do we attest source authoriship?
-                        "source_challenge_public_key": source_challenge_public_key,
-                        "source_encryption_public_key": source_encryption_public_key,
-                        "receiver": ephemeral_key_dict["journalist_uid"],
-                        # we could list the journalists involved in the conversation here
-                        # if the source choose not to pick everybody
-                        "group_members": [],
-                        "timestamp": int(time()),
-                        # we can add attachmenet pieces/id here
-                        "attachments": attachments}
-
         message_ciphertext = b64encode(box.encrypt(
-            (json.dumps(message_dict)).ljust(1024).encode('ascii'))
+            (json.dumps({"file_id": file_id, "key": key})).encode('ascii'))
         ).decode("ascii")
 
         # Send the message to the server API using the generic /send endpoint
@@ -127,13 +128,17 @@ def main(args):
         source_key = derive_key(passphrase, "source_key-")
         message_id = args.id
         message = commons.get_message(message_id)
-        message_plaintext = commons.decrypt_message_ciphertext(source_key,
+        message_plaintext = commons.decrypt_message_asymmetric(source_key,
                                                                message["message_public_key"],
                                                                message["message_ciphertext"])
 
         if message_plaintext:
             print(f"[+] Successfully decrypted message {message_id}")
+            print(f"[+] file_id: {message_plaintext['file_id']}, key: {message_plaintext['key']}")
             print()
+            key = message_plaintext['key']
+            encrypted_message_content = commons.get_file(message_plaintext['file_id'])
+            message_plaintext = commons.decrypt_message_symmetric(encrypted_message_content, bytes.fromhex(key))
             print(f"\tID: {message_id}")
             print(f"\tFrom: {message_plaintext['sender']}")
             print(f"\tDate: {datetime.fromtimestamp(message_plaintext['timestamp'])}")
