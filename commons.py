@@ -18,6 +18,8 @@ SERVER = "127.0.0.1:5000"
 DIR = "keys/"
 # Where the flask server will store uploaded files
 UPLOADS = "files/"
+# Folders where journalists download attachments to submissions
+DOWNLOADS = "downloads/"
 # How many journalists do we create and enroll. In general, this is realistic, in current
 # securedrop usage it is way less
 JOURNALISTS = 10
@@ -229,7 +231,7 @@ def fetch_messages_content(messages_id):
         return messages_list
 
 
-def decrypt_message_ciphertext(private_key, message_public_key, message_ciphertext):
+def decrypt_message_asymmetric(private_key, message_public_key, message_ciphertext):
     ecdh = ECDH(curve=CURVE)
     ecdh.load_private_key(private_key)
     ecdh.load_received_public_key_bytes(b64decode(message_public_key))
@@ -240,6 +242,21 @@ def decrypt_message_ciphertext(private_key, message_public_key, message_cipherte
         return message_plaintext
     except Exception:
         return False
+
+
+def upload_message(content):
+    assert (len(content) < CHUNK)
+    key = token_bytes(32)
+    box = nacl.secret.SecretBox(key)
+    ciphertext = box.encrypt(content.ljust(CHUNK).encode('ascii'))
+    upload_response = send_file(ciphertext)
+    return upload_response['file_id'], key.hex()
+
+
+def decrypt_message_symmetric(ciphertext, key):
+    box = nacl.secret.SecretBox(key)
+    plaintext = json.loads(box.decrypt(ciphertext).decode('ascii'))
+    return plaintext
 
 
 def upload_attachment(filename):
