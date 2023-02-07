@@ -61,6 +61,12 @@ def journalist_reply(message, reply, journalist_uid):
         message["source_challenge_public_key"],
         message["source_encryption_public_key"])
 
+    intermediate_verifying_key = pki.verify_root_intermediate()
+
+    journalists = commons.get_journalists(intermediate_verifying_key)
+
+    ephemeral_keys = commons.get_ephemeral_keys(journalists)
+
     # The actual message struct varies depending on the sending party.
     # Still it is client controlled, so in each client we shall watch out a bit.
     message_dict = {"message": reply,
@@ -70,6 +76,7 @@ def journalist_reply(message, reply, journalist_uid):
                     # we could list the journalists involved in the conversation here
                     # if the source choose not to pick everybody
                     "group_members": [],
+                    "ephemeral_keys": ephemeral_keys,
                     "timestamp": int(time())}
 
     file_id, key = commons.upload_message(json.dumps(message_dict))

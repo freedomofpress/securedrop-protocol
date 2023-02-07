@@ -25,15 +25,8 @@ def derive_key(passphrase, key_isolation_prefix):
     return key
 
 
-def send_submission(intermediate_verifying_key, passphrase, message, attachments):
-    # Get all the journalists, their keys, and the signatures of their keys from the server API
-    # and verify the trust chain, otherwise the function will hard fail
-    journalists = commons.get_journalists(intermediate_verifying_key)
-
-    # Get an ephemeral key for each journalist, check that the signatures are good and that
-    # we have different journalists
-    ephemeral_keys = commons.get_ephemeral_keys(journalists)
-
+def send_submission(journalists, ephemeral_keys, passphrase, message, attachments):
+    passphrase = bytes.fromhex(passphrase)
     # We deterministically derive the source long term keys from the passphrase
     # Add prefix for key isolation
     # [SOURCE] LONG-TERM MESSAGE KEY
@@ -73,8 +66,31 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
         commons.send_message(message_ciphertext, message_public_key, message_challenge)
 
 
+def get_and_decrypt_message(passphrase, message_id):
+    passphrase = bytes.fromhex(args.passphrase)
+    source_key = derive_key(passphrase, "source_key-")
+    message_id = args.id
+    message = commons.get_message(message_id)
+    message_plaintext = commons.decrypt_message_asymmetric(source_key,
+                                                           message["message_public_key"],
+                                                           message["message_ciphertext"])
+
+    if message_plaintext:
+        key = message_plaintext['key']
+        encrypted_message_content = commons.get_file(message_plaintext['file_id'])
+        message_plaintext = commons.decrypt_message_symmetric(encrypted_message_content, bytes.fromhex(key))
+        return message_plaintext
+    else:
+        return False
+
+
 def main(args):
     intermediate_verifying_key = pki.verify_root_intermediate()
+
+    # Get all the journalists, their keys, and the signatures of their keys from the server API
+    # and verify the trust chain, otherwise the function will hard fail
+    journalists = commons.get_journalists(intermediate_verifying_key)
+
     # Generate or load a passphrase
     if args.action == "submit":
         if not args.message:
@@ -93,7 +109,11 @@ def main(args):
                     print(f"[-] Failed attaching {file}")
                     return -1
 
-        send_submission(intermediate_verifying_key, passphrase, args.message, attachments)
+        # Get an ephemeral key for each journalist, check that the signatures are good and that
+        # we have different journalists
+        ephemeral_keys = commons.get_ephemeral_keys(journalists)
+
+        send_submission(journalists, ephemeral_keys, passphrase, args.message, attachments)
 
     elif args.passphrase and args.action == "fetch":
         # Different from the journo side: we first parse the passphrase
@@ -124,33 +144,25 @@ def main(args):
             print("[-] Please specify a message id using -i")
             return -1
 
-        passphrase = bytes.fromhex(args.passphrase)
-        source_key = derive_key(passphrase, "source_key-")
-        message_id = args.id
-        message = commons.get_message(message_id)
-        message_plaintext = commons.decrypt_message_asymmetric(source_key,
-                                                               message["message_public_key"],
-                                                               message["message_ciphertext"])
+        message_plaintext = get_and_decrypt_message(args.passphrase, args.id)
 
-        if message_plaintext:
-            print(f"[+] Successfully decrypted message {message_id}")
-            print(f"[+] file_id: {message_plaintext['file_id']}, key: {message_plaintext['key']}")
-            print()
-            key = message_plaintext['key']
-            encrypted_message_content = commons.get_file(message_plaintext['file_id'])
-            message_plaintext = commons.decrypt_message_symmetric(encrypted_message_content, bytes.fromhex(key))
-            print(f"\tID: {message_id}")
-            print(f"\tFrom: {message_plaintext['sender']}")
-            print(f"\tDate: {datetime.fromtimestamp(message_plaintext['timestamp'])}")
-            print(f"\tText: {message_plaintext['message']}")
-            print()
+        print(f"\tID: {args.id}")
+        print(f"\tFrom: {message_plaintext['sender']}")
+        print(f"\tDate: {datetime.fromtimestamp(message_plaintext['timestamp'])}")
+        print(f"\tText: {message_plaintext['message']}")
+        print()
 
     elif args.passphrase and args.action == "reply":
-        passphrase = bytes.fromhex(args.passphrase)
         if not args.message:
             print("[-] Please specify a text message using -m")
             return -1
-        send_submission(intermediate_verifying_key, passphrase, args.message, None)
+        if not args.id:
+            print("[-] Please specify a message id using -i")
+            return -1
+
+        message_plaintext = get_and_decrypt_message(args.passphrase, args.id)
+        ephemeral_keys = message_plaintext["ephemeral_keys"]
+        send_submission(journalists, ephemeral_keys, args.passphrase, args.message, None)
 
     elif args.action == "delete":
         message_id = args.id
