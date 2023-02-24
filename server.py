@@ -90,36 +90,40 @@ def download_file():
     except Exception:
         return {"status": "KO"}, 400
 
-    file_name = token_hex(32)
-    file_id = token_hex(32)
-    redis.set(f"file:{file_id}", file_name.encode("ascii"))
+    file_id, file_name = json.loads(redis.spop("file_token"))
+
+    redis.set(f"file:{file_name}", 1)
 
     file.save(f"{commons.UPLOADS}{file_name}.enc")
 
     return {"status": "OK", "file_id": file_id}, 200
 
 
-@app.route("/file/<file_id>", methods=["GET"])
-def get_file(file_id):
-    file_name = redis.get(f"file:{file_id}")
-    if not file_name:
+@app.route("/file/<file_name>", methods=["GET"])
+def get_file(file_name):
+    if not redis.get(f"file:{file_name}"):
         return {"status": "KO"}, 404
-    else:
-        file_name = file_name.decode('ascii')
-        return send_file(f"{commons.UPLOADS}{file_name}.enc")
+    return send_file(f"{commons.UPLOADS}{file_name}.enc")
 
 
-@app.route("/file/<file_id>", methods=["DELETE"])
-def delete_file(file_id):
-    file = redis.get(f"file:{file_id}")
-    if not file:
+@app.route("/file/<file_name>", methods=["DELETE"])
+def delete_file(file_name):
+    if not redis.get(f"file:{file_name}"):
         return {"status": "KO"}, 404
-    else:
-        file = file.decode('ascii')
-
-        redis.delete(f"file:{file_id}")
-        remove(f"{commons.UPLOADS}{file}.enc")
+    redis.delete(f"file:{file_name}")
+    remove(f"{commons.UPLOADS}{file_name}.enc")
     return {"status": "OK"}, 200
+
+
+def get_journalist_verifying_key(journalist_uid):
+    journalists = redis.smembers("journalists")
+
+    for journalist in journalists:
+        journalist_dict = json.loads(journalist.decode("ascii"))
+        if journalist_dict["journalist_uid"] == journalist_uid:
+            return pki.public_b642key(journalist_dict["journalist_key"])
+
+    return None
 
 
 @app.route("/ephemeral_keys", methods=["POST"])
@@ -132,12 +136,10 @@ def add_ephemeral_keys():
         return {"status": "KO"}, 400
 
     journalist_uid = content["journalist_uid"]
-    journalists = redis.smembers("journalists")
+    journalist_verifying_key = get_journalist_verifying_key(journalist_uid)
+    if journalist_verifying_key is None:
+        return {"status": "KO"}, 400
 
-    for journalist in journalists:
-        journalist_dict = json.loads(journalist.decode("ascii"))
-        if journalist_dict["journalist_uid"] == journalist_uid:
-            journalist_verifying_key = pki.public_b642key(journalist_dict["journalist_key"])
     ephemeral_keys = content["ephemeral_keys"]
 
     for ephemeral_key_dict in ephemeral_keys:
@@ -173,6 +175,35 @@ def get_ephemeral_keys():
         ephemeral_keys.append(ephemeral_key_dict)
 
     return {"status": "OK", "count": len(ephemeral_keys), "ephemeral_keys": ephemeral_keys}, 200
+
+
+@app.route("/file_tokens", methods=["POST"])
+def add_file_tokens():
+    content = request.json
+    try:
+        assert ("journalist_uid" in content)
+        assert ("sig" in content)
+        assert ("file_tokens" in content)
+    except Exception:
+        return {"status": "KO"}, 400
+
+    journalist_uid = content["journalist_uid"]
+    journalist_verifying_key = get_journalist_verifying_key(journalist_uid)
+    if journalist_verifying_key is None:
+        return {"status": "KO"}, 400
+
+    sig = b64decode(content["sig"])
+    file_tokens = content["file_tokens"]
+
+    try:
+        pki.verify(journalist_verifying_key, file_tokens.encode("ascii"), sig)
+    except Exception:
+        return {"status": "KO"}, 400
+
+    for file_id, file_name in json.loads(file_tokens):
+        redis.sadd("file_token", json.dumps([file_id, file_name]))
+
+    return {"status": "OK"}, 200
 
 
 @app.route("/challenge", methods=["GET"])

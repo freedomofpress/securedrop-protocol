@@ -134,10 +134,11 @@ def main(args):
 
         if message_plaintext:
             print(f"[+] Successfully decrypted message {message_id}")
-            print(f"[+] file_id: {message_plaintext['file_id']}, key: {message_plaintext['key']}")
+            # sources receive the otherwise secret file_name from journalists
+            print(f"[+] file_name: {message_plaintext['file_name']}, key: {message_plaintext['key']}")
             print()
             key = message_plaintext['key']
-            encrypted_message_content = commons.get_file(message_plaintext['file_id'])
+            encrypted_message_content = commons.get_file(message_plaintext['file_name'])
             message_plaintext = commons.decrypt_message_symmetric(encrypted_message_content, bytes.fromhex(key))
             print(f"\tID: {message_id}")
             print(f"\tFrom: {message_plaintext['sender']}")

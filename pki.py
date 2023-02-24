@@ -89,13 +89,17 @@ def generate_key(name):
     return key
 
 
-# Sign a given public key with the pubblid private key
-def sign_key(signing_pivate_key, signed_public_key, signature_name):
-    sig = signing_pivate_key.sign_deterministic(
-        signed_public_key.to_string(),
+def sign(signing_private_key, signed):
+    return signing_private_key.sign_deterministic(
+        signed,
         hashfunc=sha3_256,
         sigencode=sigencode_der
     )
+
+
+# Sign a given public key with the pubblid private key
+def sign_key(signing_private_key, signed_public_key, signature_name):
+    sig = sign(signing_private_key, signed_public_key.to_string())
 
     with open(signature_name, "wb") as f:
         f.write(sig)
@@ -104,12 +108,17 @@ def sign_key(signing_pivate_key, signed_public_key, signature_name):
 
 
 # Verify a signature
+def verify(signing_public_key, signed, sig):
+    signing_public_key.verify(sig, signed, hashfunc=sha3_256, sigdecode=sigdecode_der)
+    return sig
+
+
 def verify_key(signing_public_key, signed_public_key, signature_name, sig=None):
     if not sig:
         with open(signature_name, "rb") as f:
             sig = f.read()
-    signing_public_key.verify(sig, signed_public_key.to_string(), hashfunc=sha3_256, sigdecode=sigdecode_der)
-    return sig
+
+    return verify(signing_public_key, signed_public_key.to_string(), sig)
 
 
 def generate_pki():

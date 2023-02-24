@@ -5,6 +5,7 @@ from datetime import datetime
 from hashlib import sha3_256
 from os import listdir, mkdir, path
 from time import time
+from secrets import token_hex
 
 import nacl.secret
 import requests
@@ -44,6 +45,38 @@ def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
     return ephemeral_keys
 
 
+def add_file_tokens(journalist_key, journalist_uid):
+    file_tokens = []
+    for _ in range(commons.ONETIMEKEYS):
+        file_tokens.append((token_hex(32), token_hex(32)))
+
+    file_tokens = json.dumps(file_tokens)
+    file_tokens_dir = f"{commons.DIR}journalists/file_tokens/"
+    try:
+        mkdir(file_tokens_dir)
+    except Exception:
+        pass
+    with open(f"{file_tokens_dir}{token_hex(32)}.json", "w") as f:
+        f.write(file_tokens)
+
+    sig = pki.sign(journalist_key, file_tokens.encode("ascii"))
+
+    response = requests.post(f"http://{commons.SERVER}/file_tokens", json={
+        "journalist_uid": journalist_uid,
+        "sig": b64encode(sig).decode("ascii"),
+        "file_tokens": file_tokens,
+    })
+
+    return (response.status_code == 200)
+
+
+def load_file_tokens():
+    pairs = []
+    for file_name in listdir(f"{commons.DIR}journalists/file_tokens/"):
+        pairs.extend(json.load(open(f"{commons.DIR}journalists/file_tokens/{file_name}")))
+    return dict(pairs)
+
+
 # Try all the ephemeral keys to build an encryption shared secret to decrypt a message.
 # This is inefficient, but on an actual implementation we would discard already used keys
 def decrypt_message(ephemeral_keys, message):
@@ -55,7 +88,7 @@ def decrypt_message(ephemeral_keys, message):
             return message_plaintext
 
 
-def journalist_reply(message, reply, journalist_uid):
+def journalist_reply(message, reply, journalist_uid, file_tokens):
     # This function builds the per-message keys and returns a nacl encrypting box
     message_public_key, message_challenge, box = commons.build_message(
         message["source_challenge_public_key"],
@@ -72,10 +105,13 @@ def journalist_reply(message, reply, journalist_uid):
                     "group_members": [],
                     "timestamp": int(time())}
 
+    # in a reply, we need to let the source know what the file_name is so it can access the
+    # full message and delete it at its leisure
     file_id, key = commons.upload_message(json.dumps(message_dict))
+    file_name = file_tokens[file_id]
 
     message_ciphertext = b64encode(box.encrypt(
-        (json.dumps({"file_id": file_id, "key": key})).encode('ascii'))
+        (json.dumps({"file_name": file_name, "key": key})).encode('ascii'))
     ).decode("ascii")
 
     # Send the message to the server API using the generic /send endpoint
@@ -95,6 +131,10 @@ def main(args):
 
         # Generate and upload a bunch (30) of ephemeral keys
         add_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
+
+    elif args.action == "upload_file_tokens":
+        # Generate and upload signed file tokens to be used by the server to hide file_ids from sources
+        add_file_tokens(journalist_key, journalist_uid)
 
     elif args.action == "fetch":
         # Check if there are messages
@@ -123,7 +163,9 @@ def main(args):
 
         # Fetch and decrypt the actual message, that was stored as an attachment
         key = message_plaintext['key']
-        encrypted_message_content = commons.get_file(message_plaintext['file_id'])
+        file_tokens = load_file_tokens()
+        file_name = file_tokens[message_plaintext['file_id']]
+        encrypted_message_content = commons.get_file(file_name)
         message_plaintext = commons.decrypt_message_symmetric(encrypted_message_content, bytes.fromhex(key))
 
         if message_plaintext:
@@ -175,11 +217,14 @@ def main(args):
         message = commons.get_message(message_id)
         ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
         envelope_plaintext = decrypt_message(ephemeral_keys, message)
-        message_ciphertext = commons.get_file(envelope_plaintext['file_id'])
+        # journalists must map the file_id to file_name, as the source cannot tell us the latter
+        file_tokens = load_file_tokens()
+        file_name = file_tokens[envelope_plaintext['file_id']]
+        message_ciphertext = commons.get_file(file_name)
         message_symmetric_key = bytes.fromhex(envelope_plaintext['key'])
         message_plaintext = commons.decrypt_message_symmetric(message_ciphertext,
                                                               message_symmetric_key)
-        journalist_reply(message_plaintext, args.message, journalist_uid)
+        journalist_reply(message_plaintext, args.message, journalist_uid, file_tokens)
 
     elif args.action == "delete":
         message_id = args.id
@@ -191,7 +236,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-j", "--journalist", help="Journalist number", type=int, choices=range(0, commons.JOURNALISTS), metavar=f"[0, {commons.JOURNALISTS - 1}]", required=True)
-    parser.add_argument("-a", "--action", help="Action to perform", default="fetch", choices=["upload_keys", "fetch", "read", "reply", "delete", "thread"])
+    parser.add_argument("-a", "--action", help="Action to perform", default="fetch", choices=["upload_keys", "upload_file_tokens", "fetch", "read", "reply", "delete", "thread"])
     parser.add_argument("-i", "--id", help="Message id")
     parser.add_argument("-t", "--thread", help="Thread id")
     parser.add_argument("-m", "--message", help="Plaintext message content for replies")
