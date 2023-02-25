@@ -53,6 +53,13 @@ Impersonate the journalists and generate ephemeral keys for each of them. Upload
 for i in $(seq 0 9); do python3 journalist.py -j $i -a upload_keys; done;
 ```
 
+Next, you have to upload `file_tokens` and their signature by impersonating any journalist (using them is automatic for all journalists, `file_tokens` are shared between them):
+```
+python3 journalist.py -j 7 -a upload_file_tokens
+```
+
+After this, sources may start sending in submissions.
+
 You can also generate call/caller graphs by running `make docs`.
 
 ### Source
@@ -128,13 +135,13 @@ options:
 #### Help
 ```
 # python3 journalist.py -h
-usage: journalist.py [-h] -j [0, 9] [-a {upload_keys,fetch,read,reply,delete}] [-i ID] [-m MESSAGE]
+usage: journalist.py [-h] -j [0, 9] [-a {upload_keys,upload_file_tokens,fetch,read,reply,delete}] [-i ID] [-m MESSAGE]
 
 options:
   -h, --help            show this help message and exit
   -j [0, 9], --journalist [0, 9]
                         Journalist number
-  -a {upload_keys,fetch,read,reply,delete}, --action {upload_keys,fetch,read,reply,delete}
+  -a {upload_keys,upload_file_tokens,fetch,read,reply,delete}, --action {upload_keys,upload_file_tokens,fetch,read,reply,delete}
                         Action to perform
   -i ID, --id ID        Message id
   -m MESSAGE, --message MESSAGE
@@ -391,7 +398,7 @@ Only a source can initiate a conversation; there are no other choices as sources
      - *Journalist* verifies that *mp* decrypted succesfully, if yes exits from the loop
  3. *Journalist* removes padding from *mp* and parse message *m*, metadata, and attachment details
  4. *Journalist* for every attachment *Chunk*
-     - *Journalist* fetches the encrypted *Chunk* *f<sup>m</sup>* from *Server* using `file_id`
+     - *Journalist* fetches the encrypted *Chunk* *f<sup>m</sup>* from *Server*, mapping the source supplied `file_id` to `file_name` that is needed to access the file
      - *Journalist* decrypts *f<sup>m</sup>* using *s<sup>m</sup>* *u = D(s<sup>m</sup>, f<sup>m</sup>)*
      - *Journalist* join *Chunks* according to metadata and saves back the original files
  5. *Journalist* reads the message *m*
@@ -556,6 +563,33 @@ curl -X GET http://127.0.0.1:5000/ephemeral_keys
 ```
 At this point *Source* must have verified all the J<sup>[0-i]</sup><sub>PK</sub>*  and can thus verify all the corresponding *sig<sup>[0-n]</sup><sub>JE</sub>*.
 
+### /file_tokens
+
+| JSON Name | Value |
+|---|---|
+|`file_tokens` | String of json encoded list of `[file_id, file_name]` pairs, both of which are `token_hex(32)` values. Used by the server to tell uploading parties the `file_id`, which only journalists can then map to the `file_name` that is used to access and delete files |
+|`sig` | *base64(sig<sub>file_tokens</sub>)* |
+|`journalist_uid` | *hex(H(J<sub>PK</sub>))* |
+
+#### POST
+Adds *n* *Journalist* signed file token pairs to the Server.
+The token pairs are stored in a Redis *set*, the key of which is `file_tokens`. In the demo implementation, the number of file tokens generated and uploaded each time is `commons.ONETIMEKEYS * 10`.
+
+```
+curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/file_tokens" --data
+{
+  "file_tokens": <file_tokens>,
+  "sig": <sig>,
+  "journalist_uid": <journalist_uid>
+}
+```
+```
+200 OK
+{
+  "status": "OK"
+}
+```
+
 #### DELETE (TODO)
 *Not implemented yet. A Journalist shall be able to revoke keys from the server.*
 ### /challenge/[challenge_id]
@@ -647,7 +681,7 @@ curl -X POST -H "Content_Type: application/json" http://127.0.0.1:5000/message -
 }
 ```
 
-Note that `message_id` is not returned upon submission, so that the sanding party cannot delete or fetch it unless they maliciously crafted the challenge for themselves, but at that point it would never be delivered to any other party.
+Note that `message_id` is not returned upon submission, so that the sending party cannot delete or fetch it unless they maliciously crafted the challenge for themselves, but at that point it would never be delivered to any other party.
 
 #### GET
 `message_public_key` is necessary for completing the key agreement protocol and obtaining the shared symmetric ey to decrypt the message. `message_public_key`, is ephemeral, unique per message, and has no links to anything else.
@@ -678,18 +712,18 @@ curl -X DELETE http://127.0.0.1:5000/message/<message_id>
 }
 ```
 
-### /file/[file_id]
+### /file/[file_name]
 Slicing and encrypting is up to the *Source* client. The server cannot enforce encryption, but it can enforce equal chunk size (TODO: not implemented).
 
 **Legend**:
 
 | JSON Name | Value |
 |---|---|
-|`file_id` | Unique, randomly generated per upload id. Files are sliced, paded and encrypted to a fixed size so that all files looks equal and there are no metadata, however that is up to the uploading client. |
+|`file_id` | A unique, journalist-shared dictionary/hash-map key picked out of redis `file_token` set. Files are sliced, padded and encrypted to a fixed size so that all files looks equal and there are no metadata, however that is up to the uploading client. |
 | `raw_encrypted_file_content` | Raw bytes composing the encrypted file object. |
 
 #### POST
-The `file_id` is secret, meaning that any parties with knowledge of it can either download the encrypted chunk or delete it. In production, it could be possible to set `commons.UPLOADS` to a FUSE filesystem without timestamps.
+The `file_id` is public, meaning that just parties which know the corresponding `file_name` from the `file_token` redis set can either download the encrypted chunk or delete it. In production, it could be possible to set `commons.UPLOADS` to a FUSE filesystem without timestamps.
 
 ```
 curl -X POST http://127.0.0.1:5000/file -F <path_to_encrypted_chunk>
@@ -705,7 +739,7 @@ curl -X POST http://127.0.0.1:5000/file -F <path_to_encrypted_chunk>
 #### GET
 The server will return either the raw encrypted content or a `404` status code.
 ```
-curl -X GET http://127.0.0.1:5000/file/<message_id>
+curl -X GET http://127.0.0.1:5000/file/<file_name>
 ```
 ```
 200 OK
@@ -714,7 +748,7 @@ curl -X GET http://127.0.0.1:5000/file/<message_id>
 #### DELETE
 A delete request deletes both the entry on the database and the encrypted chunk on the server storage.
 ```
-curl -X DELETE http://127.0.0.1:5000/file/<file_id>
+curl -X DELETE http://127.0.0.1:5000/file/<file_name>
 ```
 ```
 200 OK

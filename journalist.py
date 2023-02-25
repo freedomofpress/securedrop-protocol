@@ -47,7 +47,9 @@ def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 
 def add_file_tokens(journalist_key, journalist_uid):
     file_tokens = []
-    for _ in range(commons.ONETIMEKEYS):
+    # Every message will use up at least one token, so we'll generate more than commons.ONETIMEKEYS
+    # to allow sources to add multiple attachments without running low on tokens
+    for _ in range(commons.ONETIMEKEYS * 10):
         file_tokens.append((token_hex(32), token_hex(32)))
 
     file_tokens = json.dumps(file_tokens)
