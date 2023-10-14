@@ -4,7 +4,8 @@ from hashlib import sha3_256
 from os import mkdir, remove
 from secrets import token_hex
 
-from ecdsa import SigningKey, VerifyingKey
+import nacl.secret
+from ecdsa import ECDH, SigningKey, VerifyingKey
 from flask import Flask, request, send_file
 from redis import Redis
 
@@ -31,6 +32,7 @@ def index():
 @app.route("/journalists", methods=["POST"])
 def add_journalist():
     content = request.json
+    print(content)
     try:
         assert ("journalist_key" in content)
         assert ("journalist_sig" in content)
@@ -180,29 +182,41 @@ def get_messages_challenge():
     # SERVER EPHEMERAL CHALLENGE KEY
     request_ephemeral_key = SigningKey.generate(curve=commons.CURVE)
     # generate a challenge id
-    challenge_id = token_hex(32)
+    #challenge_id = token_hex(32)
     # save it in redis as an expiring key
-    redis.setex(f"challenge:{challenge_id}",
-                commons.CHALLENGES_TTL,
-                b64encode(request_ephemeral_key.to_string()).decode('ascii'))
+    # we do not need to save keys anymore!
+    # redis.setex(f"challenge:{challenge_id}",
+    #            commons.CHALLENGES_TTL,
+    #            b64encode(request_ephemeral_key.to_string()).decode('ascii'))
     message_server_challenges = []
     # retrieve all the message keys
     message_keys = redis.keys("message:*")
     for message_key in message_keys:
+        message_id = message_key.decode('ascii').split(":")[1]
         # retrieve the message and load the json
         message_dict = json.loads(redis.get(message_key).decode('ascii'))
         # calculate the per request per message challenge
-        message_server_challenge = VerifyingKey.from_public_point(
-            pki.get_shared_secret(
-                pki.public_b642key(message_dict["message_challenge"]), request_ephemeral_key
-            ),
-            curve=commons.CURVE)
-        message_server_challenges.append(b64encode(message_server_challenge.to_string()).decode('ascii'))
+        ecdh = ECDH(curve=commons.CURVE)
+        ecdh.load_private_key(request_ephemeral_key)
+        ecdh.load_received_public_key_bytes(b64decode(message_dict["message_public_key"]))
+        message_server_challenge = ecdh.generate_sharedsecret_bytes()
+
+        # calculate the sared key for message_id encryption
+        ecdh.load_private_key(request_ephemeral_key)
+        ecdh.load_received_public_key_bytes(b64decode(message_dict["message_challenge"]))
+        message_server_shared_secret = ecdh.generate_sharedsecret_bytes()
+        box = nacl.secret.SecretBox(message_server_shared_secret[0:32])
+        encrypted_message_id = b64encode(box.encrypt(message_id.encode('ascii')))
+
+        message_server_challenges.append({"chall": b64encode(message_server_challenge).decode('ascii'),
+                                          "enc_id": b64encode(encrypted_message_id).decode('ascii')})
 
     # add the decoy challenges
+    # SUSPEND it for development
     for decoy in range(commons.CHALLENGES - len(message_server_challenges)):
         message_server_challenges.append(
-            b64encode(SigningKey.generate(curve=commons.CURVE).verifying_key.to_string()).decode('ascii')
+            #b64encode(SigningKey.generate(curve=commons.CURVE).verifying_key.to_string()).decode('ascii')
+            "DECOYPLACEHOLDER"
         )
 
     assert (len(message_server_challenges) == commons.CHALLENGES)
@@ -211,67 +225,9 @@ def get_messages_challenge():
     # padding to hide the number of meesages to be added later
     response_dict = {"status": "OK",
                      "count": len(message_server_challenges),
-                     "challenge_id": challenge_id,
+                     #"challenge_id": challenge_id,
                      "message_challenges": message_server_challenges}
     return response_dict, 200
-
-
-@app.route("/challenge/<challenge_id>", methods=["POST"])
-def send_message_challenges_response(challenge_id):
-    # retrieve the challenge secret key from the challenge id in redis
-    request_ephemeral_key_bytes = redis.get(f"challenge:{challenge_id}")
-    if request_ephemeral_key_bytes is not None:
-        # re instantiate the key object for the given challenge id from redis
-        request_ephemeral_key = SigningKey.from_string(
-            b64decode(request_ephemeral_key_bytes.decode('ascii')),
-            curve=commons.CURVE)
-    else:
-        return {"status": "KO"}, 400
-
-    # check that we have some challenges responses back
-    try:
-        assert ("message_challenges_responses" in request.json)
-        assert (len(request.json["message_challenges_responses"]) > 0)
-    except Exception:
-        return {"status": "KO"}, 400
-
-    # calculate the inverse of the per request server key
-    inv_server = SigningKey.from_secret_exponent(pki.ec_mod_inverse(request_ephemeral_key), curve=commons.CURVE)
-
-    # fetch all the messages again from redis
-    message_keys = redis.keys("message:*")
-    messages = []
-    for message_key in message_keys:
-        # retrieve the message and load the json
-        messages.append({"message_id": message_key[8:].decode('ascii'),
-                         "message_public_key": json.loads(
-                           redis.get(message_key).decode('ascii')
-                         )["message_public_key"]})
-
-    # check all the challenges responses
-    potential_messages_public_keys = []
-    for message_challenge_response in request.json["message_challenges_responses"]:
-        potential_messages_public_key = VerifyingKey.from_public_point(
-            pki.get_shared_secret(pki.public_b642key(message_challenge_response), inv_server),
-            curve=commons.CURVE)
-        potential_messages_public_keys.append(b64encode(potential_messages_public_key.to_string()).decode('ascii'))
-
-    # check if any public key in the computed challenge/responses matches any message and return them
-    valid_messages = []
-    message_public_keys = []
-    for message in messages:
-        message_public_keys.append(message["message_public_key"])
-        for potential_messages_public_key in potential_messages_public_keys:
-            if potential_messages_public_key == message["message_public_key"]:
-                valid_messages.append(message["message_id"])
-
-    # only one attempt please :)
-    redis.delete(f"challenge:{challenge_id}")
-
-    if len(valid_messages) > 0:
-        return {"status": "OK", "count": len(valid_messages), "messages": valid_messages}, 200
-    else:
-        return {"status": "KO"}, 404
 
 
 @app.route("/message", methods=["POST"])
