@@ -191,19 +191,25 @@ def fetch_messages_id(challenge_key):
     message_challenges = get_challenges()
 
     message_challenges_responses = []
+    ecdh = ECDH(curve=CURVE)
 
     for message_challenge in message_challenges:
-        message_challenges_response = VerifyingKey.from_public_point(
-                            pki.get_shared_secret(
-                                pki.public_b642key(message_challenge), inv_journalist
-                            ),
-                            curve=CURVE
-                        )
-        message_challenges_responses.append(
-            b64encode(message_challenges_response.to_string()).decode('ascii')
-        )
 
-    res = send_messages_challenges_responses(challenge_id, message_challenges_responses)
+        ecdh.load_private_key(challenge_key)
+        ecdh.load_received_public_key_bytes(b64decode(message_challenge["chall"]))
+        message_client_shared_secret = ecdh.generate_sharedsecret_bytes()
+
+        box = nacl.secret.SecretBox(message_client_shared_secret[0:32])
+
+        try:
+            encrypted_message_id = box.decrypt(b64decode(message_challenge["enc_id"]))
+            print(encrypted_message_id)
+            
+        except:
+            pass
+
+
+
     if res:
         messages = res["messages"]
         return messages

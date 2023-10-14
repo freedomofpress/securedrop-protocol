@@ -181,14 +181,8 @@ def get_ephemeral_keys():
 def get_messages_challenge():
     # SERVER EPHEMERAL CHALLENGE KEY
     request_ephemeral_key = SigningKey.generate(curve=commons.CURVE)
-    # generate a challenge id
-    #challenge_id = token_hex(32)
-    # save it in redis as an expiring key
-    # we do not need to save keys anymore!
-    # redis.setex(f"challenge:{challenge_id}",
-    #            commons.CHALLENGES_TTL,
-    #            b64encode(request_ephemeral_key.to_string()).decode('ascii'))
     message_server_challenges = []
+
     # retrieve all the message keys
     message_keys = redis.keys("message:*")
     for message_key in message_keys:
@@ -199,7 +193,7 @@ def get_messages_challenge():
         ecdh = ECDH(curve=commons.CURVE)
         ecdh.load_private_key(request_ephemeral_key)
         ecdh.load_received_public_key_bytes(b64decode(message_dict["message_public_key"]))
-        message_server_challenge = ecdh.generate_sharedsecret_bytes()
+        message_server_challenge = VerifyingKey.from_bytes(ecdh.generate_sharedsecret_bytes(), curve=commons.CURVE)
 
         # calculate the sared key for message_id encryption
         ecdh.load_private_key(request_ephemeral_key)
@@ -215,8 +209,9 @@ def get_messages_challenge():
     # SUSPEND it for development
     for decoy in range(commons.CHALLENGES - len(message_server_challenges)):
         message_server_challenges.append(
-            #b64encode(SigningKey.generate(curve=commons.CURVE).verifying_key.to_string()).decode('ascii')
-            "DECOYPLACEHOLDER"
+                {"chall": b64encode(SigningKey.generate(curve=commons.CURVE).verifying_key.to_string()).decode('ascii'),
+                 "enc_id": "test"
+                }
         )
 
     assert (len(message_server_challenges) == commons.CHALLENGES)
@@ -225,7 +220,6 @@ def get_messages_challenge():
     # padding to hide the number of meesages to be added later
     response_dict = {"status": "OK",
                      "count": len(message_server_challenges),
-                     #"challenge_id": challenge_id,
                      "message_challenges": message_server_challenges}
     return response_dict, 200
 
