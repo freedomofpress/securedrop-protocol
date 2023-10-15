@@ -45,16 +45,16 @@ def ec_mod_inverse(signing_key):
     return d_inv
 
 
-#def get_shared_secret(remote_pubkey, local_privkey):
-#    if not (local_privkey.curve == remote_pubkey.curve):
-#        raise InvalidCurveError("Curves for public key and private key is not equal.")
+def get_shared_secret(remote_pubkey, local_privkey):
+    if not (local_privkey.curve == remote_pubkey.curve):
+        raise InvalidCurveError("Curves for public key and private key is not equal.")
 
     # shared secret = PUBKEYtheirs * PRIVATEKEYours
-#    result = (remote_pubkey.pubkey.point * local_privkey.privkey.secret_multiplier)
-#    if result == INFINITY:
-#        raise InvalidSharedSecretError("Invalid shared secret (INFINITY).")
+    result = (remote_pubkey.pubkey.point * local_privkey.privkey.secret_multiplier)
+    if result == INFINITY:
+        raise InvalidSharedSecretError("Invalid shared secret (INFINITY).")
 
-#    return result
+    return result
 
 
 def public_b642key(b64_verifying_key):

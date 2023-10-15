@@ -190,17 +190,22 @@ def get_messages_challenge():
         # retrieve the message and load the json
         message_dict = json.loads(redis.get(message_key).decode('ascii'))
         # calculate the per request per message challenge
-        ecdh = ECDH(curve=commons.CURVE)
-        ecdh.load_private_key(request_ephemeral_key)
-        ecdh.load_received_public_key_bytes(b64decode(message_dict["message_public_key"]))
-        message_server_challenge = VerifyingKey.from_bytes(ecdh.generate_sharedsecret_bytes(), curve=commons.CURVE)
+       
+
+        message_server_challenge = VerifyingKey.from_public_point(
+                                        pki.get_shared_secret(
+                                            VerifyingKey.from_string(b64decode(message_dict["message_public_key"]), curve=commons.CURVE),
+                                            request_ephemeral_key),
+                                        curve=commons.CURVE).to_string()
+
 
         # calculate the sared key for message_id encryption
+        ecdh = ECDH(curve=commons.CURVE)
         ecdh.load_private_key(request_ephemeral_key)
         ecdh.load_received_public_key_bytes(b64decode(message_dict["message_challenge"]))
         message_server_shared_secret = ecdh.generate_sharedsecret_bytes()
         box = nacl.secret.SecretBox(message_server_shared_secret[0:32])
-        encrypted_message_id = b64encode(box.encrypt(message_id.encode('ascii')))
+        encrypted_message_id = box.encrypt(message_id.encode('ascii'))
 
         message_server_challenges.append({"chall": b64encode(message_server_challenge).decode('ascii'),
                                           "enc_id": b64encode(encrypted_message_id).decode('ascii')})

@@ -190,7 +190,7 @@ def delete_message(message_id):
 def fetch_messages_id(challenge_key):
     message_challenges = get_challenges()
 
-    message_challenges_responses = []
+    messages = []
     ecdh = ECDH(curve=CURVE)
 
     for message_challenge in message_challenges:
@@ -202,16 +202,13 @@ def fetch_messages_id(challenge_key):
         box = nacl.secret.SecretBox(message_client_shared_secret[0:32])
 
         try:
-            encrypted_message_id = box.decrypt(b64decode(message_challenge["enc_id"]))
-            print(encrypted_message_id)
-            
-        except:
+            message_id = box.decrypt(b64decode(message_challenge["enc_id"])).decode('ascii')
+            messages.append(message_id)
+
+        except Exception as e:
             pass
 
-
-
-    if res:
-        messages = res["messages"]
+    if len(messages) > 0:
         return messages
 
 
