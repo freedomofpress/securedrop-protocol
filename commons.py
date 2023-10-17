@@ -26,12 +26,10 @@ ONETIMEKEYS = 30
 # The curve for all elliptic curve operations. It must be imported first from the python-ecdsa
 # library. Ed25519 and Ed448, although supported by the lib, are not fully implemented
 CURVE = NIST384p
-# How may challenges the server sends to each party when they try to fetch messages
+# How may entries the server sends to each party when they try to fetch messages
 # This basically must be more than the msssages in the database, otherwise we need
-# to develop a mechanism to group challenges adding some bits of metadata
+# to develop a mechanism to group messages adding some bits of metadata
 CHALLENGES = 500
-# The seconds for which a challenge_id remains valid
-CHALLENGES_TTL = 30
 # The base size of every parts in which attachment are splitted/padded to. This
 # is not the actual size on disk, cause thet will be a bit more depending on
 # the nacl SecretBox implementation
@@ -106,8 +104,8 @@ def get_ephemeral_keys(journalists):
     return ephemeral_keys_return
 
 
-def build_message(challenge_public_key, encryption_public_key):
-    challenge_public_key = VerifyingKey.from_string(b64decode(challenge_public_key), curve=CURVE)
+def build_message(fetching_public_key, encryption_public_key):
+    fetching_public_key = VerifyingKey.from_string(b64decode(fetching_public_key), curve=CURVE)
     encryption_public_key = VerifyingKey.from_string(b64decode(encryption_public_key), curve=CURVE)
 
     ecdh = ECDH(curve=CURVE)
@@ -126,22 +124,18 @@ def build_message(challenge_public_key, encryption_public_key):
     # encrypt the message, we trust nacl safe defaults
     box = nacl.secret.SecretBox(encryption_shared_secret[0:32])
 
-    # generate the shared secret for the challenge/response using
-    # source_ephemeral+journo_longterm
-    # [JOURNALIST] LONG-TERM CHALLENGE KEY
-
-    # generate the message challenge to send the server
-    message_challenge = b64encode(VerifyingKey.from_public_point(
-        pki.get_shared_secret(challenge_public_key, message_key),
+    # generate the message gdh to send the server
+    message_gdh = b64encode(VerifyingKey.from_public_point(
+        pki.get_shared_secret(fetching_public_key, message_key),
         curve=CURVE).to_string()).decode('ascii')
 
-    return message_public_key, message_challenge, box
+    return message_public_key, message_gdh, box
 
 
-def send_message(message_ciphertext, message_public_key, message_challenge):
+def send_message(message_ciphertext, message_public_key, message_gdh):
     send_dict = {"message_ciphertext": message_ciphertext,
                  "message_public_key": message_public_key,
-                 "message_challenge": message_challenge}
+                 "message_gdh": message_gdh}
 
     response = requests.post(f"http://{SERVER}/message", json=send_dict)
     if response.status_code != 200:
@@ -168,7 +162,7 @@ def get_file(file_id):
         return response.content
 
 
-def get_challenges():
+def fetch():
     response = requests.get(f"http://{SERVER}/fetch")
     assert (response.status_code == 200)
     return response.json()["messages"]
@@ -187,22 +181,22 @@ def delete_message(message_id):
     return response.status_code == 200
 
 
-def fetch_messages_id(challenge_key):
-    message_challenges = get_challenges()
+def fetch_messages_id(fetching_key):
+    potential_messages = fetch()
 
     messages = []
     ecdh = ECDH(curve=CURVE)
 
-    for message_challenge in message_challenges:
+    for message in potential_messages:
 
-        ecdh.load_private_key(challenge_key)
-        ecdh.load_received_public_key_bytes(b64decode(message_challenge["gdh"]))
+        ecdh.load_private_key(fetching_key)
+        ecdh.load_received_public_key_bytes(b64decode(message["gdh"]))
         message_client_shared_secret = ecdh.generate_sharedsecret_bytes()
 
         box = nacl.secret.SecretBox(message_client_shared_secret[0:32])
 
         try:
-            message_id = box.decrypt(b64decode(message_challenge["enc"])).decode('ascii')
+            message_id = box.decrypt(b64decode(message["enc"])).decode('ascii')
             messages.append(message_id)
 
         except Exception as e:
