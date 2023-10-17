@@ -2,7 +2,9 @@ import json
 from base64 import b64decode, b64encode
 from hashlib import sha3_256
 from os import mkdir, remove
-from secrets import token_hex
+from random import uniform
+from secrets import token_bytes, token_hex
+from time import sleep
 
 import nacl.secret
 from ecdsa import ECDH, SigningKey, VerifyingKey
@@ -36,23 +38,23 @@ def add_journalist():
     try:
         assert ("journalist_key" in content)
         assert ("journalist_sig" in content)
-        assert ("journalist_chal_key" in content)
-        assert ("journalist_chal_sig" in content)
+        assert ("journalist_fetching_key" in content)
+        assert ("journalist_fetching_sig" in content)
     except Exception:
         return {"status": "KO"}, 400
 
     journalist_verifying_key = pki.public_b642key(content["journalist_key"])
-    journalist_chal_verifying_key = pki.public_b642key(content["journalist_chal_key"])
+    journalist_fetching_verifying_key = pki.public_b642key(content["journalist_fetching_key"])
     try:
         journalist_sig = pki.verify_key(intermediate_verifying_key,
                                         journalist_verifying_key,
                                         None,
                                         b64decode(content["journalist_sig"]))
 
-        journalist_chal_sig = pki.verify_key(intermediate_verifying_key,
-                                             journalist_chal_verifying_key,
-                                             None,
-                                             b64decode(content["journalist_chal_sig"]))
+        journalist_fetching_sig = pki.verify_key(intermediate_verifying_key,
+                                                 journalist_fetching_verifying_key,
+                                                 None,
+                                                 b64decode(content["journalist_fetching_sig"]))
 
     except Exception:
         return {"status": "KO"}, 400
@@ -64,11 +66,11 @@ def add_journalist():
                                           "journalist_sig": b64encode(
                                             journalist_sig
                                           ).decode("ascii"),
-                                          "journalist_chal_key": b64encode(
-                                            journalist_chal_verifying_key.to_string()
+                                          "journalist_fetching_key": b64encode(
+                                            journalist_fetching_verifying_key.to_string()
                                           ).decode("ascii"),
-                                          "journalist_chal_sig": b64encode(
-                                            journalist_chal_sig
+                                          "journalist_fetching_sig": b64encode(
+                                            journalist_fetching_sig
                                           ).decode("ascii"),
                                           }))
     return {"status": "OK"}, 200
@@ -181,7 +183,7 @@ def get_ephemeral_keys():
 def get_fetch():
     # SERVER EPHEMERAL CHALLENGE KEY
     request_ephemeral_key = SigningKey.generate(curve=commons.CURVE)
-    message_server_challenges = []
+    potential_messages = []
 
     # retrieve all the message keys
     message_keys = redis.keys("message:*")
@@ -189,15 +191,12 @@ def get_fetch():
         message_id = message_key.decode('ascii').split(":")[1]
         # retrieve the message and load the json
         message_dict = json.loads(redis.get(message_key).decode('ascii'))
-        # calculate the per request per message challenge
-       
 
-        message_server_challenge = VerifyingKey.from_public_point(
+        message_server_gdh = VerifyingKey.from_public_point(
                                         pki.get_shared_secret(
                                             VerifyingKey.from_string(b64decode(message_dict["message_public_key"]), curve=commons.CURVE),
                                             request_ephemeral_key),
                                         curve=commons.CURVE).to_string()
-
 
         # calculate the sared key for message_id encryption
         ecdh = ECDH(curve=commons.CURVE)
@@ -207,25 +206,28 @@ def get_fetch():
         box = nacl.secret.SecretBox(message_server_shared_secret[0:32])
         encrypted_message_id = box.encrypt(message_id.encode('ascii'))
 
-        message_server_challenges.append({"gdh": b64encode(message_server_challenge).decode('ascii'),
-                                          "enc": b64encode(encrypted_message_id).decode('ascii')})
+        potential_messages.append({"gdh": b64encode(message_server_gdh).decode('ascii'),
+                                   "enc": b64encode(encrypted_message_id).decode('ascii')})
 
-    # add the decoy challenges
-    # SUSPEND it for development
-    for decoy in range(commons.CHALLENGES - len(message_server_challenges)):
-        message_server_challenges.append(
-                {"gdh": b64encode(SigningKey.generate(curve=commons.CURVE).verifying_key.to_string()).decode('ascii'),
-                 "enc": "TODO"
-                }
+    # add DECOY potential messages
+    # TODO: add shuffling of the response dict
+    for decoy in range(commons.MAX_MESSAGES - len(potential_messages)):
+        potential_messages.append({
+                                   "gdh": b64encode(SigningKey.generate(curve=commons.CURVE).verifying_key.to_string()).decode('ascii'),
+                                   # message_id are 32 bytes and encryption overhead is 64 bytes
+                                   "enc": b64encode(token_bytes(32+72)).decode('ascii')
+            }
         )
 
-    assert (len(message_server_challenges) == commons.CHALLENGES)
+    # TODO: add stronger timing attack mitigations (such as a random delay)
+    sleep(uniform(0, 3.0))
 
-    # return all the message challenges
+    assert (len(potential_messages) == commons.MAX_MESSAGES)
+
     # padding to hide the number of meesages to be added later
     response_dict = {"status": "OK",
-                     "count": len(message_server_challenges),
-                     "messages": message_server_challenges}
+                     "count": len(potential_messages),
+                     "messages": potential_messages}
     return response_dict, 200
 
 

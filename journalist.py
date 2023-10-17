@@ -2,17 +2,17 @@ import argparse
 import json
 from base64 import b64encode
 from datetime import datetime
+from hashlib import sha3_256
 from os import listdir, mkdir, path
 from time import time
 
 import nacl.secret
 import requests
 from ecdsa import SigningKey
-from hashlib import sha3_256
 
 import commons
-import pki
 import journalist_db
+import pki
 
 
 def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
@@ -57,8 +57,8 @@ def decrypt_message(ephemeral_keys, message):
 
 def journalist_reply(message, reply, journalist_uid):
     # This function builds the per-message keys and returns a nacl encrypting box
-    message_public_key, message_challenge, box = commons.build_message(
-        message["source_challenge_public_key"],
+    message_public_key, message_gdh, box = commons.build_message(
+        message["source_fetching_public_key"],
         message["source_encryption_public_key"])
 
     # The actual message struct varies depending on the sending party.
@@ -77,7 +77,7 @@ def journalist_reply(message, reply, journalist_uid):
     ).decode("ascii")
 
     # Send the message to the server API using the generic /send endpoint
-    commons.send_message(message_ciphertext, message_public_key, message_challenge)
+    commons.send_message(message_ciphertext, message_public_key, message_gdh)
 
 
 def main(args):
@@ -85,18 +85,18 @@ def main(args):
     journalist_id = args.journalist
     assert (journalist_id >= 0 and journalist_id < commons.JOURNALISTS)
 
-    journalist_uid, journalist_sig, journalist_key, journalist_chal_sig, journalist_chal_key = pki.load_and_verify_journalist_keypair(journalist_id)
+    journalist_uid, journalist_sig, journalist_key, journalist_fetching_sig, journalist_fetching_key = pki.load_and_verify_journalist_keypair(journalist_id)
     jdb = journalist_db.JournalistDatabase('files/.jdb.sqlite3')
 
     if args.action == "upload_keys":
-        journalist_uid = commons.add_journalist(journalist_key, journalist_sig, journalist_chal_key, journalist_chal_sig)
+        journalist_uid = commons.add_journalist(journalist_key, journalist_sig, journalist_fetching_key, journalist_fetching_sig)
 
         # Generate and upload a bunch (30) of ephemeral keys
         add_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
 
     elif args.action == "fetch":
         # Check if there are messages
-        messages_list = commons.fetch_messages_id(journalist_chal_key)
+        messages_list = commons.fetch_messages_id(journalist_fetching_key)
 
         try:
             nmessages = len(messages_list)

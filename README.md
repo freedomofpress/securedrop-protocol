@@ -19,7 +19,7 @@ In `commons.py` there are the following configuration values which are global fo
 | `JOURNALISTS` | `10` | server, source |  How many journalists do we create and enroll. In general, this is realistic, in current SecureDrop usage it is way less. For demo purposes everybody knows it, in a real scenario it would not be needed. |
 | `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist create, sign and uploads when required. |
 | `CURVE` | `NIST384p` | server, source, journalist | The curve for all elliptic curve operations. It must be imported first from the python-ecdsa library. Ed25519 and Ed448, although supported by the lib, are not fully implemented. |
-| `CHALLENGES` | `500` | server | How may challenges the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group challenges adding some bits of metadata. |
+| `MAX_MESSAGES` | `500` | server | How may potential messages the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
 | `CHUNK` | `512 * 1024` | source | The base size of every parts in which attachment are split/padded to. This is not the actual size on disk, cause that will be a bit more depending on the nacl SecretBox implementation. |
 
 ## Installation (Qubes)
@@ -362,7 +362,7 @@ Only a source can initiate a conversation; there are no other choices as sources
  1. *Server* fetches all `message_id`, `message_gdh` and `message_public_key` from Redis
  2. *Server* generates a per-request, ephemeral key-pair *RE<sub>SK</sub>, RE<sub>PK</sub> = Gen()*
  5. For every message fetched from Redis, the *Server* calculates the Group Diffie-Hellman using *RE<sub>SK</sub>* and message_gdh *mgdh* resulting in *gdh<sup>i</sup> = DH(DH(ME<sub>SK</sub>, JC<sup>ik</sup><sub>PK</sub>), RE<sub>SK</sub>)*
- 6. If the messages in Redis are less then `commons.CHALLENGES`, the *Server* generates *N* decoy challenges *DE<sup>n</sup><sub>SK</sub>, DE<sup>n</sup><sub>PK</sub> = G()*
+ 6. If the messages in Redis are less then `commons.MAX_MESSAGES`, the *Server* generates *N* decoy challenges *DE<sup>n</sup><sub>SK</sub>, DE<sup>n</sup><sub>PK</sub> = G()*
  7. The *Server* returns the real challenges and the decoy challenges to the client, being it a *Source* or a *Journalist*, attaching also the `challenge_id`
 
 ### Journalist fetch
@@ -557,7 +557,7 @@ At this point *Source* must have verified all the J<sup>[0-i]</sup><sub>PK</sub>
 
 | JSON Name | Value |
 |---|---|
-|`count` (GET) | Number of returned message challenges. Must always be greater than the number of messages on the server. Equal to `commons.CHALLENGES` so that it should always be the same for every request to prevent leaking the number of messages on the server. |
+|`count` (GET) | Number of returned message challenges. Must always be greater than the number of messages on the server. Equal to `commons.MAX_MESSAGES` so that it should always be the same for every request to prevent leaking the number of messages on the server. |
 |`count` (POST) | Number of returned `message_id` values, which is the number of message for the requesting source or journalist. |
 |`messages` | Couple of *encrypted_message_id* and Group Diffie Hellman (gdh) share |
 
@@ -570,7 +570,7 @@ curl -X GET http://127.0.0.1:5000/fetch
 ```
 200 OK
 {
-  "count": <commons.CHALLENGES>,
+  "count": <commons.MAX_MESSAGES>,
   "messages": [
      {
        "gdh": <share_for_group_DH1>,
@@ -581,7 +581,7 @@ curl -X GET http://127.0.0.1:5000/fetch
        "enc": <encrypted_message_id2>,
      }
     ...
-    <challenge_commons.CHALLENGES>
+    <challenge_commons.MAX_MESSAGES>
     ],
   "status": "OK"
 }

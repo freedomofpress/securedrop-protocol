@@ -32,19 +32,6 @@ class PRNG:
         return return_data
 
 
-# We need to cryptographically veify this as these are the two functions
-# used to process the challenge response. Refer to the documentation for
-# a decription of the actual mechanism.
-# Even if everything is ok, we must make sure that the server cannot leak stuff
-# by serving crafted challenges instead of random ones
-def ec_mod_inverse(signing_key):
-    # sanity checks??
-    d = signing_key.privkey.secret_multiplier
-    order = signing_key.privkey.order
-    d_inv = pow(d, order-2, order)
-    return d_inv
-
-
 def get_shared_secret(remote_pubkey, local_privkey):
     if not (local_privkey.curve == remote_pubkey.curve):
         raise InvalidCurveError("Curves for public key and private key is not equal.")
@@ -121,8 +108,8 @@ def generate_pki():
     root_key = generate_key("root")
     intermediate_key = generate_key("intermediate")
     sign_key(root_key, intermediate_key.verifying_key, f"{commons.DIR}intermediate.sig")
-    journalist_chal_keys, journalist_keys = generate_journalists(intermediate_key)
-    return root_key, intermediate_key, journalist_chal_keys, journalist_keys
+    journalist_fetching_keys, journalist_keys = generate_journalists(intermediate_key)
+    return root_key, intermediate_key, journalist_fetching_keys, journalist_keys
 
 
 def verify_root_intermediate():
@@ -153,12 +140,12 @@ def load_and_verify_journalist_keypair(journalist_id):
     journalist_sig = verify_key(intermediate_verifying_key,
                                 journalist_key.verifying_key,
                                 f"{commons.DIR}journalists/journalist_{journalist_id}.sig")
-    journalist_chal_key = load_key(f"journalists/journalist_chal_{journalist_id}")
-    journalist_chal_sig = verify_key(intermediate_verifying_key,
-                                     journalist_chal_key.verifying_key,
-                                     f"{commons.DIR}journalists/journalist_chal_{journalist_id}.sig")
+    journalist_fetching_key = load_key(f"journalists/journalist_fetching_{journalist_id}")
+    journalist_fetching_sig = verify_key(intermediate_verifying_key,
+                                         journalist_fetching_key.verifying_key,
+                                         f"{commons.DIR}journalists/journalist_fetching_{journalist_id}.sig")
 
-    return journalist_uid, journalist_sig, journalist_key, journalist_chal_sig, journalist_chal_key
+    return journalist_uid, journalist_sig, journalist_key, journalist_fetching_sig, journalist_fetching_key
 
 
 def load_and_verify_journalist_verifying_keys():
@@ -175,17 +162,17 @@ def load_and_verify_journalist_verifying_keys():
 
 def generate_journalists(intermediate_key):
     journalist_keys = []
-    journalist_chal_keys = []
+    journalist_fetching_keys = []
     mkdir(f"{commons.DIR}/journalists/")
     for j in range(commons.JOURNALISTS):
         journalist_key = generate_key(f"journalists/journalist_{j}")
         journalist_keys.append(journalist_key)
         sign_key(intermediate_key, journalist_key.verifying_key, f"{commons.DIR}journalists/journalist_{j}.sig")
-        journalist_chal_key = generate_key(f"journalists/journalist_chal_{j}")
-        journalist_chal_keys.append(journalist_chal_key)
-        sign_key(intermediate_key, journalist_chal_key.verifying_key, f"{commons.DIR}journalists/journalist_chal_{j}.sig")
+        journalist_fetching_key = generate_key(f"journalists/journalist_fetching_{j}")
+        journalist_fetching_keys.append(journalist_fetching_key)
+        sign_key(intermediate_key, journalist_fetching_key.verifying_key, f"{commons.DIR}journalists/journalist_fetching_{j}.sig")
 
-    return journalist_chal_keys, journalist_keys
+    return journalist_fetching_keys, journalist_keys
 
 
 def generate_ephemeral(journalist_key, journalist_id, journalist_uid):
