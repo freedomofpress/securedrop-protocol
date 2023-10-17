@@ -8,6 +8,9 @@
  * Zero explicit metadata on the server; there are implicit metadata such as access patterns to the API
  * Key isolation: each key is used only for a cryptographic purpose: signing, encryption, message fetching
 
+## Security
+For an informal threat model and comparison with other schemes, see the [related Wiki Page](https://github.com/freedomofpress/securedrop-poc/wiki/Proposals-comparison).
+
 ## Config
 In `commons.py` there are the following configuration values which are global for all components, even though of course not everybody need all of them.
 
@@ -55,7 +58,7 @@ Call/caller charts can be generated with `make docs`.
 bash demo.sh
 ```
 
-The demo script will clean past keys and file, flush redis, generate a new PKI, generate and upload journalists and simulate submissions and replis from different sources/journalists.
+The demo script will clean past keys and files, flush Redis, generate a new PKI, start the server, generate and upload journalists and simulate submissions and replies from different sources/journalists.
 
 ### Source
 #### Help
@@ -265,8 +268,8 @@ options:
      * *J<sub>PK</sub>*: Long term Journalist signing public key
      * *JC<sub>SK</sub>*: Long term Journalist message-fetching private key
      * *JC<sub>PK</sub>*: Long term Journalist message-fetching public key
-     * *JE<sub>SK</sub>*: Ephemeral (per-message) key-agreement private key
-     * *JE<sub>PK</sub>*: Ephemeral (per-message) key-agreement public key
+     * *JE<sub>SK</sub>*: Ephemeral per-message key-agreement private key
+     * *JE<sub>PK</sub>*: Ephemeral per-message key-agreement public key
  * **Sources**:
      * *PW*: Secret passphrase
      * *S<sub>SK</sub>*: Long term Source key-agreement private key
