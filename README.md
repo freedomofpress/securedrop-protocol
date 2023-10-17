@@ -49,6 +49,14 @@ for i in $(seq 0 9); do python3 journalist.py -j $i -a upload_keys; done;
 
 Call/caller charts can be generated with `make docs`.
 
+## Demo
+
+```
+bash demo.sh
+```
+
+The demo script will clean past keys and file, flush redis, generate a new PKI, generate and upload journalists and simulate submissions and replis from different sources/journalists.
+
 ### Source
 #### Help
 
