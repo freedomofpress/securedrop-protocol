@@ -335,7 +335,7 @@ options:
      |---|---|
      | *PW* = Gen() | Source generates a secure passphrase which is the only state available to clients|
      | *S<sub>SK</sub>, S<sub>PK</sub> = Gen(KDF(encryption_salt \|\| PW))* | Source deterministically generates the long-term key agreement key-pair using a specific hard-coded salt |
-     | *SC<sub>SK</sub>, SC<sub>PK</sub> = Gen(KDF(challenge_salt \|\| PW))* | Source deterministically generates the long-term challenge key-pair using a specific hard-coded salt |
+     | *SC<sub>SK</sub>, SC<sub>PK</sub> = Gen(KDF(fetching_salt \|\| PW))* | Source deterministically generates the long-term fetching key-pair using a specific hard-coded salt |
 
     **Source** does not need to publish anything until the first submission is sent.
 
@@ -369,7 +369,7 @@ Only a source can initiate a conversation; there are no other choices as sources
      - *Source* sends *c<sup>i</sup>*, *ME<sup>i</sup><sub>PK</sub>* and *mgdh<sup>i</sup>* to server
      - *Server* generates a random `message_id` *i* and stores `message:i` -> *c<sup>i</sup>*, *ME<sup>i</sup><sub>PK</sub>*, *mgdh<sup>i</sup>*
 
-### Server challenge generation
+### Server message fetching procol
  1. *Server* fetches all `message_id`, `message_gdh` and `message_public_key` from Redis
  2. *Server* generates a per-request, ephemeral key-pair *RE<sub>SK</sub>, RE<sub>PK</sub> = Gen()*
  5. For every message fetched from Redis, the *Server* calculates the Group Diffie-Hellman using *RE<sub>SK</sub>* and message_gdh *mgdh* resulting in *gdh<sup>i</sup> = DH(DH(ME<sub>SK</sub>, JC<sup>ik</sup><sub>PK</sub>), RE<sub>SK</sub>)*
@@ -409,12 +409,12 @@ Only a source can initiate a conversation; there are no other choices as sources
  4. *Journalist* adds metadata to message *m2*.
  5. *Journalist* pads the resulting text to a fixed size, *m2p* (message, metadata, padding)
  6. *Journalist* encrypts *mp* using *k*, *c = E(k, m2p)*
- 7. *Journalist* calculates the message_challenge (`message_challenge`) *mc = DH(ME<sub>SK</sub>, SC<sub>PK</sub>)*
+ 7. *Journalist* calculates the message_gdh (`message_gdh`) *mc = DH(ME<sub>SK</sub>, SC<sub>PK</sub>)*
  8. *Journalist* sends *c*, *ME<sub>PK</sub>* and *m2c* to server
  9. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
 
 ### Source fetch
- 1. *Source* makes a request to the *Server* and fetch all the challenges.
+ 1. *Source* makes a request to the *Server* and fetch all the gdhs and encrypted ids.
  2. *Source* calculates the inverse of their challenge private key *inv<sub>SC</sub> = Inv(SC<sub>SK</sub>)*
  3. For every challenge, the *Source* calculates a response by removing their Diffie-Hellman share obtaining the following *response = DH(chall<sup>i</sup>, inv<sub>SC</sub>)*
  4. *Source* returns all the responses to the *Server*, attaching the `challenge_id` that came from the *Server*
@@ -702,14 +702,10 @@ curl -X DELETE http://127.0.0.1:5000/file/<file_id>
 
 ## Limitations
 ### Crypto
-The cryptographic protocol needs to be audited. While we do not expect any major finding in the encryption protocol as it uses known primitives and known libraries in a well established manner, we cannot state the same for the challenge-response mechanism. 
+The cryptographic protocol needs to be audited.
   
-The challenge-response mechanism provide a proof-of-decryption from a Source/Journalist to the Server. It leverages a particular property of Diffie-Hellman constructions: once a shared secret between two (or more) party has been established, it is possible for a party to remove their "share" if-and-only-if that party knows the asymmetric private key that was used to generate such shared secret. This allows the Server to "temporary" mix an ephemeral share every time a client ask to retrieve data, providing confusion to the state of the messages available at a given time.  
-
-Any weakness of such challenge-response protocol would not hinder the trust chain or the confidentiality of messages since key segregation is also in place. A malicious party, it being either the Server or a Source, could fool the proof-of-decryption protocol and so retrieve the encrypted version of the messages but could not decrypt them to plaintext.  Still, this part is potentially the weak point of this proposal. We are confident that even if the challenge-response mechanism we design turns out to be insecure, there exists crypto primitives to achieve the same goal securely.
-
 ### Behavioral analysis
-While there are no accounts, and all messages are equal, the server could detect if it is interacting with a source or a journalist by observing the API request pattern. While all the clients, both source and journalist, would go through the Tor network and look the same from an HTTP perspective, they might perform different actions, such as ephemeral keys upload. A further fingerprinting mechanism could be, for instance, measuring how much time any client takes to solve the challenge-responses. It is up to the clients to mitigate this, sending decoy traffic and introducing randomness between requests.
+While there are no accounts, and all messages are equal, the server could detect if it is interacting with a source or a journalist by observing the API request pattern. While all the clients, both source and journalist, would go through the Tor network and look the same from an HTTP perspective, they might perform different actions, such as ephemeral keys upload. A further fingerprinting mechanism could be, for instance, measuring how much time any client takes to fetch messages. It is up to the clients to mitigate this, sending decoy traffic and introducing randomness between requests.
 
 ### Ephemeral key exhaustion
 As a known problem in this kind of protocols, what happens when the ephemeral keys of a journalist are exhausted due to either malicious intent or infrequent upload by the journalist?
@@ -721,7 +717,7 @@ While it is not currently implemented, ephemeral keys should include a short (30
 In the journalist client implementation, it could make sense to add both decoy API calls to obfuscate the behavioral pattern, as well as random submissions that then gets automatically ignored by the other journalists client when decrypted.
 
 ### Message retention
-The server cannot keep too many messages with the current configuration, as more than 1k or 2k challenges at a time would be too much to compute reasonably for the clients. Messages needs either to be deleted upon read or to automatically expiry (after a few days maybe). In case of expiration, that expiration should have a degree of randomness, otherwise the expiration time would be the same of a submission date in the context of minimizing metadata.
+The server cannot keep too many messages with the current configuration, as more than a few thousands at a time would be too much to compute reasonable time. Messages needs either to be deleted upon read or to automatically expiry (after a few days maybe). In case of expiration, that expiration should have a degree of randomness, otherwise the expiration time would be the same of a submission date in the context of minimizing metadata.
 
 ### Denial of service
 In having no accounts, it might be easy to flood the service, either of unwanted messages, or of bogus responses to challenges that would lead to significant waste of CPU resources. Depending on the individual *Newsroom* previous issues and threat model, classic rate limiting such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
