@@ -177,8 +177,8 @@ def get_ephemeral_keys():
     return {"status": "OK", "count": len(ephemeral_keys), "ephemeral_keys": ephemeral_keys}, 200
 
 
-@app.route("/challenge", methods=["GET"])
-def get_messages_challenge():
+@app.route("/fetch", methods=["GET"])
+def get_fetch():
     # SERVER EPHEMERAL CHALLENGE KEY
     request_ephemeral_key = SigningKey.generate(curve=commons.CURVE)
     message_server_challenges = []
@@ -207,15 +207,15 @@ def get_messages_challenge():
         box = nacl.secret.SecretBox(message_server_shared_secret[0:32])
         encrypted_message_id = box.encrypt(message_id.encode('ascii'))
 
-        message_server_challenges.append({"chall": b64encode(message_server_challenge).decode('ascii'),
-                                          "enc_id": b64encode(encrypted_message_id).decode('ascii')})
+        message_server_challenges.append({"gdh": b64encode(message_server_challenge).decode('ascii'),
+                                          "enc": b64encode(encrypted_message_id).decode('ascii')})
 
     # add the decoy challenges
     # SUSPEND it for development
     for decoy in range(commons.CHALLENGES - len(message_server_challenges)):
         message_server_challenges.append(
-                {"chall": b64encode(SigningKey.generate(curve=commons.CURVE).verifying_key.to_string()).decode('ascii'),
-                 "enc_id": "test"
+                {"gdh": b64encode(SigningKey.generate(curve=commons.CURVE).verifying_key.to_string()).decode('ascii'),
+                 "enc": "TODO"
                 }
         )
 
@@ -225,7 +225,7 @@ def get_messages_challenge():
     # padding to hide the number of meesages to be added later
     response_dict = {"status": "OK",
                      "count": len(message_server_challenges),
-                     "message_challenges": message_server_challenges}
+                     "messages": message_server_challenges}
     return response_dict, 200
 
 

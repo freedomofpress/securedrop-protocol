@@ -4,13 +4,13 @@ geometry: margin=2cm
 
 # Next-Gen SecureDrop Research
 
-## Selling points
+## Highlights
  * All messages are equal
  * There are no accounts
  * Everything is end to end encrypted with one time symmetric keys
  * Source to journalist key agreement has forward secrecy
  * Zero explicit metadata on the server; there are implicit metadata such as access patterns to the API
- * Key isolation: each key is used only for a cryptographic purpose: signing, encryption, NIZK
+ * Key isolation: each key is used only for a cryptographic purpose: signing, encryption, message fetching
 
 ## Config
 In `commons.py` there are the following configuration values which are global for all components, even though of course not everybody need all of them.
@@ -52,7 +52,7 @@ Impersonate the journalists and generate ephemeral keys for each of them. Upload
 for i in $(seq 0 9); do python3 journalist.py -j $i -a upload_keys; done;
 ```
 
-You can also generate call/caller graphs by running `make docs`.
+Call/caller charts can be generated with `make docs`.
 
 ### Source
 #### Help
@@ -268,25 +268,27 @@ options:
      * *PW*: Secret passphrase
      * *S<sub>SK</sub>*: Long term Source key agreement private key
      * *S<sub>PK</sub>*: Long term Source key agreement public key
-     * *SC<sub>SK</sub>*: Long term Source zero-knowledge private key
-     * *SC<sub>PK</sub>*: Long term Source zero-knowledge public key
+     * *SC<sub>SK</sub>*: Long term Source message-fetching private key
+     * *SC<sub>PK</sub>*: Long term Source message-fetching public key
  * **Messages**:
      * *ME<sub>SK</sub>*: Ephemeral per-message key agreement private key
      * *ME<sub>PK</sub>*: Ephemeral per-message key agreement public key
  * **Server**:
-     * *RE<sub>SK</sub>*: Ephemeral Server, per-challenge zero-knowledge private key 
-     * *RE<sub>PK</sub>*: Ephemeral Server, per-challenge zero-knowledge public key
+     * *RE<sub>SK</sub>*: Ephemeral Server, per-request message fetching private key
+     * *RE<sub>PK</sub>*: Ephemeral Server, per-request message-fetching public key
      * *DE<sup>n</sup><sub>PK</sub>*: Per-request, ephemeral decoy public key
 
 ## Functions
 | Formula | Description |
 |---|---|
-| *c = E(k, m)* | Encrypt message *m* to ciphertext *c* using symmetric key *k* |
-| *m = D(k, c)* | Decrypt ciphertext *c* to message *m* using symmetric key *k* |
-| *h = H(m)* | Hash message *m* to hash *h* |
+| *c = Enc(k, m)* | Authenticated encryption of message *m* to ciphertext *c* using symmetric key *k* |
+| *m = Dec(k, c)* | Authenticated decryption of ciphertext *c* to message *m* using symmetric key *k* |
+| *h = Hash(m)* | Hash message *m* to hash *h* |
 | *k = KDF(m)* | Derive a key *k* from message *m* |
-| *SK, PK = G(s)* | Generate a private key *SK* public key *PK* pair using seed *s*; if seed is empty generation is securely random |
-| *sig = Sig(SK, m)* | Create signature *sig* using *SK* as the signer key and *m* as the signed message |
+| *SK = Gen(s)* | Generate a private key *SK* pair using seed *s*; if seed is empty generation is securely random |
+| *PK = GetPub(SK)* | Get public key *PK* from secret key *SK* |
+| *sig = Sign(signer<sub>SK</sub>, target<sub>PK</sub>)* | Create signature *sig* using *signer<sub>SK</sub>* as the signer key and *target<sub>PK</sub>* as the signed public key |
+| *true/false = Verify()* | Verify signature sig of public key PK using Ver<sub>PK</sub> |
 | *k = DH(A<sub>SK</sub>, B<sub>PK</sub>) == DH(A<sub>PK</sub>, B<sub>SK</sub>)* | Generate shared key *k* using a key agreement primitive |
 
 ## Initial trust chain setup
@@ -429,10 +431,9 @@ Only a source can initiate a conversation; there are no other choices as sources
 ### Source reply
 *Source* replies work the exact same way as a first submission, except the source is already known to the *Journalist*.
 
-### Flow Charts
+### Flow Chart
 
-![chart1](https://github.com/lsd-cat/securedrop-poc/blob/main/imgs/sd2-Schema%20-%20Souce%20Submission.png?raw=true)  
-![chart2](https://github.com/lsd-cat/securedrop-poc/blob/main/imgs/sd2-Schema%20-%20Journal%20Reply.png?raw=true)
+![chart](https://github.com/lsd-cat/securedrop-poc/blob/main/imgs/sd_schema.png?raw=true)
 
 ## Server endpoints
 
@@ -557,7 +558,7 @@ At this point *Source* must have verified all the J<sup>[0-i]</sup><sub>PK</sub>
 
 #### DELETE (TODO)
 *Not implemented yet. A Journalist shall be able to revoke keys from the server.*
-### /challenge/[challenge_id]
+### /fetch
 
 **Legend**:
 
@@ -565,60 +566,33 @@ At this point *Source* must have verified all the J<sup>[0-i]</sup><sub>PK</sub>
 |---|---|
 |`count` (GET) | Number of returned message challenges. Must always be greater than the number of messages on the server. Equal to `commons.CHALLENGES` so that it should always be the same for every request to prevent leaking the number of messages on the server. |
 |`count` (POST) | Number of returned `message_id` values, which is the number of message for the requesting source or journalist. |
-|`challenge_id` | Unique, random-generate id of the challenge that needs to be supplied when sending the challenges responses. |
-|`message_challenges` | Array of *TODO formula here* |
-|`message_challenges_responses` | Array of *TODO formula here* |
-|`message_id` | Random, secret identifier of a given encrypted message on the server. The ID is the only thing needed to fetch or delete a message. |
+|`messages` | Couple of *encrypted_message_id* and Group Diffie Hellman (gdh) share |
 
 #### GET
-The server send some challenges and a `challenge_id`. Order is not important.
+The server sends all the mixed group Diffie Hellman shares, plus the encrypted message id of the corresponding messsage. *gdh* and *enc* are paired in couples.
+
 ```
-curl -X GET http://127.0.0.1:5000/challenge
+curl -X GET http://127.0.0.1:5000/fetch
 ```
 ```
 200 OK
 {
   "count": <commons.CHALLENGES>,
-  "challenge_id": <challege_id>,
-  "message_challenges": [
-    <challenge_1>,
-    <challenge_2>,
+  "messages": [
+     {
+       "gdh": <share_for_group_DH1>,
+       "enc": <encrypted_message_id1>,
+     },
+     {
+       "gdh": <share_for_group_DH2>,
+       "enc": <encrypted_message_id2>,
+     }
     ...
     <challenge_commons.CHALLENGES>
     ],
   "status": "OK"
 }
 ```
-#### POST
-`challenge_id` will expire according to `commons.CHALLENGES_TTL` value; after that a `400` error code will be returned. If no challenges are solved correctly using the corresponding challenge key, it means that there are no messages for that user and a `404` error code is returned.
-Order is not important.
-
-```
-curl -X POST -H "Content-Type: application/json" http://127.0.0.1:5000/challenge/<challenge_id> --data
-{
-  "message_challenges_responses": [
-    <challenge_response_1>,
-    <challenge_response_2>,
-    ...
-    <challenge_response_commons.CHALLENGES>
-  ]
-}
-```
-```
-200 OK
-{
-   "count": <count>,
-   "messages": [
-     <message_id_1>,
-     <message_id_2>,
-     ...
-   ],
-   "status": "OK"
-}
-```
-
-`message_id` is considered secret from the source side, meaning that a `message_id` allows to fetch or delete a message. `message_id` does not give any information about the content of the message, the sender, the receiver or any other metadata.
-
 ### /message/[message_id]
 
 **Legend**:

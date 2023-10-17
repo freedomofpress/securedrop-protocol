@@ -169,9 +169,9 @@ def get_file(file_id):
 
 
 def get_challenges():
-    response = requests.get(f"http://{SERVER}/challenge")
+    response = requests.get(f"http://{SERVER}/fetch")
     assert (response.status_code == 200)
-    return response.json()["message_challenges"]
+    return response.json()["messages"]
 
 
 def get_message(message_id):
@@ -196,13 +196,13 @@ def fetch_messages_id(challenge_key):
     for message_challenge in message_challenges:
 
         ecdh.load_private_key(challenge_key)
-        ecdh.load_received_public_key_bytes(b64decode(message_challenge["chall"]))
+        ecdh.load_received_public_key_bytes(b64decode(message_challenge["gdh"]))
         message_client_shared_secret = ecdh.generate_sharedsecret_bytes()
 
         box = nacl.secret.SecretBox(message_client_shared_secret[0:32])
 
         try:
-            message_id = box.decrypt(b64decode(message_challenge["enc_id"])).decode('ascii')
+            message_id = box.decrypt(b64decode(message_challenge["enc"])).decode('ascii')
             messages.append(message_id)
 
         except Exception as e:
