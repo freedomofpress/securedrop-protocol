@@ -8,6 +8,9 @@
  * Zero explicit metadata on the server; there are implicit metadata such as access patterns to the API
  * Key isolation: each key is used only for a cryptographic purpose: signing, encryption, message fetching
 
+## Why is this unique?
+What is implemented here is a small-scale, self-contained, anonymous message box, where anonymous parties (sources) can contact and receive replies from trusted parties (journalists). The whole protocol does not require server authentication and every API call can be indipendent and self-contained. Message submission and retrieval is completely symmetric for both kind of parties making the single HTTP requests potentially indistinguishable. The server does not have information about message senders, receivers, the number of sources or login times, because there is no concept of users and thus of logins. However, the server must not reveal anything about the contained message states to any external party: thus every user on the internet who want to try to fetch messages must learn nothing about the internal state of the server. To do so, a special message fetching mechanism is implemented, where only the intended recipients are able to discover if they have pending messages and eventually download them.
+
 ## Security
 For an informal threat model and comparison with other schemes, see the [related wiki page](https://github.com/freedomofpress/securedrop-poc/wiki/Proposals-comparison).
 
