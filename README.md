@@ -9,19 +9,19 @@
  * Key isolation: each key is used only for a cryptographic purpose: signing, encryption, message fetching
 
 ## Security
-For an informal threat model and comparison with other schemes, see the [related Wiki Page](https://github.com/freedomofpress/securedrop-poc/wiki/Proposals-comparison).
+For an informal threat model and comparison with other schemes, see the [related wiki page](https://github.com/freedomofpress/securedrop-poc/wiki/Proposals-comparison).
 
 ## Config
-In `commons.py` there are the following configuration values which are global for all components, even though of course not everybody need all of them.
+In `commons.py` there are the following configuration values which are global for all components, even though not all parties need all of them.
 
 | Variable | Value | Components | Description |
 |---|---|---|---|
 | `SERVER` | `127.0.0.1:5000` | source, journalist | The URL the Flask server listens on; used by both the journalist and the source clients. |
-| `DIR` | `keys/` | server, source, journalist | The folder where everybody will load the keys from. There is no separation for demo simplicity of course in an actual implementation, everybody will only have their keys and the required public one to ensure the trust chain. |
+| `DIR` | `keys/` | server, source, journalist | The folder where everybody will load the keys from. There is no separation for demo simplicity but in an actual implementation everybody will only have their keys and the required public one to ensure the trust chain. |
 | `UPLOADS` | `files/` | server | The folder where the Flask server will store uploaded files
 | `JOURNALISTS` | `10` | server, source |  How many journalists do we create and enroll. In general, this is realistic, in current SecureDrop usage it is way less. For demo purposes everybody knows it, in a real scenario it would not be needed. |
 | `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist create, sign and uploads when required. |
-| `CURVE` | `NIST384p` | server, source, journalist | The curve for all elliptic curve operations. It must be imported first from the python-ecdsa library. Ed25519 and Ed448, although supported by the lib, are not fully implemented. |
+| `CURVE` | `NIST384p` | server, source, journalist | The curve for all elliptic curve operations. It must be imported first from the python-ecdsa library. |
 | `MAX_MESSAGES` | `500` | server | How may potential messages the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
 | `CHUNK` | `512 * 1024` | source | The base size of every parts in which attachment are split/padded to. This is not the actual size on disk, cause that will be a bit more depending on the nacl SecretBox implementation. |
 
@@ -60,6 +60,7 @@ bash demo.sh
 
 The demo script will clean past keys and files, flush Redis, generate a new PKI, start the server, generate and upload journalists and simulate submissions and replies from different sources/journalists.
 
+## Command-line
 ### Source
 #### Help
 
@@ -206,7 +207,7 @@ options:
   * **Keys**: When referring to keys, either symmetric or asymmetric, depending on the context, the key storage back-end (ie: the media device) may eventually vary. Especially long term keys can be stored on Hardware Security Modules or Smart Cards, and signing keys might also be a combination of multiple keys with special requirements (ie: 3 out of 5 signers)
   * **Server**: For this project a server might be a physical dedicated server housed in a trusted location, a physical server in an untrusted location, or a virtual server in a trusted or untrusted context. Besides the initial setup, all the connection to the server have to happen though the Tor Hidden Service Protocol. However, we can expect that a powerful attacker can find the server location and provider (through financial records, legal orders, de-anonymization attacks, logs of the setup phase).
 
-## Threat model
+## Threat model summary
  * *FPF*
      * Is generally trusted
      * Is based in the US
@@ -297,13 +298,14 @@ options:
 | *true/false = Verify(signer<sub>PK</sub>,sig<sup>signer</sup>(target<sub>PK</sub>))* | Verify signature sig of public key PK using Ver<sub>PK</sub> |
 | *k = DH(A<sub>SK</sub>, B<sub>PK</sub>) == DH(A<sub>PK</sub>, B<sub>SK</sub>)* | Generate shared key *k* using a key agreement primitive |
 
-## Initial trust chain setup
+## Keys setup
 
  * **FPF**:
 
      | Operation | Description |
      |---|---|
-     |*FPF<sub>SK</sub>, FPF<sub>PK</sub> = Gen()* | FPF generates a random key-pair (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes)|
+     | *FPF<sub>SK</sub> = Gen()* | FPF generates a random privatekey (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes) |
+     | *FPF<sub>PK</sub> = GetPub(FPF<sub>SK</sub>)* | Derive the corresponding public key |
 
     **FPF** pins *FPF<sub>PK</sub>* in the **Journalist** client, in the **Source** client and in the **Server** code.
 
@@ -311,82 +313,83 @@ options:
 
      | Operation | Description |
      |---|---|
-     | *NR<sub>SK</sub>, NR<sub>PK</sub> = Gen()* | Newsroom generates a random key-pair with similar security of the FPF one |
-     | *sig<sub>NR</sub> = Sign(FPF<sub>SK</sub>, NR<sub>PK</sub>)* | Newsroom sends a CSR or the public key to FPF for signing |
+     | *NR<sub>SK</sub> = Gen()* | Newsroom generates a random private key with similar security of the FPF one |
+     | *NR<sub>PK</sub> = GetPub(<sub>SK</sub>)* | Derive the corresponding public key |
+     | *sig<sup>FPF</sup>(NR<sub>PK</sub>) = Sign(FPF<sub>SK</sub>, NR<sub>PK</sub>)* | Newsroom sends a CSR or the public key to FPF; FPF validates manually/physically before signing |
 
-    **Newsroom** pins *NR<sub>PK</sub>* in the **Server** during initial server setup.
+    **Newsroom** pins *NR<sub>PK</sub>* and *sig<sup>FPF</sup>(NR<sub>PK</sub>)* in the **Server** during initial server setup.
 
  * **Journalist [0-i]**:
 
      | Operation | Description |
      |---|---|
-     | *J<sub>SK</sub>, J<sub>PK</sub> = Gen()* | Journalist generates the long-term signing key randomly |
-     | *sig<sub>J</sub> = Sig(NR<sub>SK</sub>, J<sub>PK</sub>)* | Journalist sends a CSR or the public key to the Newsroom admin/managers for signing |
-     | *JC<sub>SK</sub>, JC<sub>PK</sub> = Gen()* | Journalist generate the long-term message-fetching key randomly |
-     | *sig<sub>JC</sub> = Sign(J<sub>SK</sub>, JC<sub>PK</sub>)* | Journalist signs the long-term message-fetching key with the long-term signing key |
-     | *JE<sup>[0-n]</sup><sub>SK</sub>, JE<sup>[0-n]</sup><sub>PK</sub> = Gen()* | Journalist generates a number *n* of ephemeral key agreement keys randomly |
-     | *sig<sup>[0-n]</sup><sub>JE</sub> = Sign(J<sub>SK</sub>, JE<sup>[0-n]</sup><sub>PK</sub>)* | Journalist individually signs the ephemeral key agreement keys (TODO: add key hard expiration) |
+     | *J<sub>SK</sub> = Gen()* | Journalist generates the long-term signing key randomly |
+     | *J<sub>PK</sub> = GetPub(J<sub>SK</sub>)* | Derive the corresponding public key | 
+     | *sig<sup>NR</sup>(J<sub>PK</sub>) = Sign(NR<sub>SK</sub>, J<sub>PK</sub>)* | Journalist sends a CSR or the public key to the Newsroom admin/managers for signing |
+     | *JC<sub>SK</sub> = Gen()* | Journalist generate the long-term message-fetching key randomly (TODO: this key could be rotated often) |
+     | *JC<sub>PK</sub> = GetPub(JC<sub>SK</sub>)* | Derive the corresponding public key |
+     | *sig<sup>J</sup>(JC<sub>PK</sub>) = Sign(J<sub>SK</sub>, JC<sub>PK</sub>)* | Journalist signs the long-term message-fetching key with the long-term signing key |
+     | *<sup>[0-n]</sup>JE<sub>SK</sub> = Gen()* | Journalist generates a number *n* of ephemeral key agreement keys randomly |
+     | *<sup>[0-n]</sup>JE<sub>PK</sub> = GetPub(<sup>[0-n]</sup>JE<sub>SK</sub>)* | Derive the corresponding public keys |
+     | *<sup>[0-n]</sup>sig<sup>J</sup>(<sup>[0-n]</sup>JE<sub>PK</sub>) = Sign(J<sub>SK</sub>, <sup>[0-n]</sup>JE<sub>PK</sub>)* | Journalist individually signs the ephemeral key agreement keys (TODO: add ephemeral key expiration) |
 
-    **Journalist** sends *J<sub>PK</sub>*, *sig<sub>J</sub>*, *JE<sup>[0-n]</sup><sub>PK</sub>* and *sig<sup>[0-n]</sup><sub>JE</sub>* to **Server** which verifies and publishes them.
+    **Journalist** sends *J<sub>PK</sub>*, *sig<sup>NR</sup>(J<sub>PK</sub>)*, *JC<sub>PK</sub>*, *sig<sup>J</sup>(JC<sub>PK</sub>)*, *<sup>[0-n]</sup>JE<sub>PK</sub>* and *<sup>[0-n]</sup>sig<sup>J</sup>(<sup>[0-n]</sup>JE<sub>PK</sub>)* to **Server** which verifies and publishes them.
 
  * **Source [0-j]**:
 
      | Operation | Description |
      |---|---|
      | *PW* = Gen() | Source generates a secure passphrase which is the only state available to clients|
-     | *S<sub>SK</sub>, S<sub>PK</sub> = Gen(KDF(encryption_salt \|\| PW))* | Source deterministically generates the long-term key agreement key-pair using a specific hard-coded salt |
-     | *SC<sub>SK</sub>, SC<sub>PK</sub> = Gen(KDF(fetching_salt \|\| PW))* | Source deterministically generates the long-term fetching key-pair using a specific hard-coded salt |
+     | *S<sub>SK</sub> = Gen(KDF(encryption_salt \|\| PW))* | Source deterministically generates the long-term key agreement key-pair using a specific hard-coded salt |
+     | *S<sub>PK</sub> = GetPub(S<sub>SK</sub>)* | Derive the corresponding public key |
+     | *SC<sub>SK</sub> = Gen(KDF(fetching_salt \|\| PW))* | Source deterministically generates the long-term fetching key-pair using a specific hard-coded salt |
+     | *SC<sub>PK</sub> = GetPub(SC<sub>SK</sub>)* | Derive the corresponding public key |
 
     **Source** does not need to publish anything until the first submission is sent.
 
 ## Messaging protocol overview
-Only a source can initiate a conversation; there are no other choices as sources are effectively unknown until they initiate contact in the first place.
+Only a source can initiate a conversation; there are no other choices as sources are effectively unknown until they initiate contact first.
 
-### Source to Journalist
- 1. *Source* fetches *NR<sub>PK</sub>*, *sig<sub>NR</sub>*
- 2. *Source* verifies *sig<sub>NR</sub>* using *FPF<sub>PK</sub>*
- 3. *For every *Journalist* (i) in *Newsroom*
-     - *Source* fetches *J<sup>i</sup><sub>PK</sub>*, *sig<sup>i</sup><sub>J</sub>*, *JC<sup>i</sup><sub>PK</sub>* and *sig<sup>i</sup><sub>JC</sub>*
-     - *Source* verifies *sig<sup>i</sup><sub>J</sub>* and *sig<sup>i</sup><sub>JC</sub>* using *NR<sub>PK</sub>*
-     - *Source* fetches *JE<sup>ik</sup><sub>PK</sub>* and *sig<sup>ik</sup><sub>JE</sub>* (k is random from the pool of non used, non expired, *Journalist* ephemeral keys)
-     - *Source* verifies *sig<sup>ik</sup><sub>JE</sub>* using *JE<sub>PK</sub>*
- 4. *Source* generates the unique passphrase randomly *PW = G()* (the only state that identify the specific *Source*)
- 5. *Source* derives *S<sub>PK</sub>, S<sub>SK</sub> = G(KDF(encryption_salt + PW))*
- 6. *Source* derives *SC<sub>PK</sub>, SC<sub>SK</sub> = G(KDF(gdh_salt + PW))*
+### Source Submission to Journalist
+ 1. *Source* fetches *NR<sub>PK</sub>*, *sig<sup>FPF</sup>(NR<sub>PK</sub>)*
+ 2. *Source* checks *Verify(FPF<sub>PK</sub>,sig<sup>FPF</sup>(NR<sub>PK</sub>)) == true*, since FPF<sub>PK</sub> is pinned in the Source client
+ 3. For every *Journalist* (i) in *Newsroom*
+     - *Source* fetches *<sup>i</sup>J<sub>PK</sub>*, *<sup>i</sup>sig<sup>NR</sup>(<sup>i</sup>J<sub>PK</sub>)*, *<sup>i</sup>JC<sub>PK</sub>*, *<sup>i</sup>sig<sup>iJ</sup>(<sup>i</sup>JC<sub>PK</sub>)*
+     - *Source* checks *Verify(NR<sub>PK</sub>,<sup>i</sup>sig<sup>NR</sup>(<sup>i</sup>J<sub>PK</sub>)) == true*
+     - *Source* checks *Verify(<sup>i</sup>J<sub>PK</sub>,<sup>i</sup>sig<sup>iJ</sup>(<sup>i</sup>JC<sub>PK</sub>)) == true*
+     - *Source* fetches *<sup>ik</sup>JE<sub>PK</sub>*, *<sup>ik</sup>sig<sup>iJ</sup>(<sup>ik</sup>JE<sub>PK</sub>)* (k is random from the pool of non used, non expired, *Journalist* ephemeral keys)
+     - *Source* checks *Verify(<sup>i</sup>J<sub>PK</sub>,<sup>ik</sup>sig<sup>iJ</sup>(<sup>ik</sup>JE<sub>PK</sub>) == true*
+ 4. *Source* generates the unique passphrase randomly *PW = G()* (the only state that identifies the specific *Source*)
+ 5. *Source* derives *S<sub>SK</sub> = G(KDF(encryption_salt + PW))*, *S<sub>PK</sub> = GetPub(S<sub>SK</sub>)*
+ 6. *Source* derives *SC<sub>SK</sub> = G(KDF(fetching_salt + PW))*, *SC<sub>PK</sub> = GetPub(SC<sub>SK</sub>)*
  7. *Source* splits any attachment in parts of size `commons.CHUNKS`. Any chunk smaller is padded to `commons.CHUNKS` size.
- 8. For every *Chunk*, *u*
-    - *Source* generate a random key *s<sup>m</sup> = G()*
-    - *Source* encrypts *u<sup>m</sup>* with *s<sup>m</sup>*, *f<sup>m</sup> = E(s<sup>m</sup>, u<sup>m</sup>)*
-    - *Source* uploads *f<sup>m</sup>* to *Server* and obtains a `file_id`
- 9. *Source* adds metadata, *S<sub>PK</sub> and SC<sub>PK</sub> to message *m*.
- 10. *Source* adds attachment info to message *m* (all the *s* keys and all the `file_id`)
- 11. *Source* pads the resulting text to a fixed size, *mp* (message, metadata, attachments, padding)
+ 8. For every *Chunk*, *<sup>m</sup>u*
+    - *Source* generate a random key *<sup>m</sup>s = G()*
+    - *Source* encrypts *<sup>m</sup>u* using *<sup>m</sup>s*: *<sup>m</sup>f = E(<sup>m</sup>s, <sup>m</sup>u)*
+    - *Source* uploads *<sup>m</sup>f* to *Server* and which returns a random token <sup>m</sup>t (`file_id`)
+    - *Server* stores <sup>m</sup>t -> *<sup>m</sup>f* (`file_id` -> `file`)
+ 9. *Source* adds metadata, *S<sub>PK</sub>*, *SC<sub>PK</sub>* to message *m*.
+ 10. *Source* adds all the *<sup>[0-m]</sup>s* keys and all the tokens <sup>[0-m]</sup>t (`file_id`) to message *m*
+ 11. *Source* pads the resulting text to a fixed size, *mp* (message, metadata, *S<sub>PK</sub>*, *SC<sub>PK</sub>*, *<sup>[0-m]</sup>s*, *<sup>[0-m]</sup>t*, padding)
  12. For every *Journalist* (i) in *Newsroom* 
-     - *Source* generates *ME<sup>i</sup><sub>PK</sub>, ME<sub>PK</sub> = Gen()* (random, per message keys)
-     - *Source* calculates the shared encryption key using a key agreement protocol *k<sup>ik</sup> = DH(ME<sub>SK</sub>, JE<sup>ik</sup><sub>PK</sub>)*
-     - *Source* encrypts *mp* using *k<sup>ik*, *c<sup>i</sup> = Enc(k<sup>i</sup>, mp)*
-     - *Source* calculates the message_gdh (`message_gdh`) *mgdh = DH(ME<sub>SK</sub>, JC<sup>ik</sup><sub>PK</sub>)*
+     - *Source* generates *<sup>i</sup>ME<sub>SK</sub> = Gen()* (random, per-message secret key)
+     - *Source* derives the corresponding public key *<sup>i</sup>ME<sub>PK</sub> = GetPub(<sup>i</sup>ME<sub>SK</sub>)* (`message_public_key`)
+     - *Source* derives the shared encryption key using a key-agreement primitive *<sup>i</sup>k = DH(<sup>i</sup>ME<sub>SK</sub>,<sup>i</sup>JE<sub>PK</sub>)*
+     - *Source* encrypts *mp* using *<sup>i</sup>k*: *<sup>i</sup>c = Enc(<sup>i</sup>k, mp)* (`message`)
+     - *Source* calculates *mgdh = DH(<sup>i</sup>ME<sub>SK</sub>,<sup>i</sup>JC<sub>PK</sub>)* (`message_gdh`)
+     - *Source* discards <sup>i</sup>ME<sub>SK</sub> to ensure forward secrecy
      - *Source* sends *c<sup>i</sup>*, *ME<sup>i</sup><sub>PK</sub>* and *mgdh<sup>i</sup>* to server
-     - *Server* generates a random `message_id` *i* and stores `message:i` -> *c<sup>i</sup>*, *ME<sup>i</sup><sub>PK</sub>*, *mgdh<sup>i</sup>*
+     - *Server* generates *<sup>i</sup>mid = Gen()* (`message_id`) and stores *<sup>i</sup>mid* -> *<sup>i</sup>c*, *<sup>i</sup>ME<sub>PK</sub>*, *<sup>i</sup>mgdh* (`message_id` -> (`message`, `message_public_key`, `message_gdh`))
 
 ### Server message fetching procol
- 1. *Server* fetches all `message_id`, `message_gdh` and `message_public_key` from Redis
- 2. *Server* generates a per-request, ephemeral key-pair *RE<sub>SK</sub>, RE<sub>PK</sub> = Gen()*
- 5. For every message fetched from Redis, the *Server* calculates the Group Diffie-Hellman using *RE<sub>SK</sub>* and message_gdh *mgdh* resulting in *gdh<sup>i</sup> = DH(DH(ME<sub>SK</sub>, JC<sup>ik</sup><sub>PK</sub>), RE<sub>SK</sub>)*
- 6. If the messages in Redis are less then `commons.MAX_MESSAGES`, the *Server* generates *N* decoy challenges *DE<sup>n</sup><sub>SK</sub>, DE<sup>n</sup><sub>PK</sub> = G()*
- 7. The *Server* returns the real challenges and the decoy challenges to the client, being it a *Source* or a *Journalist*, attaching also the `challenge_id`
+ 1. *Server* generates per-request, ephemeral secret key *RE<sub>SK</sub> = Gen()*
+ 2. For evey entry *<sup>i</sup>mid* -> *<sup>i</sup>ME<sub>PK</sub>*, *<sup>i</sup>mgdh* (`message_id` -> (`message_gdh` `message_public_key`)):
+     - *Server* calculates *<sup>i</sup>kmid = DH(RE<sub>SK</sub>,<sup>i</sup>mgdh)*
+     - *Server* calculates *<sup>i</sup>pmgdh = DH(RE<sub>SK</sub>,<sup>i</sup>ME<sub>PK</sub>)*
+     - *Server* encrypts *<sup>i</sup>mid* using *<sup>i</sup>kmid*: *<sup>i</sup>enc_mid = Enc(<sup>i</sup>kmid, <sup>i</sup>mid)*
+  3. *Server* generates *j = [`commons.MAX_MESSAGES - i`]* random decoys *<sup>[0-j]</sup>decoy_pmgdh* and *<sup>[0-j]</sup>decoy_enc_mid*
+  4. *Server* returns a shuffled list of `commons.MAX_MESSAGES` (*i+j*) tuples of *(<sup>[0-i]</sup>pmgdh,<sup>[0-i]</sup>enc_mid) U (<sup>[0-j]</sup>decoy_pmgdh,<sup>[0-j]</sup>enc_mid)*
 
-### Journalist fetch
- 1. *Journalist* makes a request to the *Server* and fetch all the challenges.
- 2. *Journalist* calculates the inverse of their challenge private key *inv<sub>JC</sub> = Inv(JC<sub>SK</sub>)*
- 3. For every challenge, the *Journalist* calculates a response by removing their Diffie-Hellman share obtaining the following *response = DH(chall<sup>i</sup>, inv<sub>JC</sub>)*
- 4. *Journalist* returns all the responses to the *Server*, attaching the `challenge_id` that came from the *Server*
- 5. *Server* fetch from Redis the `challenge_id` containing *RE<sub>SK</sub>*
- 6. *Server* calculates the inverse of per-challenge key *inv<sub>RE</sub> = Inv(RE<sub>SK</sub>)* 
- 7. For every challenge, the *Server*: 
-     - removes their Diffie-Hellman share obtaining the following *proof = DH(response<sup>i</sup>, inv<sub>RE</sub>)*
-     - verify that the *proof* is equal to *ME<sup>i</sup><sub>PK</sub>*
-     - if a *proof* is correct, returns to the *Journalist* the related `message_id` from Redis
 
 ### Journalist read
  1. *Journalist* fetches from *Server* `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
@@ -412,18 +415,6 @@ Only a source can initiate a conversation; there are no other choices as sources
  7. *Journalist* calculates the message_gdh (`message_gdh`) *mc = DH(ME<sub>SK</sub>, SC<sub>PK</sub>)*
  8. *Journalist* sends *c*, *ME<sub>PK</sub>* and *m2c* to server
  9. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
-
-### Source fetch
- 1. *Source* makes a request to the *Server* and fetch all the gdhs and encrypted ids.
- 2. *Source* calculates the inverse of their challenge private key *inv<sub>SC</sub> = Inv(SC<sub>SK</sub>)*
- 3. For every challenge, the *Source* calculates a response by removing their Diffie-Hellman share obtaining the following *response = DH(chall<sup>i</sup>, inv<sub>SC</sub>)*
- 4. *Source* returns all the responses to the *Server*, attaching the `challenge_id` that came from the *Server*
- 5. *Server* fetch from Redis the `challenge_id` containing *RE<sub>SK</sub>*
- 6. *Server* calculates the inverse of per-challenge key *inv<sub>RE</sub> = Inv(RE<sub>SK</sub>)* 
- 7. For every challenge, the *Server*: 
-     - removes their Diffie-Hellman share obtaining the following *proof = DH(response<sup>i</sup>, inv<sub>RE</sub>)*
-     - verify that the *proof* is equal to *ME<sup>i</sup><sub>PK</sub>*
-     - if a *proof* is correct, returns to the *Source* the related `message_id` from Redis
 
 ### Source read
  1. *Source* fetches from *Server* `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
@@ -713,8 +704,8 @@ As a known problem in this kind of protocols, what happens when the ephemeral ke
 ### Ephemeral key reuse (malicious server)
 While it is not currently implemented, ephemeral keys should include a short (30/60 days) expiation date along with their PK signature. Journalists can routinely query the server for ephemeral keys and heuristically test if the server is being dishonest as well. They can also check during decryption as well and see if an already used key has worked: in that case the server is malicious as well.
 
-### Decoy submissions
-In the journalist client implementation, it could make sense to add both decoy API calls to obfuscate the behavioral pattern, as well as random submissions that then gets automatically ignored by the other journalists client when decrypted.
+### Decoy traffic
+This schema is very open to decoy traffic. Since all messages and all submissions are equal from a server perspective, as well as all fetching operations, and there is no state or cookies involved between request, any party on the internet could produce decoy traffic on any istance. Newsrooms, journalists or even FPF could produce all the required traffic just from a single machine.
 
 ### Message retention
 The server cannot keep too many messages with the current configuration, as more than a few thousands at a time would be too much to compute reasonable time. Messages needs either to be deleted upon read or to automatically expiry (after a few days maybe). In case of expiration, that expiration should have a degree of randomness, otherwise the expiration time would be the same of a submission date in the context of minimizing metadata.
@@ -727,3 +718,6 @@ To minimize logging, ans mix traffic better, it could be reasonable to make all 
 
 ### Revocation
 Revocation is a spicy topic. For ephemeral keys, we expect expiration to be generally enough. For long-term keys, including eventual journalist de-enrollment or newsroom key rotation something along the standard has to be implemented, requiring eventually more infrastructure. For example, FPF could routinely publish a revocation list and host the Newsroom ones as well; however that must work even without FPF direct involvement. A good, already deployed, protocol for serving the revocation would be OCSP stapling served back directly by the SecureDrop server, so that clients (both sources and journalists) do not have to do external requests. Otherwise we could find a way to (ab)use the current internet revocation infrastructure and build on top of that.
+
+### More hardening
+The protocol can be hardened further in specific parts: rotating fetching keys regularly on the journalist side, adding a short expiration (~30 days) to ephemeral keys so that they are guaranteed to rotate even in case of malicious servers, having "submit" only sources that do not save the passphrase and are not reachable after first contact. These details are left for internal team evaluation and production implementation constraints.
