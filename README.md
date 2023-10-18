@@ -350,7 +350,7 @@ options:
 ## Messaging protocol overview
 Only a source can initiate a conversation; there are no other choices as sources are effectively unknown until they initiate contact first.
 
-### Source Submission to Journalist
+### Source submission to Journalist
  1. *Source* fetches *NR<sub>PK</sub>*, *sig<sup>FPF</sup>(NR<sub>PK</sub>)*
  2. *Source* checks *Verify(FPF<sub>PK</sub>,sig<sup>FPF</sup>(NR<sub>PK</sub>)) == true*, since FPF<sub>PK</sub> is pinned in the Source client
  3. For every *Journalist* (i) in *Newsroom*
@@ -358,7 +358,7 @@ Only a source can initiate a conversation; there are no other choices as sources
      - *Source* checks *Verify(NR<sub>PK</sub>,<sup>i</sup>sig<sup>NR</sup>(<sup>i</sup>J<sub>PK</sub>)) == true*
      - *Source* checks *Verify(<sup>i</sup>J<sub>PK</sub>,<sup>i</sup>sig<sup>iJ</sup>(<sup>i</sup>JC<sub>PK</sub>)) == true*
      - *Source* fetches *<sup>ik</sup>JE<sub>PK</sub>*, *<sup>ik</sup>sig<sup>iJ</sup>(<sup>ik</sup>JE<sub>PK</sub>)* (k is random from the pool of non used, non expired, *Journalist* ephemeral keys)
-     - *Source* checks *Verify(<sup>i</sup>J<sub>PK</sub>,<sup>ik</sup>sig<sup>iJ</sup>(<sup>ik</sup>JE<sub>PK</sub>) == true*
+     - *Source* checks *Verify(<sup>i</sup>J<sub>PK</sub>,<sup>ik</sup>sig<sup>iJ</sup>(<sup>ik</sup>JE<sub>PK</sub>)) == true*
  4. *Source* generates the unique passphrase randomly *PW = G()* (the only state that identifies the specific *Source*)
  5. *Source* derives *S<sub>SK</sub> = G(KDF(encryption_salt + PW))*, *S<sub>PK</sub> = GetPub(S<sub>SK</sub>)*
  6. *Source* derives *SC<sub>SK</sub> = G(KDF(fetching_salt + PW))*, *SC<sub>PK</sub> = GetPub(SC<sub>SK</sub>)*
@@ -370,20 +370,21 @@ Only a source can initiate a conversation; there are no other choices as sources
     - *Server* stores <sup>m</sup>t -> *<sup>m</sup>f* (`file_id` -> `file`)
  9. *Source* adds metadata, *S<sub>PK</sub>*, *SC<sub>PK</sub>* to message *m*.
  10. *Source* adds all the *<sup>[0-m]</sup>s* keys and all the tokens <sup>[0-m]</sup>t (`file_id`) to message *m*
- 11. *Source* pads the resulting text to a fixed size, *mp* (message, metadata, *S<sub>PK</sub>*, *SC<sub>PK</sub>*, *<sup>[0-m]</sup>s*, *<sup>[0-m]</sup>t*, padding)
+ 11. *Source* pads the resulting text to a fixed size: *mp = Pad(message, metadata, S<sub>PK</sub>, SC<sub>PK</sub>, <sup>[0-m]</sup>s, <sup>[0-m]</sup>t)*
  12. For every *Journalist* (i) in *Newsroom* 
      - *Source* generates *<sup>i</sup>ME<sub>SK</sub> = Gen()* (random, per-message secret key)
      - *Source* derives the corresponding public key *<sup>i</sup>ME<sub>PK</sub> = GetPub(<sup>i</sup>ME<sub>SK</sub>)* (`message_public_key`)
      - *Source* derives the shared encryption key using a key-agreement primitive *<sup>i</sup>k = DH(<sup>i</sup>ME<sub>SK</sub>,<sup>i</sup>JE<sub>PK</sub>)*
-     - *Source* encrypts *mp* using *<sup>i</sup>k*: *<sup>i</sup>c = Enc(<sup>i</sup>k, mp)* (`message`)
+     - *Source* encrypts *mp* using *<sup>i</sup>k*: *<sup>i</sup>c = Enc(<sup>i</sup>k, mp)* (`message_ciphertext`)
      - *Source* calculates *mgdh = DH(<sup>i</sup>ME<sub>SK</sub>,<sup>i</sup>JC<sub>PK</sub>)* (`message_gdh`)
      - *Source* discards <sup>i</sup>ME<sub>SK</sub> to ensure forward secrecy
-     - *Source* sends *c<sup>i</sup>*, *ME<sup>i</sup><sub>PK</sub>* and *mgdh<sup>i</sup>* to server
-     - *Server* generates *<sup>i</sup>mid = Gen()* (`message_id`) and stores *<sup>i</sup>mid* -> *<sup>i</sup>c*, *<sup>i</sup>ME<sub>PK</sub>*, *<sup>i</sup>mgdh* (`message_id` -> (`message`, `message_public_key`, `message_gdh`))
+     - *Source* sends *(<sup>i</sup>c,<sup>i</sup>ME<sub>PK</sub>,<sup>i</sup>mgdh)* to *Server*
+     - *Server* generates *<sup>i</sup>mid = Gen()* (`message_id`) and stores *<sup>i</sup>mid* -> *(<sup>i</sup>c,<sup>i</sup>ME<sub>PK</sub>,<sup>i</sup>mgdh)* (`message_id` -> (`message_ciphertext`, `message_public_key`, `message_gdh`))
 
-### Server message fetching procol
+
+### Server message id fetching procol
  1. *Server* generates per-request, ephemeral secret key *RE<sub>SK</sub> = Gen()*
- 2. For evey entry *<sup>i</sup>mid* -> *<sup>i</sup>ME<sub>PK</sub>*, *<sup>i</sup>mgdh* (`message_id` -> (`message_gdh` `message_public_key`)):
+ 2. For evey entry *<sup>i</sup>mid* -> *<sup>i</sup>ME<sub>PK</sub>*, *<sup>i</sup>mgdh* (`message_id` -> (`message_gdh`, `message_public_key`)):
      - *Server* calculates *<sup>i</sup>kmid = DH(RE<sub>SK</sub>,<sup>i</sup>mgdh)*
      - *Server* calculates *<sup>i</sup>pmgdh = DH(RE<sub>SK</sub>,<sup>i</sup>ME<sub>PK</sub>)*
      - *Server* encrypts *<sup>i</sup>mid* using *<sup>i</sup>kmid*: *<sup>i</sup>enc_mid = Enc(<sup>i</sup>kmid, <sup>i</sup>mid)*
@@ -391,37 +392,54 @@ Only a source can initiate a conversation; there are no other choices as sources
   4. *Server* returns a shuffled list of `commons.MAX_MESSAGES` (*i+j*) tuples of *(<sup>[0-i]</sup>pmgdh,<sup>[0-i]</sup>enc_mid) U (<sup>[0-j]</sup>decoy_pmgdh,<sup>[0-j]</sup>enc_mid)*
 
 
+### Journalist message id fetching protocol
+  1. *Source* derives *SC<sub>SK</sub> = G(KDF(fetching_salt + PW))*
+  2. *Source* fetches *(<sup>[0-n]</sup>pmgdh,<sup>[0-n]</sup>enc_mid)* from *Server* (`n=commons.MAX_MESSAGES`)
+  3. For every *(<sup>n</sup>pmgdh,<sup>n</sup>enc_mid)*:
+     - *Source* calculates *<sup>n</sup>kmid = DH(<sup>n</sup>pmgdh,SC<sub>SK</sub>)*
+     - *Source* attempts to decrypt *<sup>n</sup>mid = Dec(<sup>n</sup>kmid,<sup>n</sup>enc_mid)*
+     - If decryption succeeds, save *<sup>n</sup>mid*
+
+### Source message id fetching protocol
+
+  1. *Journalist* fetches *(<sup>[0-n]</sup>pmgdh,<sup>[0-n]</sup>enc_mid)* from *Server* (`n=commons.MAX_MESSAGES`)
+  2. For every *(<sup>n</sup>pmgdh,<sup>n</sup>enc_mid)*:
+     - *Journalist* calculates *<sup>n</sup>kmid = DH(<sup>n</sup>pmgdh,JC<sub>SK</sub>)*
+     - *Journalist* attempts to decrypt *<sup>n</sup>mid = Dec(<sup>n</sup>kmid,<sup>n</sup>enc_mid)*
+     - If decryption succeeds, save *<sup>n</sup>mid*
+
+
 ### Journalist read
- 1. *Journalist* fetches from *Server* `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
- 2. *Journalist* for every unused ephemeral key *JE<sup>k</sup><sub>SK</sub>*
-     - *Journalist* calculates a tentative shared encryption key using the key agreemenet protocol *k<sup>k</sup> = DH(JE<sup>k</sup><sub>SK</sub>, ME<sub>PK</sub>)*
-     - *Journalist* tries to decrypt *mp = D(k<sup>k</sup>, c)*
-     - *Journalist* verifies that *mp* decrypted succesfully, if yes exits from the loop
- 3. *Journalist* removes padding from *mp* and parse message *m*, metadata, and attachment details
- 4. *Journalist* for every attachment *Chunk*
-     - *Journalist* fetches the encrypted *Chunk* *f<sup>m</sup>* from *Server* using `file_id`
-     - *Journalist* decrypts *f<sup>m</sup>* using *s<sup>m</sup>* *u = D(s<sup>m</sup>, f<sup>m</sup>)*
-     - *Journalist* join *Chunks* according to metadata and saves back the original files
- 5. *Journalist* reads the message *m*
- 6. *Journalist* may delete the message from the *Server* using `message_id`
+ 1. *Journalist* fetches from *Server* *mid* -> (*c*, *ME<sub>PK</sub>*) (`message_id` -> (`message_ciphertext`, `message_public_key`))
+ 2. For every unused  *Journalist* ephemeral key *<sup>i</sup>JE<sub>SK</sub>*
+     - *Journalist* calculates a tentative encryption key using the key agreemenet primitive *<sup>i</sup>k = DH(<sup>i</sup>JE<sub>SK</sub>, ME<sub>PK</sub>)*
+     - *Journalist* attempts to decrypt *mp = Dec(<sup>i</sup>k, c)*
+     - *Journalist* verifies that *mp* decrypted successfully, if yes exits the loop
+ 3. *Journalist* removes padding from the decrypted message: *(message, metadata, *S<sub>PK</sub>*, *SC<sub>PK</sub>*, *<sup>[0-m]</sup>s*, *<sup>[0-m]</sup>t*) = Unpad(mp)*
+ 4. For every attachment *Chunk* token *<sup>m</sup>t*
+     - *Journalist* fetches from *Server* *<sup>m</sup>t* -> *<sup>m</sup>f* (`file_id` -> `file`)
+     - *Journalist* decrypts *<sup>m</sup>f* using *<sup>m</sup>s*: *<sup>m</sup>u = Dec(<sup>m</sup>s, <sup>m</sup>)f*
+ 5. *Journalist* joins *<sup>m</sup>u* according to metadata and saves back the original files
+ 6. *Journalist* reads the message *m*
 
 ### Journalist reply
- 1. *Journalist* has plaintext *m*, which contains also *S<sub>PK</sub>* and SC<sub>PK</sub>
- 2. *Journalist* generates *ME<sup>PK</sup>, ME<sup>PK</sup> = G()* (random, per message keys)
- 3. *Journalist* calculate the shared encryption key using a key agreement protocol *k = DH(ME<sub>SK</sub>, S<sub>PK</sub>)*
- 4. *Journalist* adds metadata to message *m2*.
- 5. *Journalist* pads the resulting text to a fixed size, *m2p* (message, metadata, padding)
- 6. *Journalist* encrypts *mp* using *k*, *c = E(k, m2p)*
- 7. *Journalist* calculates the message_gdh (`message_gdh`) *mc = DH(ME<sub>SK</sub>, SC<sub>PK</sub>)*
- 8. *Journalist* sends *c*, *ME<sub>PK</sub>* and *m2c* to server
- 9. *Server* generates a random `message_id` *i* and stores `message:i` -> *c*, *ME<sub>PK</sub>*, *mc*
+ 1. *Journalist* has plaintext *mp*, which contains also *S<sub>PK</sub>* and SC<sub>PK</sub>
+ 2. *Journalist* generates *ME<sub>SK</sub> = Gen()* (random, per-message secret key)
+ 3. *Journalist* derives the shared encryption key using a key-agreement primitive *k = DH(ME<sub>SK</sub>,S<sub>PK</sub>)*
+ 4. *Journalist* pads the text to a fixed size: *mp = Pad(message, metadata)*
+ 5. *Journalist* encrypts *mp* using *k*: *c = Enc(k, mp)*
+ 6. *Journalist* calculates *mgdh = DH(ME<sub>SK</sub>,SC<sub>PK</sub>)* (`message_gdh`)
+ 7. *Journalist* discards *ME<sub>SK</sub>*
+ 8. *Journalist* sends *(c,ME<sub>PK</sub>,mgdh)* to *Server*
+ 9. *Server* generates *mid = Gen()* (`message_id`) and stores *mid* -> *(c,ME<sub>PK</sub>,mgdh)* (`message_id` -> (`message_ciphertext`, `message_public_key`, `message_gdh`))
 
 ### Source read
- 1. *Source* fetches from *Server* `message_ciphertext`, *c*, `message_public_key`, *ME<sub>PK</sub>* using `message_id`
- 2. *Source* derives *S<sub>PK</sub>, S<sub>SK</sub> = G(KDF(encryption_salt + PW))*
- 3. *Source* calculate the shared encryption key using a key agreement protocol *k = DH(S<sub>SK</sub>, ME<sub>PK</sub>)*
- 4. *Source* *mp = D(k<sup>k</sup>, c)*
- 5. *Source* reads the metadata and the message *m*
+ 1. *Source* fetches from *Server* *mid* -> (*c*, *ME<sub>PK</sub>*) (`message_id` -> (`message_ciphertext`, `message_public_key`))
+ 2. *Source* derives *S<sub>SK</sub> = G(KDF(encryption_salt + PW))*
+ 3. *Source* calculates the shared encryption key using a key agreement protocol *k = DH(S<sub>SK</sub>, ME<sub>PK</sub>)*
+ 4. *Source* decrypts the message using *k*: *mp = Dec(k<sup>k</sup>, c)*
+ 5. *Source* removes padding from the decrypted message: *m = Unpad(mp)*
+ 6. *Source* reads the message and the metadata
 
 ### Source reply
 *Source* replies work the exact same way as a first submission, except the source is already known to the *Journalist*.
@@ -440,12 +458,12 @@ All endpoints do not require authentication or sessions. The only data store is 
 
 | JSON Name | Value |
 |---|---|
-|`count` | Number of returned enrolled *Journalists*. |
+|`count` | Number of returned enrolled *Journalists* |
 |`journalist_key` | *base64(J<sub>PK</sub>)* |
-|`journalist_sig` | *base64(sig<sub>J</sub>)* |
-|`journalist_chal_key` | *base64(JC<sub>PK</sub>)* |
-|`journalist_chal_sig` | *base64(sig<sub>JC</sub>)* |
-|`journalist_uid` | *hex(H(J<sub>PK</sub>))* |
+|`journalist_sig` | *base64(sig<sup>NR</sup>(J<sub>PK</sub>))* |
+|`journalist_fetching_key` | *base64(JC<sub>PK</sub>)* |
+|`journalist_fetching_sig` | *base64(sig<sup>J</sup>(JC<sub>PK</sub>))* |
+|`journalist_uid` | *hex(Hash(J<sub>PK</sub>))* |
 
 #### POST
 Adds *Newsroom* signed *Journalist* to the *Server*.
@@ -454,8 +472,8 @@ curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/journali
 {
     "journalist_key": <journalist_key>,
     "journalist_sig": <journalist_sig>,
-    "journalist_chal_key": <journalist_chal_key>,
-    "journalist_chal_sig": <journalist_chal_sig>
+    "journalist_fetching_key": <journalist_fetching_key>,
+    "journalist_fetching_sig": <journalist_fetching_sig>
 }
 ```
 ```
@@ -477,8 +495,8 @@ curl -X GET "http://127.0.0.1:5000/journalists"
   "count": <count>,
   "journalists": [
     {
-      "journalist_chal_key": <journalist_chal_key>,
-      "journalist_chal_sig": <journalist_chal_sig>,
+      "journalist_fetching_key": <journalist_fetching_key>,
+      "journalist_fetching_sig": <journalist_fetching_sig>,
       "journalist_key": <journalist_key>,
       "journalist_sig": <journalist_sig>,
       "journalist_uid": <journalist_uid>
@@ -502,8 +520,8 @@ At this point *Source* must have a verified *NR<sub>PK</sub>* and must verify bo
 |---|---|
 |`count` | Number of returned ephemeral keys. It should match the number of *Journalists*. If it does not, a specific *Journalist* bucket might be out of keys. |
 |`ephemeral_key` | *base64(JE<sub>PK</sub>)* |
-|`ephemeral_sig` | *base64(sig<sub>JE</sub>)* |
-|`journalist_uid` | *hex(H(J<sub>PK</sub>))* |
+|`ephemeral_sig` | *base64(sig<sup>J</sup>(JE<sub>PK</sub>))* |
+|`journalist_uid` | *hex(Hash(J<sub>PK</sub>))* |
 
 
 #### POST
@@ -547,21 +565,21 @@ curl -X GET http://127.0.0.1:5000/ephemeral_keys
     ...
   ],
   "status": "OK"
-
+}
 ```
 At this point *Source* must have verified all the J<sup>[0-i]</sup><sub>PK</sub>*  and can thus verify all the corresponding *sig<sup>[0-n]</sup><sub>JE</sub>*.
 
 #### DELETE (TODO)
 *Not implemented yet. A Journalist shall be able to revoke keys from the server.*
+
 ### /fetch
 
 **Legend**:
 
 | JSON Name | Value |
 |---|---|
-|`count` (GET) | Number of returned message challenges. Must always be greater than the number of messages on the server. Equal to `commons.MAX_MESSAGES` so that it should always be the same for every request to prevent leaking the number of messages on the server. |
-|`count` (POST) | Number of returned `message_id` values, which is the number of message for the requesting source or journalist. |
-|`messages` | Couple of *encrypted_message_id* and Group Diffie Hellman (gdh) share |
+|`count` | Number of returned potential messages. Must always be greater than the number of messages on the server. Equal to `commons.MAX_MESSAGES` so that it should always be the same for every request to prevent leaking the number of messages on the server. |
+|`messages` | *(base64(pmgdh),base64(enc_mid))* |
 
 #### GET
 The server sends all the mixed group Diffie Hellman shares, plus the encrypted message id of the corresponding messsage. *gdh* and *enc* are paired in couples.
@@ -583,7 +601,7 @@ curl -X GET http://127.0.0.1:5000/fetch
        "enc": <encrypted_message_id2>,
      }
     ...
-    <challenge_commons.MAX_MESSAGES>
+    <commons.MAX_MESSAGES>
     ],
   "status": "OK"
 }
@@ -595,9 +613,9 @@ curl -X GET http://127.0.0.1:5000/fetch
 | JSON Name | Value |
 |---|---|
 | `message_id` | Randomly generated unique, per message id. |
-|`message_ciphertext` | *base64(E(k, m))* where *k* is a key agreement calculated key. The key agreement keys depend on the parties encrypting/decrypting the message. |
+|`message_ciphertext` | *base64(Enc(k, m))* where *k* is a key agreement calculated key. The key agreement keys depend on the parties encrypting/decrypting the message. |
 |`message_public_key` | *base64(ME<sub>PK</sub>)* |
-|`message_challenge` | TODO: *base64()* |
+|`message_gdh` | *base64(ME<sub>SK</sub>,SC/JC<sub>PK</sub>)* |
 
 #### POST
 ```
@@ -605,7 +623,7 @@ curl -X POST -H "Content_Type: application/json" http://127.0.0.1:5000/message -
 {
   "message_ciphertext": <message_ciphertext>,
   "message_public_key": <message_public_key>,
-  "message_challenge": <message_challenge>
+  "message_gdh": <message_gdhe>
 }
 ```
 ```
@@ -615,7 +633,7 @@ curl -X POST -H "Content_Type: application/json" http://127.0.0.1:5000/message -
 }
 ```
 
-Note that `message_id` is not returned upon submission, so that the sanding party cannot delete or fetch it unless they maliciously crafted the challenge for themselves, but at that point it would never be delivered to any other party.
+Note that `message_id` is not returned upon submission, so that the sending party cannot delete or fetch it unless they maliciously craft the `message_gdh` for themselves, but at that point it would never be delivered to any other party.
 
 #### GET
 `message_public_key` is necessary for completing the key agreement protocol and obtaining the shared symmetric ey to decrypt the message. `message_public_key`, is ephemeral, unique per message, and has no links to anything else.
@@ -711,7 +729,7 @@ This schema is very open to decoy traffic. Since all messages and all submission
 The server cannot keep too many messages with the current configuration, as more than a few thousands at a time would be too much to compute reasonable time. Messages needs either to be deleted upon read or to automatically expiry (after a few days maybe). In case of expiration, that expiration should have a degree of randomness, otherwise the expiration time would be the same of a submission date in the context of minimizing metadata.
 
 ### Denial of service
-In having no accounts, it might be easy to flood the service, either of unwanted messages, or of bogus responses to challenges that would lead to significant waste of CPU resources. Depending on the individual *Newsroom* previous issues and threat model, classic rate limiting such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
+In having no accounts, it might be easy to flood the service of unwanted messages or of fetching requests that would be heavy on the server CPU. Depending on the individual *Newsroom* previous issues and threat model, classic rate limiting such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
 
 ### Minimize logging
 To minimize logging, ans mix traffic better, it could be reasonable to make all endpoints the same and POST only and remove all GET parameters. An alternative solution could be to implement the full protocol over WebSockets.
