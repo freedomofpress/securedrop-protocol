@@ -181,13 +181,13 @@ def get_ephemeral_keys():
 
 @app.route("/fetch", methods=["GET"])
 def get_fetch():
-    # SERVER EPHEMERAL CHALLENGE KEY
-    request_ephemeral_key = SigningKey.generate(curve=commons.CURVE)
     potential_messages = []
 
     # retrieve all the message keys
     message_keys = redis.keys("message:*")
     for message_key in message_keys:
+        # SERVER EPHEMERAL CHALLENGE KEY
+        request_ephemeral_key = SigningKey.generate(curve=commons.CURVE)
         message_id = message_key.decode('ascii').split(":")[1]
         # retrieve the message and load the json
         message_dict = json.loads(redis.get(message_key).decode('ascii'))

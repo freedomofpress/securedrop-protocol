@@ -386,13 +386,14 @@ Only a source can initiate a conversation; there are no other choices as sources
 
 
 ### Server message id fetching procol
- 1. *Server* generates per-request, ephemeral secret key *RE<sub>SK</sub> = Gen()*
- 2. For evey entry *<sup>i</sup>mid* -> *<sup>i</sup>ME<sub>PK</sub>*, *<sup>i</sup>mgdh* (`message_id` -> (`message_gdh`, `message_public_key`)):
-     - *Server* calculates *<sup>i</sup>kmid = DH(RE<sub>SK</sub>,<sup>i</sup>mgdh)*
-     - *Server* calculates *<sup>i</sup>pmgdh = DH(RE<sub>SK</sub>,<sup>i</sup>ME<sub>PK</sub>)*
+ 1. For evey entry *<sup>i</sup>mid* -> *<sup>i</sup>ME<sub>PK</sub>*, *<sup>i</sup>mgdh* (`message_id` -> (`message_gdh`, `message_public_key`)):
+     - *Server* generates per-request, per-message, ephemeral secret key *<sup>i</sup>RE<sub>SK</sub> = Gen()*
+     - *Server* calculates *<sup>i</sup>kmid = DH(<sup>i</sup>RE<sub>SK</sub>,<sup>i</sup>mgdh)*
+     - *Server* calculates *<sup>i</sup>pmgdh = DH(<sup>i</sup>RE<sub>SK</sub>,<sup>i</sup>ME<sub>PK</sub>)*
      - *Server* encrypts *<sup>i</sup>mid* using *<sup>i</sup>kmid*: *<sup>i</sup>enc_mid = Enc(<sup>i</sup>kmid, <sup>i</sup>mid)*
-  3. *Server* generates *j = [`commons.MAX_MESSAGES - i`]* random decoys *<sup>[0-j]</sup>decoy_pmgdh* and *<sup>[0-j]</sup>decoy_enc_mid*
-  4. *Server* returns a shuffled list of `commons.MAX_MESSAGES` (*i+j*) tuples of *(<sup>[0-i]</sup>pmgdh,<sup>[0-i]</sup>enc_mid) U (<sup>[0-j]</sup>decoy_pmgdh,<sup>[0-j]</sup>enc_mid)*
+     - *Server* discards *<sup>i</sup>RE<sub>SK</sub>*
+  2. *Server* generates *j = [`commons.MAX_MESSAGES - i`]* random decoys *<sup>[0-j]</sup>decoy_pmgdh* and *<sup>[0-j]</sup>decoy_enc_mid*
+  3. *Server* returns a shuffled list of `commons.MAX_MESSAGES` (*i+j*) tuples of *(<sup>[0-i]</sup>pmgdh,<sup>[0-i]</sup>enc_mid) U (<sup>[0-j]</sup>decoy_pmgdh,<sup>[0-j]</sup>enc_mid)*
 
 
 ### Journalist message id fetching protocol
