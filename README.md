@@ -353,6 +353,8 @@ options:
 ## Messaging protocol overview
 Only a source can initiate a conversation; there are no other choices as sources are effectively unknown until they initiate contact first.
 
+See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in this protocol.
+
 ### Source submission to Journalist
  1. *Source* fetches *NR<sub>PK</sub>*, *sig<sup>FPF</sup>(NR<sub>PK</sub>)*
  2. *Source* checks *Verify(FPF<sub>PK</sub>,sig<sup>FPF</sup>(NR<sub>PK</sub>)) == true*, since FPF<sub>PK</sub> is pinned in the Source client
@@ -453,6 +455,15 @@ Only a source can initiate a conversation; there are no other choices as sources
 ![chart](https://github.com/lsd-cat/securedrop-poc/blob/main/imgs/sd_schema.png?raw=true)
 
 For simplicity, in the chart, message are sent to a single *Journalist* rather than encrypted and sent to all of the enrolled ones. Similarly, the attachment procedure submission and retrieval is omitted.
+
+Observe the asymmetry in the client-side operations:
+
+| Routine | Journalist fetch and decrypt | Source fetch and decrypt |
+| --- | --- | --- |
+| **Leg** | **message_ciphertext,ME<sub>PK</sub>** | **message_ciphertext,ME<sub>PK</sub>** |
+| Step 1. | k = DH(ME<sub>PK</sub>,<sup>i</sup>JE<sub>SK</sub>) | k = DH(ME<sub>PK</sub>,S<sub>SK</sub>) |
+| Step 2. | Discard(<sup>i</sup>JE<sub>SK</sub>) |
+| Step 3. | S<sub>PK</sub>,SC<sub>PK</sub>,m = Dec(k,message_ciphertext) | <sup>m</sup>JE<sub>PK</sub>,JC<sub>PK</sub>,m = Dec(k,message_ciphertext) |
 
 ## Server endpoints
 
