@@ -385,7 +385,7 @@ Only a source can initiate a conversation; there are no other choices as sources
      - *Server* generates *<sup>i</sup>mid = Gen()* (`message_id`) and stores *<sup>i</sup>mid* -> *(<sup>i</sup>c,<sup>i</sup>ME<sub>PK</sub>,<sup>i</sup>mgdh)* (`message_id` -> (`message_ciphertext`, `message_public_key`, `message_gdh`))
 
 
-### Server message id fetching procol
+### Server message id fetching protocol
  1. For evey entry *<sup>i</sup>mid* -> *<sup>i</sup>ME<sub>PK</sub>*, *<sup>i</sup>mgdh* (`message_id` -> (`message_gdh`, `message_public_key`)):
      - *Server* generates per-request, per-message, ephemeral secret key *<sup>i</sup>RE<sub>SK</sub> = Gen()*
      - *Server* calculates *<sup>i</sup>kmid = DH(<sup>i</sup>RE<sub>SK</sub>,<sup>i</sup>mgdh)*
@@ -430,7 +430,7 @@ Only a source can initiate a conversation; there are no other choices as sources
  1. *Journalist* has plaintext *mp*, which contains also *S<sub>PK</sub>* and SC<sub>PK</sub>
  2. *Journalist* generates *ME<sub>SK</sub> = Gen()* (random, per-message secret key)
  3. *Journalist* derives the shared encryption key using a key-agreement primitive *k = DH(ME<sub>SK</sub>,S<sub>PK</sub>)*
- 4. *Journalist* pads the text to a fixed size: *mp = Pad(message, metadata)*
+ 4. *Journalist* pads the text to a fixed size: *mp = Pad(message, metadata)* (note: Journalist can potetially attach *<sup>r</sup>JE<sub>PK</sub>,JC<sub>PK</sub>*)
  5. *Journalist* encrypts *mp* using *k*: *c = Enc(k, mp)*
  6. *Journalist* calculates *mgdh = DH(ME<sub>SK</sub>,SC<sub>PK</sub>)* (`message_gdh`)
  7. *Journalist* discards *ME<sub>SK</sub>*
@@ -446,11 +446,13 @@ Only a source can initiate a conversation; there are no other choices as sources
  6. *Source* reads the message and the metadata
 
 ### Source reply
-*Source* replies work the exact same way as a first submission, except the source is already known to the *Journalist*.
+*Source* replies work the exact same way as a first submission, except the source is already known to the *Journalist*. As an additional difference, a *Journalist* might choose to attach his (and eventually others) keys in the reply, so that *Source* does not have to fetch those from the server as in a first submission.
 
 ### Flow Chart
 
 ![chart](https://github.com/lsd-cat/securedrop-poc/blob/main/imgs/sd_schema.png?raw=true)
+
+For simplicity, in the chart, message are sent to a single *Journalist* rather than encrypted and sent to all of the enrolled ones. Similarly, the attachment procedure submission and retrieval is omitted.
 
 ## Server endpoints
 
