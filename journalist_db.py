@@ -1,6 +1,7 @@
 import os
 import sqlite3
 
+
 class JournalistDatabase():
 
     def __init__(self, path):

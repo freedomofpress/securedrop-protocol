@@ -37,24 +37,24 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
     # We deterministically derive the source long term keys from the passphrase
     # Add prefix for key isolation
     # [SOURCE] LONG-TERM MESSAGE KEY
-    source_key = derive_key(passphrase, "source_key-")
-    source_encryption_public_key = b64encode(source_key.verifying_key.to_string()).decode("ascii")
+    encryption_key = derive_key(passphrase, "encryption_key-")
+    source_encryption_public_key = b64encode(encryption_key.verifying_key.to_string()).decode("ascii")
 
     # [SOURCE] LONG-TERM CHALLENGE KEY
-    challenge_key = derive_key(passphrase, "challenge_key-")
-    source_challenge_public_key = b64encode(challenge_key.verifying_key.to_string()).decode("ascii")
+    fetching_key = derive_key(passphrase, "fetching_key-")
+    source_fetching_public_key = b64encode(fetching_key.verifying_key.to_string()).decode("ascii")
 
     # For every receiver (journalists), create a message
     for ephemeral_key_dict in ephemeral_keys:
         # This function builds the per-message keys and returns a nacl encrypting box
-        message_public_key, message_challenge, box = commons.build_message(ephemeral_key_dict["journalist_chal_key"],
-                                                                           ephemeral_key_dict["ephemeral_key"])
+        message_public_key, message_gdh, box = commons.build_message(ephemeral_key_dict["journalist_fetching_key"],
+                                                                     ephemeral_key_dict["ephemeral_key"])
 
         # Same as on the journalist side: this structure is built by the clients
         # and thus potentially "untrusted"
         message_dict = {"message": message,
                         # do we want to sign messages? how do we attest source authoriship?
-                        "source_challenge_public_key": source_challenge_public_key,
+                        "source_fetching_public_key": source_fetching_public_key,
                         "source_encryption_public_key": source_encryption_public_key,
                         "receiver": ephemeral_key_dict["journalist_uid"],
                         # we could list the journalists involved in the conversation here
@@ -69,7 +69,7 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
         ).decode("ascii")
 
         # Send the message to the server API using the generic /send endpoint
-        commons.send_message(message_ciphertext, message_public_key, message_challenge)
+        commons.send_message(message_ciphertext, message_public_key, message_gdh)
 
 
 def main(args):
@@ -96,12 +96,12 @@ def main(args):
 
     elif args.passphrase and args.action == "fetch":
         # Different from the journo side: we first parse the passphrase
-        # and pass it to a different function where the challenge key will be derived
+        # and pass it to a different function where the fetching key will be derived
         passphrase = bytes.fromhex(args.passphrase)
 
-        source_chal_key = derive_key(passphrase, "challenge_key-")
+        source_fetching_key = derive_key(passphrase, "fetching_key-")
 
-        messages_list = commons.fetch_messages_id(source_chal_key)
+        messages_list = commons.fetch_messages_id(source_fetching_key)
 
         if not messages_list:
             print("[-] The server did not return any message")
@@ -124,7 +124,7 @@ def main(args):
             return -1
 
         passphrase = bytes.fromhex(args.passphrase)
-        source_key = derive_key(passphrase, "source_key-")
+        source_key = derive_key(passphrase, "encryption_key-")
         message_id = args.id
         message = commons.get_message(message_id)
         message_plaintext = commons.decrypt_message_ciphertext(source_key,
