@@ -5,11 +5,13 @@
  * There are no accounts
  * Everything is end to end encrypted with one time symmetric keys
  * Source to journalist key agreement has forward secrecy
- * Zero explicit metadata on the server; there are implicit metadata such as access patterns to the API
+ * Zero explicit metadata on the server; there is implicit metadata, such as API access patterns
  * Key isolation: each key is used only for a cryptographic purpose: signing, encryption, message fetching
 
 ## Why is this unique?
-What is implemented here is a small-scale, self-contained, anonymous message box, where anonymous parties (sources) can contact and receive replies from trusted parties (journalists). The whole protocol does not require server authentication and every API call can be indipendent and self-contained. Message submission and retrieval is completely symmetric for both kind of parties making the single HTTP requests potentially indistinguishable. The server does not have information about message senders, receivers, the number of sources or login times, because there is no concept of users and thus of logins. However, the server must not reveal anything about the contained message states to any external party: thus every user on the internet who want to try to fetch messages must learn nothing about the internal state of the server. To do so, a special message fetching mechanism is implemented, where only the intended recipients are able to discover if they have pending messages and eventually download them.
+What is implemented here is a small-scale, self-contained, anonymous message box, where anonymous parties (sources) can contact and receive replies from trusted parties (journalists). The whole protocol does not require server authentication, and every API call is independent and self-contained. Message submission and retrieval are completely symmetric for both sources and journalists, making the individual HTTP requests potentially indistinguishable. The server does not have information about message senders, receivers, the number of sources or login times, because there are no accounts, and therefore, no logins.
+
+Nonetheless, the server must not reveal information about its internal state to external parties (such as generic internet users or sources), and must not allow those parties to enumerate or discern any information about messages stored on the server. To satisfy this constraint, a special message-fetching mechanism is implemented, where only the intended recipients are able to discover if they have pending messages.
 
 ## Security
 For an informal threat model and comparison with other schemes, see the [related wiki page](https://github.com/freedomofpress/securedrop-poc/wiki/Proposals-comparison).
@@ -93,7 +95,7 @@ options:
 ```
 #### Send a submission (with attachments)
 ```
-# python3 source.py -a submit -m "My first contact message with a newsroom with collected evidences and a supporting video :)" -f /tmp/secret_files/file1.mkv /tmp/secret_files/file2.zip 
+# python3 source.py -a submit -m "My first contact message with a newsroom, plus evidence and a supporting video :)" -f /tmp/secret_files/file1.mkv /tmp/secret_files/file2.zip
 [+] New submission passphrase: c2cf422563cd2dc2813150faf2f40cf6c2032e3be6d57d1cd4737c70925743f6
 
 ```
@@ -201,14 +203,15 @@ options:
 ```
 
 ## Parties
-  * **Source(s)**: A source is someone who wants to leak a document. A source is unknown prior its first contact. A source may want to send a text message and/or add attachments. The anonymity and safety of the source is vital. The source must use Tor Browser to preserve their anonymity and no persistence shall be required. The highest degree of deniability a source has, the better.
-  * **Journalist(s)**: Journalists are those designated to receive, check and reply to submissions. Journalists are known, or at least the newsroom they work for is known and trusted. Journalists are expected to use the SecureDrop Workstation with an ad-hoc client, which has dedicated encrypted storage.
-  * **Newsroom**: A newsroom is the entity responsible or at least with formal ownership of a SecureDrop instance. The newsroom is trusted, and is expected to publish their SecureDrop instance somewhere, their tips page, their social media channel or wherever they want the necessary outreach. In the traditional model, newsroom are also technically in charge of their own server instances and of journalist enrollment.
-  * **FPF**: FPF is the entity responsible for maintaining and developing SecureDrop. FPF can offer additional services, such as dedicated support. FPF has already a leading role, in the context that, while the project is open source, releases and Onion Lists for Tor Browser are signed with FPF keys. However, the full stack must remain completely usable without any FPF involvement or knowledge.
+  * **Source(s)**: A source is someone who wants to share information. A source is considered unknown prior to their first contact. A source may want to send a text message and/or add attachments, and may want to return at a later time to read replies. The source's safety, and their ability to preserve their anonymity, are vital; the higher the degree of plausible deniability a source has, the better. No on-device persistence shall be required for a source to interact with the system; they should be able to conduct all communications using only a single, theoretically-memorizable passphrase. The source uses Tor Browser to preserve their anonymity.
+  * **Journalist(s)**: Journalists are those designated to receive, triage, and reply to submissions from sources. Journalists are not anonymous, and the newsroom they work for is a discoverable public entity. Journalists are expected to access SecureDrop via a dedicated client, which has persistent encrypted storage.
+  * **Newsroom**: A newsroom is the entity with formal ownership of a SecureDrop instance. The newsroom is a known public entity, and is expected to publish information on how to reach their SecureDrop instance via verified channels (website, social media, print). In the traditional model, newsrooms are also responsible for their own server administration and journalist enrollment.
+  * **FPF**: Freedom of the Press Foundation (FPF) is the entity responsible for maintaining SecureDrop. FPF can offer additional services, such as dedicated support. While the project is open source, its components (SecureDrop releases, Onion Rulesets submitted upstream to Tor Browser) are signed with signing keys controlled by FPF. Despite this, SecureDrop is and will remain completely usable without any FPF involvement or knowledge.
 
-## Notions
+## Notes on other components
   * **Keys**: When referring to keys, either symmetric or asymmetric, depending on the context, the key storage back-end (ie: the media device) may eventually vary. Especially long term keys can be stored on Hardware Security Modules or Smart Cards, and signing keys might also be a combination of multiple keys with special requirements (ie: 3 out of 5 signers)
   * **Server**: For this project a server might be a physical dedicated server housed in a trusted location, a physical server in an untrusted location, or a virtual server in a trusted or untrusted context. Besides the initial setup, all the connection to the server have to happen though the Tor Hidden Service Protocol. However, we can expect that a powerful attacker can find the server location and provider (through financial records, legal orders, de-anonymization attacks, logs of the setup phase).
+  * **Trust(ed) parties**: When referring to "trust" and "trusted" parties, the term "trust" is meant in a technical sense (as used in https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-133r2.pdf), and not the social sense (as used in https://www.pewresearch.org/topic/news-habits-media/media-society/media-attitudes/trust-in-media/).
 
 ## Threat model summary
  * *FPF*
@@ -216,7 +219,7 @@ options:
      * Is based in the US
      * Might get compromised technically
      * Might get compromised legally
-     * Develop all the components ans signs them
+     * Develops all the components and signs them
      * Enrolls newsrooms
 
  * *Newsroom*
@@ -224,15 +227,15 @@ options:
      * Can be based anywhere
      * Might get compromised legally
      * Might get compromised technically
-     * Manage a server instance
+     * Manages a server instance
      * Enrolls journalists
 
  * *Server*
      * Is generally untrusted
-     * Compromise require effort
-     * There might be backup and snapshots from every point in time
-     * RAM might be silently read
-     * Managed and paid for by *Newsroom* or third party for them 
+     * Compromise requires effort
+     * There may be backups or snapshots from any given point in time
+     * RAM may be silently read
+     * Managed and paid for by *Newsroom* or by a third party on their behalf
 
  * *Journalist*
      * Number can vary per *Newsroom*
@@ -240,21 +243,21 @@ options:
      * Can travel
      * Physical and endpoint security depends on the workstation and client; out of scope here
      * Can be compromised occasionally
-     * Read submissions
-     * Reply to submissions
-     * Identity id generally known
+     * Reads submissions
+     * Replies to submissions
+     * Identity is generally known
 
  * *Source*:
      * Is completely untrusted
-     * Anybody can be a source at anytime
-     * Identity is secret
+     * Anyone can be a source at any time
+     * Requires ability to preserve anonymity if desired
      * Can read journalist replies to them
      * Can send messages to journalists
      * Can attach files
 
  * *Submission*:
-     * Always from source to journalist
-     * Generally specific for a single instance
+     * Always from source to journalist (newsroom)
+     * Generally specific to a single SecureDrop instance
      * Can be anything
      * Content is secret
      * Origin is secret
@@ -362,7 +365,7 @@ See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in th
      - *Source* fetches *<sup>i</sup>J<sub>PK</sub>*, *<sup>i</sup>sig<sup>NR</sup>(<sup>i</sup>J<sub>PK</sub>)*, *<sup>i</sup>JC<sub>PK</sub>*, *<sup>i</sup>sig<sup>iJ</sup>(<sup>i</sup>JC<sub>PK</sub>)*
      - *Source* checks *Verify(NR<sub>PK</sub>,<sup>i</sup>sig<sup>NR</sup>(<sup>i</sup>J<sub>PK</sub>)) == true*
      - *Source* checks *Verify(<sup>i</sup>J<sub>PK</sub>,<sup>i</sup>sig<sup>iJ</sup>(<sup>i</sup>JC<sub>PK</sub>)) == true*
-     - *Source* fetches *<sup>ik</sup>JE<sub>PK</sub>*, *<sup>ik</sup>sig<sup>iJ</sup>(<sup>ik</sup>JE<sub>PK</sub>)* (k is random from the pool of non used, non expired, *Journalist* ephemeral keys)
+     - *Source* fetches *<sup>ik</sup>JE<sub>PK</sub>*, *<sup>ik</sup>sig<sup>iJ</sup>(<sup>ik</sup>JE<sub>PK</sub>)* (k is random from the pool of non-used, non-expired, *Journalist* ephemeral keys)
      - *Source* checks *Verify(<sup>i</sup>J<sub>PK</sub>,<sup>ik</sup>sig<sup>iJ</sup>(<sup>ik</sup>JE<sub>PK</sub>)) == true*
  4. *Source* generates the unique passphrase randomly *PW = G()* (the only state that identifies the specific *Source*)
  5. *Source* derives *S<sub>SK</sub> = G(KDF(encryption_salt + PW))*, *S<sub>PK</sub> = GetPub(S<sub>SK</sub>)*
@@ -371,7 +374,7 @@ See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in th
  8. For every *Chunk*, *<sup>m</sup>u*
     - *Source* generate a random key *<sup>m</sup>s = G()*
     - *Source* encrypts *<sup>m</sup>u* using *<sup>m</sup>s*: *<sup>m</sup>f = E(<sup>m</sup>s, <sup>m</sup>u)*
-    - *Source* uploads *<sup>m</sup>f* to *Server* and which returns a random token <sup>m</sup>t (`file_id`)
+    - *Source* uploads *<sup>m</sup>f* to *Server*, which returns a random token <sup>m</sup>t (`file_id`)
     - *Server* stores <sup>m</sup>t -> *<sup>m</sup>f* (`file_id` -> `file`)
  9. *Source* adds metadata, *S<sub>PK</sub>*, *SC<sub>PK</sub>* to message *m*.
  10. *Source* adds all the *<sup>[0-m]</sup>s* keys and all the tokens <sup>[0-m]</sup>t (`file_id`) to message *m*
@@ -388,7 +391,7 @@ See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in th
 
 
 ### Server message id fetching protocol
- 1. For evey entry *<sup>i</sup>mid* -> *<sup>i</sup>ME<sub>PK</sub>*, *<sup>i</sup>mgdh* (`message_id` -> (`message_gdh`, `message_public_key`)):
+ 1. For every entry *<sup>i</sup>mid* -> *<sup>i</sup>ME<sub>PK</sub>*, *<sup>i</sup>mgdh* (`message_id` -> (`message_gdh`, `message_public_key`)):
      - *Server* generates per-request, per-message, ephemeral secret key *<sup>i</sup>RE<sub>SK</sub> = Gen()*
      - *Server* calculates *<sup>i</sup>kmid = DH(<sup>i</sup>RE<sub>SK</sub>,<sup>i</sup>mgdh)*
      - *Server* calculates *<sup>i</sup>pmgdh = DH(<sup>i</sup>RE<sub>SK</sub>,<sup>i</sup>ME<sub>PK</sub>)*
@@ -407,7 +410,6 @@ See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in th
      - If decryption succeeds, save *<sup>n</sup>mid*
 
 ### Source message id fetching protocol
-
   1. *Journalist* fetches *(<sup>[0-n]</sup>pmgdh,<sup>[0-n]</sup>enc_mid)* from *Server* (`n=commons.MAX_MESSAGES`)
   2. For every *(<sup>n</sup>pmgdh,<sup>n</sup>enc_mid)*:
      - *Journalist* calculates *<sup>n</sup>kmid = DH(<sup>n</sup>pmgdh,JC<sub>SK</sub>)*
@@ -454,7 +456,7 @@ See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in th
 
 ![chart](https://github.com/lsd-cat/securedrop-poc/blob/main/imgs/sd_schema.png?raw=true)
 
-For simplicity, in the chart, message are sent to a single *Journalist* rather than encrypted and sent to all of the enrolled ones. Similarly, the attachment procedure submission and retrieval is omitted.
+For simplicity, in this chart, messages are sent to a single *Journalist* rather than to all journalists enrolled with a given newsroom, and the attachment submission and retrieval procedure is omitted.
 
 Observe the asymmetry in the client-side operations:
 
@@ -467,7 +469,7 @@ Observe the asymmetry in the client-side operations:
 
 ## Server endpoints
 
-All endpoints do not require authentication or sessions. The only data store is Redis and is schema-less. Encrypted file chinks are stored to disk. No database bootstrap is required.
+No endpoints require authentication or sessions. The only data store is Redis and is schema-less. Encrypted file chinks are stored to disk. No database bootstrap is required.
 
 ### /journalists
 
@@ -543,7 +545,7 @@ At this point *Source* must have a verified *NR<sub>PK</sub>* and must verify bo
 
 #### POST
 Adds *n* *Journalist* signed ephemeral key agreement keys to Server.
-The keys are stored is a Redis *set* specific per *Journalist*, which key is `journalist:<journalist_uid>`. In the demo implementation, the number of ephemeral keys to generate and upload each time is `commons.ONETIMEKEYS`. 
+The keys are stored in a Redis *set* specific per *Journalist*, which key is `journalist:<journalist_uid>`. In the demo implementation, the number of ephemeral keys to generate and upload each time is `commons.ONETIMEKEYS`. 
 
 ```
 curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/ephemeral_keys" --data
@@ -653,7 +655,7 @@ curl -X POST -H "Content_Type: application/json" http://127.0.0.1:5000/message -
 Note that `message_id` is not returned upon submission, so that the sending party cannot delete or fetch it unless they maliciously craft the `message_gdh` for themselves, but at that point it would never be delivered to any other party.
 
 #### GET
-`message_public_key` is necessary for completing the key agreement protocol and obtaining the shared symmetric ey to decrypt the message. `message_public_key`, is ephemeral, unique per message, and has no links to anything else.
+`message_public_key` is necessary for completing the key agreement protocol and obtaining the shared symmetric key to decrypt the message. `message_public_key`, is ephemeral, unique per message, and has no links to anything else.
 
 ```
 curl -X GET http://127.0.0.1:5000/message/<message_id>
@@ -715,7 +717,7 @@ curl -X GET http://127.0.0.1:5000/file/<message_id>
 <raw_encrypted_file_content>
 ```
 #### DELETE
-A delete request deletes both the entry on the database and the encrypted chunk on the server storage.
+A delete request deletes both the entry in the database and the encrypted chunk stored on the server.
 ```
 curl -X DELETE http://127.0.0.1:5000/file/<file_id>
 ```
@@ -726,33 +728,34 @@ curl -X DELETE http://127.0.0.1:5000/file/<file_id>
 }
 ```
 
-## Limitations
+## Limitations and Discussion
 ### Crypto
 The cryptographic protocol needs to be audited.
   
 ### Behavioral analysis
-While there are no accounts, and all messages are equal, the server could detect if it is interacting with a source or a journalist by observing the API request pattern. While all the clients, both source and journalist, would go through the Tor network and look the same from an HTTP perspective, they might perform different actions, such as ephemeral keys upload. A further fingerprinting mechanism could be, for instance, measuring how much time any client takes to fetch messages. It is up to the clients to mitigate this, sending decoy traffic and introducing randomness between requests.
+While there are no user accounts, and all messages have the same structure from an HTTP perspective, the server could still detect if it were interacting with a source or a journalist by observing API request patterns. Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading ephemeral keys). A further fingerprinting mechanism could be, for instance, measuring how much time any client takes to fetch messages. Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
 
 ### Ephemeral key exhaustion
-As a known problem in this kind of protocols, what happens when the ephemeral keys of a journalist are exhausted due to either malicious intent or infrequent upload by the journalist?
+A known problem with this type of protocol is the issue of ephemeral key exhaustion, either by an adversary or due to infrequent journalist activity.
 
 ### Ephemeral key reuse (malicious server)
-While it is not currently implemented, ephemeral keys should include a short (30/60 days) expiation date along with their PK signature. Journalists can routinely query the server for ephemeral keys and heuristically test if the server is being dishonest as well. They can also check during decryption as well and see if an already used key has worked: in that case the server is malicious as well.
+Attempts by a malicious server to reuse ephemeral keys will need to be detected and mitigated.
+Key expiration is not currently implemented, but ephemeral keys could include a short (30/60 day) expiration date along with their PK signature. Journalists can routinely query the server for ephemeral keys and heuristically test if the server is being dishonest as well. They can also check during decryption as well and see if an already used key has worked: in that case the server is malicious as well.
 
 ### Decoy traffic
-This schema is very open to decoy traffic. Since all messages and all submissions are equal from a server perspective, as well as all fetching operations, and there is no state or cookies involved between request, any party on the internet could produce decoy traffic on any istance. Newsrooms, journalists or even FPF could produce all the required traffic just from a single machine.
+One mitigation for behavioural analysis is the introduction of decoy traffic, which is readily compatible with this protocol. Since all messages and all submissions are structurally indistinguishable from a server perspective, as are all fetching operations, and there is no state or cookies involved between requests, any party on the internet could produce decoy traffic on any instance. Newsrooms, journalists or even FPF could produce all the required traffic just from a single machine.
 
 ### Message retention
-The server cannot keep too many messages with the current configuration, as more than a few thousands at a time would be too much to compute reasonable time. Messages needs either to be deleted upon read or to automatically expiry (after a few days maybe). In case of expiration, that expiration should have a degree of randomness, otherwise the expiration time would be the same of a submission date in the context of minimizing metadata.
+The computation required for the message-fetching portion of this protocol limits the number of messages that can be stored on the server at once (a current estimate is that more than a few thousand would produce unreasonably slow computation times). Messages either need to be deleted upon receipt or to automatically expire after a reasonable interval. If implementing automatic message expiry, the expiration should have a degree of randomness, in order to avoid leaking metadata that could function as a form of timestamp.
 
 ### Denial of service
-In having no accounts, it might be easy to flood the service of unwanted messages or of fetching requests that would be heavy on the server CPU. Depending on the individual *Newsroom* previous issues and threat model, classic rate limiting such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
+Without traditional accounts, it might be easy to flood the service with unwanted messages or fetching requests that would be heavy on the server CPU. Depending on the individual *Newsroom* previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
 
 ### Minimize logging
-To minimize logging, ans mix traffic better, it could be reasonable to make all endpoints the same and POST only and remove all GET parameters. An alternative solution could be to implement the full protocol over WebSockets.
+To minimize logging, and mix traffic better, it could be reasonable to make all endpoints the same and POST only and remove all GET parameters. An alternative solution could be to implement the full protocol over WebSockets.
 
 ### Revocation
-Revocation is a spicy topic. For ephemeral keys, we expect expiration to be generally enough. For long-term keys, including eventual journalist de-enrollment or newsroom key rotation something along the standard has to be implemented, requiring eventually more infrastructure. For example, FPF could routinely publish a revocation list and host the Newsroom ones as well; however that must work even without FPF direct involvement. A good, already deployed, protocol for serving the revocation would be OCSP stapling served back directly by the SecureDrop server, so that clients (both sources and journalists) do not have to do external requests. Otherwise we could find a way to (ab)use the current internet revocation infrastructure and build on top of that.
+Revocation is a spicy topic. For ephemeral keys, we expect key expiration to be a sufficient measure. For long-term keys, it will be necessary to implement the infrastructure to support journalist de-enrollment and newsroom key rotation. For example, FPF could routinely publish a revocation list and host Newsroom revocation lists as well; however, a key design constraint is to ensure that the entire SecureDrop system can be set up autonomously, and function even without FPF's direct involvement. A good existing protocol for serving the revocation would be OCSP stapling served back directly by the SecureDrop server, so that clients (both sources and journalists) do not have to perform external requests. Otherwise we could find a way to (ab)use the current internet revocation infrastructure and build on top of that.
 
 ### More hardening
-The protocol can be hardened further in specific parts: rotating fetching keys regularly on the journalist side, adding a short expiration (~30 days) to ephemeral keys so that they are guaranteed to rotate even in case of malicious servers, having "submit" only sources that do not save the passphrase and are not reachable after first contact. These details are left for internal team evaluation and production implementation constraints.
+This protocol can be hardened further in specific parts, including: rotating fetching keys regularly on the journalist side; adding a short (e.g., 30 day) expiration to ephemeral keys so that they are guaranteed to rotate even in case of malicious servers; and allowing for "submit-only" sources that do not save the passphrase and are not reachable after first contact. These details are left for internal team evaluation and production implementation constraints.
