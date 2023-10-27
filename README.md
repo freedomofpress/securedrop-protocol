@@ -359,6 +359,8 @@ Only a source can initiate a conversation; there are no other choices as sources
 See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in this protocol.
 
 ### Source submission to Journalist
+The following procedure if performed by a Source that wants to send a message to all Journalists in a Newsroom with attachmnets. Technically, the possibility to contact just a single or a subset of journalists is possible. Whether to allow a source to choose or stick to a specific default is currently undefined.
+
  1. *Source* fetches *NR<sub>PK</sub>*, *sig<sup>FPF</sup>(NR<sub>PK</sub>)*
  2. *Source* checks *Verify(FPF<sub>PK</sub>,sig<sup>FPF</sup>(NR<sub>PK</sub>)) == true*, since FPF<sub>PK</sub> is pinned in the Source client
  3. For every *Journalist* (i) in *Newsroom*
@@ -469,7 +471,7 @@ Observe the asymmetry in the client-side operations:
 
 ## Server endpoints
 
-No endpoints require authentication or sessions. The only data store is Redis and is schema-less. Encrypted file chinks are stored to disk. No database bootstrap is required.
+No endpoints require authentication or sessions. The only data store is Redis and is schema-less. Encrypted file chunks are stored to disk. No database bootstrap is required.
 
 ### /journalists
 
@@ -759,3 +761,6 @@ Revocation is a spicy topic. For ephemeral keys, we expect key expiration to be 
 
 ### More hardening
 This protocol can be hardened further in specific parts, including: rotating fetching keys regularly on the journalist side; adding a short (e.g., 30 day) expiration to ephemeral keys so that they are guaranteed to rotate even in case of malicious servers; and allowing for "submit-only" sources that do not save the passphrase and are not reachable after first contact. These details are left for internal team evaluation and production implementation constraints.
+
+### Diffie-Hellman usage in the PoC
+In the code in this repository, depending on the case, sometimes the key agreement multiplication is done manually, sometimes `python-ecdsa` `generate_sharedsecret_bytes()` is invoked. In both cases, [according to libsodium documentation](https://libsodium.gitbook.io/doc/advanced/scalar_multiplication), the output should be hashed in certain ways to prevent a set of attacks. Besides the key-agreemet for encryption, we have yet to understand how this can affect the Group Diffie-Hellman, since we cannot hash partial results.
