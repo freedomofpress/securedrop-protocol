@@ -2,9 +2,11 @@ from base64 import b64decode
 from hashlib import sha3_256
 from os import mkdir, rmdir
 
-import nacl.utils
-from ecdsa import (InvalidCurveError, InvalidSharedSecretError, SigningKey,
-                   VerifyingKey)
+from nacl.utils import randombytes_deterministic
+from nacl.signing import SigningKey, VerifyKey
+from nacl.encoding import HexEncoder, Base64Encoder
+
+from ecdsa import (InvalidCurveError, InvalidSharedSecretError)
 from ecdsa.ellipticcurve import INFINITY
 from ecdsa.util import sigdecode_der, sigencode_der
 
@@ -16,13 +18,13 @@ import commons
 # but nacl.utils does not have an internal state even if seeded.
 # Thus we use a seed to generate enough randoness for all the needed calls. Shall the
 # pre-generated randomness end, an exception is forcefully raised.
-class PRNG:
+'''class PRNG:
     def __init__(self, seed):
         assert (len(seed) == 32)
         self.total_size = 4096
         self.seed = seed
         self.status = 0
-        self.data = nacl.utils.randombytes_deterministic(self.total_size, self.seed)
+        self.data = randombytes_deterministic(self.total_size, self.seed)
 
     def deterministic_random(self, size):
         if self.status + size >= self.total_size:
@@ -42,50 +44,45 @@ def get_shared_secret(remote_pubkey, local_privkey):
         raise InvalidSharedSecretError("Invalid shared secret (INFINITY).")
 
     return result
+'''
 
-
-def public_b642key(b64_verifying_key):
-    return VerifyingKey.from_string(b64decode(b64_verifying_key), curve=commons.CURVE)
-
-
-# Loads a saved python ecdsa key from disk, if signing=False, load just the public-key
+# Loads a saved python ed25519 key from disk, if signing=False, load just the public-key
 def load_key(name, signing=True):
 
-    with open(f"{commons.DIR}/{name}.pem", "rb") as f:
-        verifying_key = VerifyingKey.from_pem(f.read())
+    with open(f"{commons.DIR}/{name}.public", "r") as f:
+        verify_key = VerifyKey(f.read(), Base64Encoder)
 
     if signing:
-        with open(f"{commons.DIR}/{name}.key", "rb") as f:
-            key = SigningKey.from_pem(f.read())
-        assert (key.verifying_key == verifying_key)
+        with open(f"{commons.DIR}/{name}.key", "r") as f:
+            key = SigningKey(f.read(), Base64Encoder)
+        assert (key.verify_key == verify_key)
         return key
     else:
-        return verifying_key
+        return verify_key
 
 
-# Generate a python-ecdsa keypair and save it to disk
+# Generate a ed25519 keypair and save it to disk
 def generate_key(name):
-    key = SigningKey.generate(curve=commons.CURVE)
+    key = SigningKey.generate()
 
-    with open(f"{commons.DIR}/{name}.key", "wb") as f:
-        f.write(key.to_pem(format="pkcs8"))
+    with open(f"{commons.DIR}/{name}.key", "w") as f:
+        f.write(key.encode(encoder=Base64Encoder).decode('ascii'))
 
-    with open(f"{commons.DIR}/{name}.pem", "wb") as f:
-        f.write(key.verifying_key.to_pem())
+    with open(f"{commons.DIR}/{name}.public", "w") as f:
+        f.write(key.verify_key.encode(encoder=Base64Encoder).decode('ascii'))
 
     return key
 
 
 # Sign a given public key with the pubblid private key
 def sign_key(signing_pivate_key, signed_public_key, signature_name):
-    sig = signing_pivate_key.sign_deterministic(
-        signed_public_key.to_string(),
-        hashfunc=sha3_256,
-        sigencode=sigencode_der
+    sig = signing_pivate_key.sign(
+        signed_public_key.encode(),
+        encoder=Base64Encoder
     )
 
-    with open(signature_name, "wb") as f:
-        f.write(sig)
+    with open(signature_name, "w") as f:
+        f.write(sig.signature.decode('ascii'))
 
     return sig
 
@@ -93,9 +90,9 @@ def sign_key(signing_pivate_key, signed_public_key, signature_name):
 # Verify a signature
 def verify_key(signing_public_key, signed_public_key, signature_name, sig=None):
     if not sig:
-        with open(signature_name, "rb") as f:
+        with open(signature_name, "r") as f:
             sig = f.read()
-    signing_public_key.verify(sig, signed_public_key.to_string(), hashfunc=sha3_256, sigdecode=sigdecode_der)
+    signing_public_key.verify(sig, signed_public_key.encode(), encoder=Base64Encoder)
     return sig
 
 
@@ -107,7 +104,7 @@ def generate_pki():
     mkdir(commons.DIR)
     root_key = generate_key("root")
     intermediate_key = generate_key("intermediate")
-    sign_key(root_key, intermediate_key.verifying_key, f"{commons.DIR}intermediate.sig")
+    sign_key(root_key, intermediate_key.verify_key, f"{commons.DIR}intermediate.sig")
     journalist_fetching_keys, journalist_keys = generate_journalists(intermediate_key)
     return root_key, intermediate_key, journalist_fetching_keys, journalist_keys
 
@@ -122,13 +119,13 @@ def verify_root_intermediate():
 def load_pki():
     root_key = load_key("root")
     intermediate_key = load_key("intermediate")
-    verify_key(root_key.verifying_key, intermediate_key.verifying_key, f"{commons.DIR}intermediate.sig")
+    verify_key(root_key.verif_key, intermediate_key.verify_key, f"{commons.DIR}intermediate.sig")
     journalist_keys = []
     for j in range(commons.JOURNALISTS):
         journalist_key = load_key(f"{commons.DIR}journalists/journalist_{j}")
         journalist_keys.append(journalist_key)
-        verify_key(intermediate_key.verifying_key,
-                   journalist_key.verifying_key,
+        verify_key(intermediate_key.verify_key,
+                   journalist_key.verify_key,
                    f"{commons.DIR}journalists/journalist_{j}.sig")
     return root_key, intermediate_key, journalist_keys
 
@@ -136,13 +133,13 @@ def load_pki():
 def load_and_verify_journalist_keypair(journalist_id):
     intermediate_verifying_key = verify_root_intermediate()
     journalist_key = load_key(f"journalists/journalist_{journalist_id}")
-    journalist_uid = sha3_256(journalist_key.verifying_key.to_string()).hexdigest()
+    journalist_uid = sha3_256(journalist_key.verify_key.encode()).hexdigest()
     journalist_sig = verify_key(intermediate_verifying_key,
-                                journalist_key.verifying_key,
+                                journalist_key.verify_key,
                                 f"{commons.DIR}journalists/journalist_{journalist_id}.sig")
     journalist_fetching_key = load_key(f"journalists/journalist_fetching_{journalist_id}")
     journalist_fetching_sig = verify_key(intermediate_verifying_key,
-                                         journalist_fetching_key.verifying_key,
+                                         journalist_fetching_key.verify_key,
                                          f"{commons.DIR}journalists/journalist_fetching_{journalist_id}.sig")
 
     return journalist_uid, journalist_sig, journalist_key, journalist_fetching_sig, journalist_fetching_key
@@ -167,10 +164,10 @@ def generate_journalists(intermediate_key):
     for j in range(commons.JOURNALISTS):
         journalist_key = generate_key(f"journalists/journalist_{j}")
         journalist_keys.append(journalist_key)
-        sign_key(intermediate_key, journalist_key.verifying_key, f"{commons.DIR}journalists/journalist_{j}.sig")
+        sign_key(intermediate_key, journalist_key.verify_key, f"{commons.DIR}journalists/journalist_{j}.sig")
         journalist_fetching_key = generate_key(f"journalists/journalist_fetching_{j}")
         journalist_fetching_keys.append(journalist_fetching_key)
-        sign_key(intermediate_key, journalist_fetching_key.verifying_key, f"{commons.DIR}journalists/journalist_fetching_{j}.sig")
+        sign_key(intermediate_key, journalist_fetching_key.verify_key, f"{commons.DIR}journalists/journalist_fetching_{j}.sig")
 
     return journalist_fetching_keys, journalist_keys
 
@@ -180,16 +177,16 @@ def generate_ephemeral(journalist_key, journalist_id, journalist_uid):
         mkdir(f"{commons.DIR}/journalists/{journalist_uid}")
     except Exception:
         pass
-    key = SigningKey.generate(curve=commons.CURVE)
-    name = sha3_256(key.verifying_key.to_string()).hexdigest()
+    key = SigningKey.generate()
+    name = sha3_256(key.verify_key.encode()).hexdigest()
 
-    with open(f"{commons.DIR}/journalists/{journalist_uid}/{name}.key", "wb") as f:
-        f.write(key.to_pem(format="pkcs8"))
+    with open(f"{commons.DIR}/journalists/{journalist_uid}/{name}.key", "w") as f:
+        f.write(key.verify_key.encode(Base64Encoder).decode('ascii'))
 
-    with open(f"{commons.DIR}/journalists/{journalist_uid}/{name}.pem", "wb") as f:
-        f.write(key.verifying_key.to_pem())
+    with open(f"{commons.DIR}/journalists/{journalist_uid}/{name}.public", "w") as f:
+        f.write(key.verify_key.encode(Base64Encoder).decode('ascii'))
 
-    sig = sign_key(journalist_key, key.verifying_key, f"{commons.DIR}/journalists/{journalist_uid}/{name}.sig")
+    sig = sign_key(journalist_key, key.verify_key, f"{commons.DIR}/journalists/{journalist_uid}/{name}.sig")
 
     return sig, key
 
