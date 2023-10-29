@@ -6,8 +6,11 @@ from random import uniform
 from secrets import token_bytes, token_hex
 from time import sleep
 
-import nacl.secret
-from ecdsa import ECDH, SigningKey, VerifyingKey
+from nacl.encoding import HexEncoder, Base64Encoder
+from nacl.public import PublicKey, PrivateKey, Box
+from nacl.secret import SecretBox
+from nacl.signing import SigningKey, VerifyKey
+
 from flask import Flask, request, send_file
 from redis import Redis
 
@@ -43,35 +46,28 @@ def add_journalist():
     except Exception:
         return {"status": "KO"}, 400
 
-    journalist_verifying_key = pki.public_b642key(content["journalist_key"])
-    journalist_fetching_verifying_key = pki.public_b642key(content["journalist_fetching_key"])
+    journalist_verifying_key = PublicKey(content["journalist_key"], Base64Encoder)
+    journalist_fetching_verifying_key = PublicKey(content["journalist_fetching_key"], Base64Encoder)
     try:
-        journalist_sig = pki.verify_key(intermediate_verifying_key,
+        journalist_sig = pki.verify_key_func(intermediate_verifying_key,
                                         journalist_verifying_key,
                                         None,
-                                        b64decode(content["journalist_sig"]))
+                                        content["journalist_sig"])
 
-        journalist_fetching_sig = pki.verify_key(intermediate_verifying_key,
+        journalist_fetching_sig = pki.verify_key_func(intermediate_verifying_key,
                                                  journalist_fetching_verifying_key,
                                                  None,
-                                                 b64decode(content["journalist_fetching_sig"]))
+                                                 content["journalist_fetching_sig"])
 
     except Exception:
         return {"status": "KO"}, 400
-    journalist_uid = sha3_256(journalist_verifying_key.to_string()).hexdigest()
+
+    journalist_uid = sha3_256(journalist_verifying_key.encode()).hexdigest()
     redis.sadd("journalists", json.dumps({"journalist_uid": journalist_uid,
-                                          "journalist_key": b64encode(
-                                            journalist_verifying_key.to_string()
-                                          ).decode("ascii"),
-                                          "journalist_sig": b64encode(
-                                            journalist_sig
-                                          ).decode("ascii"),
-                                          "journalist_fetching_key": b64encode(
-                                            journalist_fetching_verifying_key.to_string()
-                                          ).decode("ascii"),
-                                          "journalist_fetching_sig": b64encode(
-                                            journalist_fetching_sig
-                                          ).decode("ascii"),
+                                          "journalist_key": journalist_verifying_key.encode(Base64Encoder).decode("ascii"),
+                                          "journalist_sig": journalist_sig,
+                                          "journalist_fetching_key": journalist_fetching_verifying_key.encode(Base64Encoder).decode('ascii'),
+                                          "journalist_fetching_sig": journalist_fetching_sig,
                                           }))
     return {"status": "OK"}, 200
 
@@ -141,25 +137,19 @@ def add_ephemeral_keys():
     for journalist in journalists:
         journalist_dict = json.loads(journalist.decode("ascii"))
         if journalist_dict["journalist_uid"] == journalist_uid:
-            journalist_verifying_key = pki.public_b642key(journalist_dict["journalist_key"])
+            journalist_verifying_key = VerifyKey(journalist_dict["journalist_key"], Base64Encoder)
     ephemeral_keys = content["ephemeral_keys"]
 
     for ephemeral_key_dict in ephemeral_keys:
-        ephemeral_key = b64decode(ephemeral_key_dict["ephemeral_key"])
-        ephemeral_key_verifying_key = VerifyingKey.from_string(ephemeral_key, curve=commons.CURVE)
-        ephemeral_sig = b64decode(ephemeral_key_dict["ephemeral_sig"])
-        ephemeral_sig = pki.verify_key(
+        ephemeral_key_verifying_key = VerifyKey(ephemeral_key_dict["ephemeral_key"], Base64Encoder)
+        ephemeral_sig = pki.verify_key_func(
             journalist_verifying_key,
             ephemeral_key_verifying_key,
             None,
-            ephemeral_sig)
+            ephemeral_key_dict["ephemeral_sig"])
         redis.sadd(f"journalist:{journalist_uid}",
-                   json.dumps({"ephemeral_key": b64encode(
-                                 ephemeral_key_verifying_key.to_string()
-                               ).decode("ascii"),
-                               "ephemeral_sig": b64encode(
-                                 ephemeral_sig
-                               ).decode("ascii")}))
+                   json.dumps({"ephemeral_key": ephemeral_key_verifying_key.encode(Base64Encoder).decode("ascii"),
+                               "ephemeral_sig": ephemeral_sig}))
 
     return {"status": "OK"}, 200
 
@@ -203,7 +193,7 @@ def get_fetch():
         ecdh.load_private_key(request_ephemeral_key)
         ecdh.load_received_public_key_bytes(b64decode(message_dict["message_gdh"]))
         message_server_shared_secret = ecdh.generate_sharedsecret_bytes()
-        box = nacl.secret.SecretBox(message_server_shared_secret[0:32])
+        box = SecretBox(message_server_shared_secret[0:32])
         encrypted_message_id = box.encrypt(message_id.encode('ascii'))
 
         potential_messages.append({"gdh": b64encode(message_server_gdh).decode('ascii'),

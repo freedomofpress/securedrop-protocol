@@ -6,9 +6,12 @@ from hashlib import sha3_256
 from os import listdir, mkdir, path
 from time import time
 
-import nacl.secret
 import requests
-from ecdsa import SigningKey
+
+from nacl.encoding import HexEncoder, Base64Encoder
+from nacl.public import PublicKey, PrivateKey, Box
+from nacl.secret import SecretBox
+from nacl.signing import SigningKey, VerifyKey
 
 import commons
 import journalist_db
@@ -20,8 +23,8 @@ def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
     for key in range(commons.ONETIMEKEYS):
         # Generate an ephemeral key, sign it and load the signature
         ephemeral_sig, ephemeral_key = pki.generate_ephemeral(journalist_key, journalist_id, journalist_uid)
-        ephemeral_keys.append({"ephemeral_key": b64encode(ephemeral_key.verifying_key.to_string()).decode("ascii"),
-                               "ephemeral_sig": b64encode(ephemeral_sig).decode("ascii")})
+        ephemeral_keys.append({"ephemeral_key": ephemeral_key.verify_key.encode(Base64Encoder).decode("ascii"),
+                               "ephemeral_sig": ephemeral_sig.signature.decode("ascii")})
 
     # Send both to server, the server veifies the signature and the trust chain prior ro storing/publishing
     response = requests.post(f"http://{commons.SERVER}/ephemeral_keys", json={"journalist_uid": journalist_uid,
@@ -38,9 +41,9 @@ def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
     key_file_list = listdir(f"{commons.DIR}journalists/{journalist_uid}/")
     for file_name in key_file_list:
         if file_name.endswith('.key'):
-            with open(f"{commons.DIR}journalists/{journalist_uid}/{file_name}", "rb") as f:
+            with open(f"{commons.DIR}journalists/{journalist_uid}/{file_name}", "r") as f:
                 key = f.read()
-            ephemeral_keys.append(SigningKey.from_pem(key))
+            ephemeral_keys.append(SigningKey(key, Base64Encoder))
     return ephemeral_keys
 
 
@@ -148,7 +151,7 @@ def main(args):
                                 part_key = bytes.fromhex(part['key'])
                                 encrypted_part = commons.get_file(part["id"])
                                 written_size += part["size"]
-                                box = nacl.secret.SecretBox(part_key)
+                                box = SecretBox(part_key)
                                 f.write(box.decrypt(encrypted_part)[0:part["size"]])
                                 part_number += 1
 

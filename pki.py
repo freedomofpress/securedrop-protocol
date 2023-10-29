@@ -2,13 +2,13 @@ from base64 import b64decode
 from hashlib import sha3_256
 from os import mkdir, rmdir
 
-from nacl.utils import randombytes_deterministic
-from nacl.signing import SigningKey, VerifyKey
 from nacl.encoding import HexEncoder, Base64Encoder
+from nacl.signing import SigningKey, VerifyKey
+from nacl.utils import randombytes_deterministic
+
 
 from ecdsa import (InvalidCurveError, InvalidSharedSecretError)
 from ecdsa.ellipticcurve import INFINITY
-from ecdsa.util import sigdecode_der, sigencode_der
 
 import commons
 
@@ -76,23 +76,26 @@ def generate_key(name):
 
 # Sign a given public key with the pubblid private key
 def sign_key(signing_pivate_key, signed_public_key, signature_name):
-    sig = signing_pivate_key.sign(
-        signed_public_key.encode(),
-        encoder=Base64Encoder
-    )
+    sig = signing_pivate_key.sign(signed_public_key.encode(), encoder=Base64Encoder)
 
     with open(signature_name, "w") as f:
         f.write(sig.signature.decode('ascii'))
+
+    # signing_pivate_key.verify_key.verify(sig, encoder=Base64Encoder)
+    # sooo the message can be base64 but the signature has to be byes, so the encoder
+    # is applied only to the message apparently
+    # signing_pivate_key.verify_key.verify(sig.message, b64decode(sig.signature), encoder=Base64Encoder)
 
     return sig
 
 
 # Verify a signature
-def verify_key(signing_public_key, signed_public_key, signature_name, sig=None):
+def verify_key_func(signing_public_key, signed_public_key, signature_name, sig=None):
     if not sig:
         with open(signature_name, "r") as f:
             sig = f.read()
-    signing_public_key.verify(sig, signed_public_key.encode(), encoder=Base64Encoder)
+
+    signing_public_key.verify(signed_public_key.encode(), b64decode(sig))
     return sig
 
 
@@ -112,19 +115,19 @@ def generate_pki():
 def verify_root_intermediate():
     root_verifying_key = load_key("root", signing=False)
     intermediate_verifying_key = load_key("intermediate", signing=False)
-    verify_key(root_verifying_key, intermediate_verifying_key, f"{commons.DIR}intermediate.sig")
+    verify_key_func(root_verifying_key, intermediate_verifying_key, f"{commons.DIR}intermediate.sig")
     return intermediate_verifying_key
 
 
 def load_pki():
     root_key = load_key("root")
     intermediate_key = load_key("intermediate")
-    verify_key(root_key.verif_key, intermediate_key.verify_key, f"{commons.DIR}intermediate.sig")
+    verify_key_func(root_key.verif_key, intermediate_key.verify_key, f"{commons.DIR}intermediate.sig")
     journalist_keys = []
     for j in range(commons.JOURNALISTS):
         journalist_key = load_key(f"{commons.DIR}journalists/journalist_{j}")
         journalist_keys.append(journalist_key)
-        verify_key(intermediate_key.verify_key,
+        verify_key_func(intermediate_key.verify_key,
                    journalist_key.verify_key,
                    f"{commons.DIR}journalists/journalist_{j}.sig")
     return root_key, intermediate_key, journalist_keys
@@ -134,11 +137,11 @@ def load_and_verify_journalist_keypair(journalist_id):
     intermediate_verifying_key = verify_root_intermediate()
     journalist_key = load_key(f"journalists/journalist_{journalist_id}")
     journalist_uid = sha3_256(journalist_key.verify_key.encode()).hexdigest()
-    journalist_sig = verify_key(intermediate_verifying_key,
+    journalist_sig = verify_key_func(intermediate_verifying_key,
                                 journalist_key.verify_key,
                                 f"{commons.DIR}journalists/journalist_{journalist_id}.sig")
     journalist_fetching_key = load_key(f"journalists/journalist_fetching_{journalist_id}")
-    journalist_fetching_sig = verify_key(intermediate_verifying_key,
+    journalist_fetching_sig = verify_key_func(intermediate_verifying_key,
                                          journalist_fetching_key.verify_key,
                                          f"{commons.DIR}journalists/journalist_fetching_{journalist_id}.sig")
 
@@ -150,7 +153,7 @@ def load_and_verify_journalist_verifying_keys():
     journalist_verying_keys = []
     for j in range(commons.JOURNALISTS):
         journalist_verifying_key = load_key(f"journalists/journalist_{j}", signing=False)
-        verify_key(intermediate_verifying_key,
+        verify_key_func(intermediate_verifying_key,
                    journalist_verifying_key,
                    f"{commons.DIR}journalists/journalist_{j}.sig")
         journalist_verying_keys.append(journalist_verifying_key)
