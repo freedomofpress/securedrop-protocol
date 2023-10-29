@@ -1,14 +1,14 @@
 import json
+from base64 import b64encode
 from hashlib import sha3_256
 from os import path, stat
 from secrets import token_bytes
 
-from nacl.encoding import HexEncoder, Base64Encoder
-from nacl.public import PrivateKey, Box
+import requests
+from nacl.encoding import Base64Encoder, HexEncoder
+from nacl.public import Box, PrivateKey, PublicKey
 from nacl.secret import SecretBox
 from nacl.signing import SigningKey, VerifyKey
-
-import requests
 
 import pki
 
@@ -61,16 +61,16 @@ def get_journalists(intermediate_verifying_key):
         journalist_verifying_key = VerifyKey(content["journalist_key"], Base64Encoder)
         journalist_fetching_verifying_key = VerifyKey(content["journalist_fetching_key"], Base64Encoder)
         # pki.verify_key shall give an hard fault is a signature is off
-        pki.verify_key(intermediate_verifying_key,
-                       journalist_verifying_key,
-                       None,
-                       content["journalist_sig"]
-                       )
-        pki.verify_key(intermediate_verifying_key,
-                       journalist_fetching_verifying_key,
-                       None,
-                       content["journalist_fetching_sig"]
-                       )
+        pki.verify_key_func(intermediate_verifying_key,
+                            journalist_verifying_key,
+                            None,
+                            content["journalist_sig"]
+                           )
+        pki.verify_key_func(intermediate_verifying_key,
+                            journalist_fetching_verifying_key,
+                            None,
+                            content["journalist_fetching_sig"]
+                           )
     return journalists
 
 
@@ -93,10 +93,11 @@ def get_ephemeral_keys(journalists):
                 journalist_verifying_key = VerifyKey(journalist["journalist_key"], Base64Encoder)
         ephemeral_verifying_key = VerifyKey(ephemeral_key_dict["ephemeral_key"], Base64Encoder)
         # We rely again on verify_key raising an exception in case of failure
-        pki.verify_key(journalist_verifying_key,
-                       ephemeral_verifying_key,
-                       None,
-                       ephemeral_key_dict["ephemeral_sig"])
+        pki.verify_key_func(journalist_verifying_key,
+                            ephemeral_verifying_key,
+                            None,
+                            ephemeral_key_dict["ephemeral_sig"]
+                           )
         ephemeral_keys_return.append(ephemeral_key_dict)
     # check that all keys are from different journalists
     assert (len(checked_uids) == JOURNALISTS)
@@ -111,10 +112,10 @@ def build_message(fetching_public_key, encryption_public_key):
     message_public_key = (message_secret_key.public_key.encode(Base64Encoder)).decode("ascii")
 
     # encrypt the message, we trust nacl safe defaults
-    box = Box(message_secret_key, receiver_public_key)
+    box = Box(message_secret_key, encryption_public_key)
 
     # generate the message gdh to send the server
-    message_gdh = Box(message_secret_key, fetching_public_key).shared_key().encode(Base64Encoder)
+    message_gdh = b64encode(Box(message_secret_key, fetching_public_key).shared_key())
 
     return message_public_key, message_gdh, box
 

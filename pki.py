@@ -2,16 +2,13 @@ from base64 import b64decode
 from hashlib import sha3_256
 from os import mkdir, rmdir
 
-from nacl.encoding import HexEncoder, Base64Encoder
+from ecdsa import InvalidCurveError, InvalidSharedSecretError
+from ecdsa.ellipticcurve import INFINITY
+from nacl.encoding import Base64Encoder, HexEncoder
 from nacl.signing import SigningKey, VerifyKey
 from nacl.utils import randombytes_deterministic
 
-
-from ecdsa import (InvalidCurveError, InvalidSharedSecretError)
-from ecdsa.ellipticcurve import INFINITY
-
 import commons
-
 
 # Used to deterministally generate keys based on the passphrase, only on the source side
 # the class is kind of a hack: python-ecdsa wants a os.urandom() kind of interface

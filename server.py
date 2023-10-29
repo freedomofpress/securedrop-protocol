@@ -6,12 +6,11 @@ from random import uniform
 from secrets import token_bytes, token_hex
 from time import sleep
 
-from nacl.encoding import HexEncoder, Base64Encoder
-from nacl.public import PublicKey, PrivateKey, Box
+from flask import Flask, request, send_file
+from nacl.encoding import Base64Encoder, HexEncoder
+from nacl.public import Box, PrivateKey, PublicKey
 from nacl.secret import SecretBox
 from nacl.signing import SigningKey, VerifyKey
-
-from flask import Flask, request, send_file
 from redis import Redis
 
 import commons
@@ -37,7 +36,7 @@ def index():
 @app.route("/journalists", methods=["POST"])
 def add_journalist():
     content = request.json
-    print(content)
+
     try:
         assert ("journalist_key" in content)
         assert ("journalist_sig" in content)

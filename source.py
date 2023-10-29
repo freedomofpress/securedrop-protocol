@@ -6,7 +6,10 @@ from hashlib import sha3_256
 from secrets import token_bytes
 from time import time
 
-from ecdsa import SigningKey
+from nacl.encoding import Base64Encoder, HexEncoder
+from nacl.public import Box, PrivateKey, PublicKey
+from nacl.secret import SecretBox
+from nacl.signing import SigningKey, VerifyKey
 
 import commons
 import pki
@@ -20,8 +23,7 @@ def generate_passphrase():
 # the prefix is useful for isolating key. A hash/kdf is used to generate the actual seeds
 def derive_key(passphrase, key_isolation_prefix):
     key_seed = sha3_256(key_isolation_prefix.encode("ascii") + passphrase).digest()
-    key_prng = pki.PRNG(key_seed[0:32])
-    key = SigningKey.generate(curve=commons.CURVE, entropy=key_prng.deterministic_random)
+    key = PrivateKey(key_seed)
     return key
 
 
@@ -38,11 +40,11 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
     # Add prefix for key isolation
     # [SOURCE] LONG-TERM MESSAGE KEY
     encryption_key = derive_key(passphrase, "encryption_key-")
-    source_encryption_public_key = b64encode(encryption_key.verifying_key.to_string()).decode("ascii")
+    source_encryption_public_key = encryption_key.public_key.encode(Base64Encoder).decode("ascii")
 
     # [SOURCE] LONG-TERM CHALLENGE KEY
     fetching_key = derive_key(passphrase, "fetching_key-")
-    source_fetching_public_key = b64encode(fetching_key.verifying_key.to_string()).decode("ascii")
+    source_fetching_public_key = fetching_key.public_key.encode(Base64Encoder).decode("ascii")
 
     # For every receiver (journalists), create a message
     for ephemeral_key_dict in ephemeral_keys:
@@ -64,9 +66,8 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
                         # we can add attachmenet pieces/id here
                         "attachments": attachments}
 
-        message_ciphertext = b64encode(box.encrypt(
-            (json.dumps(message_dict)).ljust(1024).encode('ascii'))
-        ).decode("ascii")
+        message_ciphertext = box.encrypt(
+            (json.dumps(message_dict)).ljust(1024).encode('ascii'), encoder=Base64Encoder).decode("ascii")
 
         # Send the message to the server API using the generic /send endpoint
         commons.send_message(message_ciphertext, message_public_key, message_gdh)

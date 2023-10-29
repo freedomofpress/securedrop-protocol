@@ -7,9 +7,8 @@ from os import listdir, mkdir, path
 from time import time
 
 import requests
-
-from nacl.encoding import HexEncoder, Base64Encoder
-from nacl.public import PublicKey, PrivateKey, Box
+from nacl.encoding import Base64Encoder, HexEncoder
+from nacl.public import Box, PrivateKey, PublicKey
 from nacl.secret import SecretBox
 from nacl.signing import SigningKey, VerifyKey
 
