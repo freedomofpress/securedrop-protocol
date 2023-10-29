@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+killall flask 2>/dev/null
 sudo systemctl restart redis > /dev/null 2>&1
 
 # start clean

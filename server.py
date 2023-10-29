@@ -1,16 +1,15 @@
 import json
-from base64 import b64decode, b64encode
+from base64 import b64encode
 from hashlib import sha3_256
 from os import mkdir, remove
-from random import uniform
+# from random import uniform
 from secrets import token_bytes, token_hex
-from time import sleep
+# from time import sleep
 
 from flask import Flask, request, send_file
-from nacl.encoding import Base64Encoder, HexEncoder
+from nacl.encoding import Base64Encoder
 from nacl.public import Box, PrivateKey, PublicKey
-from nacl.secret import SecretBox
-from nacl.signing import SigningKey, VerifyKey
+from nacl.signing import VerifyKey
 from redis import Redis
 
 import commons
@@ -45,19 +44,19 @@ def add_journalist():
     except Exception:
         return {"status": "KO"}, 400
 
-    journalist_verifying_key = PublicKey(content["journalist_key"], Base64Encoder)
-    journalist_fetching_verifying_key = PublicKey(content["journalist_fetching_key"], Base64Encoder)
+    journalist_verifying_key = VerifyKey(content["journalist_key"], Base64Encoder)
+    journalist_fetching_public_key = PublicKey(content["journalist_fetching_key"], Base64Encoder)
+
     try:
         journalist_sig = pki.verify_key_func(intermediate_verifying_key,
-                                        journalist_verifying_key,
-                                        None,
-                                        content["journalist_sig"])
+                                             journalist_verifying_key,
+                                             None,
+                                             content["journalist_sig"])
 
         journalist_fetching_sig = pki.verify_key_func(intermediate_verifying_key,
-                                                 journalist_fetching_verifying_key,
-                                                 None,
-                                                 content["journalist_fetching_sig"])
-
+                                                      journalist_fetching_public_key,
+                                                      None,
+                                                      content["journalist_fetching_sig"])
     except Exception:
         return {"status": "KO"}, 400
 
@@ -65,7 +64,7 @@ def add_journalist():
     redis.sadd("journalists", json.dumps({"journalist_uid": journalist_uid,
                                           "journalist_key": journalist_verifying_key.encode(Base64Encoder).decode("ascii"),
                                           "journalist_sig": journalist_sig,
-                                          "journalist_fetching_key": journalist_fetching_verifying_key.encode(Base64Encoder).decode('ascii'),
+                                          "journalist_fetching_key": journalist_fetching_public_key.encode(Base64Encoder).decode('ascii'),
                                           "journalist_fetching_sig": journalist_fetching_sig,
                                           }))
     return {"status": "OK"}, 200
@@ -176,23 +175,15 @@ def get_fetch():
     message_keys = redis.keys("message:*")
     for message_key in message_keys:
         # SERVER EPHEMERAL CHALLENGE KEY
-        request_ephemeral_key = SigningKey.generate(curve=commons.CURVE)
+        request_ephemeral_key = PrivateKey.generate()
         message_id = message_key.decode('ascii').split(":")[1]
         # retrieve the message and load the json
         message_dict = json.loads(redis.get(message_key).decode('ascii'))
 
-        message_server_gdh = VerifyingKey.from_public_point(
-                                        pki.get_shared_secret(
-                                            VerifyingKey.from_string(b64decode(message_dict["message_public_key"]), curve=commons.CURVE),
-                                            request_ephemeral_key),
-                                        curve=commons.CURVE).to_string()
+        message_server_gdh = Box(request_ephemeral_key, PublicKey(message_dict["message_public_key"], encoder=Base64Encoder)).shared_key()
 
         # calculate the sared key for message_id encryption
-        ecdh = ECDH(curve=commons.CURVE)
-        ecdh.load_private_key(request_ephemeral_key)
-        ecdh.load_received_public_key_bytes(b64decode(message_dict["message_gdh"]))
-        message_server_shared_secret = ecdh.generate_sharedsecret_bytes()
-        box = SecretBox(message_server_shared_secret[0:32])
+        box = Box(request_ephemeral_key, PublicKey(message_dict["message_gdh"], encoder=Base64Encoder))
         encrypted_message_id = box.encrypt(message_id.encode('ascii'))
 
         potential_messages.append({"gdh": b64encode(message_server_gdh).decode('ascii'),
@@ -202,14 +193,14 @@ def get_fetch():
     # TODO: add shuffling of the response dict
     for decoy in range(commons.MAX_MESSAGES - len(potential_messages)):
         potential_messages.append({
-                                   "gdh": b64encode(SigningKey.generate(curve=commons.CURVE).verifying_key.to_string()).decode('ascii'),
+                                   "gdh": PrivateKey.generate().encode(Base64Encoder).decode('ascii'),
                                    # message_id are 32 bytes and encryption overhead is 64 bytes
                                    "enc": b64encode(token_bytes(32+72)).decode('ascii')
             }
         )
 
     # TODO: add stronger timing attack mitigations (such as a random delay)
-    sleep(uniform(0, 3.0))
+    # sleep(uniform(0, 3.0))
 
     assert (len(potential_messages) == commons.MAX_MESSAGES)
 

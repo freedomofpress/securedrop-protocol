@@ -7,10 +7,9 @@ from os import listdir, mkdir, path
 from time import time
 
 import requests
-from nacl.encoding import Base64Encoder, HexEncoder
-from nacl.public import Box, PrivateKey, PublicKey
+from nacl.encoding import Base64Encoder
 from nacl.secret import SecretBox
-from nacl.signing import SigningKey, VerifyKey
+from nacl.signing import SigningKey
 
 import commons
 import journalist_db

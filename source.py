@@ -1,15 +1,12 @@
 import argparse
 import json
-from base64 import b64encode
 from datetime import datetime
 from hashlib import sha3_256
 from secrets import token_bytes
 from time import time
 
-from nacl.encoding import Base64Encoder, HexEncoder
-from nacl.public import Box, PrivateKey, PublicKey
-from nacl.secret import SecretBox
-from nacl.signing import SigningKey, VerifyKey
+from nacl.encoding import Base64Encoder
+from nacl.public import PrivateKey
 
 import commons
 import pki

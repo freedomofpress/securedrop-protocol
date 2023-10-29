@@ -5,10 +5,10 @@ from os import path, stat
 from secrets import token_bytes
 
 import requests
-from nacl.encoding import Base64Encoder, HexEncoder
+from nacl.encoding import Base64Encoder
 from nacl.public import Box, PrivateKey, PublicKey
 from nacl.secret import SecretBox
-from nacl.signing import SigningKey, VerifyKey
+from nacl.signing import VerifyKey
 
 import pki
 
@@ -38,9 +38,7 @@ CHUNK = 512 * 1024
 def add_journalist(journalist_key, journalist_sig, journalist_fetching_key, journalist_fetching_sig):
     journalist_uid = sha3_256(journalist_key.verify_key.encode()).hexdigest()
     journalist_key = journalist_key.verify_key.encode(Base64Encoder).decode("ascii")
-    journalist_sig = journalist_sig
-    journalist_fetching_key = journalist_fetching_key.verify_key.encode(Base64Encoder).decode("ascii")
-    journalist_fetching_sig = journalist_fetching_sig
+    journalist_fetching_key = journalist_fetching_key.public_key.encode(Base64Encoder).decode("ascii")
 
     response = requests.post(f"http://{SERVER}/journalists", json={
                 "journalist_key": journalist_key,
@@ -64,13 +62,11 @@ def get_journalists(intermediate_verifying_key):
         pki.verify_key_func(intermediate_verifying_key,
                             journalist_verifying_key,
                             None,
-                            content["journalist_sig"]
-                           )
+                            content["journalist_sig"])
         pki.verify_key_func(intermediate_verifying_key,
                             journalist_fetching_verifying_key,
                             None,
-                            content["journalist_fetching_sig"]
-                           )
+                            content["journalist_fetching_sig"])
     return journalists
 
 
@@ -96,8 +92,7 @@ def get_ephemeral_keys(journalists):
         pki.verify_key_func(journalist_verifying_key,
                             ephemeral_verifying_key,
                             None,
-                            ephemeral_key_dict["ephemeral_sig"]
-                           )
+                            ephemeral_key_dict["ephemeral_sig"])
         ephemeral_keys_return.append(ephemeral_key_dict)
     # check that all keys are from different journalists
     assert (len(checked_uids) == JOURNALISTS)
@@ -178,12 +173,10 @@ def fetch_messages_id(fetching_key):
         message_gdh = PublicKey(message["gdh"], Base64Encoder)
         message_client_box = Box(fetching_key, message_gdh)
 
-        try:
-            message_id = box.decrypt(message["enc"], Base64Encoder).decode('ascii')
-            messages.append(message_id)
+        message_id = message_client_box.decrypt(message["enc"], Base64Encoder).decode('ascii')
+        messages.append(message_id)
 
-        except Exception:
-            pass
+
 
     if len(messages) > 0:
         return messages
