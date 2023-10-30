@@ -163,16 +163,16 @@ def generate_ephemeral(journalist_key, journalist_id, journalist_uid):
         mkdir(f"{commons.DIR}/journalists/{journalist_uid}")
     except Exception:
         pass
-    key = SigningKey.generate()
-    name = sha3_256(key.verify_key.encode()).hexdigest()
+    key = PrivateKey.generate()
+    name = sha3_256(key.public_key.encode()).hexdigest()
 
     with open(f"{commons.DIR}/journalists/{journalist_uid}/{name}.key", "w") as f:
-        f.write(key.verify_key.encode(Base64Encoder).decode('ascii'))
+        f.write(key.encode(Base64Encoder).decode('ascii'))
 
     with open(f"{commons.DIR}/journalists/{journalist_uid}/{name}.public", "w") as f:
-        f.write(key.verify_key.encode(Base64Encoder).decode('ascii'))
+        f.write(key.public_key.encode(Base64Encoder).decode('ascii'))
 
-    sig = sign_key(journalist_key, key.verify_key, f"{commons.DIR}/journalists/{journalist_uid}/{name}.sig")
+    sig = sign_key(journalist_key, key.public_key, f"{commons.DIR}/journalists/{journalist_uid}/{name}.sig")
 
     return sig, key
 

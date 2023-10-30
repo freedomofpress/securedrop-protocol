@@ -4,7 +4,6 @@ from hashlib import sha3_256
 from os import mkdir, remove
 # from random import uniform
 from secrets import token_bytes, token_hex
-# from time import sleep
 
 from flask import Flask, request, send_file
 from nacl.bindings import crypto_scalarmult
@@ -15,6 +14,8 @@ from redis import Redis
 
 import commons
 import pki
+
+# from time import sleep
 
 # bootstrap keys
 intermediate_verifying_key = pki.verify_root_intermediate()

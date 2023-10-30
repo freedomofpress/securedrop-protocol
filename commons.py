@@ -177,7 +177,7 @@ def fetch_messages_id(fetching_key):
         try:
             message_id = message_client_box.decrypt(b64decode(message["enc"])).decode('ascii')
             messages.append(message_id)
-        except:
+        except Exception:
             pass
 
     if len(messages) > 0:

@@ -10,7 +10,6 @@ import requests
 from nacl.encoding import Base64Encoder
 from nacl.public import PrivateKey
 from nacl.secret import SecretBox
-from nacl.signing import SigningKey
 
 import commons
 import journalist_db
@@ -22,7 +21,7 @@ def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
     for key in range(commons.ONETIMEKEYS):
         # Generate an ephemeral key, sign it and load the signature
         ephemeral_sig, ephemeral_key = pki.generate_ephemeral(journalist_key, journalist_id, journalist_uid)
-        ephemeral_keys.append({"ephemeral_key": ephemeral_key.verify_key.encode(Base64Encoder).decode("ascii"),
+        ephemeral_keys.append({"ephemeral_key": ephemeral_key.public_key.encode(Base64Encoder).decode("ascii"),
                                "ephemeral_sig": ephemeral_sig.signature.decode("ascii")})
 
     # Send both to server, the server veifies the signature and the trust chain prior ro storing/publishing
