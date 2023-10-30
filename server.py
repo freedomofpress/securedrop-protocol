@@ -188,23 +188,22 @@ def get_fetch():
         encrypted_message_id = box.encrypt(message_id.encode('ascii'))
 
         potential_messages.append({"gdh": b64encode(message_server_gdh).decode('ascii'),
-                                   "enc": b64encode(encrypted_message_id).decode('ascii'),
-                                   "key": b64encode(box.shared_key()).decode('ascii')})
+                                   "enc": b64encode(encrypted_message_id).decode('ascii')})
 
     # add DECOY potential messages
     # TODO: add shuffling of the response dict
-    # for decoy in range(commons.MAX_MESSAGES - len(potential_messages)):
-    #    potential_messages.append({
-    #                               "gdh": PrivateKey.generate().encode(Base64Encoder).decode('ascii'),
-    #                               # message_id are 32 bytes and encryption overhead is 64 bytes
-    #                               "enc": b64encode(token_bytes(32+72)).decode('ascii')
-    #        }
-    #    )
+    for decoy in range(commons.MAX_MESSAGES - len(potential_messages)):
+        potential_messages.append({
+                                   "gdh": PrivateKey.generate().encode(Base64Encoder).decode('ascii'),
+                                   # message_id are 32 bytes and encryption overhead is 64 bytes
+                                   "enc": b64encode(token_bytes(32+72)).decode('ascii')
+            }
+        )
 
     # TODO: add stronger timing attack mitigations (such as a random delay)
     # sleep(uniform(0, 3.0))
 
-    # assert (len(potential_messages) == commons.MAX_MESSAGES)
+    assert (len(potential_messages) == commons.MAX_MESSAGES)
 
     # padding to hide the number of meesages to be added later
     response_dict = {"status": "OK",

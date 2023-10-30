@@ -8,6 +8,7 @@ from time import time
 
 import requests
 from nacl.encoding import Base64Encoder
+from nacl.public import PrivateKey
 from nacl.secret import SecretBox
 from nacl.signing import SigningKey
 
@@ -41,7 +42,7 @@ def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
         if file_name.endswith('.key'):
             with open(f"{commons.DIR}journalists/{journalist_uid}/{file_name}", "r") as f:
                 key = f.read()
-            ephemeral_keys.append(SigningKey(key, Base64Encoder))
+            ephemeral_keys.append(PrivateKey(key, Base64Encoder))
     return ephemeral_keys
 
 

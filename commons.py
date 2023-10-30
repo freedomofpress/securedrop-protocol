@@ -1,5 +1,5 @@
 import json
-from base64 import b64encode
+from base64 import b64decode, b64encode
 from hashlib import sha3_256
 from os import path, stat
 from secrets import token_bytes
@@ -174,19 +174,11 @@ def fetch_messages_id(fetching_key):
         message_gdh = PublicKey(message["gdh"], Base64Encoder)
         message_client_box = Box(fetching_key, message_gdh)
 
-        print(message['key'])
-        print(b64encode(message_client_box.shared_key()).decode('ascii'))
-
-        if (message['key'] == b64encode(message_client_box.shared_key()).decode('ascii')):
-            print(message["enc"])
-            message_id = message_client_box.decrypt(message["enc"], Base64Encoder).decode('ascii')
-
-    try:
-        message_id = message_client_box.decrypt(message["enc"], Base64Encoder).decode('ascii')
-        messages.append(message_id)
-    except:
-        pass
-
+        try:
+            message_id = message_client_box.decrypt(b64decode(message["enc"])).decode('ascii')
+            messages.append(message_id)
+        except:
+            pass
 
     if len(messages) > 0:
         return messages
@@ -200,11 +192,10 @@ def fetch_messages_content(messages_id):
 
 
 def decrypt_message_ciphertext(private_key, message_public_key, message_ciphertext):
-    private_key = PrivateKey(private_key)
     public_key = PublicKey(message_public_key, Base64Encoder)
     box = Box(private_key, public_key)
     try:
-        message_plaintext = json.loads(box.decrypt(message_ciphertext, Base64Encoder).decode('ascii'))
+        message_plaintext = json.loads(box.decrypt(b64decode(message_ciphertext)).decode('ascii'))
         return message_plaintext
     except Exception:
         return False
