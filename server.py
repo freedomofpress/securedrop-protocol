@@ -55,7 +55,7 @@ def add_journalist():
                                              None,
                                              content["journalist_sig"])
 
-        journalist_fetching_sig = pki.verify_key_func(intermediate_verifying_key,
+        journalist_fetching_sig = pki.verify_key_func(journalist_verifying_key,
                                                       journalist_fetching_public_key,
                                                       None,
                                                       content["journalist_fetching_sig"])

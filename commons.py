@@ -29,7 +29,7 @@ ONETIMEKEYS = 30
 # How may entries the server sends to each party when they try to fetch messages
 # This basically must be more than the msssages in the database, otherwise we need
 # to develop a mechanism to group messages adding some bits of metadata
-MAX_MESSAGES = 500
+MAX_MESSAGES = 1000
 # The base size of every parts in which attachment are splitted/padded to. This
 # is not the actual size on disk, cause thet will be a bit more depending on
 # the nacl SecretBox implementation
@@ -64,7 +64,7 @@ def get_journalists(intermediate_verifying_key):
                             journalist_verifying_key,
                             None,
                             content["journalist_sig"])
-        pki.verify_key_func(intermediate_verifying_key,
+        pki.verify_key_func(journalist_verifying_key,
                             journalist_fetching_verifying_key,
                             None,
                             content["journalist_fetching_sig"])

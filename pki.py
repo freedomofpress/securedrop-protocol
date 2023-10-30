@@ -124,7 +124,7 @@ def load_and_verify_journalist_keypair(journalist_id):
                                      journalist_key.verify_key,
                                      f"{commons.DIR}journalists/journalist_{journalist_id}.sig")
     journalist_fetching_key = load_key(f"journalists/journalist_fetching_{journalist_id}", keytype='enc', private=True)
-    journalist_fetching_sig = verify_key_func(intermediate_verifying_key,
+    journalist_fetching_sig = verify_key_func(journalist_key.verify_key,
                                               journalist_fetching_key.public_key,
                                               f"{commons.DIR}journalists/journalist_fetching_{journalist_id}.sig")
 
@@ -153,7 +153,7 @@ def generate_journalists(intermediate_key):
         sign_key(intermediate_key, journalist_key.verify_key, f"{commons.DIR}journalists/journalist_{j}.sig")
         journalist_fetching_key = generate_key(f"journalists/journalist_fetching_{j}", keytype='enc')
         journalist_fetching_keys.append(journalist_fetching_key)
-        sign_key(intermediate_key, journalist_fetching_key.public_key, f"{commons.DIR}journalists/journalist_fetching_{j}.sig")
+        sign_key(journalist_key, journalist_fetching_key.public_key, f"{commons.DIR}journalists/journalist_fetching_{j}.sig")
 
     return journalist_fetching_keys, journalist_keys
 
