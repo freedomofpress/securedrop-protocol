@@ -5,6 +5,7 @@ from os import path, stat
 from secrets import token_bytes
 
 import requests
+from nacl.bindings import crypto_scalarmult
 from nacl.encoding import Base64Encoder
 from nacl.public import Box, PrivateKey, PublicKey
 from nacl.secret import SecretBox
@@ -110,7 +111,7 @@ def build_message(fetching_public_key, encryption_public_key):
     box = Box(message_secret_key, encryption_public_key)
 
     # generate the message gdh to send the server
-    message_gdh = b64encode(Box(message_secret_key, fetching_public_key).shared_key())
+    message_gdh = b64encode(crypto_scalarmult(message_secret_key.encode(), fetching_public_key.encode()))
 
     return message_public_key, message_gdh, box
 
@@ -173,9 +174,18 @@ def fetch_messages_id(fetching_key):
         message_gdh = PublicKey(message["gdh"], Base64Encoder)
         message_client_box = Box(fetching_key, message_gdh)
 
+        print(message['key'])
+        print(b64encode(message_client_box.shared_key()).decode('ascii'))
+
+        if (message['key'] == b64encode(message_client_box.shared_key()).decode('ascii')):
+            print(message["enc"])
+            message_id = message_client_box.decrypt(message["enc"], Base64Encoder).decode('ascii')
+
+    try:
         message_id = message_client_box.decrypt(message["enc"], Base64Encoder).decode('ascii')
         messages.append(message_id)
-
+    except:
+        pass
 
 
     if len(messages) > 0:

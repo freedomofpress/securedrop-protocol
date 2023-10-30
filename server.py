@@ -1,5 +1,5 @@
 import json
-from base64 import b64encode
+from base64 import b64decode, b64encode
 from hashlib import sha3_256
 from os import mkdir, remove
 # from random import uniform
@@ -7,6 +7,7 @@ from secrets import token_bytes, token_hex
 # from time import sleep
 
 from flask import Flask, request, send_file
+from nacl.bindings import crypto_scalarmult
 from nacl.encoding import Base64Encoder
 from nacl.public import Box, PrivateKey, PublicKey
 from nacl.signing import VerifyKey
@@ -180,29 +181,30 @@ def get_fetch():
         # retrieve the message and load the json
         message_dict = json.loads(redis.get(message_key).decode('ascii'))
 
-        message_server_gdh = Box(request_ephemeral_key, PublicKey(message_dict["message_public_key"], encoder=Base64Encoder)).shared_key()
+        message_server_gdh = crypto_scalarmult(request_ephemeral_key.encode(), b64decode(message_dict["message_public_key"]))
 
         # calculate the sared key for message_id encryption
         box = Box(request_ephemeral_key, PublicKey(message_dict["message_gdh"], encoder=Base64Encoder))
         encrypted_message_id = box.encrypt(message_id.encode('ascii'))
 
         potential_messages.append({"gdh": b64encode(message_server_gdh).decode('ascii'),
-                                   "enc": b64encode(encrypted_message_id).decode('ascii')})
+                                   "enc": b64encode(encrypted_message_id).decode('ascii'),
+                                   "key": b64encode(box.shared_key()).decode('ascii')})
 
     # add DECOY potential messages
     # TODO: add shuffling of the response dict
-    for decoy in range(commons.MAX_MESSAGES - len(potential_messages)):
-        potential_messages.append({
-                                   "gdh": PrivateKey.generate().encode(Base64Encoder).decode('ascii'),
-                                   # message_id are 32 bytes and encryption overhead is 64 bytes
-                                   "enc": b64encode(token_bytes(32+72)).decode('ascii')
-            }
-        )
+    # for decoy in range(commons.MAX_MESSAGES - len(potential_messages)):
+    #    potential_messages.append({
+    #                               "gdh": PrivateKey.generate().encode(Base64Encoder).decode('ascii'),
+    #                               # message_id are 32 bytes and encryption overhead is 64 bytes
+    #                               "enc": b64encode(token_bytes(32+72)).decode('ascii')
+    #        }
+    #    )
 
     # TODO: add stronger timing attack mitigations (such as a random delay)
     # sleep(uniform(0, 3.0))
 
-    assert (len(potential_messages) == commons.MAX_MESSAGES)
+    # assert (len(potential_messages) == commons.MAX_MESSAGES)
 
     # padding to hide the number of meesages to be added later
     response_dict = {"status": "OK",
