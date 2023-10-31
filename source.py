@@ -1,11 +1,11 @@
 import argparse
 import json
 from datetime import datetime
-from hashlib import sha3_256
 from secrets import token_bytes
 from time import time
 
-from nacl.encoding import Base64Encoder
+from nacl.encoding import Base64Encoder, RawEncoder
+from nacl.hash import blake2b
 from nacl.public import PrivateKey
 
 import commons
@@ -19,7 +19,7 @@ def generate_passphrase():
 # this function derives an EC keypair given the passphrase
 # the prefix is useful for isolating key. A hash/kdf is used to generate the actual seeds
 def derive_key(passphrase, key_isolation_prefix):
-    key_seed = sha3_256(key_isolation_prefix.encode("ascii") + passphrase).digest()
+    key_seed = blake2b(passphrase, salt=key_isolation_prefix.encode("ascii"), encoder=RawEncoder)
     key = PrivateKey(key_seed)
     return key
 
@@ -55,7 +55,7 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
                         # do we want to sign messages? how do we attest source authoriship?
                         "source_fetching_public_key": source_fetching_public_key,
                         "source_encryption_public_key": source_encryption_public_key,
-                        "receiver": ephemeral_key_dict["journalist_uid"],
+                        "receiver": ephemeral_key_dict["journalist_key"],
                         # we could list the journalists involved in the conversation here
                         # if the source choose not to pick everybody
                         "group_members": [],

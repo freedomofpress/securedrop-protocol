@@ -1,8 +1,7 @@
 from base64 import b64decode
-from hashlib import sha3_256
 from os import mkdir, rmdir
 
-from nacl.encoding import Base64Encoder
+from nacl.encoding import Base64Encoder, HexEncoder
 from nacl.public import PrivateKey, PublicKey
 from nacl.signing import SigningKey, VerifyKey
 
@@ -101,25 +100,9 @@ def verify_root_intermediate():
     return intermediate_verifying_key
 
 
-'''def load_pki():
-    root_key = load_key("root")
-    intermediate_key = load_key("intermediate")
-    verify_key_func(root_key.verify_key, intermediate_key.verify_key, f"{commons.DIR}intermediate.sig")
-    journalist_keys = []
-    for j in range(commons.JOURNALISTS):
-        journalist_key = load_key(f"{commons.DIR}journalists/journalist_{j}")
-        journalist_keys.append(journalist_key)
-        verify_key_func(intermediate_key.verify_key,
-                   journalist_key.verify_key,
-                   f"{commons.DIR}journalists/journalist_{j}.sig")
-    return root_key, intermediate_key, journalist_keys
-'''
-
-
 def load_and_verify_journalist_keypair(journalist_id):
     intermediate_verifying_key = verify_root_intermediate()
     journalist_key = load_key(f"journalists/journalist_{journalist_id}", keytype='sig', private=True)
-    journalist_uid = sha3_256(journalist_key.verify_key.encode()).hexdigest()
     journalist_sig = verify_key_func(intermediate_verifying_key,
                                      journalist_key.verify_key,
                                      f"{commons.DIR}journalists/journalist_{journalist_id}.sig")
@@ -128,7 +111,7 @@ def load_and_verify_journalist_keypair(journalist_id):
                                               journalist_fetching_key.public_key,
                                               f"{commons.DIR}journalists/journalist_fetching_{journalist_id}.sig")
 
-    return journalist_uid, journalist_sig, journalist_key, journalist_fetching_sig, journalist_fetching_key
+    return journalist_sig, journalist_key, journalist_fetching_sig, journalist_fetching_key
 
 
 def load_and_verify_journalist_verifying_keys():
@@ -158,21 +141,21 @@ def generate_journalists(intermediate_key):
     return journalist_fetching_keys, journalist_keys
 
 
-def generate_ephemeral(journalist_key, journalist_id, journalist_uid):
+def generate_ephemeral(journalist_key, journalist_id):
     try:
-        mkdir(f"{commons.DIR}/journalists/{journalist_uid}")
+        mkdir(f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder)}")
     except Exception:
         pass
     key = PrivateKey.generate()
-    name = sha3_256(key.public_key.encode()).hexdigest()
+    name = key.public_key.encode(HexEncoder)
 
-    with open(f"{commons.DIR}/journalists/{journalist_uid}/{name}.key", "w") as f:
+    with open(f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder)}/{name}.key", "w") as f:
         f.write(key.encode(Base64Encoder).decode('ascii'))
 
-    with open(f"{commons.DIR}/journalists/{journalist_uid}/{name}.public", "w") as f:
+    with open(f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder)}/{name}.public", "w") as f:
         f.write(key.public_key.encode(Base64Encoder).decode('ascii'))
 
-    sig = sign_key(journalist_key, key.public_key, f"{commons.DIR}/journalists/{journalist_uid}/{name}.sig")
+    sig = sign_key(journalist_key, key.public_key, f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder)}/{name}.sig")
 
     return sig, key
 

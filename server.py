@@ -1,13 +1,12 @@
 import json
 from base64 import b64decode, b64encode
-from hashlib import sha3_256
 from os import mkdir, remove
 # from random import uniform
 from secrets import token_bytes, token_hex
 
 from flask import Flask, request, send_file
 from nacl.bindings import crypto_scalarmult
-from nacl.encoding import Base64Encoder
+from nacl.encoding import Base64Encoder, HexEncoder
 from nacl.public import Box, PrivateKey, PublicKey
 from nacl.signing import VerifyKey
 from redis import Redis
@@ -25,7 +24,8 @@ app = Flask(__name__)
 
 try:
     mkdir(f"{commons.UPLOADS}")
-except Exception:
+except Exception as e:
+    print(e)
     pass
 
 
@@ -62,13 +62,10 @@ def add_journalist():
     except Exception:
         return {"status": "KO"}, 400
 
-    journalist_uid = sha3_256(journalist_verifying_key.encode()).hexdigest()
-    redis.sadd("journalists", json.dumps({"journalist_uid": journalist_uid,
-                                          "journalist_key": journalist_verifying_key.encode(Base64Encoder).decode("ascii"),
+    redis.sadd("journalists", json.dumps({"journalist_key": journalist_verifying_key.encode(Base64Encoder).decode("ascii"),
                                           "journalist_sig": journalist_sig,
                                           "journalist_fetching_key": journalist_fetching_public_key.encode(Base64Encoder).decode('ascii'),
-                                          "journalist_fetching_sig": journalist_fetching_sig,
-                                          }))
+                                          "journalist_fetching_sig": journalist_fetching_sig}))
     return {"status": "OK"}, 200
 
 
@@ -126,17 +123,17 @@ def delete_file(file_id):
 def add_ephemeral_keys():
     content = request.json
     try:
-        assert ("journalist_uid" in content)
+        assert ("journalist_key" in content)
         assert ("ephemeral_keys" in content)
     except Exception:
         return {"status": "KO"}, 400
 
-    journalist_uid = content["journalist_uid"]
+    journalist_key = content["journalist_key"]
     journalists = redis.smembers("journalists")
 
     for journalist in journalists:
         journalist_dict = json.loads(journalist.decode("ascii"))
-        if journalist_dict["journalist_uid"] == journalist_uid:
+        if journalist_dict["journalist_key"] == journalist_key:
             journalist_verifying_key = VerifyKey(journalist_dict["journalist_key"], Base64Encoder)
     ephemeral_keys = content["ephemeral_keys"]
 
@@ -147,7 +144,7 @@ def add_ephemeral_keys():
             ephemeral_key_verifying_key,
             None,
             ephemeral_key_dict["ephemeral_sig"])
-        redis.sadd(f"journalist:{journalist_uid}",
+        redis.sadd(f"journalist:{journalist_verifying_key.encode(HexEncoder)}",
                    json.dumps({"ephemeral_key": ephemeral_key_verifying_key.encode(Base64Encoder).decode("ascii"),
                                "ephemeral_sig": ephemeral_sig}))
 
@@ -161,9 +158,8 @@ def get_ephemeral_keys():
 
     for journalist in journalists:
         journalist_dict = json.loads(journalist.decode("ascii"))
-        journalist_uid = journalist_dict["journalist_uid"]
-        ephemeral_key_dict = json.loads(redis.spop(f"journalist:{journalist_uid}").decode("ascii"))
-        ephemeral_key_dict["journalist_uid"] = journalist_uid
+        ephemeral_key_dict = json.loads(redis.spop(f"journalist:{VerifyKey(journalist_dict['journalist_key'], Base64Encoder).encode(HexEncoder)}").decode("ascii"))
+        ephemeral_key_dict["journalist_key"] = journalist_dict["journalist_key"]
         ephemeral_keys.append(ephemeral_key_dict)
 
     return {"status": "OK", "count": len(ephemeral_keys), "ephemeral_keys": ephemeral_keys}, 200

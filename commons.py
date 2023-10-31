@@ -1,6 +1,5 @@
 import json
 from base64 import b64decode, b64encode
-from hashlib import sha3_256
 from os import path, stat
 from secrets import token_bytes
 
@@ -37,7 +36,6 @@ CHUNK = 512 * 1024
 
 
 def add_journalist(journalist_key, journalist_sig, journalist_fetching_key, journalist_fetching_sig):
-    journalist_uid = sha3_256(journalist_key.verify_key.encode()).hexdigest()
     journalist_key = journalist_key.verify_key.encode(Base64Encoder).decode("ascii")
     journalist_fetching_key = journalist_fetching_key.public_key.encode(Base64Encoder).decode("ascii")
 
@@ -48,7 +46,7 @@ def add_journalist(journalist_key, journalist_sig, journalist_fetching_key, jour
                 "journalist_fetching_sig": journalist_fetching_sig
     })
     assert (response.status_code == 200)
-    return journalist_uid
+    return True
 
 
 def get_journalists(intermediate_verifying_key):
@@ -77,16 +75,15 @@ def get_ephemeral_keys(journalists):
     ephemeral_keys = response.json()["ephemeral_keys"]
     assert (len(ephemeral_keys) == JOURNALISTS)
     ephemeral_keys_return = []
-    checked_uids = set()
+    checked_pubkeys = set()
     for ephemeral_key_dict in ephemeral_keys:
-        journalist_uid = ephemeral_key_dict["journalist_uid"]
+        journalist_pubkey = ephemeral_key_dict["journalist_key"]
         for journalist in journalists:
-            if journalist_uid == journalist["journalist_uid"]:
-                ephemeral_key_dict["journalist_uid"] = journalist["journalist_uid"]
+            if journalist_pubkey == journalist["journalist_key"]:
                 ephemeral_key_dict["journalist_key"] = journalist["journalist_key"]
                 ephemeral_key_dict["journalist_fetching_key"] = journalist["journalist_fetching_key"]
                 # add uids to a set
-                checked_uids.add(journalist_uid)
+                checked_pubkeys.add(journalist_pubkey)
                 journalist_verifying_key = VerifyKey(journalist["journalist_key"], Base64Encoder)
         ephemeral_verifying_key = VerifyKey(ephemeral_key_dict["ephemeral_key"], Base64Encoder)
         # We rely again on verify_key raising an exception in case of failure
@@ -96,7 +93,7 @@ def get_ephemeral_keys(journalists):
                             ephemeral_key_dict["ephemeral_sig"])
         ephemeral_keys_return.append(ephemeral_key_dict)
     # check that all keys are from different journalists
-    assert (len(checked_uids) == JOURNALISTS)
+    assert (len(checked_pubkeys) == JOURNALISTS)
     return ephemeral_keys_return
 
 
