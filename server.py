@@ -1,7 +1,7 @@
 import json
 from base64 import b64decode, b64encode
 from os import mkdir, remove
-# from random import uniform
+from random import uniform
 from secrets import token_bytes, token_hex
 
 from flask import Flask, request, send_file
@@ -14,7 +14,7 @@ from redis import Redis
 import commons
 import pki
 
-# from time import sleep
+from time import sleep
 
 # bootstrap keys
 intermediate_verifying_key = pki.verify_root_intermediate()
@@ -198,7 +198,7 @@ def get_fetch():
         )
 
     # TODO: add stronger timing attack mitigations (such as a random delay)
-    # sleep(uniform(0, 3.0))
+    sleep(uniform(0, 2.0))
 
     assert (len(potential_messages) == commons.MAX_MESSAGES)
 
