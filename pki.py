@@ -143,19 +143,19 @@ def generate_journalists(intermediate_key):
 
 def generate_ephemeral(journalist_key, journalist_id):
     try:
-        mkdir(f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder)}")
+        mkdir(f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder).decode('ascii')}")
     except Exception:
         pass
     key = PrivateKey.generate()
     name = key.public_key.encode(HexEncoder)
 
-    with open(f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder)}/{name}.key", "w") as f:
+    with open(f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder).decode('ascii')}/{name}.key", "w") as f:
         f.write(key.encode(Base64Encoder).decode('ascii'))
 
-    with open(f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder)}/{name}.public", "w") as f:
+    with open(f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder).decode('ascii')}/{name}.public", "w") as f:
         f.write(key.public_key.encode(Base64Encoder).decode('ascii'))
 
-    sig = sign_key(journalist_key, key.public_key, f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder)}/{name}.sig")
+    sig = sign_key(journalist_key, key.public_key, f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder).decode('ascii')}/{name}.sig")
 
     return sig, key
 

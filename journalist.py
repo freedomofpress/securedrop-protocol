@@ -35,10 +35,10 @@ def add_ephemeral_keys(journalist_key, journalist_id):
 # database.
 def load_ephemeral_keys(journalist_key, journalist_id):
     ephemeral_keys = []
-    key_file_list = listdir(f"{commons.DIR}journalists/{journalist_key.verify_key.encode(HexEncoder)}/")
+    key_file_list = listdir(f"{commons.DIR}journalists/{journalist_key.verify_key.encode(HexEncoder).decode('ascii')}/")
     for file_name in key_file_list:
         if file_name.endswith('.key'):
-            with open(f"{commons.DIR}journalists/{journalist_key.verify_key.encode(HexEncoder)}/{file_name}", "r") as f:
+            with open(f"{commons.DIR}journalists/{journalist_key.verify_key.encode(HexEncoder).decode('ascii')}/{file_name}", "r") as f:
                 key = f.read()
             ephemeral_keys.append(PrivateKey(key, Base64Encoder))
     return ephemeral_keys

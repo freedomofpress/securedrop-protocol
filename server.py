@@ -144,7 +144,7 @@ def add_ephemeral_keys():
             ephemeral_key_verifying_key,
             None,
             ephemeral_key_dict["ephemeral_sig"])
-        redis.sadd(f"journalist:{journalist_verifying_key.encode(HexEncoder)}",
+        redis.sadd(f"journalist:{journalist_verifying_key.encode(HexEncoder).decode('ascii')}",
                    json.dumps({"ephemeral_key": ephemeral_key_verifying_key.encode(Base64Encoder).decode("ascii"),
                                "ephemeral_sig": ephemeral_sig}))
 
@@ -158,7 +158,7 @@ def get_ephemeral_keys():
 
     for journalist in journalists:
         journalist_dict = json.loads(journalist.decode("ascii"))
-        ephemeral_key_dict = json.loads(redis.spop(f"journalist:{VerifyKey(journalist_dict['journalist_key'], Base64Encoder).encode(HexEncoder)}").decode("ascii"))
+        ephemeral_key_dict = json.loads(redis.spop(f"journalist:{VerifyKey(journalist_dict['journalist_key'], Base64Encoder).encode(HexEncoder).decode('ascii')}").decode("ascii"))
         ephemeral_key_dict["journalist_key"] = journalist_dict["journalist_key"]
         ephemeral_keys.append(ephemeral_key_dict)
 
