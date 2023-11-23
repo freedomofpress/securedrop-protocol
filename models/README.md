@@ -1,0 +1,4 @@
+- [ ] Model `ClientFetchID` → `ClientFetch`
+- [ ] Read up on left, middle, right terms
+- [ ] Refine message tags (`In`/`Out` triggers) for clarity and consistency
+- [ ] Refine rules for clarity and consistency
