@@ -1,0 +1,20 @@
+// Approach 1: Start from @TheZ3ro's sequence diagram from Verifpal[1] and write
+// a native Tamarin theory for it.
+//
+// Approach 2: Start from message-retrieval, assuming the server and the sender
+// are the same.  Then factor the server out as the intermediary.
+// 
+// [1]: https://github.com/freedomofpress/securedrop-poc/issues/16#issuecomment-1764436420
+
+theory SecureDrop
+begin
+
+builtins: symmetric-encryption, diffie-hellman
+
+// rule ...
+
+// restriction ...
+
+// lemma ...
+
+end
