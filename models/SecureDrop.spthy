@@ -19,33 +19,53 @@ rule Ltk:
       Out(pk)
     ]
 
+
+rule SourceSend:
+    let encryptionSharedKey = je_pub1^~me_priv1
+        fetchingSharedKey = jc_pub1^~me_priv1 in
+    [
+        !Ltk($ME1, ~me_priv1), // Per message ephemeral private key
+        !Pk($ME1, me_pub1), // Per message ephemeral public key
+        !Pk($JC1, jc_pub1), // Journalist fetching public key --> the key of the destination journalist
+        !Pk($JE1, je_pub1), // Journalist ephemeral encryption public key -> recipient target encryption pubkey
+        Fr(~secret_submission1)
+    ]
+    --[
+        MessageWasSent(~secret_submission1, me_pub1, fetchingSharedKey)
+    ]->
+    // Submission is always a triplet, encrypts message, ephemeral msg pubkey and the partial DH
+    // We also tag the packet to catch it afterwards
+    [
+        Out (<'submission', senc(~secret_submission1, encryptionSharedKey), me_pub1, fetchingSharedKey>)
+    ]
+
 rule ServerInit:  // This is both setup and sending.
     //let server_shared1 = source_challenge1^~re_priv1
     let server_shared1 = jc_pub1^~me_priv1^~re_priv1
         server_attestation1 = me_pub1^~re_priv1 in
         //source_challenge1 = jc_pub1^~me_priv1 in
     [ !Ltk($RE1, ~re_priv1), !Ltk($ME1, ~me_priv1), !Pk($ME1, me_pub1), !Pk($JC1, jc_pub1), Fr(~message_id1) ]
-    --[ MessageWasSent(~message_id1) ]->
+    --[ MessageIDWasCreated(~message_id1) ]->
     [ Out(<'fetch', senc(server_shared1, ~message_id1), server_attestation1> )]
 
 rule ClientFetch:
     let client_shared1 = server_attestation1^~jc_priv1 in
     [
-      MessageWasSent(~message_id1),
+      MessageIDWasCreated(~message_id1),
       In(<fetch_code, encrypted_message_id1, server_attestation1>), !Ltk($JC1, ~jc_priv1)
     ]
     --[ Eq(sdec(client_shared1, encrypted_message_id1), ~message_id1) ]->
-    [ MessageWasSent(~message_id1) ]
+    [  MessageIDWasCreated(~message_id1) ]
 
 
 // Generic question: how do we attempt proving indistinguishability? Is 2 message enough by induction?
 
 lemma Executability:
   exists-trace
-  "Ex m #t. MessageWasSent(m) @ #t"
+  "Ex m mepub mgdh #t. MessageWasSent(m, mepub, mgdh) @ #t & Ex mid #t. MessageIDWasCreated(mid) @ #t"
 
-lemma SecrecyMessage:
-  "All m #t. MessageWasSent(m) @ #t ==> not Ex #x. K(m) @ #x"
+lemma SecrecyMessageID:
+  "All m #t. MessageIDWasCreated(m) @ #t ==> not Ex #x. K(m) @ #x"
 
 // restriction ...
 restriction Eq:
