@@ -44,6 +44,9 @@ lemma Executability:
   exists-trace
   "Ex m #t. MessageWasSent(m) @ #t"
 
+lemma SecrecyMessage:
+  "All m #t. MessageWasSent(m) @ #t ==> not Ex #x. K(m) @ #x"
+
 // restriction ...
 restriction Eq:
   "All t1 t2 #x. Eq(t1, t2) @ #x ==> t1 = t2"
