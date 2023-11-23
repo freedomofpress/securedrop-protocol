@@ -6,15 +6,36 @@
 // 
 // [1]: https://github.com/freedomofpress/securedrop-poc/issues/16#issuecomment-1764436420
 
-theory SecureDrop
+theory securedropng
 begin
 
 builtins: symmetric-encryption, diffie-hellman
 
-// rule ...
+rule Ltk:
+    let pk = 'g'^~sk in
+    [ Fr(~sk) ]
+    -->
+    [ !Ltk($x, ~sk), !Pk($x, pk),  // s/$P/$x/, because not all of our public keys belong to participants
+      Out(pk)
+    ]
+
+rule ServerInit:  // This is both setup and sending.
+    //let server_shared1 = source_challenge1^~re_priv1
+    let server_shared1 = jc_pub1^~me_priv1^~re_priv1
+        server_attestation1 = me_pub1^~re_priv1 in
+        //source_challenge1 = jc_pub1^~me_priv1 in
+    [ !Ltk($RE1, ~re_priv1), !Ltk($ME1, ~me_priv1), !Pk($ME1, me_pub1), !Pk($JC1, jc_pub1), Fr(~message_id1)]
+    --[]->  // I don't think anything needs to happen here.
+    [
+        Out(<'fetch', senc(server_shared1, ~message_id1), server_attestation1>)
+    ]
+
+rule ClientFetch:
+    let client_shared1 = server_attestation1^~jc_priv1 in
+    [In(<fetch_code, encrypted_message_id1, server_attestation1>), !Ltk($JC1, ~jc_priv1)]
+    --[]->
+    [ Eq(sdec(client_shared1, encrypted_message_id1), ~message_id1) ]
 
 // restriction ...
 
 // lemma ...
-
-end
