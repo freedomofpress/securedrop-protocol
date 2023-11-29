@@ -24,13 +24,25 @@ rule ServerReceivesEnrollment:
     [
         In(<'Enrollment', jc_pub, je_pub>),
     ]
-    --[ ServerDidReceiveEnrollment() ]->
+    --[ ServerDidBroadcast() ]->
     [
         Out(<'Broadcast', jc_pub, je_pub>)
     ]
 
+rule SourceReceivesBroadcast:
+    [
+        In(<'Broadcast', jc_pub, je_pub>),
+    ]
+    --[ SourceDidReceiveBroadcast() ]->
+    [
+    ]
+
 lemma Executability:
     exists-trace
-        "Ex #t1 #t2. JournoDidSendEnrollment() @ #t1 & ServerDidReceiveEnrollment() @ #t2"
+        "Ex #t1 #t2 #t3.
+            JournoDidSendEnrollment() @ #t1 &
+            ServerDidBroadcast() @ #t2 &
+            SourceDidReceiveBroadcast() @ #t3
+            "
 
 end
