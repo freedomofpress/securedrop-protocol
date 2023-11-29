@@ -1,0 +1,4 @@
+// Approach 1: Start from @TheZ3ro's sequence diagram from Verifpal[1] and write
+// a native Tamarin theory for it.
+//
+// [1]: https://github.com/freedomofpress/securedrop-poc/issues/16#issuecomment-1764436420
