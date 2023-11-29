@@ -20,6 +20,17 @@ rule JournoSendsEnrollment:
         Out(<'Enrollment', pk(~jc_priv), pk(~je_priv)>),
     ]
 
+rule SourceInit:
+    [
+        Fr(~sc_priv),
+        Fr(~se_priv),
+    ]
+    --[ SourceDidInit() ]->
+    [
+        !Ltk($S, ~sc_priv),
+        !Ltk($S, ~se_priv),
+    ]
+
 rule ServerReceivesEnrollment:
     [
         In(<'Enrollment', jc_pub, je_pub>),
@@ -39,10 +50,11 @@ rule SourceReceivesBroadcast:
 
 lemma Executability:
     exists-trace
-        "Ex #t1 #t2 #t3.
+        "Ex #t1 #t2 #t3 #t4.
             JournoDidSendEnrollment() @ #t1 &
-            ServerDidBroadcast() @ #t2 &
-            SourceDidReceiveBroadcast() @ #t3
+            SourceDidInit() @ #t2 &
+            ServerDidBroadcast() @ #t3 &
+            SourceDidReceiveBroadcast() @ #t4
             "
 
 end
