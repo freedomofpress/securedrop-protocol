@@ -13,11 +13,24 @@ rule JournoSendsEnrollment:
         Fr(~jc_priv),
         Fr(~je_priv)
     ]
-    -->
+    --[ JournoDidSendEnrollment() ]->
     [
         !Ltk($J, ~jc_priv),
         !Ltk($J, ~je_priv),
         Out(<'Enrollment', pk(~jc_priv), pk(~je_priv)>),
     ]
+
+rule ServerReceivesEnrollment:
+    [
+        In(<'Enrollment', jc_pub, je_pub>),
+    ]
+    --[ ServerDidReceiveEnrollment() ]->
+    [
+        Out(<'Broadcast', jc_pub, je_pub>)
+    ]
+
+lemma Executability:
+    exists-trace
+        "Ex #t1 #t2. JournoDidSendEnrollment() @ #t1 & ServerDidReceiveEnrollment() @ #t2"
 
 end
