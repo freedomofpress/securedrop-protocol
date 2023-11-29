@@ -6,7 +6,7 @@
 theory approach1
 begin
 
-builtins: asymmetric-encryption, diffie-hellman
+builtins: asymmetric-encryption, diffie-hellman, symmetric-encryption
 
 rule JournoSendsEnrollment:
     [
@@ -15,8 +15,8 @@ rule JournoSendsEnrollment:
     ]
     --[ JournoDidSendEnrollment() ]->
     [
-        !Ltk($J, ~jc_priv),
-        !Ltk($J, ~je_priv),
+        !Ltk($J, ~jc_priv), !Pk($J, pk(~jc_priv)),
+        !Ltk($J, ~je_priv), !Pk($J, pk(~je_priv)),
         Out(<'Enrollment', pk(~jc_priv), pk(~je_priv)>),
     ]
 
@@ -27,8 +27,8 @@ rule SourceInit:
     ]
     --[ SourceDidInit() ]->
     [
-        !Ltk($S, ~sc_priv),
-        !Ltk($S, ~se_priv),
+        !Ltk($S, ~sc_priv), !Pk($J, pk(~sc_priv)),
+        !Ltk($S, ~se_priv), !Pk($J, pk(~se_priv)),
     ]
 
 rule ServerReceivesEnrollment:
@@ -45,16 +45,30 @@ rule SourceReceivesBroadcast:
         In(<'Broadcast', jc_pub, je_pub>),
     ]
     --[ SourceDidReceiveBroadcast() ]->
+    [ StSource(jc_pub, je_pub) ]
+
+rule SourceSendsMessage:
+    let source_challenge1 = jc_pub^~me_priv1
+        msg_encryption_key1 = je_pub^~me_priv1 in
     [
+        Fr(~message1),
+        Fr(~me_priv1),
+        StSource(jc_pub, je_pub),
+    ]
+    --[ SourceDidSendMessage(), SourceSentMessage(~message1) ]->
+    [
+        !Ltk($M, ~me_priv1), !Pk($M, pk(~me_priv1)),
+        Out(<'Message', senc(~message1, msg_encryption_key1), pk(~me_priv1), source_challenge1>),
     ]
 
 lemma Executability:
     exists-trace
-        "Ex #t1 #t2 #t3 #t4.
+        "Ex #t1 #t2 #t3 #t4 #t5.
             JournoDidSendEnrollment() @ #t1 &
             SourceDidInit() @ #t2 &
             ServerDidBroadcast() @ #t3 &
-            SourceDidReceiveBroadcast() @ #t4
+            SourceDidReceiveBroadcast() @ #t4 &
+            SourceDidSendMessage() @ #t5
             "
 
 end
