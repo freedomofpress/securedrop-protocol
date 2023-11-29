@@ -2,3 +2,22 @@
 // a native Tamarin theory for it.
 //
 // [1]: https://github.com/freedomofpress/securedrop-poc/issues/16#issuecomment-1764436420
+
+theory approach1
+begin
+
+builtins: asymmetric-encryption, diffie-hellman
+
+rule JournoSendsEnrollment:
+    [
+        Fr(~jc_priv),
+        Fr(~je_priv)
+    ]
+    -->
+    [
+        !Ltk($J, ~jc_priv),
+        !Ltk($J, ~je_priv),
+        Out(<'Enrollment', pk(~jc_priv), pk(~je_priv)>),
+    ]
+
+end
