@@ -58,17 +58,31 @@ rule SourceSendsMessage:
     --[ SourceDidSendMessage(), SourceSentMessage(~message1) ]->
     [
         !Ltk($M, ~me_priv1), !Pk($M, pk(~me_priv1)),
-        Out(<'Message', senc(~message1, msg_encryption_key1), pk(~me_priv1), source_challenge1>),
+        Out(<'Message', pk(~me_priv1), source_challenge1, senc(~message1, msg_encryption_key1)>),
+    ]
+
+rule ServerReceivesMessage:
+    let server_attestation1 = me_pub1^~re_priv1
+        server_shared1 = source_challenge1^~re_priv1 in
+    [
+        In(<'Message', me_pub1, source_challenge1, ciphertext1>),
+        Fr(~re_priv1),
+        Fr(~message_id),
+    ]
+    --[ ServerDidSendChallege() ]->
+    [
+        Out(<'Challenge', server_attestation1, senc(~message_id, server_shared1)>),
     ]
 
 lemma Executability:
     exists-trace
-        "Ex #t1 #t2 #t3 #t4 #t5.
+        "Ex #t1 #t2 #t3 #t4 #t5 #t6.
             JournoDidSendEnrollment() @ #t1 &
             SourceDidInit() @ #t2 &
             ServerDidBroadcast() @ #t3 &
             SourceDidReceiveBroadcast() @ #t4 &
-            SourceDidSendMessage() @ #t5
+            SourceDidSendMessage() @ #t5 &
+            ServerDidSendChallege() @ #t6
             "
 
 end
