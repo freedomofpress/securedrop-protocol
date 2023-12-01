@@ -45,7 +45,7 @@ rule So_rx_broadcast:
         In(<'broadcast', jc_pub, je_pub>),
     ]
     --[ Rx($So, 'broadcast', $Jo) ]->
-    [ St($So, jc_pub, je_pub) ]
+    [ StKeys($So, jc_pub, je_pub) ]
 
 rule So_tx_message:
     let source_challenge1 = jc_pub^~me_priv1
@@ -53,7 +53,7 @@ rule So_tx_message:
     [
         Fr(~message1),
         Fr(~me_priv1),
-        St($So, jc_pub, je_pub),
+        StKeys($So, jc_pub, je_pub),
     ]
     --[ Tx($So, 'msg', $msg) ]->
     [
@@ -72,6 +72,17 @@ rule Se_rx_message:
     --[ Rx($Se, 'msg', $msg), Tx($Se, 'ch', $msg) ]->
     [
         Out(<'ch', server_attestation1, senc(~message_id, server_shared1)>),
+    ]
+
+rule Jo_rx_challenge:
+    let recovered_shared1 = server_attestation1^~jc_priv in
+    [
+        In(<'ch', server_attestation1, ciphertext_id>),
+        !Ltk($Jc, ~jc_priv),
+    ]
+    --[ Rx($Jo, 'ch', $msg) ]->
+    [
+        StId($Jo, sdec(ciphertext_id, recovered_shared1)),
     ]
 
 lemma journalist_enrollment:
@@ -93,6 +104,13 @@ lemma source_send:
         "Ex Se So msg #i #j.
             Tx(So, 'msg', msg) @i &
             Rx(Se, 'msg', msg) @j
+            "
+
+lemma journalist_challenge:
+    exists-trace
+        "Ex Jo Se msg #i #j.
+            Tx(Se, 'ch', msg) @i &
+            Rx(Jo, 'ch', msg) @j
             "
 
 end
