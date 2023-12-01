@@ -15,9 +15,9 @@ rule Jo_tx_enrollment:
     ]
     --[ Tx($Jo, 'enroll', $Jo) ]->
     [
-        !Ltk($J, ~jc_priv), !Pk($J, pk(~jc_priv)),
-        !Ltk($J, ~je_priv), !Pk($J, pk(~je_priv)),
-        Out(<'enroll', pk(~jc_priv), pk(~je_priv)>),
+        !Ltk($Jc, ~jc_priv), !Pk($Jc, 'g'^~jc_priv),
+        !Ltk($Je, ~je_priv), !Pk($Je, 'g'^~je_priv),
+        Out(<'enroll', 'g'^~jc_priv, 'g'^~je_priv>),
     ]
 
 rule So_init:
@@ -27,8 +27,8 @@ rule So_init:
     ]
     --[ ]->
     [
-        !Ltk($S, ~sc_priv), !Pk($J, pk(~sc_priv)),
-        !Ltk($S, ~se_priv), !Pk($J, pk(~se_priv)),
+        !Ltk($Sc, ~sc_priv), !Pk($Sc, 'g'^~sc_priv),
+        !Ltk($Se, ~se_priv), !Pk($Se, 'g'^~se_priv),
     ]
 
 rule Se_rx_enrollment:
@@ -57,8 +57,8 @@ rule So_tx_message:
     ]
     --[ Tx($So, 'msg', $msg) ]->
     [
-        !Ltk($M, ~me_priv1), !Pk($M, pk(~me_priv1)),
-        Out(<'msg', pk(~me_priv1), source_challenge1, senc(~message1, msg_encryption_key1)>),
+        !Ltk($M, ~me_priv1), !Pk($M, 'g'^~me_priv1),
+        Out(<'msg', 'g'^~me_priv1, source_challenge1, senc(~message1, msg_encryption_key1)>),
     ]
 
 rule Se_rx_message:
