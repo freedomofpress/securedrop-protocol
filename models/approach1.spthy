@@ -71,7 +71,7 @@ rule Se_rx_message:
     ]
     --[ Rx($Se, 'msg', $msg), Tx($Se, 'ch', $msg) ]->
     [
-        StMessage(me_pub1, ciphertext1),
+        StCiphertext(me_pub1, ciphertext1),
         Out(<'ch', server_attestation1, senc(~message_id, server_shared1)>),
     ]
 
@@ -89,11 +89,22 @@ rule Jo_rx_challenge:
 rule Se_rx_request:
     [
         In(<'req', decrypted_message_id>),
-        StMessage(me_pub1, ciphertext1),
+        StCiphertext(me_pub1, ciphertext1),
     ]
     --[ Rx($Se, 'req', $msg), Tx($Se, 'res', $msg) ]->
     [
         Out(<'res', me_pub1, ciphertext1>),
+    ]
+
+rule Jo_rx_response:
+    let recovered_msg_encryption_key = me_pub1^~je_priv in
+    [
+        In(<'res', me_pub1, ciphertext1>),
+        !Ltk($Je, ~je_priv),
+    ]
+    --[ Rx($Jo, 'res', $msg) ]->
+    [
+        StPlaintext(sdec(ciphertext1, recovered_msg_encryption_key)),
     ]
 
 lemma journalist_enrollment:
@@ -130,5 +141,16 @@ lemma journalist_request:
             Tx(Jo, 'req', msg) @i &
             Rx(Se, 'req', msg) @j
             "
+
+lemma server_response:
+    exists-trace
+        "Ex Jo Se msg #i #j.
+            Tx(Se, 'res', msg) @i &
+            Rx(Jo, 'res', msg) @j
+            "
+
+// lemma executability:  message sent --> message received
+
+// lemma success:  message encrypted --> message decrypted
 
 end
