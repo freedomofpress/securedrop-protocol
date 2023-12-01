@@ -45,7 +45,7 @@ rule So_rx_broadcast:
         In(<'broadcast', jc_pub, je_pub>),
     ]
     --[ Rx($So, 'broadcast', $Jo) ]->
-    [ StKeys($So, jc_pub, je_pub) ]
+    [ StJoKeys($So, jc_pub, je_pub) ]
 
 rule So_tx_message:
     let source_challenge1 = jc_pub^~me_priv1
@@ -53,7 +53,7 @@ rule So_tx_message:
     [
         Fr(~message1),
         Fr(~me_priv1),
-        StKeys($So, jc_pub, je_pub),
+        StJoKeys($So, jc_pub, je_pub),
     ]
     --[ Tx($So, 'msg', $msg) ]->
     [
@@ -71,6 +71,7 @@ rule Se_rx_message:
     ]
     --[ Rx($Se, 'msg', $msg), Tx($Se, 'ch', $msg) ]->
     [
+        StMessage(me_pub1, ciphertext1),
         Out(<'ch', server_attestation1, senc(~message_id, server_shared1)>),
     ]
 
@@ -80,9 +81,19 @@ rule Jo_rx_challenge:
         In(<'ch', server_attestation1, ciphertext_id>),
         !Ltk($Jc, ~jc_priv),
     ]
-    --[ Rx($Jo, 'ch', $msg) ]->
+    --[ Rx($Jo, 'ch', $msg), Tx($Jo, 'req', $msg) ]->
     [
-        StId($Jo, sdec(ciphertext_id, recovered_shared1)),
+        Out(<'req', sdec(ciphertext_id, recovered_shared1)>),
+    ]
+
+rule Se_rx_request:
+    [
+        In(<'req', decrypted_message_id>),
+        StMessage(me_pub1, ciphertext1),
+    ]
+    --[ Rx($Se, 'req', $msg), Tx($Se, 'res', $msg) ]->
+    [
+        Out(<'res', me_pub1, ciphertext1>),
     ]
 
 lemma journalist_enrollment:
@@ -111,6 +122,13 @@ lemma journalist_challenge:
         "Ex Jo Se msg #i #j.
             Tx(Se, 'ch', msg) @i &
             Rx(Jo, 'ch', msg) @j
+            "
+
+lemma journalist_request:
+    exists-trace
+        "Ex Jo Se msg #i #j.
+            Tx(Jo, 'req', msg) @i &
+            Rx(Se, 'req', msg) @j
             "
 
 end
