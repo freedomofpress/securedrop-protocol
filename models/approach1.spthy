@@ -8,81 +8,91 @@ begin
 
 builtins: asymmetric-encryption, diffie-hellman, symmetric-encryption
 
-rule JournoSendsEnrollment:
+rule Jo_tx_enrollment:
     [
         Fr(~jc_priv),
         Fr(~je_priv)
     ]
-    --[ JournoDidSendEnrollment() ]->
+    --[ Tx($Jo, 'enroll', $Jo) ]->
     [
         !Ltk($J, ~jc_priv), !Pk($J, pk(~jc_priv)),
         !Ltk($J, ~je_priv), !Pk($J, pk(~je_priv)),
-        Out(<'Enrollment', pk(~jc_priv), pk(~je_priv)>),
+        Out(<'enroll', pk(~jc_priv), pk(~je_priv)>),
     ]
 
-rule SourceInit:
+rule So_init:
     [
         Fr(~sc_priv),
         Fr(~se_priv),
     ]
-    --[ SourceDidInit() ]->
+    --[ ]->
     [
         !Ltk($S, ~sc_priv), !Pk($J, pk(~sc_priv)),
         !Ltk($S, ~se_priv), !Pk($J, pk(~se_priv)),
     ]
 
-rule ServerReceivesEnrollment:
+rule Se_rx_enrollment:
     [
-        In(<'Enrollment', jc_pub, je_pub>),
+        In(<'enroll', jc_pub, je_pub>),
     ]
-    --[ ServerDidBroadcast() ]->
+    --[ Rx($Se, 'enroll', $Jo), Tx($Se, 'broadcast', $Jo) ]->
     [
-        Out(<'Broadcast', jc_pub, je_pub>)
+        Out(<'broadcast', jc_pub, je_pub>)
     ]
 
-rule SourceReceivesBroadcast:
+rule So_rx_broadcast:
     [
-        In(<'Broadcast', jc_pub, je_pub>),
+        In(<'broadcast', jc_pub, je_pub>),
     ]
-    --[ SourceDidReceiveBroadcast() ]->
-    [ StSource(jc_pub, je_pub) ]
+    --[ Rx($So, 'broadcast', $Jo) ]->
+    [ St($So, jc_pub, je_pub) ]
 
-rule SourceSendsMessage:
+rule So_tx_message:
     let source_challenge1 = jc_pub^~me_priv1
         msg_encryption_key1 = je_pub^~me_priv1 in
     [
         Fr(~message1),
         Fr(~me_priv1),
-        StSource(jc_pub, je_pub),
+        St($So, jc_pub, je_pub),
     ]
-    --[ SourceDidSendMessage(), SourceSentMessage(~message1) ]->
+    --[ Tx($So, 'msg', $msg) ]->
     [
         !Ltk($M, ~me_priv1), !Pk($M, pk(~me_priv1)),
-        Out(<'Message', pk(~me_priv1), source_challenge1, senc(~message1, msg_encryption_key1)>),
+        Out(<'msg', pk(~me_priv1), source_challenge1, senc(~message1, msg_encryption_key1)>),
     ]
 
-rule ServerReceivesMessage:
+rule Se_rx_message:
     let server_attestation1 = me_pub1^~re_priv1
         server_shared1 = source_challenge1^~re_priv1 in
     [
-        In(<'Message', me_pub1, source_challenge1, ciphertext1>),
+        In(<'msg', me_pub1, source_challenge1, ciphertext1>),
         Fr(~re_priv1),
         Fr(~message_id),
     ]
-    --[ ServerDidSendChallege() ]->
+    --[ Rx($Se, 'msg', $msg), Tx($Se, 'ch', $msg) ]->
     [
-        Out(<'Challenge', server_attestation1, senc(~message_id, server_shared1)>),
+        Out(<'ch', server_attestation1, senc(~message_id, server_shared1)>),
     ]
 
-lemma Executability:
+lemma journalist_enrollment:
+  exists-trace
+    "Ex Jo Se #i #j.
+          Tx(Jo, 'enroll', Jo) @i &
+          Rx(Se, 'enroll', Jo) @j
+          "
+
+lemma journalist_broadcast:
+  exists-trace
+    "Ex Jo Se So #i #j.
+          Tx(Se, 'broadcast', Jo) @i &
+          Rx(So, 'broadcast', Jo) @j
+          "
+
+lemma source_send:
     exists-trace
-        "Ex #t1 #t2 #t3 #t4 #t5 #t6.
-            JournoDidSendEnrollment() @ #t1 &
-            SourceDidInit() @ #t2 &
-            ServerDidBroadcast() @ #t3 &
-            SourceDidReceiveBroadcast() @ #t4 &
-            SourceDidSendMessage() @ #t5 &
-            ServerDidSendChallege() @ #t6
+        "Ex Se So msg #i #j.
+            Tx(So, 'msg', msg) @i &
+            Rx(Se, 'msg', msg) @j
             "
 
 end
