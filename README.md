@@ -26,7 +26,6 @@ In `commons.py` there are the following configuration values which are global fo
 | `UPLOADS` | `files/` | server | The folder where the Flask server will store uploaded files
 | `JOURNALISTS` | `10` | server, source |  How many journalists do we create and enroll. In general, this is realistic, in current SecureDrop usage it is way less. For demo purposes everybody knows it, in a real scenario it would not be needed. |
 | `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist create, sign and uploads when required. |
-| `CURVE` | `NIST384p` | server, source, journalist | The curve for all elliptic curve operations. It must be imported first from the python-ecdsa library. |
 | `MAX_MESSAGES` | `500` | server | How may potential messages the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
 | `CHUNK` | `512 * 1024` | source | The base size of every parts in which attachment are split/padded to. This is not the actual size on disk, cause that will be a bit more depending on the nacl SecretBox implementation. |
 
@@ -482,7 +481,6 @@ No endpoints require authentication or sessions. The only data store is Redis an
 |`journalist_sig` | *base64(sig<sup>NR</sup>(J<sub>PK</sub>))* |
 |`journalist_fetching_key` | *base64(JC<sub>PK</sub>)* |
 |`journalist_fetching_sig` | *base64(sig<sup>J</sup>(JC<sub>PK</sub>))* |
-|`journalist_uid` | *hex(Hash(J<sub>PK</sub>))* |
 
 #### POST
 Adds *Newsroom* signed *Journalist* to the *Server*.
@@ -518,7 +516,6 @@ curl -X GET "http://127.0.0.1:5000/journalists"
       "journalist_fetching_sig": <journalist_fetching_sig>,
       "journalist_key": <journalist_key>,
       "journalist_sig": <journalist_sig>,
-      "journalist_uid": <journalist_uid>
     },
     ...
   ],
@@ -540,17 +537,17 @@ At this point *Source* must have a verified *NR<sub>PK</sub>* and must verify bo
 |`count` | Number of returned ephemeral keys. It should match the number of *Journalists*. If it does not, a specific *Journalist* bucket might be out of keys. |
 |`ephemeral_key` | *base64(JE<sub>PK</sub>)* |
 |`ephemeral_sig` | *base64(sig<sup>J</sup>(JE<sub>PK</sub>))* |
-|`journalist_uid` | *hex(Hash(J<sub>PK</sub>))* |
+|`journalist_key` | *base64(J<sub>PK</sub>)* |
 
 
 #### POST
 Adds *n* *Journalist* signed ephemeral key agreement keys to Server.
-The keys are stored in a Redis *set* specific per *Journalist*, which key is `journalist:<journalist_uid>`. In the demo implementation, the number of ephemeral keys to generate and upload each time is `commons.ONETIMEKEYS`. 
+The keys are stored in a Redis *set* specific per *Journalist*, which key is `journalist:<hex(public_key)>`. In the demo implementation, the number of ephemeral keys to generate and upload each time is `commons.ONETIMEKEYS`. 
 
 ```
 curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/ephemeral_keys" --data
 {
-  "journalist_uid": <journalist_uid>,
+  "journalist_key": <journalist_key>,
   "ephemeral_keys": [
     {
       "ephemeral_key": <ephemeral_key>,  
@@ -579,7 +576,7 @@ curl -X GET http://127.0.0.1:5000/ephemeral_keys
     {
       "ephemeral_key": <ephemeral_key>,
       "ephemeral_sig": <ephemeral_sig>,
-      "journalist_uid": <journalist_uid>
+      "journalist_key": <journalist_key>
     },
     ...
   ],

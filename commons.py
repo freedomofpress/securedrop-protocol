@@ -1,12 +1,14 @@
 import json
 from base64 import b64decode, b64encode
-from hashlib import sha3_256
 from os import path, stat
 from secrets import token_bytes
 
-import nacl.secret
 import requests
-from ecdsa import ECDH, NIST384p, SigningKey, VerifyingKey
+from nacl.bindings import crypto_scalarmult
+from nacl.encoding import Base64Encoder
+from nacl.public import Box, PrivateKey, PublicKey
+from nacl.secret import SecretBox
+from nacl.signing import VerifyKey
 
 import pki
 
@@ -23,13 +25,10 @@ UPLOADS = "files/"
 JOURNALISTS = 10
 # How many ephemeral keys each journalist create, sign and auploads when required
 ONETIMEKEYS = 30
-# The curve for all elliptic curve operations. It must be imported first from the python-ecdsa
-# library. Ed25519 and Ed448, although supported by the lib, are not fully implemented
-CURVE = NIST384p
 # How may entries the server sends to each party when they try to fetch messages
 # This basically must be more than the msssages in the database, otherwise we need
 # to develop a mechanism to group messages adding some bits of metadata
-MAX_MESSAGES = 500
+MAX_MESSAGES = 1000
 # The base size of every parts in which attachment are splitted/padded to. This
 # is not the actual size on disk, cause thet will be a bit more depending on
 # the nacl SecretBox implementation
@@ -37,11 +36,8 @@ CHUNK = 512 * 1024
 
 
 def add_journalist(journalist_key, journalist_sig, journalist_fetching_key, journalist_fetching_sig):
-    journalist_uid = sha3_256(journalist_key.verifying_key.to_string()).hexdigest()
-    journalist_key = b64encode(journalist_key.verifying_key.to_string()).decode("ascii")
-    journalist_sig = b64encode(journalist_sig).decode("ascii")
-    journalist_fetching_key = b64encode(journalist_fetching_key.verifying_key.to_string()).decode("ascii")
-    journalist_fetching_sig = b64encode(journalist_fetching_sig).decode("ascii")
+    journalist_key = journalist_key.verify_key.encode(Base64Encoder).decode("ascii")
+    journalist_fetching_key = journalist_fetching_key.public_key.encode(Base64Encoder).decode("ascii")
 
     response = requests.post(f"http://{SERVER}/journalists", json={
                 "journalist_key": journalist_key,
@@ -50,7 +46,7 @@ def add_journalist(journalist_key, journalist_sig, journalist_fetching_key, jour
                 "journalist_fetching_sig": journalist_fetching_sig
     })
     assert (response.status_code == 200)
-    return journalist_uid
+    return True
 
 
 def get_journalists(intermediate_verifying_key):
@@ -59,19 +55,17 @@ def get_journalists(intermediate_verifying_key):
     journalists = response.json()["journalists"]
     assert (len(journalists) == JOURNALISTS)
     for content in journalists:
-        journalist_verifying_key = pki.public_b642key(content["journalist_key"])
-        journalist_fetching_verifying_key = pki.public_b642key(content["journalist_fetching_key"])
+        journalist_verifying_key = VerifyKey(content["journalist_key"], Base64Encoder)
+        journalist_fetching_verifying_key = VerifyKey(content["journalist_fetching_key"], Base64Encoder)
         # pki.verify_key shall give an hard fault is a signature is off
-        pki.verify_key(intermediate_verifying_key,
-                       journalist_verifying_key,
-                       None,
-                       b64decode(content["journalist_sig"])
-                       )
-        pki.verify_key(intermediate_verifying_key,
-                       journalist_fetching_verifying_key,
-                       None,
-                       b64decode(content["journalist_fetching_sig"])
-                       )
+        pki.verify_key_func(intermediate_verifying_key,
+                            journalist_verifying_key,
+                            None,
+                            content["journalist_sig"])
+        pki.verify_key_func(journalist_verifying_key,
+                            journalist_fetching_verifying_key,
+                            None,
+                            content["journalist_fetching_sig"])
     return journalists
 
 
@@ -81,53 +75,40 @@ def get_ephemeral_keys(journalists):
     ephemeral_keys = response.json()["ephemeral_keys"]
     assert (len(ephemeral_keys) == JOURNALISTS)
     ephemeral_keys_return = []
-    checked_uids = set()
+    checked_pubkeys = set()
     for ephemeral_key_dict in ephemeral_keys:
-        journalist_uid = ephemeral_key_dict["journalist_uid"]
+        journalist_pubkey = ephemeral_key_dict["journalist_key"]
         for journalist in journalists:
-            if journalist_uid == journalist["journalist_uid"]:
-                ephemeral_key_dict["journalist_uid"] = journalist["journalist_uid"]
+            if journalist_pubkey == journalist["journalist_key"]:
                 ephemeral_key_dict["journalist_key"] = journalist["journalist_key"]
                 ephemeral_key_dict["journalist_fetching_key"] = journalist["journalist_fetching_key"]
                 # add uids to a set
-                checked_uids.add(journalist_uid)
-                journalist_verifying_key = pki.public_b642key(journalist["journalist_key"])
-        ephemeral_verifying_key = pki.public_b642key(ephemeral_key_dict["ephemeral_key"])
+                checked_pubkeys.add(journalist_pubkey)
+                journalist_verifying_key = VerifyKey(journalist["journalist_key"], Base64Encoder)
+        ephemeral_verifying_key = VerifyKey(ephemeral_key_dict["ephemeral_key"], Base64Encoder)
         # We rely again on verify_key raising an exception in case of failure
-        pki.verify_key(journalist_verifying_key,
-                       ephemeral_verifying_key,
-                       None,
-                       b64decode(ephemeral_key_dict["ephemeral_sig"]))
+        pki.verify_key_func(journalist_verifying_key,
+                            ephemeral_verifying_key,
+                            None,
+                            ephemeral_key_dict["ephemeral_sig"])
         ephemeral_keys_return.append(ephemeral_key_dict)
     # check that all keys are from different journalists
-    assert (len(checked_uids) == JOURNALISTS)
+    assert (len(checked_pubkeys) == JOURNALISTS)
     return ephemeral_keys_return
 
 
 def build_message(fetching_public_key, encryption_public_key):
-    fetching_public_key = VerifyingKey.from_string(b64decode(fetching_public_key), curve=CURVE)
-    encryption_public_key = VerifyingKey.from_string(b64decode(encryption_public_key), curve=CURVE)
+    fetching_public_key = PublicKey(fetching_public_key, Base64Encoder)
+    encryption_public_key = PublicKey(encryption_public_key, Base64Encoder)
 
-    ecdh = ECDH(curve=CURVE)
-    # [SOURCE] PERMESSAGE-EPHEMERAL KEY (private)
-    message_key = SigningKey.generate(curve=CURVE)
-    message_public_key = b64encode(message_key.verifying_key.to_string()).decode("ascii")
-    # load the private key to generate the shared secret
-    ecdh.load_private_key(message_key)
-
-    # [JOURNALIST] PERMESSAGE-EPHEMERAL KEY (public)
-    ecdh.load_received_public_key(encryption_public_key)
-    # generate the secret for encrypting the secret with the source_ephemeral+journo_ephemeral
-    # so that we have forward secrecy
-    encryption_shared_secret = ecdh.generate_sharedsecret_bytes()
+    message_secret_key = PrivateKey.generate()
+    message_public_key = (message_secret_key.public_key.encode(Base64Encoder)).decode("ascii")
 
     # encrypt the message, we trust nacl safe defaults
-    box = nacl.secret.SecretBox(encryption_shared_secret[0:32])
+    box = Box(message_secret_key, encryption_public_key)
 
     # generate the message gdh to send the server
-    message_gdh = b64encode(VerifyingKey.from_public_point(
-        pki.get_shared_secret(fetching_public_key, message_key),
-        curve=CURVE).to_string()).decode('ascii')
+    message_gdh = b64encode(crypto_scalarmult(message_secret_key.encode(), fetching_public_key.encode()))
 
     return message_public_key, message_gdh, box
 
@@ -185,20 +166,14 @@ def fetch_messages_id(fetching_key):
     potential_messages = fetch()
 
     messages = []
-    ecdh = ECDH(curve=CURVE)
 
     for message in potential_messages:
-
-        ecdh.load_private_key(fetching_key)
-        ecdh.load_received_public_key_bytes(b64decode(message["gdh"]))
-        message_client_shared_secret = ecdh.generate_sharedsecret_bytes()
-
-        box = nacl.secret.SecretBox(message_client_shared_secret[0:32])
+        message_gdh = PublicKey(message["gdh"], Base64Encoder)
+        message_client_box = Box(fetching_key, message_gdh)
 
         try:
-            message_id = box.decrypt(b64decode(message["enc"])).decode('ascii')
+            message_id = message_client_box.decrypt(b64decode(message["enc"])).decode('ascii')
             messages.append(message_id)
-
         except Exception:
             pass
 
@@ -214,11 +189,8 @@ def fetch_messages_content(messages_id):
 
 
 def decrypt_message_ciphertext(private_key, message_public_key, message_ciphertext):
-    ecdh = ECDH(curve=CURVE)
-    ecdh.load_private_key(private_key)
-    ecdh.load_received_public_key_bytes(b64decode(message_public_key))
-    encryption_shared_secret = ecdh.generate_sharedsecret_bytes()
-    box = nacl.secret.SecretBox(encryption_shared_secret[0:32])
+    public_key = PublicKey(message_public_key, Base64Encoder)
+    box = Box(private_key, public_key)
     try:
         message_plaintext = json.loads(box.decrypt(b64decode(message_ciphertext)).decode('ascii'))
         return message_plaintext
@@ -247,7 +219,7 @@ def upload_attachment(filename):
             part_len = len(part)
             read_size += part_len
 
-            box = nacl.secret.SecretBox(key)
+            box = SecretBox(key)
             encrypted_part = box.encrypt(part.ljust(CHUNK))
 
             upload_response = send_file(encrypted_part)

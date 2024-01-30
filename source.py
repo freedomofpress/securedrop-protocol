@@ -1,12 +1,12 @@
 import argparse
 import json
-from base64 import b64encode
 from datetime import datetime
-from hashlib import sha3_256
 from secrets import token_bytes
 from time import time
 
-from ecdsa import SigningKey
+from nacl.encoding import Base64Encoder, RawEncoder
+from nacl.hash import blake2b
+from nacl.public import PrivateKey
 
 import commons
 import pki
@@ -19,9 +19,8 @@ def generate_passphrase():
 # this function derives an EC keypair given the passphrase
 # the prefix is useful for isolating key. A hash/kdf is used to generate the actual seeds
 def derive_key(passphrase, key_isolation_prefix):
-    key_seed = sha3_256(key_isolation_prefix.encode("ascii") + passphrase).digest()
-    key_prng = pki.PRNG(key_seed[0:32])
-    key = SigningKey.generate(curve=commons.CURVE, entropy=key_prng.deterministic_random)
+    key_seed = blake2b(passphrase, salt=key_isolation_prefix.encode("ascii"), encoder=RawEncoder)
+    key = PrivateKey(key_seed)
     return key
 
 
@@ -38,11 +37,11 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
     # Add prefix for key isolation
     # [SOURCE] LONG-TERM MESSAGE KEY
     encryption_key = derive_key(passphrase, "encryption_key-")
-    source_encryption_public_key = b64encode(encryption_key.verifying_key.to_string()).decode("ascii")
+    source_encryption_public_key = encryption_key.public_key.encode(Base64Encoder).decode("ascii")
 
     # [SOURCE] LONG-TERM CHALLENGE KEY
     fetching_key = derive_key(passphrase, "fetching_key-")
-    source_fetching_public_key = b64encode(fetching_key.verifying_key.to_string()).decode("ascii")
+    source_fetching_public_key = fetching_key.public_key.encode(Base64Encoder).decode("ascii")
 
     # For every receiver (journalists), create a message
     for ephemeral_key_dict in ephemeral_keys:
@@ -56,7 +55,7 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
                         # do we want to sign messages? how do we attest source authoriship?
                         "source_fetching_public_key": source_fetching_public_key,
                         "source_encryption_public_key": source_encryption_public_key,
-                        "receiver": ephemeral_key_dict["journalist_uid"],
+                        "receiver": ephemeral_key_dict["journalist_key"],
                         # we could list the journalists involved in the conversation here
                         # if the source choose not to pick everybody
                         "group_members": [],
@@ -64,9 +63,8 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
                         # we can add attachmenet pieces/id here
                         "attachments": attachments}
 
-        message_ciphertext = b64encode(box.encrypt(
-            (json.dumps(message_dict)).ljust(1024).encode('ascii'))
-        ).decode("ascii")
+        message_ciphertext = box.encrypt(
+            (json.dumps(message_dict)).ljust(1024).encode('ascii'), encoder=Base64Encoder).decode("ascii")
 
         # Send the message to the server API using the generic /send endpoint
         commons.send_message(message_ciphertext, message_public_key, message_gdh)

@@ -2,29 +2,29 @@ import argparse
 import json
 from base64 import b64encode
 from datetime import datetime
-from hashlib import sha3_256
 from os import listdir, mkdir, path
 from time import time
 
-import nacl.secret
 import requests
-from ecdsa import SigningKey
+from nacl.encoding import Base64Encoder, HexEncoder
+from nacl.public import PrivateKey
+from nacl.secret import SecretBox
 
 import commons
 import journalist_db
 import pki
 
 
-def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
+def add_ephemeral_keys(journalist_key, journalist_id):
     ephemeral_keys = []
     for key in range(commons.ONETIMEKEYS):
         # Generate an ephemeral key, sign it and load the signature
-        ephemeral_sig, ephemeral_key = pki.generate_ephemeral(journalist_key, journalist_id, journalist_uid)
-        ephemeral_keys.append({"ephemeral_key": b64encode(ephemeral_key.verifying_key.to_string()).decode("ascii"),
-                               "ephemeral_sig": b64encode(ephemeral_sig).decode("ascii")})
+        ephemeral_sig, ephemeral_key = pki.generate_ephemeral(journalist_key, journalist_id)
+        ephemeral_keys.append({"ephemeral_key": ephemeral_key.public_key.encode(Base64Encoder).decode("ascii"),
+                               "ephemeral_sig": ephemeral_sig.signature.decode("ascii")})
 
     # Send both to server, the server veifies the signature and the trust chain prior ro storing/publishing
-    response = requests.post(f"http://{commons.SERVER}/ephemeral_keys", json={"journalist_uid": journalist_uid,
+    response = requests.post(f"http://{commons.SERVER}/ephemeral_keys", json={"journalist_key": journalist_key.verify_key.encode(Base64Encoder),
                                                                               "ephemeral_keys": ephemeral_keys})
 
     return (response.status_code == 200)
@@ -33,14 +33,14 @@ def add_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
 # Load the journalist ephemeral keys from the journalist key dirrectory.
 # On an actual implementation this would more likely be a sqlite (or sqlcipher)
 # database.
-def load_ephemeral_keys(journalist_key, journalist_id, journalist_uid):
+def load_ephemeral_keys(journalist_key, journalist_id):
     ephemeral_keys = []
-    key_file_list = listdir(f"{commons.DIR}journalists/{journalist_uid}/")
+    key_file_list = listdir(f"{commons.DIR}journalists/{journalist_key.verify_key.encode(HexEncoder).decode('ascii')}/")
     for file_name in key_file_list:
         if file_name.endswith('.key'):
-            with open(f"{commons.DIR}journalists/{journalist_uid}/{file_name}", "rb") as f:
+            with open(f"{commons.DIR}journalists/{journalist_key.verify_key.encode(HexEncoder).decode('ascii')}/{file_name}", "r") as f:
                 key = f.read()
-            ephemeral_keys.append(SigningKey.from_pem(key))
+            ephemeral_keys.append(PrivateKey(key, Base64Encoder))
     return ephemeral_keys
 
 
@@ -55,7 +55,7 @@ def decrypt_message(ephemeral_keys, message):
             return message_plaintext
 
 
-def journalist_reply(message, reply, journalist_uid):
+def journalist_reply(message, reply, journalist_key):
     # This function builds the per-message keys and returns a nacl encrypting box
     message_public_key, message_gdh, box = commons.build_message(
         message["source_fetching_public_key"],
@@ -65,7 +65,7 @@ def journalist_reply(message, reply, journalist_uid):
     # Still it is client controlled, so in each client we shall watch out a bit.
     message_dict = {"message": reply,
                     # do we want to sign messages? how do we attest source authoriship?
-                    "sender": journalist_uid,
+                    "sender": journalist_key.verify_key.encode(HexEncoder).decode('ascii'),
                     # "receiver": "source_id_placeholder",
                     # we could list the journalists involved in the conversation here
                     # if the source choose not to pick everybody
@@ -85,14 +85,14 @@ def main(args):
     journalist_id = args.journalist
     assert (journalist_id >= 0 and journalist_id < commons.JOURNALISTS)
 
-    journalist_uid, journalist_sig, journalist_key, journalist_fetching_sig, journalist_fetching_key = pki.load_and_verify_journalist_keypair(journalist_id)
+    journalist_sig, journalist_key, journalist_fetching_sig, journalist_fetching_key = pki.load_and_verify_journalist_keypair(journalist_id)
     jdb = journalist_db.JournalistDatabase('files/.jdb.sqlite3')
 
     if args.action == "upload_keys":
-        journalist_uid = commons.add_journalist(journalist_key, journalist_sig, journalist_fetching_key, journalist_fetching_sig)
+        commons.add_journalist(journalist_key, journalist_sig, journalist_fetching_key, journalist_fetching_sig)
 
         # Generate and upload a bunch (30) of ephemeral keys
-        add_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
+        add_ephemeral_keys(journalist_key, journalist_id)
 
     elif args.action == "fetch":
         # Check if there are messages
@@ -115,7 +115,7 @@ def main(args):
     elif args.action == "read":
         message_id = args.id
         message = commons.get_message(message_id)
-        ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
+        ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id)
         message_plaintext = decrypt_message(ephemeral_keys, message)
 
         if message_plaintext:
@@ -129,7 +129,7 @@ def main(args):
             else:
                 message_plaintext["attachments"] = []
 
-            sender = sha3_256(message_plaintext['source_encryption_public_key'].encode("ascii")).hexdigest()
+            sender = message_plaintext['source_encryption_public_key'].encode('ascii')
             print(f"[+] Successfully decrypted message {message_id}")
             print()
             print(f"\tID: {message_id}")
@@ -148,7 +148,7 @@ def main(args):
                                 part_key = bytes.fromhex(part['key'])
                                 encrypted_part = commons.get_file(part["id"])
                                 written_size += part["size"]
-                                box = nacl.secret.SecretBox(part_key)
+                                box = SecretBox(part_key)
                                 f.write(box.decrypt(encrypted_part)[0:part["size"]])
                                 part_number += 1
 
@@ -165,9 +165,9 @@ def main(args):
     elif args.action == "reply":
         message_id = args.id
         message = commons.get_message(message_id)
-        ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id, journalist_uid)
+        ephemeral_keys = load_ephemeral_keys(journalist_key, journalist_id)
         message_plaintext = decrypt_message(ephemeral_keys, message)
-        journalist_reply(message_plaintext, args.message, journalist_uid)
+        journalist_reply(message_plaintext, args.message, journalist_key)
 
     elif args.action == "delete":
         message_id = args.id

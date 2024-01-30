@@ -1,6 +1,4 @@
 redis
 flask
-ecdsa
 pynacl
-gmpy2
 requests
