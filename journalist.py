@@ -129,7 +129,7 @@ def main(args):
             else:
                 message_plaintext["attachments"] = []
 
-            sender = message_plaintext['source_encryption_public_key'].encode('ascii')
+            sender = message_plaintext['source_encryption_public_key']
             print(f"[+] Successfully decrypted message {message_id}")
             print()
             print(f"\tID: {message_id}")
