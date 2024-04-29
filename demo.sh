@@ -52,14 +52,14 @@ echo "[+] Printing messages received by Journalist 8 and replying"
 journalist8=`python3 journalist.py -j 8 -a fetch | tail -n 4`
 
 for message_id in $journalist8; do
-        python3 journalist.py -j 8 -a read -i $message_id
+	python3 journalist.py -j 8 -a read -i $message_id
 	# reply to every message
 	python3 journalist.py -j 8 -a reply -i $message_id -m "Reply to $message_id"
 done
 
 echo "[+] Fetching and printing replies to sources"
 
-# fetch the replis using the sources' passphrases
+# fetch the replies using the sources' passphrases
 reply1=`python3 source.py -p $source1 -a fetch | tail -n 2`
 reply2=`python3 source.py -p $source2 -a fetch | tail -n 2`
 reply3=`python3 source.py -p $source3 -a fetch | tail -n 2`

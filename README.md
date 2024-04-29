@@ -24,12 +24,13 @@ In `commons.py` there are the following configuration values which are global fo
 | `SERVER` | `127.0.0.1:5000` | source, journalist | The URL the Flask server listens on; used by both the journalist and the source clients. |
 | `DIR` | `keys/` | server, source, journalist | The folder where everybody will load the keys from. There is no separation for demo simplicity but in an actual implementation everybody will only have their keys and the required public one to ensure the trust chain. |
 | `UPLOADS` | `files/` | server | The folder where the Flask server will store uploaded files
-| `JOURNALISTS` | `10` | server, source |  How many journalists do we create and enroll. In general, this is realistic, in current SecureDrop usage it is way less. For demo purposes everybody knows it, in a real scenario it would not be needed. |
-| `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist create, sign and uploads when required. |
-| `MAX_MESSAGES` | `500` | server | How may potential messages the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
-| `CHUNK` | `512 * 1024` | source | The base size of every parts in which attachment are split/padded to. This is not the actual size on disk, cause that will be a bit more depending on the nacl SecretBox implementation. |
+| `JOURNALISTS` | `10` | server, source |  How many journalists do we create and enroll. In general, this is realistic; in current SecureDrop usage it is typically a smaller number. For demo purposes everybody knows this, in a real scenario it would not be needed. |
+| `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist creates, signs and uploads when required. |
+| `MAX_MESSAGES` | `500` | server | How many potential messages the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
+| `CHUNK` | `512 * 1024` | source | The base size of every part which attachments are split into or padded to. This is not the actual size on disk; that will be a bit larger depending on the nacl SecretBox implementation. |
 
-## Installation (Qubes)
+## Installation (Fedora)
+
 Install dependencies and create the virtual environment.
 ```
 sudo dnf install redis
@@ -39,7 +40,7 @@ source .venv/bin/activate
 pip3 install -r requirements.txt
 ```
 
-Generate the FPF root key, the intermediate key, and the journalists long term keys and sign them all hierarchically.
+Generate the FPF root key, the intermediate key, and the journalists' long term keys, and sign them all hierarchically.
 ```
 python3 pki.py
 ```
@@ -208,8 +209,8 @@ options:
   * **FPF**: Freedom of the Press Foundation (FPF) is the entity responsible for maintaining SecureDrop. FPF can offer additional services, such as dedicated support. While the project is open source, its components (SecureDrop releases, Onion Rulesets submitted upstream to Tor Browser) are signed with signing keys controlled by FPF. Despite this, SecureDrop is and will remain completely usable without any FPF involvement or knowledge.
 
 ## Notes on other components
-  * **Keys**: When referring to keys, either symmetric or asymmetric, depending on the context, the key storage back-end (ie: the media device) may eventually vary. Especially long term keys can be stored on Hardware Security Modules or Smart Cards, and signing keys might also be a combination of multiple keys with special requirements (ie: 3 out of 5 signers)
-  * **Server**: For this project a server might be a physical dedicated server housed in a trusted location, a physical server in an untrusted location, or a virtual server in a trusted or untrusted context. Besides the initial setup, all the connection to the server have to happen though the Tor Hidden Service Protocol. However, we can expect that a powerful attacker can find the server location and provider (through financial records, legal orders, de-anonymization attacks, logs of the setup phase).
+  * **Keys**: When referring to keys, either symmetric or asymmetric, depending on the context, the key storage backend (i.e.: the media device) may eventually vary. Long term keys in particular can be stored on Hardware Security Modules or Smart Cards, and signing keys might also be a combination of multiple keys with special requirements (e.g., 3 out of 5 signers)
+  * **Server**: For this project, a server might be a physical dedicated server housed in a trusted location, a physical server in an untrusted location, or a virtual server in a trusted or untrusted context. Besides the initial setup, all the connections to the server have to happen though the Tor Hidden Service Protocol. However, we can expect that a powerful attacker can find the server location and provider (through financial records, legal orders, de-anonymization attacks, logs of the setup phase).
   * **Trust(ed) parties**: When referring to "trust" and "trusted" parties, the term "trust" is meant in a technical sense (as used in https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-133r2.pdf), and not the social sense (as used in https://www.pewresearch.org/topic/news-habits-media/media-society/media-attitudes/trust-in-media/).
 
 ## Threat model summary
@@ -309,7 +310,7 @@ options:
 
      | Operation | Description |
      |---|---|
-     | *FPF<sub>SK</sub> = Gen()* | FPF generates a random privatekey (we might add HSM requirements, or certificate style PKI, ie: self signing some attributes) |
+     | *FPF<sub>SK</sub> = Gen()* | FPF generates a random private key (we might add HSM requirements, or certificate style PKI, i.e.: self signing some attributes) |
      | *FPF<sub>PK</sub> = GetPub(FPF<sub>SK</sub>)* | Derive the corresponding public key |
 
     **FPF** pins *FPF<sub>PK</sub>* in the **Journalist** client, in the **Source** client and in the **Server** code.
@@ -318,7 +319,7 @@ options:
 
      | Operation | Description |
      |---|---|
-     | *NR<sub>SK</sub> = Gen()* | Newsroom generates a random private key with similar security of the FPF one |
+     | *NR<sub>SK</sub> = Gen()* | Newsroom generates a random private key with similar security to the FPF one |
      | *NR<sub>PK</sub> = GetPub(<sub>SK</sub>)* | Derive the corresponding public key |
      | *sig<sup>FPF</sup>(NR<sub>PK</sub>) = Sign(FPF<sub>SK</sub>, NR<sub>PK</sub>)* | Newsroom sends a CSR or the public key to FPF; FPF validates manually/physically before signing |
 
@@ -331,7 +332,7 @@ options:
      | *J<sub>SK</sub> = Gen()* | Journalist generates the long-term signing key randomly |
      | *J<sub>PK</sub> = GetPub(J<sub>SK</sub>)* | Derive the corresponding public key | 
      | *sig<sup>NR</sup>(J<sub>PK</sub>) = Sign(NR<sub>SK</sub>, J<sub>PK</sub>)* | Journalist sends a CSR or the public key to the Newsroom admin/managers for signing |
-     | *JC<sub>SK</sub> = Gen()* | Journalist generate the long-term message-fetching key randomly (TODO: this key could be rotated often) |
+     | *JC<sub>SK</sub> = Gen()* | Journalist generates the long-term message-fetching key randomly (TODO: this key could be rotated often) |
      | *JC<sub>PK</sub> = GetPub(JC<sub>SK</sub>)* | Derive the corresponding public key |
      | *sig<sup>J</sup>(JC<sub>PK</sub>) = Sign(J<sub>SK</sub>, JC<sub>PK</sub>)* | Journalist signs the long-term message-fetching key with the long-term signing key |
      | *<sup>[0-n]</sup>JE<sub>SK</sub> = Gen()* | Journalist generates a number *n* of ephemeral key agreement keys randomly |
@@ -449,11 +450,11 @@ See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in th
  6. *Source* reads the message and the metadata
 
 ### Source reply
-*Source* replies work the exact same way as a first submission, except the source is already known to the *Journalist*. As an additional difference, a *Journalist* might choose to attach his (and eventually others) keys in the reply, so that *Source* does not have to fetch those from the server as in a first submission.
+*Source* replies work the exact same way as a first submission, except the source is already known to the *Journalist*. As an additional difference, a *Journalist* might choose to attach their (and eventually others') keys in the reply, so that *Source* does not have to fetch those from the server as in a first submission.
 
 ### Flow Chart
 
-![chart](https://github.com/lsd-cat/securedrop-poc/blob/main/imgs/sd_schema.png?raw=true)
+![chart](imgs/sd_schema.png)
 
 For simplicity, in this chart, messages are sent to a single *Journalist* rather than to all journalists enrolled with a given newsroom, and the attachment submission and retrieval procedure is omitted.
 
@@ -468,7 +469,7 @@ Observe the asymmetry in the client-side operations:
 
 ## Server endpoints
 
-No endpoints require authentication or sessions. The only data store is Redis and is schema-less. Encrypted file chinks are stored to disk. No database bootstrap is required.
+No endpoints require authentication or sessions. The only data store is Redis and is schema-less. Encrypted file chunks are stored to disk. No database bootstrap is required.
 
 ### /journalists
 
@@ -726,11 +727,11 @@ curl -X DELETE http://127.0.0.1:5000/file/<file_id>
 ```
 
 ## Limitations and Discussion
-### Crypto
+### Cryptography
 The cryptographic protocol needs to be audited.
-  
+
 ### Behavioral analysis
-While there are no user accounts, and all messages have the same structure from an HTTP perspective, the server could still detect if it were interacting with a source or a journalist by observing API request patterns. Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading ephemeral keys). A further fingerprinting mechanism could be, for instance, measuring how much time any client takes to fetch messages. Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
+While there are no user accounts, and all messages have the same structure from an HTTP perspective, the server could still detect if it is interacting with a source or a journalist by observing API request patterns. Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading ephemeral keys). A further fingerprinting mechanism could be, for instance, measuring how much time any client takes to fetch messages. Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
 
 ### Ephemeral key exhaustion
 A known problem with this type of protocol is the issue of ephemeral key exhaustion, either by an adversary or due to infrequent journalist activity.
@@ -746,13 +747,15 @@ One mitigation for behavioural analysis is the introduction of decoy traffic, wh
 The computation required for the message-fetching portion of this protocol limits the number of messages that can be stored on the server at once (a current estimate is that more than a few thousand would produce unreasonably slow computation times). Messages either need to be deleted upon receipt or to automatically expire after a reasonable interval. If implementing automatic message expiry, the expiration should have a degree of randomness, in order to avoid leaking metadata that could function as a form of timestamp.
 
 ### Denial of service
-Without traditional accounts, it might be easy to flood the service with unwanted messages or fetching requests that would be heavy on the server CPU. Depending on the individual *Newsroom* previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
+Without traditional accounts, it might be easy to flood the service with unwanted messages or fetch requests that would be heavy on the server CPU. Depending on the individual *Newsroom*'s previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
 
 ### Minimize logging
 To minimize logging, and mix traffic better, it could be reasonable to make all endpoints the same and POST only and remove all GET parameters. An alternative solution could be to implement the full protocol over WebSockets.
 
 ### Revocation
-Revocation is a spicy topic. For ephemeral keys, we expect key expiration to be a sufficient measure. For long-term keys, it will be necessary to implement the infrastructure to support journalist de-enrollment and newsroom key rotation. For example, FPF could routinely publish a revocation list and host Newsroom revocation lists as well; however, a key design constraint is to ensure that the entire SecureDrop system can be set up autonomously, and function even without FPF's direct involvement. A good existing protocol for serving the revocation would be OCSP stapling served back directly by the SecureDrop server, so that clients (both sources and journalists) do not have to perform external requests. Otherwise we could find a way to (ab)use the current internet revocation infrastructure and build on top of that.
+Revocation is a spicy topic. For ephemeral keys, we expect key expiration to be a sufficient measure. For long-term keys, it will be necessary to implement the infrastructure to support journalist de-enrollment and newsroom key rotation. For example, FPF could routinely publish a revocation list and host Newsroom revocation lists as well; however, a key design constraint is to ensure that the entire SecureDrop system can be set up autonomously, and can function even without FPF's direct involvement.
+
+A good existing protocol for serving the revocation would be OCSP stapling served back directly by the SecureDrop server, so that clients (both sources and journalists) do not have to perform external requests. Otherwise we could find a way to (ab)use the current internet revocation infrastructure and build on top of that.
 
 ### More hardening
 This protocol can be hardened further in specific parts, including: rotating fetching keys regularly on the journalist side; adding a short (e.g., 30 day) expiration to ephemeral keys so that they are guaranteed to rotate even in case of malicious servers; and allowing for "submit-only" sources that do not save the passphrase and are not reachable after first contact. These details are left for internal team evaluation and production implementation constraints.
