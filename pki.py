@@ -147,7 +147,7 @@ def generate_ephemeral(journalist_key, journalist_id):
     except Exception:
         pass
     key = PrivateKey.generate()
-    name = key.public_key.encode(HexEncoder).decode("ascii")
+    name = key.public_key.encode(HexEncoder)
 
     with open(f"{commons.DIR}/journalists/{journalist_key.verify_key.encode(HexEncoder).decode('ascii')}/{name}.key", "w") as f:
         f.write(key.encode(Base64Encoder).decode('ascii'))

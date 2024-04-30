@@ -109,7 +109,7 @@ def build_message(fetching_public_key, encryption_public_key):
 
     # generate the message gdh to send to the server
     message_gdh = b64encode(crypto_scalarmult(message_secret_key.encode(), fetching_public_key.encode()))
-    
+
     return message_public_key, message_gdh, box
 
 

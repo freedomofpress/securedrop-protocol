@@ -24,7 +24,8 @@ def add_ephemeral_keys(journalist_key, journalist_id):
                                "ephemeral_sig": ephemeral_sig.signature.decode("ascii")})
 
     # Send both to server, the server verifies the signature and the trust chain prior to storing/publishing
-    response = requests.post(f"http://{commons.SERVER}/ephemeral_keys", json={"journalist_key": journalist_key.verify_key.encode(Base64Encoder).decode("ascii"),
+    response = requests.post(f"http://{commons.SERVER}/ephemeral_keys", json={"journalist_key": journalist_key.verify_key.encode(Base64Encoder),
+                                                                              "ephemeral_keys": ephemeral_keys})
 
     return (response.status_code == 200)
 
@@ -128,7 +129,7 @@ def main(args):
             else:
                 message_plaintext["attachments"] = []
 
-            sender = message_plaintext['source_encryption_public_key']
+            sender = message_plaintext['source_encryption_public_key'].encode('ascii')
             print(f"[+] Successfully decrypted message {message_id}")
             print()
             print(f"\tID: {message_id}")
