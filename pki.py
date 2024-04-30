@@ -32,7 +32,7 @@ def load_key(name, keytype='sig', private=False):
         return public_key
 
 
-# Generate a ed25519 keypair and save it to disk
+# Generate an ed25519 keypair and save it to disk
 def generate_key(name, keytype='sig'):
     if keytype == 'sig':
         generate_obj = SigningKey
@@ -55,7 +55,7 @@ def generate_key(name, keytype='sig'):
     return key
 
 
-# Sign a given public key with the pubblid private key
+# Sign a given public key with the provided private key
 def sign_key(signing_pivate_key, signed_public_key, signature_name):
     sig = signing_pivate_key.sign(signed_public_key.encode(), encoder=Base64Encoder)
 
