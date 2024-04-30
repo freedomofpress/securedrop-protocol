@@ -17,7 +17,7 @@ def generate_passphrase():
 
 
 # this function derives an EC keypair given the passphrase
-# the prefix is useful for isolating key. A hash/kdf is used to generate the actual seeds
+# the prefix is useful for isolating the key. A hash/kdf is used to generate the actual seeds
 def derive_key(passphrase, key_isolation_prefix):
     key_seed = blake2b(passphrase, salt=key_isolation_prefix.encode("ascii"), encoder=RawEncoder)
     key = PrivateKey(key_seed)
@@ -26,7 +26,7 @@ def derive_key(passphrase, key_isolation_prefix):
 
 def send_submission(intermediate_verifying_key, passphrase, message, attachments):
     # Get all the journalists, their keys, and the signatures of their keys from the server API
-    # and verify the trust chain, otherwise the function will hard fail
+    # and verify the trust chain, otherwise the function will raise an exception
     journalists = commons.get_journalists(intermediate_verifying_key)
 
     # Get an ephemeral key for each journalist, check that the signatures are good and that
@@ -52,7 +52,7 @@ def send_submission(intermediate_verifying_key, passphrase, message, attachments
         # Same as on the journalist side: this structure is built by the clients
         # and thus potentially "untrusted"
         message_dict = {"message": message,
-                        # do we want to sign messages? how do we attest source authoriship?
+                        # do we want to sign messages? how do we attest source authorship?
                         "source_fetching_public_key": source_fetching_public_key,
                         "source_encryption_public_key": source_encryption_public_key,
                         "receiver": ephemeral_key_dict["journalist_key"],
@@ -93,7 +93,7 @@ def main(args):
         send_submission(intermediate_verifying_key, passphrase, args.message, attachments)
 
     elif args.passphrase and args.action == "fetch":
-        # Different from the journo side: we first parse the passphrase
+        # Different from the journalist side: we first parse the passphrase
         # and pass it to a different function where the fetching key will be derived
         passphrase = bytes.fromhex(args.passphrase)
 

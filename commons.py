@@ -21,17 +21,17 @@ DIR = "keys/"
 # Where the flask server will store uploaded files
 UPLOADS = "files/"
 # How many journalists do we create and enroll. In general, this is realistic, in current
-# securedrop usage it is way less
+# SecureDrop usage it is typically a smaller number.
 JOURNALISTS = 10
-# How many ephemeral keys each journalist create, sign and auploads when required
+# How many ephemeral keys each journalist creates, signs and uploads when required
 ONETIMEKEYS = 30
 # How may entries the server sends to each party when they try to fetch messages
 # This basically must be more than the msssages in the database, otherwise we need
 # to develop a mechanism to group messages adding some bits of metadata
 MAX_MESSAGES = 1000
-# The base size of every parts in which attachment are splitted/padded to. This
-# is not the actual size on disk, cause thet will be a bit more depending on
-# the nacl SecretBox implementation
+# The base size of every part which attachments are split into or padded to. This
+# is not the actual size on disk; that will be a bit larger depending on the nacl
+# SecretBox implementation.
 CHUNK = 512 * 1024
 
 
@@ -57,7 +57,7 @@ def get_journalists(intermediate_verifying_key):
     for content in journalists:
         journalist_verifying_key = VerifyKey(content["journalist_key"], Base64Encoder)
         journalist_fetching_verifying_key = VerifyKey(content["journalist_fetching_key"], Base64Encoder)
-        # pki.verify_key shall give an hard fault is a signature is off
+        # pki.verify_key shall raise an exception in case of failure to verify the signature
         pki.verify_key_func(intermediate_verifying_key,
                             journalist_verifying_key,
                             None,
@@ -107,9 +107,9 @@ def build_message(fetching_public_key, encryption_public_key):
     # encrypt the message, we trust nacl safe defaults
     box = Box(message_secret_key, encryption_public_key)
 
-    # generate the message gdh to send the server
-    message_gdh = b64encode(crypto_scalarmult(message_secret_key.encode(), fetching_public_key.encode())).decode("ascii")
-
+    # generate the message gdh to send to the server
+    message_gdh = b64encode(crypto_scalarmult(message_secret_key.encode(), fetching_public_key.encode()))
+    
     return message_public_key, message_gdh, box
 
 
