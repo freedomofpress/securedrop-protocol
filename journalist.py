@@ -25,6 +25,7 @@ def add_ephemeral_keys(journalist_key, journalist_id):
 
     # Send both to server, the server verifies the signature and the trust chain prior to storing/publishing
     response = requests.post(f"http://{commons.SERVER}/ephemeral_keys", json={"journalist_key": journalist_key.verify_key.encode(Base64Encoder).decode("ascii"),
+                                                                              "ephemeral_keys": ephemeral_keys})
 
     return (response.status_code == 200)
 
