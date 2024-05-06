@@ -1,12 +1,16 @@
-# Next-Gen SecureDrop Research
+# SecureDrop Protocol Research
+## Warning
+*This is proof-of-concept code and is not intended for production use. The protocol details are not yet finalized.*
 
-## Highlights
- * All messages are equal
- * There are no accounts
- * Everything is end to end encrypted with one time symmetric keys
- * Source to journalist key agreement has forward secrecy
- * Zero explicit metadata on the server; there is implicit metadata, such as API access patterns
- * Key isolation: each key is used only for a cryptographic purpose: signing, encryption, message fetching
+## Background
+To better understand the context of this research and the previous steps that led to it, read the following blog posts:
+
+ - [Part 1: Future directions for SecureDrop](https://securedrop.org/news/future-directions-for-securedrop/)
+ - [Part 2: Anatomy of a whistleblowing system](https://securedrop.org/news/anatomy-of-a-whistleblowing-system/)
+ - [Part 3: How to research your own cryptography and survive](https://securedrop.org/news/how-to-research-your-own-cryptography-and-survive/)
+ - [Part 4: Introducing SecureDrop Protocol](https://securedrop.org/news/introducing-securedrop-protocol/)
+
+Another PoC server implementation in Lua is available in the [securedrop-protocol-server-resty](https://github.com/freedomofpress/securedrop-protocol-server-resty) repository.
 
 ## Why is this unique?
 What is implemented here is a small-scale, self-contained, anonymous message box, where anonymous parties (sources) can contact and receive replies from trusted parties (journalists). The whole protocol does not require server authentication, and every API call is independent and self-contained. Message submission and retrieval are completely symmetric for both sources and journalists, making the individual HTTP requests potentially indistinguishable. The server does not have information about message senders, receivers, the number of sources or login times, because there are no accounts, and therefore, no logins.
@@ -14,7 +18,7 @@ What is implemented here is a small-scale, self-contained, anonymous message box
 Nonetheless, the server must not reveal information about its internal state to external parties (such as generic internet users or sources), and must not allow those parties to enumerate or discern any information about messages stored on the server. To satisfy this constraint, a special message-fetching mechanism is implemented, where only the intended recipients are able to discover if they have pending messages.
 
 ## Security
-For an informal threat model and comparison with other schemes, see the [related wiki page](https://github.com/freedomofpress/securedrop-poc/wiki/Proposals-comparison).
+A preliminary cryptographic audit has been performed by [mmaker](https://github.com/mmaker) in December 2023. See https://github.com/freedomofpress/securedrop-protocol/issues/36.
 
 ## Config
 In `commons.py` there are the following configuration values which are global for all components, even though not all parties need all of them.
@@ -727,9 +731,6 @@ curl -X DELETE http://127.0.0.1:5000/file/<file_id>
 ```
 
 ## Limitations and Discussion
-### Cryptography
-The cryptographic protocol needs to be audited.
-
 ### Behavioral analysis
 While there are no user accounts, and all messages have the same structure from an HTTP perspective, the server could still detect if it is interacting with a source or a journalist by observing API request patterns. Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading ephemeral keys). A further fingerprinting mechanism could be, for instance, measuring how much time any client takes to fetch messages. Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
 
@@ -744,10 +745,13 @@ Key expiration is not currently implemented, but ephemeral keys could include a 
 One mitigation for behavioural analysis is the introduction of decoy traffic, which is readily compatible with this protocol. Since all messages and all submissions are structurally indistinguishable from a server perspective, as are all fetching operations, and there is no state or cookies involved between requests, any party on the internet could produce decoy traffic on any instance. Newsrooms, journalists or even FPF could produce all the required traffic just from a single machine.
 
 ### Message retention
-The computation required for the message-fetching portion of this protocol limits the number of messages that can be stored on the server at once (a current estimate is that more than a few thousand would produce unreasonably slow computation times). Messages either need to be deleted upon receipt or to automatically expire after a reasonable interval. If implementing automatic message expiry, the expiration should have a degree of randomness, in order to avoid leaking metadata that could function as a form of timestamp.
+The computation and bandwidth required for the message-fetching portion of this protocol limits the number of messages that can be stored on the server at once (a current estimate is that more than a few thousand would produce unreasonably slow computation times). Messages either need to be deleted upon receipt or to automatically expire after a reasonable interval. If implementing automatic message expiry, the expiration should have a degree of randomness, in order to avoid leaking metadata that could function as a form of timestamp.
 
 ### Denial of service
 Without traditional accounts, it might be easy to flood the service with unwanted messages or fetch requests that would be heavy on the server CPU. Depending on the individual *Newsroom*'s previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
+
+### Covert communication
+See https://github.com/freedomofpress/securedrop-protocol/issues/14.
 
 ### Minimize logging
 To minimize logging, and mix traffic better, it could be reasonable to make all endpoints the same and POST only and remove all GET parameters. An alternative solution could be to implement the full protocol over WebSockets.
