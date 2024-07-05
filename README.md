@@ -424,20 +424,20 @@ See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in th
   3. *Server* returns a shuffled list of `commons.MAX_MESSAGES` (*i+j*) tuples of *(<sup>[0-i]</sup>pmgdh,<sup>[0-i]</sup>enc_mid) U (<sup>[0-j]</sup>decoy_pmgdh,<sup>[0-j]</sup>enc_mid)*
 
 
-### Journalist message id fetching protocol
+### Source message id fetching protocol
   1. *Source* derives *SC<sub>SK</sub> = G(KDF(fetching_salt + PW))*
   2. *Source* fetches *(<sup>[0-n]</sup>pmgdh,<sup>[0-n]</sup>enc_mid)* from *Server* (`n=commons.MAX_MESSAGES`)
-  3. For every *(<sup>n</sup>pmgdh,<sup>n</sup>enc_mid)*:
-     - *Source* calculates *<sup>n</sup>kmid = DH(<sup>n</sup>pmgdh,SC<sub>SK</sub>)*
-     - *Source* attempts to decrypt *<sup>n</sup>mid = Dec(<sup>n</sup>kmid,<sup>n</sup>enc_mid)*
-     - If decryption succeeds, save *<sup>n</sup>mid*
+  3. For every *(<sup>i</sup>pmgdh,<sup>i</sup>enc_mid)*:
+     - *Source* calculates *<sup>i</sup>kmid = DH(<sup>i</sup>pmgdh,SC<sub>SK</sub>)*
+     - *Source* attempts to decrypt *<sup>i</sup>mid = Dec(<sup>i</sup>kmid,<sup>i</sup>enc_mid)*
+     - If decryption succeeds, save *<sup>i</sup>mid*
 
-### Source message id fetching protocol
+### Journalist message id fetching protocol
   1. *Journalist* fetches *(<sup>[0-n]</sup>pmgdh,<sup>[0-n]</sup>enc_mid)* from *Server* (`n=commons.MAX_MESSAGES`)
-  2. For every *(<sup>n</sup>pmgdh,<sup>n</sup>enc_mid)*:
-     - *Journalist* calculates *<sup>n</sup>kmid = DH(<sup>n</sup>pmgdh,JC<sub>SK</sub>)*
-     - *Journalist* attempts to decrypt *<sup>n</sup>mid = Dec(<sup>n</sup>kmid,<sup>n</sup>enc_mid)*
-     - If decryption succeeds, save *<sup>n</sup>mid*
+  2. For every *(<sup>i</sup>pmgdh,<sup>i</sup>enc_mid)*:
+     - *Journalist* calculates *<sup>i</sup>kmid = DH(<sup>i</sup>pmgdh,JC<sub>SK</sub>)*
+     - *Journalist* attempts to decrypt *<sup>i</sup>mid = Dec(<sup>i</sup>kmid,<sup>i</sup>enc_mid)*
+     - If decryption succeeds, save *<sup>i</sup>mid*
 
 
 ### Journalist read
