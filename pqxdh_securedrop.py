@@ -138,14 +138,14 @@ def pqxdh_receive(message_ephemeral_public_key: PublicKey, sender: Source|Journa
     return key
 
 # Compute all the parts and send!
-def send(message: str, sender: Source|Journalist, receiver: Source|Journalist) -> ServerMessage:
+def send(message: bytes, sender: Source|Journalist, receiver: Source|Journalist) -> ServerMessage:
     message_ephemeral_key = PrivateKey.generate()
     clue = generate_clue(message_ephemeral_key, receiver)
     kem_ct, key = pqxdh_send(message_ephemeral_key, sender, receiver)
     ciphertext = symmetric_encrypt(key, message)
     return ServerMessage(message_ephemeral_key.public_key, kem_ct, clue, ciphertext)
 
-def receive(server_message: ServerMessage, sender: Source|Journalist, recipient: Source|Journalist):
+def receive(server_message: ServerMessage, sender: Source|Journalist, recipient: Source|Journalist) -> str:
     remixed_message_ephemeral_public_key, encrypted_message_id = generate_server_challenge(server_message)
     # Simulating a client challenge-solving
     message_id = solve_server_challenge(recipient, remixed_message_ephemeral_public_key, encrypted_message_id)
@@ -186,6 +186,5 @@ def main():
     server_message4 = send(message4, source, source2)
     assert(receive(server_message4, source, source2) == message4)
     print("Success!")
-
 
 main()
