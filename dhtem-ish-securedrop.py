@@ -1,13 +1,25 @@
-from nacl.bindings import crypto_scalarmult
+#!/usr/bin/env python3
+from nacl.bindings import crypto_scalarmult, crypto_scalarmult_base
 from nacl.hash import sha512
 from nacl.encoding import RawEncoder
 from nacl.public import Box, PrivateKey, PublicKey
 from nacl.secret import SecretBox
+from nacl.hashlib import scrypt
 from secrets import token_bytes
 from kyber import Kyber1024
+from typing import Optional
+
+SECRET_SIZE = 32
 
 
 # Basic helpers
+def DH(a: bytes, b: Optional[bytes] = None) -> bytes:
+    if b is not None:
+        return crypto_scalarmult(a, b)
+    else:
+        return crypto_scalarmult_base(a)
+
+
 def symmetric_encrypt(key: bytes, message: bytes) -> bytes:
     box = SecretBox(key)
     return box.encrypt(message)
@@ -44,7 +56,19 @@ class User:
 
 # A source has all the basic keys
 class Source(User):
-    pass
+    def __init__(self):
+        super().__init__()
+
+        self.MS_S = token_bytes(SECRET_SIZE)
+        self.KDF_MS_S = scrypt(self.MS_S, n=2)
+
+        self.S_SK_DH = self.KDF_MS_S[0 : int(len(self.KDF_MS_S) % 2 - 1)]
+        self.S_SK_PKE = (
+            PrivateKey.generate()
+        )  # self.S_SK_PKE = self.KDF_MS[len(self.KDF_MS) / 2 : len(self.KDF_MS) - 1]
+
+        self.S_PK_DH = DH(self.S_SK_DH)
+        self.S_PK_PKE = self.S_SK_PKE.public_key
 
 
 # A journalist has all the basic keys, and the ephemeral keys (or one times keys, in Signal terminology)
@@ -52,6 +76,28 @@ class Journalist(User):
     def __init__(self):
         super().__init__()
         self.ephemeral_key = PrivateKey.generate()
+
+        self.MS_J = token_bytes(SECRET_SIZE)
+        self.J_SK_DH = self.MS_J[0 : int(len(self.MS_J) / 2 - 1)]
+        self.J_SK_SIG = (
+            PrivateKey.generate()
+        )  # self.J_SK_SIG = self.MS_J[len(self.MS_J) / 2 : len(self.MS_J) - 1]
+
+        self.J_PK_DH = DH(self.J_SK_DH)
+        self.J_PK_SIG = self.J_SK_SIG.public_key
+
+        # TODO: sign J_PK_DH || J_PK_SIG by NR
+
+        self.MS_JE = token_bytes(SECRET_SIZE)
+        self.JE_SK_DH = self.MS_J[0 : int(len(self.MS_JE) / 2 - 1)]
+        self.JE_SK_SIG = (
+            PrivateKey.generate()
+        )  # self.JE_SK_SIG = self.MS_JE[len(self.MS_JE) / 2 : len(self.MS_JE) - 1]
+
+        self.JE_PK_DH = DH(self.JE_SK_DH)
+        self.JE_PK_SIG = self.JE_SK_SIG.public_key
+
+        # TODO: sign JE_PK_DH and JE_PK_SIG by NR
 
 
 # A message is composed by:
@@ -73,7 +119,7 @@ class ServerMessage:
         self.kem_ct = kem_ct
         self.clue = clue
         self.ciphertext = ciphertext
-        self.message_id = token_bytes(32)
+        self.message_id = token_bytes(SECRET_SIZE)
 
     def __str__(self):
         return f"""
