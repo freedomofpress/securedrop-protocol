@@ -3,5 +3,5 @@ Per <https://github.com/freedomofpress/securedrop-protocol/issues/55#issuecommen
 - [x] key generation
 - [x] minimal source encryption → journalist decryption
 - [x] ephemeral source encryption → journalist decryption
-  - [ ] verification of $$J$$ and $$NR$$
+  - [x] verification of $$J$$ and $$NR$$
 - [ ] ephemeral journalist encryption → source decryption
