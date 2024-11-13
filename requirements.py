@@ -1,2 +1,0 @@
-pynacl
-kyber-py
