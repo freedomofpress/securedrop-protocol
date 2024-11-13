@@ -1,303 +1,129 @@
 #!/usr/bin/env python3
-from nacl.bindings import crypto_scalarmult, crypto_scalarmult_base
+import pickle
+from nacl.bindings import crypto_scalarmult
 from nacl.hash import sha512
 from nacl.encoding import RawEncoder
-from nacl.public import Box, PrivateKey, PublicKey
+from nacl.public import SealedBox, PrivateKey, PublicKey
 from nacl.secret import SecretBox
 from nacl.hashlib import scrypt
-from secrets import token_bytes
 from kyber import Kyber1024
-from typing import Optional
+from typing import Optional, Tuple
 
 SECRET_SIZE = 32
 
 
-# Basic helpers
-def DH(a: bytes, b: Optional[bytes] = None) -> bytes:
-    if b is not None:
-        return crypto_scalarmult(a, b)
+# Helpers for consistency with the notation in <https://github.com/freedomofpress/securedrop-protocol/issues/55#issuecomment-2454681466>:
+def DH(secret: bytes, public: Optional[bytes] = None) -> bytes:
+    if public is not None:
+        return crypto_scalarmult(secret, public)
     else:
-        return crypto_scalarmult_base(a)
+        raise NotImplementedError("just use PrivateKey.public_key")
 
 
-def symmetric_encrypt(key: bytes, message: bytes) -> bytes:
+def KDF(x: bytes) -> bytes:
+    return scrypt(x, n=2, dklen=SECRET_SIZE)
+
+
+def SE_Enc(key: bytes, message: bytes) -> bytes:
     box = SecretBox(key)
     return box.encrypt(message)
 
 
-# NaCl symmetric encryption
-def symmetric_decrypt(key: bytes, ciphertext: bytes):
+def SE_Dec(key: bytes, ciphertext: bytes):
     box = SecretBox(key)
     return box.decrypt(ciphertext)
 
 
-# NaCl asymmetric (secretbox, DH+AEAD) encryption
-def asymmetric_encrypt(
-    secret_key: PrivateKey, public_key: PublicKey, message: bytes
-) -> bytes:
-    box = Box(secret_key, public_key)
+def PKE_Enc(public_key: PublicKey, message: bytes) -> bytes:
+    box = SealedBox(public_key)
     return box.encrypt(message)
 
 
-def asymmetric_decrypt(
-    secret_key: PrivateKey, public_key: PublicKey, ciphertext: bytes
-):
-    box = Box(secret_key, public_key)
+def PKE_Dec(secret_key: PrivateKey, ciphertext: bytes):
+    box = SealedBox(secret_key)
     return box.decrypt(ciphertext)
 
 
-# Keys common to all users
 class User:
-    def __init__(self):
-        self.identity_key = PrivateKey.generate()
-        self.fetching_key = PrivateKey.generate()
-        self.pq_pk, self.pq_sk = Kyber1024.keygen()
+    pass
 
 
-# A source has all the basic keys
 class Source(User):
     def __init__(self):
-        super().__init__()
+        self.S_SK_DH = PrivateKey.generate()
+        self.S_SK_PKE = PrivateKey.generate()
 
-        self.MS_S = token_bytes(SECRET_SIZE)
-        self.KDF_MS_S = scrypt(self.MS_S, n=2)
-
-        self.S_SK_DH = self.KDF_MS_S[0 : int(len(self.KDF_MS_S) % 2 - 1)]
-        self.S_SK_PKE = (
-            PrivateKey.generate()
-        )  # self.S_SK_PKE = self.KDF_MS[len(self.KDF_MS) / 2 : len(self.KDF_MS) - 1]
-
-        self.S_PK_DH = DH(self.S_SK_DH)
+        self.S_PK_DH = self.S_SK_DH.public_key
         self.S_PK_PKE = self.S_SK_PKE.public_key
 
+    def encrypt(self, msg: bytes, JE_PK_DH: bytes, JE_PK_PKE: bytes) -> "Envelope":
+        dh = DH(self.S_SK_DH.encode(), JE_PK_DH.encode())
+        k = KDF(dh)
+        ckey = PKE_Enc(JE_PK_PKE, self.S_PK_DH.encode())
 
-# A journalist has all the basic keys, and the ephemeral keys (or one times keys, in Signal terminology)
+        pt = {  # TODO: typing
+            "msg": msg,
+            "S_PK_DH": self.S_PK_DH,
+            "S_PK_PKE": self.S_PK_PKE,
+            "J": None,  # TODO
+            "NR": None,  # TODO
+        }
+        c = SE_Enc(k, pickle.dumps(pt))  # can't json.dumps() PyNaCl objects
+
+        return Envelope(ckey, c)
+
+
 class Journalist(User):
     def __init__(self):
-        super().__init__()
-        self.ephemeral_key = PrivateKey.generate()
+        self.J_SK_DH = PrivateKey.generate()
+        self.J_SK_SIG = PrivateKey.generate()
 
-        self.MS_J = token_bytes(SECRET_SIZE)
-        self.J_SK_DH = self.MS_J[0 : int(len(self.MS_J) / 2 - 1)]
-        self.J_SK_SIG = (
-            PrivateKey.generate()
-        )  # self.J_SK_SIG = self.MS_J[len(self.MS_J) / 2 : len(self.MS_J) - 1]
-
-        self.J_PK_DH = DH(self.J_SK_DH)
+        self.J_PK_DH = self.J_SK_DH.public_key
         self.J_PK_SIG = self.J_SK_SIG.public_key
 
         # TODO: sign J_PK_DH || J_PK_SIG by NR
 
-        self.MS_JE = token_bytes(SECRET_SIZE)
-        self.JE_SK_DH = self.MS_J[0 : int(len(self.MS_JE) / 2 - 1)]
-        self.JE_SK_SIG = (
-            PrivateKey.generate()
-        )  # self.JE_SK_SIG = self.MS_JE[len(self.MS_JE) / 2 : len(self.MS_JE) - 1]
+        self.JE_SK_DH = PrivateKey.generate()
+        self.JE_SK_PKE = PrivateKey.generate()
 
-        self.JE_PK_DH = DH(self.JE_SK_DH)
-        self.JE_PK_SIG = self.JE_SK_SIG.public_key
+        self.JE_PK_DH = self.JE_SK_DH.public_key
+        self.JE_PK_PKE = self.JE_SK_PKE.public_key
 
-        # TODO: sign JE_PK_DH and JE_PK_SIG by NR
+        # TODO: sign JE_PK_DH and JE_PK_PKE by NR
+
+    def decrypt(self, ckey: bytes, c: bytes) -> dict:
+        S_PK_DH = PKE_Dec(self.JE_SK_PKE, ckey)
+        dh = DH(self.JE_SK_DH.encode(), S_PK_DH)
+        k = KDF(dh)
+        return pickle.loads(SE_Dec(k, c))
 
 
-# A message is composed by:
-# - A per message ephemeral public key
-# - The clue
-# - The KEM ciphertext
-# - The message ciphertext
-#
-# Upon receipt of the message, the server generate a message_id that is kept secret by the server
-class ServerMessage:
+class Envelope:
     def __init__(
         self,
-        message_ephemeral_public_key: PublicKey,
-        kem_ct: bytes,
-        clue: bytes,
-        ciphertext=bytes,
+        ckey: bytes,
+        c: bytes,
     ):
-        self.message_ephemeral_public_key = message_ephemeral_public_key
-        self.kem_ct = kem_ct
-        self.clue = clue
-        self.ciphertext = ciphertext
-        self.message_id = token_bytes(SECRET_SIZE)
+        self.ckey = ckey
+        self.c = c
 
     def __str__(self):
-        return f"""
-        Message ephemeral public key: {self.message_ephemeral_public_key.encode().hex()}
-        KEM CT: {self.kem_ct.hex()[0:128]}...
-        Clue: {self.clue.hex()}
-        Ciphertext: {self.ciphertext.hex()}
-        message_id: {self.message_id.hex()}
-    """
-
-
-# When we generate a server challenge we generateL
-# - A "remixed" version of the per-message ephemeral public key
-# - Aa ciphertext that is the result of symmetrically encrypting the message_id
-#  using as a shared key the 3 party diffie hellman output
-def generate_server_challenge(server_message: ServerMessage) -> tuple[bytes, bytes]:
-    request_ephemeral_key = PrivateKey.generate()
-    remixed_message_ephemeral_public_key = crypto_scalarmult(
-        request_ephemeral_key.encode(),
-        server_message.message_ephemeral_public_key.encode(),
-    )
-    encrypted_message_id = asymmetric_encrypt(
-        request_ephemeral_key, PublicKey(server_message.clue), server_message.message_id
-    )
-    return remixed_message_ephemeral_public_key, encrypted_message_id
-
-
-# When we solve a server challenge, we generate the same 3 party diffie hellman shared key
-# and decrypt the encrypted message_id
-def solve_server_challenge(
-    recipient: Source | Journalist,
-    remixed_message_ephemeral_public_key: bytes,
-    encrypted_message_id: bytes,
-) -> bytes:
-    message_id = asymmetric_decrypt(
-        recipient.fetching_key,
-        PublicKey(remixed_message_ephemeral_public_key),
-        encrypted_message_id,
-    )
-    return message_id
-
-
-# When we generate a clue, we just compute a DH between the per-message ephemeral secret key and the recipient fetching key
-def generate_clue(
-    message_ephemeral_key: PrivateKey, receiver: Source | Journalist
-) -> bytes:
-    # The clue is just a DH targeting the receiver fething public key
-    clue = crypto_scalarmult(
-        message_ephemeral_key.encode(), receiver.fetching_key.public_key.encode()
-    )
-    return clue
-
-
-# This is textbook pqxdh: when a journalist is receiving, we expect the 4 DH version, using ephemeral keys
-# when a source is receiving, we expect to do the 3 DH version since source keys are static
-# we assume the KEM CT is unlinkable, is it?
-def pqxdh_send(
-    message_ephemeral_key: PrivateKey,
-    sender: Source | Journalist,
-    receiver: Source | Journalist,
-) -> tuple[bytes, bytes]:
-    # We cannot do dh1 because the source key is not advertised, meaning we cannot authenticate the sending source
-    # If we are sending journalist to source, or journalist to journalist, then we can
-    # dh1 = crypto_scalarmult(sender.identity_key.encode(), receiver.fetching_key.public_key.encode())
-    if type(sender) == Source:
-        dh1 = b""
-    else:
-        dh1 = crypto_scalarmult(
-            sender.identity_key.encode(), receiver.fetching_key.public_key.encode()
-        )
-    dh2 = crypto_scalarmult(
-        message_ephemeral_key.encode(), receiver.identity_key.public_key.encode()
-    )
-    dh3 = crypto_scalarmult(
-        message_ephemeral_key.encode(), receiver.fetching_key.public_key.encode()
-    )
-    if type(receiver) == Journalist:
-        dh4 = crypto_scalarmult(
-            message_ephemeral_key.encode(), receiver.ephemeral_key.public_key.encode()
-        )
-    else:
-        dh4 = b""
-    kem_ct, ss = Kyber1024.enc(receiver.pq_pk)
-    key = sha512(b"\xff" * 32 + dh1 + dh2 + dh3 + ss + dh4, encoder=RawEncoder)[
-        0 : SecretBox.KEY_SIZE
-    ]
-    print({f"Dir: {type(sender)} -> {type(receiver)}"})
-    print(f"DH1: {dh1.hex()}")
-    print(f"DH2: {dh2.hex()}")
-    print(f"DH3: {dh3.hex()}")
-    print(f"DH4: {dh4.hex()}")
-    print(f" SS: {ss.hex()}")
-    print(f"KEY: {key.hex()}")
-    return kem_ct, key
-
-
-def pqxdh_receive(
-    message_ephemeral_public_key: PublicKey,
-    sender: Source | Journalist,
-    receiver: Source | Journalist,
-    kem_ct: bytes,
-) -> bytes:
-    if type(sender) == Journalist:
-        dh1 = crypto_scalarmult(
-            receiver.fetching_key.encode(), sender.identity_key.public_key.encode()
-        )
-    else:
-        dh1 = b""
-    dh2 = crypto_scalarmult(
-        receiver.identity_key.encode(), message_ephemeral_public_key.encode()
-    )
-    dh3 = crypto_scalarmult(
-        receiver.fetching_key.encode(), message_ephemeral_public_key.encode()
-    )
-    if type(receiver) == Journalist:
-        dh4 = crypto_scalarmult(
-            receiver.ephemeral_key.encode(), message_ephemeral_public_key.encode()
-        )
-    else:
-        dh4 = b""
-    ss = Kyber1024.dec(kem_ct, receiver.pq_sk)
-    key = sha512(b"\xff" * 32 + dh1 + dh2 + dh3 + ss + dh4, encoder=RawEncoder)[
-        0 : SecretBox.KEY_SIZE
-    ]
-    print(f"DH1: {dh1.hex()}")
-    print(f"DH2: {dh2.hex()}")
-    print(f"DH3: {dh3.hex()}")
-    print(f"DH4: {dh4.hex()}")
-    print(f" SS: {ss.hex()}")
-    print(f"KEY: {key.hex()}")
-    return key
-
-
-# Compute all the parts and send!
-def send(
-    message: bytes, sender: Source | Journalist, receiver: Source | Journalist
-) -> ServerMessage:
-    message_ephemeral_key = PrivateKey.generate()
-    clue = generate_clue(message_ephemeral_key, receiver)
-    kem_ct, key = pqxdh_send(message_ephemeral_key, sender, receiver)
-    ciphertext = symmetric_encrypt(key, message)
-    return ServerMessage(message_ephemeral_key.public_key, kem_ct, clue, ciphertext)
-
-
-def receive(
-    server_message: ServerMessage,
-    sender: Source | Journalist,
-    recipient: Source | Journalist,
-) -> str:
-    remixed_message_ephemeral_public_key, encrypted_message_id = (
-        generate_server_challenge(server_message)
-    )
-    # Simulating a client challenge-solving
-    message_id = solve_server_challenge(
-        recipient, remixed_message_ephemeral_public_key, encrypted_message_id
-    )
-    # Verifying 3-party DH and message fetching
-    assert message_id == server_message.message_id
-    # Recomputing the pqxdh shared key
-    key = pqxdh_receive(
-        server_message.message_ephemeral_public_key,
-        sender,
-        recipient,
-        server_message.kem_ct,
-    )
-    return symmetric_decrypt(key, server_message.ciphertext)
+        return f"<Envelope ckey={self.ckey} c={self.c}>"
 
 
 def main():
     print("\n\nTest 1: Source to Journalist")
-    message = b"uber secret"
+    message_in = b"uber secret"
     source = Source()
     journalist = Journalist()
-    # Sending a message, first source to journalist
-    server_message = send(message, source, journalist)
-    # Simulating a fetching request, this would be a server procedure
-    assert receive(server_message, source, journalist) == message
-    print("Success!")
+
+    envelope = source.encrypt(message_in, journalist.JE_PK_DH, journalist.JE_PK_PKE)
+    print(f"{source} --> {message_in} --> {envelope}")
+    message_out = journalist.decrypt(envelope.ckey, envelope.c)
+    print(f"{journalist} <-- {message_out} <-- {envelope}")
+
+    """
+    --- Transmissions not yet adapted from PQXDH to DHTEM-ish: ---
 
     print("\n\nTest 2: Journalist to Source")
     message2 = b"mega secret"
@@ -318,6 +144,7 @@ def main():
     server_message4 = send(message4, source, source2)
     assert receive(server_message4, source, source2) == message4
     print("Success!")
+    """
 
 
 main()
