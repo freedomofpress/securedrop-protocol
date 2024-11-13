@@ -7,6 +7,7 @@ from nacl.public import SealedBox, PrivateKey, PublicKey
 from nacl.secret import SecretBox
 from nacl.hashlib import scrypt
 from kyber import Kyber1024
+from threading import Lock
 from typing import Optional, Tuple
 
 SECRET_SIZE = 32
@@ -45,11 +46,19 @@ def PKE_Dec(secret_key: PrivateKey, ciphertext: bytes):
 
 
 class User:
-    pass
+    def __init__(self):
+        # Only one ephemeral key can be in use at a time.
+        self.ME = Lock()
+
+    def encrypt(self, *args, **kwargs):
+        self.ME_SK_DH = PrivateKey.generate()
+        self.ME_PK_DH = self.ME_SK_DH.public_key
 
 
 class Source(User):
     def __init__(self):
+        super().__init__()
+
         self.S_SK_DH = PrivateKey.generate()
         self.S_SK_PKE = PrivateKey.generate()
 
@@ -57,8 +66,12 @@ class Source(User):
         self.S_PK_PKE = self.S_SK_PKE.public_key
 
     def encrypt(self, msg: bytes, JE_PK_DH: bytes, JE_PK_PKE: bytes) -> "Envelope":
-        dh = DH(self.S_SK_DH.encode(), JE_PK_DH.encode())
-        k = KDF(dh)
+        self.ME.acquire()
+        super().encrypt(msg, JE_PK_DH, JE_PK_PKE)
+
+        dh_S = DH(self.S_SK_DH.encode(), JE_PK_DH.encode())
+        dh_ME = DH(self.ME_SK_DH.encode(), JE_PK_DH.encode())
+        k = KDF(dh_S + dh_ME)
         ckey = PKE_Enc(JE_PK_PKE, self.S_PK_DH.encode())
 
         pt = {  # TODO: typing
@@ -70,11 +83,16 @@ class Source(User):
         }
         c = SE_Enc(k, pickle.dumps(pt))  # can't json.dumps() PyNaCl objects
 
-        return Envelope(ckey, c)
+        env = Envelope(ckey, c, self.ME_PK_DH)
+        self.ME.release()
+
+        return env
 
 
 class Journalist(User):
     def __init__(self):
+        super().__init__()
+
         self.J_SK_DH = PrivateKey.generate()
         self.J_SK_SIG = PrivateKey.generate()
 
@@ -91,24 +109,22 @@ class Journalist(User):
 
         # TODO: sign JE_PK_DH and JE_PK_PKE by NR
 
-    def decrypt(self, ckey: bytes, c: bytes) -> dict:
+    def decrypt(self, ckey: bytes, c: bytes, ME_PK_DH: bytes) -> dict:
         S_PK_DH = PKE_Dec(self.JE_SK_PKE, ckey)
-        dh = DH(self.JE_SK_DH.encode(), S_PK_DH)
-        k = KDF(dh)
+        dh_S = DH(self.JE_SK_DH.encode(), S_PK_DH)
+        dh_ME = DH(self.JE_SK_DH.encode(), ME_PK_DH.encode())
+        k = KDF(dh_S + dh_ME)
         return pickle.loads(SE_Dec(k, c))
 
 
 class Envelope:
-    def __init__(
-        self,
-        ckey: bytes,
-        c: bytes,
-    ):
+    def __init__(self, ckey: bytes, c: bytes, ME_PK_DH: bytes):
         self.ckey = ckey
         self.c = c
+        self.ME_PK_DH = ME_PK_DH
 
     def __str__(self):
-        return f"<Envelope ckey={self.ckey} c={self.c}>"
+        return f"<Envelope ckey={self.ckey} c={self.c} ME_PK_DH={self.ME_PK_DH}>"
 
 
 def main():
@@ -119,7 +135,7 @@ def main():
 
     envelope = source.encrypt(message_in, journalist.JE_PK_DH, journalist.JE_PK_PKE)
     print(f"{source} --> {message_in} --> {envelope}")
-    message_out = journalist.decrypt(envelope.ckey, envelope.c)
+    message_out = journalist.decrypt(envelope.ckey, envelope.c, envelope.ME_PK_DH)
     print(f"{journalist} <-- {message_out} <-- {envelope}")
 
     """
