@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 import pickle
 from nacl.bindings import crypto_scalarmult
-from nacl.hash import sha512
-from nacl.encoding import RawEncoder
 from nacl.public import SealedBox, PrivateKey, PublicKey
 from nacl.secret import SecretBox
 from nacl.hashlib import scrypt
-from kyber import Kyber1024
 from typing import Optional, Tuple, Union
 
 SECRET_SIZE = 32
@@ -45,8 +42,6 @@ def PKE_Dec(secret_key: PrivateKey, ciphertext: bytes):
 
 
 class User:
-    decryption_prefix = ""
-
     def __init__(self):
         self.SK_DH = PrivateKey.generate()
         self.PK_DH = self.SK_DH.public_key
@@ -67,7 +62,7 @@ class User:
         ckey = PKE_Enc(PK_PKE, self.PK_DH.encode())
 
         if isinstance(self, Source) and isinstance(recipient, Journalist):
-            pt = Plaintext(msg, self.PK_DH, self.PK_PKE, recipient)
+            pt = Plaintext(msg, self.PK_PKE, recipient)
         elif isinstance(recipient, Journalist):
             pt = Plaintext(msg, journalist=recipient)
         else:
@@ -88,8 +83,9 @@ class User:
 
         return pt
 
-    def decryption_key(self, suffix):
-        return getattr(self, f"{self.decryption_prefix}{suffix}")
+    def decryption_key(self, suffix: str, prefix: str = "") -> str:
+        """Helper function to keep User.decrypt() general. See Journalist.decryption_key()."""
+        return getattr(self, f"{prefix}{suffix}")
 
 
 class Source(User):
@@ -106,8 +102,6 @@ class Newsroom:
 
 
 class Journalist(User):
-    decryption_prefix = "JE_"
-
     def __init__(self, newsroom: Newsroom):
         super().__init__()
 
@@ -116,7 +110,7 @@ class Journalist(User):
         self.J_SK_SIG = PrivateKey.generate()
         self.J_PK_SIG = self.J_SK_SIG.public_key
 
-        # TODO: sign PK_DH || J_PK_SIG by NR
+        # TODO: sign PK_DH || J_PK_SIG by NR_SK
 
         self.JE_SK_DH = PrivateKey.generate()
         self.JE_SK_PKE = PrivateKey.generate()
@@ -124,7 +118,7 @@ class Journalist(User):
         self.JE_PK_DH = self.JE_SK_DH.public_key
         self.JE_PK_PKE = self.JE_SK_PKE.public_key
 
-        # TODO: sign JE_PK_DH and JE_PK_PKE by NR
+        # TODO: sign JE_PK_DH || JE_PK_PKE by J_SK_SIG
 
     def decrypt(self, *args, **kwargs) -> dict:
         pt = super().decrypt(*args, **kwargs)
@@ -134,29 +128,31 @@ class Journalist(User):
 
         return pt
 
+    def decryption_key(self, suffix):
+        """Helper function: journalists decrypt using ephemeral keys."""
+        return super().decryption_key(suffix, "JE_")
+
 
 class Plaintext:
     def __init__(
         self,
         msg: bytes,
-        PK_DH: Optional[bytes] = None,
         PK_PKE: Optional[bytes] = None,
         journalist: Optional[Journalist] = None,
     ):
         self.msg = msg
-        self.PK_DH = PK_DH
         self.PK_PKE = PK_PKE
         if journalist is not None:
             self.journalist = (
                 journalist.J_PK_SIG
-            )  # Does it matter which public key we use here?
+            )  # Does it matter which of the journalist's public keys we use here?
             self.newsroom = journalist.newsroom.NR_PK
 
     def __str__(self):
         try:
-            return f"<Plaintext msg={self.msg} PK_DH={self.PK_DH} PK_PKE={self.PK_PKE} recipient={self.journalist} newsroom={self.newsroom}>"
+            return f"<Plaintext msg={self.msg} PK_PKE={self.PK_PKE} recipient={self.journalist} newsroom={self.newsroom}>"
         except AttributeError:
-            return f"<Plaintext msg={self.msg} PK_DH={self.PK_DH} PK_PKE={self.PK_PKE}>"
+            return f"<Plaintext msg={self.msg} PK_PKE={self.PK_PKE}>"
 
 
 class Envelope:

@@ -1,3 +1,2 @@
 pynacl
-kyber-py
 ruff
