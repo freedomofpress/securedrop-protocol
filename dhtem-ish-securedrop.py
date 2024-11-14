@@ -7,8 +7,7 @@ from nacl.public import SealedBox, PrivateKey, PublicKey
 from nacl.secret import SecretBox
 from nacl.hashlib import scrypt
 from kyber import Kyber1024
-from threading import Lock
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 SECRET_SIZE = 32
 
@@ -47,42 +46,47 @@ def PKE_Dec(secret_key: PrivateKey, ciphertext: bytes):
 
 class User:
     def __init__(self):
-        # Only one ephemeral key can be in use at a time.
-        self.ME = Lock()
+        self.SK_DH = PrivateKey.generate()
+        self.PK_DH = self.SK_DH.public_key
 
-    def encrypt(self, *args, **kwargs):
-        self.ME_SK_DH = PrivateKey.generate()
-        self.ME_PK_DH = self.ME_SK_DH.public_key
+    def encrypt(
+        self,
+        msg: bytes,
+        recipient: Union["Source", "Journalist"],
+        PK_DH: bytes,
+        PK_PKE: bytes,
+    ) -> "Envelope":
+        ME_SK_DH = PrivateKey.generate()
+        ME_PK_DH = ME_SK_DH.public_key
+
+        dh = DH(self.SK_DH.encode(), PK_DH.encode())
+        dh_ME = DH(ME_SK_DH.encode(), PK_DH.encode())
+        k = KDF(dh + dh_ME)
+        ckey = PKE_Enc(PK_PKE, self.PK_DH.encode())
+
+        if isinstance(recipient, Journalist):
+            pt = Plaintext(msg, self.PK_DH, self.PK_PKE, recipient)
+        else:
+            pt = Plaintext(msg)
+        c = SE_Enc(k, pickle.dumps(pt))  # can't json.dumps() PyNaCl objects
+
+        return Envelope(ckey, c, ME_PK_DH)
 
 
 class Source(User):
     def __init__(self):
         super().__init__()
+        self.SK_PKE = PrivateKey.generate()
+        self.PK_PKE = self.SK_PKE.public_key
 
-        self.S_SK_DH = PrivateKey.generate()
-        self.S_SK_PKE = PrivateKey.generate()
-
-        self.S_PK_DH = self.S_SK_DH.public_key
-        self.S_PK_PKE = self.S_SK_PKE.public_key
-
-    def encrypt(
-        self, msg: bytes, journalist: "Journalist", JE_PK_DH: bytes, JE_PK_PKE: bytes
-    ) -> "Envelope":
-        self.ME.acquire()
-        super().encrypt(msg, JE_PK_DH, JE_PK_PKE)
-
-        dh_S = DH(self.S_SK_DH.encode(), JE_PK_DH.encode())
-        dh_ME = DH(self.ME_SK_DH.encode(), JE_PK_DH.encode())
+    def decrypt(self, ckey: bytes, c: bytes, ME_PK_DH: bytes) -> dict:
+        J_PK_DH = PKE_Dec(self.SK_PKE, ckey)
+        dh_S = DH(self.SK_DH.encode(), J_PK_DH)
+        dh_ME = DH(self.SK_DH.encode(), ME_PK_DH.encode())
         k = KDF(dh_S + dh_ME)
-        ckey = PKE_Enc(JE_PK_PKE, self.S_PK_DH.encode())
+        pt = pickle.loads(SE_Dec(k, c))
 
-        pt = Plaintext(msg, self.S_PK_DH, self.S_PK_PKE, journalist)
-        c = SE_Enc(k, pickle.dumps(pt))  # can't json.dumps() PyNaCl objects
-
-        env = Envelope(ckey, c, self.ME_PK_DH)
-        self.ME.release()
-
-        return env
+        return pt
 
 
 class Newsroom:
@@ -94,15 +98,13 @@ class Newsroom:
 class Journalist(User):
     def __init__(self, newsroom: Newsroom):
         super().__init__()
+
         self.newsroom = newsroom
 
-        self.J_SK_DH = PrivateKey.generate()
         self.J_SK_SIG = PrivateKey.generate()
-
-        self.J_PK_DH = self.J_SK_DH.public_key
         self.J_PK_SIG = self.J_SK_SIG.public_key
 
-        # TODO: sign J_PK_DH || J_PK_SIG by NR
+        # TODO: sign PK_DH || J_PK_SIG by NR
 
         self.JE_SK_DH = PrivateKey.generate()
         self.JE_SK_PKE = PrivateKey.generate()
@@ -127,18 +129,26 @@ class Journalist(User):
 
 class Plaintext:
     def __init__(
-        self, msg: bytes, S_PK_DH: bytes, S_PK_PKE: bytes, journalist: Journalist
+        self,
+        msg: bytes,
+        PK_DH: Optional[bytes] = None,
+        PK_PKE: Optional[bytes] = None,
+        journalist: Optional[Journalist] = None,
     ):
         self.msg = msg
-        self.S_PK_DH = S_PK_DH
-        self.S_PK_PKE = S_PK_PKE
-        self.journalist = (
-            journalist.J_PK_SIG
-        )  # Does it matter which public key we use here?
-        self.newsroom = journalist.newsroom.NR_PK
+        self.PK_DH = PK_DH
+        self.PK_PKE = PK_PKE
+        if journalist is not None:
+            self.journalist = (
+                journalist.J_PK_SIG
+            )  # Does it matter which public key we use here?
+            self.newsroom = journalist.newsroom.NR_PK
 
     def __str__(self):
-        return f"<Plaintext msg={self.msg} S_PK_DH={self.S_PK_DH} S_PK_PKE={self.S_PK_PKE} journalist={self.journalist} newsroom={self.newsroom}>"
+        try:
+            return f"<Plaintext msg={self.msg} PK_DH={self.PK_DH} PK_PKE={self.PK_PKE} recipient={self.journalist} newsroom={self.newsroom}>"
+        except AttributeError:
+            return f"<Plaintext msg={self.msg} PK_DH={self.PK_DH} PK_PKE={self.PK_PKE}>"
 
 
 class Envelope:
@@ -154,26 +164,28 @@ class Envelope:
 def main():
     newsroom = Newsroom()
     journalist = Journalist(newsroom)
+    source = Source()
 
     print("\n\nTest 1: Source to Journalist")
     message_in = b"uber secret"
-    source = Source()
-
     envelope = source.encrypt(
         message_in, journalist, journalist.JE_PK_DH, journalist.JE_PK_PKE
     )
     print(f"{source} --> {message_in} --> {envelope}")
     message_out = journalist.decrypt(envelope.ckey, envelope.c, envelope.ME_PK_DH)
     print(f"{journalist} <-- {message_out} <-- {envelope}")
+    assert message_out.msg == message_in
+
+    print("\n\nTest 2: Journalist to Source")
+    message2_in = b"mega secret"
+    envelope2 = journalist.encrypt(message2_in, source, source.PK_DH, source.PK_PKE)
+    print(f"{journalist} --> {message2_in} --> {envelope2}")
+    message2_out = source.decrypt(envelope2.ckey, envelope2.c, envelope2.ME_PK_DH)
+    print(f"{journalist} <-- {message2_out} <-- {envelope2}")
+    assert message2_out.msg == message2_in
 
     """
     --- Transmissions not yet adapted from PQXDH to DHTEM-ish: ---
-
-    print("\n\nTest 2: Journalist to Source")
-    message2 = b"mega secret"
-    server_message2 = send(message2, journalist, source)
-    assert receive(server_message2, journalist, source) == message2
-    print("Success!")
 
     print("\n\nTest 3: Journalist to Journalist")
     journalist2 = Journalist()
