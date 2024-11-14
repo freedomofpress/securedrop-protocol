@@ -4,4 +4,6 @@ Per <https://github.com/freedomofpress/securedrop-protocol/issues/55#issuecommen
 - [x] minimal source encryption → journalist decryption
 - [x] ephemeral source encryption → journalist decryption
   - [x] verification of $$J$$ and $$NR$$
-- [ ] ephemeral journalist encryption → source decryption
+- [x] ephemeral journalist encryption → source decryption
+  - [ ] audit
+- [x] ephemeral journalist encryption → journalist decryption

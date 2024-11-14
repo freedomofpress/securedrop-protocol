@@ -64,8 +64,10 @@ class User:
         k = KDF(dh + dh_ME)
         ckey = PKE_Enc(PK_PKE, self.PK_DH.encode())
 
-        if isinstance(recipient, Journalist):
+        if isinstance(self, Source):
             pt = Plaintext(msg, self.PK_DH, self.PK_PKE, recipient)
+        elif isinstance(recipient, Journalist):
+            pt = Plaintext(msg, journalist=recipient)
         else:
             pt = Plaintext(msg)
         c = SE_Enc(k, pickle.dumps(pt))  # can't json.dumps() PyNaCl objects
@@ -181,18 +183,22 @@ def main():
     envelope2 = journalist.encrypt(message2_in, source, source.PK_DH, source.PK_PKE)
     print(f"{journalist} --> {message2_in} --> {envelope2}")
     message2_out = source.decrypt(envelope2.ckey, envelope2.c, envelope2.ME_PK_DH)
-    print(f"{journalist} <-- {message2_out} <-- {envelope2}")
+    print(f"{source} <-- {message2_out} <-- {envelope2}")
     assert message2_out.msg == message2_in
+
+    print("\n\nTest 3: Journalist to Journalist")
+    journalist2 = Journalist(newsroom)
+    message3_in = b"internal memo"
+    envelope3 = journalist.encrypt(
+        message3_in, journalist2, journalist2.JE_PK_DH, journalist2.JE_PK_PKE
+    )
+    print(f"{journalist} --> {message3_in} --> {envelope3}")
+    message3_out = journalist2.decrypt(envelope3.ckey, envelope3.c, envelope3.ME_PK_DH)
+    print(f"{journalist2} <-- {message3_out} <-- {envelope3}")
+    assert message3_out.msg == message3_in
 
     """
     --- Transmissions not yet adapted from PQXDH to DHTEM-ish: ---
-
-    print("\n\nTest 3: Journalist to Journalist")
-    journalist2 = Journalist()
-    message3 = b"hyper secret"
-    server_message3 = send(message3, journalist, journalist2)
-    assert receive(server_message3, journalist, journalist2) == message3
-    print("Success!")
 
     print("\n\nTest 4: Source to Source")
     source2 = Source()
