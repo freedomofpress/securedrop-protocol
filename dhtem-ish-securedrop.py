@@ -45,6 +45,8 @@ def PKE_Dec(secret_key: PrivateKey, ciphertext: bytes):
 
 
 class User:
+    decryption_prefix = ""
+
     def __init__(self):
         self.SK_DH = PrivateKey.generate()
         self.PK_DH = self.SK_DH.public_key
@@ -74,21 +76,27 @@ class User:
 
         return Envelope(ckey, c, ME_PK_DH)
 
+    def decrypt(self, ckey: bytes, c: bytes, ME_PK_DH: bytes) -> dict:
+        SK_PKE = self.decryption_key("SK_PKE")
+        SK_DH = self.decryption_key("SK_DH")
+
+        PK_DH = PKE_Dec(SK_PKE, ckey)
+        dh = DH(SK_DH.encode(), PK_DH)
+        dh_ME = DH(SK_DH.encode(), ME_PK_DH.encode())
+        k = KDF(dh + dh_ME)
+        pt = pickle.loads(SE_Dec(k, c))
+
+        return pt
+
+    def decryption_key(self, suffix):
+        return getattr(self, f"{self.decryption_prefix}{suffix}")
+
 
 class Source(User):
     def __init__(self):
         super().__init__()
         self.SK_PKE = PrivateKey.generate()
         self.PK_PKE = self.SK_PKE.public_key
-
-    def decrypt(self, ckey: bytes, c: bytes, ME_PK_DH: bytes) -> dict:
-        J_PK_DH = PKE_Dec(self.SK_PKE, ckey)
-        dh_S = DH(self.SK_DH.encode(), J_PK_DH)
-        dh_ME = DH(self.SK_DH.encode(), ME_PK_DH.encode())
-        k = KDF(dh_S + dh_ME)
-        pt = pickle.loads(SE_Dec(k, c))
-
-        return pt
 
 
 class Newsroom:
@@ -98,6 +106,8 @@ class Newsroom:
 
 
 class Journalist(User):
+    decryption_prefix = "JE_"
+
     def __init__(self, newsroom: Newsroom):
         super().__init__()
 
@@ -116,12 +126,8 @@ class Journalist(User):
 
         # TODO: sign JE_PK_DH and JE_PK_PKE by NR
 
-    def decrypt(self, ckey: bytes, c: bytes, ME_PK_DH: bytes) -> dict:
-        S_PK_DH = PKE_Dec(self.JE_SK_PKE, ckey)
-        dh_S = DH(self.JE_SK_DH.encode(), S_PK_DH)
-        dh_ME = DH(self.JE_SK_DH.encode(), ME_PK_DH.encode())
-        k = KDF(dh_S + dh_ME)
-        pt = pickle.loads(SE_Dec(k, c))
+    def decrypt(self, *args, **kwargs) -> dict:
+        pt = super().decrypt(*args, **kwargs)
 
         assert pt.journalist == self.J_PK_SIG
         assert pt.newsroom == self.newsroom.NR_PK
