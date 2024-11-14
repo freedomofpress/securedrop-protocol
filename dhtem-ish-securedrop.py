@@ -64,7 +64,7 @@ class User:
         k = KDF(dh + dh_ME)
         ckey = PKE_Enc(PK_PKE, self.PK_DH.encode())
 
-        if isinstance(self, Source):
+        if isinstance(self, Source) and isinstance(recipient, Journalist):
             pt = Plaintext(msg, self.PK_DH, self.PK_PKE, recipient)
         elif isinstance(recipient, Journalist):
             pt = Plaintext(msg, journalist=recipient)
@@ -197,16 +197,19 @@ def main():
     print(f"{journalist2} <-- {message3_out} <-- {envelope3}")
     assert message3_out.msg == message3_in
 
-    """
-    --- Transmissions not yet adapted from PQXDH to DHTEM-ish: ---
-
     print("\n\nTest 4: Source to Source")
     source2 = Source()
-    message4 = b"covert comm :()"
-    server_message4 = send(message4, source, source2)
-    assert receive(server_message4, source, source2) == message4
-    print("Success!")
-    """
+    message4_in = b"covert comm :()"
+    envelope4 = source.encrypt(
+        message4_in,
+        source2,
+        source2.PK_DH,
+        source2.PK_PKE,
+    )
+    print(f"{source} --> {message4_in} --> {envelope4}")
+    message4_out = source2.decrypt(envelope4.ckey, envelope4.c, envelope4.ME_PK_DH)
+    print(f"{source2} <-- {message4_out} <-- {envelope4}")
+    assert message4_out.msg == message4_in
 
 
 main()

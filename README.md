@@ -7,3 +7,4 @@ Per <https://github.com/freedomofpress/securedrop-protocol/issues/55#issuecommen
 - [x] ephemeral journalist encryption → source decryption
   - [ ] audit
 - [x] ephemeral journalist encryption → journalist decryption
+- [x] ephemeral source encryption → source decryption
