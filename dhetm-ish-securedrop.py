@@ -56,7 +56,9 @@ class User:
 
         dh = DH(self.SK_DH.encode(), PK_DH.encode())
         dh_ME = DH(ME_SK_DH.encode(), PK_DH.encode())
-        k = KDF(dh + dh_ME)
+        ss = b""  # TODO: KEM
+                  # Formally, we're adding a KEM combiner: https://datatracker.ietf.org/doc/html/draft-ounsworth-cfrg-kem-combiners-05#name-kem-combiner-construction
+        k = KDF(dh + dh_ME + ss)
         ckey = PKE_Enc(PK_PKE, self.PK_DH.encode())
 
         if isinstance(self, Source) and isinstance(recipient, Journalist):
@@ -76,7 +78,9 @@ class User:
         PK_DH = PKE_Dec(SK_PKE, ckey)
         dh = DH(SK_DH.encode(), PK_DH)
         dh_ME = DH(SK_DH.encode(), ME_PK_DH.encode())
-        k = KDF(dh + dh_ME)
+        ss = b""  # TODO: KEM
+                  # Formally, we're adding a KEM combiner: https://datatracker.ietf.org/doc/html/draft-ounsworth-cfrg-kem-combiners-05#name-kem-combiner-construction
+        k = KDF(dh + dh_ME + ss)
         pt = pickle.loads(SE_Dec(k, c))
 
         return pt
