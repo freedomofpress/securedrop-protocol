@@ -3,7 +3,19 @@
 
 ## What is this?
 
-<https://gist.github.com/cfm/dab18074b9cecb06cbd006e1ab7ede7f> + KEM
+This is a manual fork of
+<https://gist.github.com/cfm/dab18074b9cecb06cbd006e1ab7ede7f> plus a KEM.  The
+goal to keep this in sync on top of
+<https://gist.github.com/cfm/dab18074b9cecb06cbd006e1ab7ede7f> so that a diff
+shows *only* KEM-related changes.
+
+```sh-session
+$ git clone git@gist.github.com:09f4e5682d3b216762cd878e3a8879f0.git dhetm-kem-securedrop
+$ cd dhetm-kem-securedrop/
+$ git remote add upstream git@gist.github.com:dab18074b9cecb06cbd006e1ab7ede7f.git
+$ git fetch upstream
+$ git diff upstream/main
+```
 
 *(More TK)*
 
