@@ -6,8 +6,6 @@ from nacl.secret import SecretBox
 from nacl.hashlib import scrypt
 from typing import Optional, Tuple, Union
 
-SECRET_SIZE = 32
-
 
 # Helpers for consistency with the notation in <https://github.com/freedomofpress/securedrop-protocol/issues/55#issuecomment-2454681466>:
 def DH(secret: bytes, public: Optional[bytes] = None) -> bytes:
@@ -18,7 +16,7 @@ def DH(secret: bytes, public: Optional[bytes] = None) -> bytes:
 
 
 def KDF(x: bytes) -> bytes:
-    return scrypt(x, n=2, dklen=SECRET_SIZE)
+    return scrypt(x, n=2, dklen=SecretBox.KEY_SIZE)
 
 
 def SE_Enc(key: bytes, message: bytes) -> bytes:
