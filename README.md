@@ -103,7 +103,11 @@ and leave open (below) the question of what KDF should be used in
 
 1. What KDF should be used in `kemCombiner()`?
     1. Is (e.g.) `nacl.hashlib.scrypt()` a dual/split PRF?
-    2. Do we need to specifically prove the IND-CCA2 requirement discussed in the ["Security Considerations" section of "KEM Combiners"](https://datatracker.ietf.org/doc/html/draft-ounsworth-cfrg-kem-combiners-05#name-security-considerations)?
+    2. Do we need to specifically prove the IND-CCA2 requirement discussed in the ["Security Considerations" section of "KEM Combiners"](https://datatracker.ietf.org/doc/html/draft-ounsworth-cfrg-kem-combiners-05#name-security-considerations)?[^6]
+
+
+[^6]: See also <https://groups.google.com/a/list.nist.gov/g/pqc-forum/c/6_D0mMSYJZY/m/5CQ0aiAhAQAJ>:
+    > NIST notes that ML-KEM outputs a shared secret key which can be interpreted as a shared secret (in the terminology of SP 800-56C) that **does not require** further key derivation.  However, further key derivation is allowed. One situation where this may be desired is for the purpose of combining an ML-KEM shared secret key with another shared secret.  NIST also notes that security of ML-KEM against an active adversary may or may not apply once an ML-KEM key is combined with another shared secret.  NIST intends to offer guidance on various key combiners in the forthcoming NIST SP 800-227.
 
 
 ---
