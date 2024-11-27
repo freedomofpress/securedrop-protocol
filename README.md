@@ -99,9 +99,11 @@ and leave open (below) the question of what KDF should be used in
 [^5]: I've started acccumulating citations on this topic in <https://www.anakolouthon.org/pub/reading+lists/cryptography%2C+especially+end-to-end+encryption#Key%20derivation%20and%20combination>.
 
 
-## Open questions
+## Open questions for real-world use
 
 1. What KDF should be used in `kemCombiner()`?
+    1. Is (e.g.) `nacl.hashlib.scrypt()` a dual/split PRF?
+    2. Do we need to specifically prove the IND-CCA2 requirement discussed in the ["Security Considerations" section of "KEM Combiners"](https://datatracker.ietf.org/doc/html/draft-ounsworth-cfrg-kem-combiners-05#name-security-considerations)?
 
 
 ---
