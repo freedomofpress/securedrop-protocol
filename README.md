@@ -74,10 +74,19 @@ ss_3, ct = Encap()  # ct to be dealt with separately
 ss = kemCombiner(ss_1, ss_2, ss_3)
 ```
 
+"Combiner Functions" gives more [guidance][kem-combiner-construction] on how
+`kemCombiner()` should be implemented.  Specifically, `kemCombiner()` needs to
+be a "split" or "dual" pseudo-random function (PRF).[^5]  For the purpose of
+prototyping here, we'll continue to use `kemCombiner() = nacl.hashlib.scrypt()`
+and leave open (below) the question of what KDF should be used in
+`kemCombiner()`.
+
 
 [draft-ietf-pquip-pqt-hybrid-terminology]: https://datatracker.ietf.org/doc/html/draft-ietf-pquip-pqt-hybrid-terminology-04
 
 [draft-ounsworth-cfrg-kem-combiners]: https://datatracker.ietf.org/doc/html/draft-ounsworth-cfrg-kem-combiners-05
+
+[kem-combiner-construction]: https://datatracker.ietf.org/doc/html/draft-ounsworth-cfrg-kem-combiners-05#name-kem-combiner-construction
 
 [^1]: https://datatracker.ietf.org/doc/html/draft-ounsworth-cfrg-kem-combiners-05#section-2-2.2.1
 
@@ -86,6 +95,13 @@ ss = kemCombiner(ss_1, ss_2, ss_3)
 [^3]: https://datatracker.ietf.org/doc/html/draft-ietf-pquip-pqt-hybrid-terminology-04#section-2-4.10.1
 
 [^4]: https://datatracker.ietf.org/doc/html/draft-ounsworth-cfrg-kem-combiners-05#name-kem-combiner-construction
+
+[^5]: I've started acccumulating citations on this topic in <https://www.anakolouthon.org/pub/reading+lists/cryptography%2C+especially+end-to-end+encryption#Key%20derivation%20and%20combination>.
+
+
+## Open questions
+
+1. What KDF should be used in `kemCombiner()`?
 
 
 ---
