@@ -70,8 +70,13 @@ class User:
         self.SK_DH = PrivateKey.generate()
         self.PK_DH = self.SK_DH.public_key
 
-        # TODO: MLKEM keygen can't be here, because the source couldn't generate
-        # a KEM from the password/KDF in the real implementation.
+        # **TODO** needs discussion:
+        # Outside a toy implementation, can a source generate
+        # and persist KEM encaps/decaps keys really based on
+        # a master secret + KDF? The decapsulation key would be
+        # needed later to decrypt replies.
+        # Also for discussion: this presumes long-term encaps/decaps material.
+        #  
         # From the documentation:
         # encapsulation key is encoded as bytes of length 384*k + 32
         # decapsulation key is encoded as bytes of length 768*k + 96
@@ -112,7 +117,7 @@ class User:
         # Encapsulate based on recipient encapsulation key.
         shared_pqkey_bytes, kem_ct_bytes = ML_KEM_768.encaps(EK_MLKEM)
         # Journalist discards shared_pqkey_bytes, because they won't need to
-        # decrypt this envelope (it's not meant for them). 
+        # decrypt this envelope (it's not meant for them).
 
         # This is the shared secret, not the kem_ciphertext
         ss = shared_pqkey_bytes
@@ -387,5 +392,6 @@ def main():
     print(f"{source2} <-- {message4_out} <-- {envelope4}")
     assert message4_out.msg == message4_in
 
+    print("\nTest cases successfully completed.\n")
 
 main()
