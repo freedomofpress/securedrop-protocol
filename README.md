@@ -125,5 +125,6 @@ Per <https://gist.github.com/cfm/dab18074b9cecb06cbd006e1ab7ede7f#file-readme-md
     - [x] keyed per user (to start)
     - [ ] keyed per message (because sources have no state in which to store their KEM keys)
     - [ ] published key bundles inc. KEM components
+    - [ ] benchmark
 - [ ] restore fetching from <https://gist.github.com/lsd-cat/62b05108d7ed7e974efbb805e35eaf28>
 - [x] tracing like <https://gist.github.com/cfm/c63561609d2bf621d877dbbef052ab1a> → <https://gist.github.com/cfm/ddbeec52c65f474ce309cb85ae9617aa>
