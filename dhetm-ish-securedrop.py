@@ -70,18 +70,6 @@ class User:
         self.SK_DH = PrivateKey.generate()
         self.PK_DH = self.SK_DH.public_key
 
-        # **TODO** needs discussion:
-        # Outside a toy implementation, can a source generate
-        # and persist KEM encaps/decaps keys really based on
-        # a master secret + KDF? The decapsulation key would be
-        # needed later to decrypt replies.
-        # Also for discussion: this presumes long-term encaps/decaps material.
-        #  
-        # From the documentation:
-        # encapsulation key is encoded as bytes of length 384*k + 32
-        # decapsulation key is encoded as bytes of length 768*k + 96
-        self.MLKEM_ENCAPS, self.MLKEM_DECAPS = ML_KEM_768.keygen()
-
     def encrypt(
         self,
         msg: bytes,
@@ -96,7 +84,7 @@ class User:
         @param recipient intended recipient, instance of Source or Journalist
         @param PK_DH     public key (signing) of recipient
         @param PK_PKE    public key (encryption) of recipient
-        @param EK_MLKEM  PQ encapsulation key of recipient 
+        @param EK_MLKEM  KEM encapsulation key of recipient 
         """
         
         # Ephemeral per-message encryption key.
@@ -149,13 +137,13 @@ class User:
             pt = Plaintext(msg, self.PK_PKE, self.MLKEM_ENCAPS, recipient)
         elif isinstance(recipient, Journalist):
             # Journalist to Journalist
-            # TODO: Attach MLKEM_ENCAPS if ephemeral
+            # TODO: Attach JE_MLKEM_ENCAPS if it's a per-message key
             pt = Plaintext(msg, journalist=recipient)
         else:
             # Journalist to Source
-            # TODO: Attach MLKEM_ENCAPS if ephemeral
+            # TODO: Attach JE_MLKEM_ENCAPS if it's a per-message key
             pt = Plaintext(msg)
-        
+
         # Encrypt plaintext to key k derived above.
         c = SE_Enc(k, pickle.dumps(pt))  # can't json.dumps() PyNaCl objects
 
@@ -163,13 +151,13 @@ class User:
         # (sender DH key encrypted to recipient, ciphertext, message pubkey, KEM ciphertext)
         return Envelope(ckey, c, ME_PK_DH, kem_ct_bytes)
 
-    def decrypt(self, ckey: bytes, c: bytes, ME_PK_DH: bytes, PQ_CT: bytes) -> dict:
+    def decrypt(self, ckey: bytes, c: bytes, ME_PK_DH: bytes, KEM_CT: bytes) -> dict:
         """
         Decrypt a payload corresponding to an Envelope.
         @param ckey: sender identity key encrypted to recipient
         @param c: ciphertext
         @param ME_PK_DH: ephemeral message pubkey bytes
-        @param PQ_CT: KEM ciphertext bytes, used to decapsulate shared pq secret
+        @param KEM_CT: KEM ciphertext bytes, used to decapsulate shared pq secret
         """
         # Encryption and DH secret key. (In the case of Journalist, these are ephemeral keys.)
         SK_PKE = self.decryption_key("SK_PKE")
@@ -188,7 +176,7 @@ class User:
 
         # Key decapsulation. TODO: here MLKEM_DECAPS is long term not ephemeral.
         # Todo: any assertions we can make?
-        ss = ML_KEM_768.decaps(self.MLKEM_DECAPS, PQ_CT)
+        ss = ML_KEM_768.decaps(self.decryption_key("MLKEM_DECAPS"), KEM_CT)
         # Formally, we're adding a KEM combiner: https://datatracker.ietf.org/doc/html/draft-ounsworth-cfrg-kem-combiners-05#name-kem-combiner-construction
 
         # Combiner, yields `k` as from `encrypt`
@@ -216,6 +204,19 @@ class Source(User):
         self.SK_PKE = PrivateKey.generate()
         self.PK_PKE = self.SK_PKE.public_key
 
+        # Source generates one-time KEM encapsulation and decapsulation keys.
+        # As with the other key material that the source generates, for the
+        # purposes of the simplified (toy) implementation, use keygen() function,
+        # for ease of using native APIs. The actual specification requires
+        # all the source's key material to be derived from the master secret,
+        # a diceware phrase that will be input into a kdf, which will yield
+        # the long-term DH share, the SK_PKE, and kem material.
+        # 
+        # From the documentation:
+        # encapsulation key is encoded as bytes of length 384*k + 32
+        # decapsulation key is encoded as bytes of length 768*k + 96
+        self.MLKEM_ENCAPS, self.MLKEM_DECAPS = ML_KEM_768.keygen()
+
 class Newsroom:
     def __init__(self):
         self.NR_SK = PrivateKey.generate()
@@ -230,10 +231,11 @@ class Journalist(User):
     * Their public long-term and encryption keys are signed
       by their newsroom (TODO/NOT IMPLEMENTED)
     * They generate an additional master secret (TODO/NOT IMPLEMENTED), from which
-      is derived ephemeral signing and encryption keypairs
+      is derived ephemeral signing and encryption keypairs and KEM material
       which are signed by their long-term (signing) key (TODO).
-      Below, JE_SK_DH, and JE_SK_PKE and their associated pubkeys
-      are used, but multiple such bundles would be generated.
+      Below, a single JE_SK_DH, JE_SK_PKE and their associated pubkeys
+      (and JE_MLKEM_ENCAPS, JE_MLKEM_DECAPS) are used, but multiple such
+      bundles would be generated.
 
     From the original spec:
         The journalist derives a master secret.
@@ -260,19 +262,29 @@ class Journalist(User):
         self.J_SK_SIG = PrivateKey.generate()
         self.J_PK_SIG = self.J_SK_SIG.public_key
 
-        # TODO: self.MLKEM_ENCAPS, self.MLKEM_DECAPS are both long term.
-        # TODO: sign PK_DH || J_PK_SIG by NR_SK; if MLKEM_ENCAPS were long-term, sign it too
+        # TODO: sign PK_DH || J_PK_SIG by NR_SK
 
         # Todo: from the spec, these keys are derived from an epehemeral master
         # secret. For toy implementation purposes, make use of libsodium keygen APIs.
         self.JE_SK_DH = PrivateKey.generate()
         self.JE_SK_PKE = PrivateKey.generate()
 
+        # Journalist generates KEM encapsulation and decapsulation keys.
+        # As with the other key material that the source generates, for the
+        # purposes of the simplified (toy) implementation, use keygen() function,
+        # for ease of using native APIs. From the spec, these are derived from
+        # a master secret. For toy implementation purposes, make use of MLKEM APIs.
+        # 
+        # From the documentation:
+        # encapsulation key is encoded as bytes of length 384*k + 32
+        # decapsulation key is encoded as bytes of length 768*k + 96
+        self.JE_MLKEM_ENCAPS, self.JE_MLKEM_DECAPS = ML_KEM_768.keygen()
+
         self.JE_PK_DH = self.JE_SK_DH.public_key
         self.JE_PK_PKE = self.JE_SK_PKE.public_key
 
-        # TODO: sign JE_PK_DH || JE_PK_PKE by J_SK_SIG
-        # TODO: sign JE_MLKEM_ENCAPS
+        # TODO: confirm that JE_MLKEM_ENCAPS would be included as suggested
+        # TODO: sign JE_PK_DH || JE_PK_PKE || JE_MLKEM_ENCAPS by J_SK_SIG
 
     def decrypt(self, *args, **kwargs) -> dict:
         pt = super().decrypt(*args, **kwargs)
@@ -315,8 +327,7 @@ class Plaintext:
         try:
             return f"<Plaintext msg={self.msg} PK_PKE={self.PK_PKE} MLKEM_ECAPS={self.MLKEM_ENCAPS} recipient={self.journalist} newsroom={self.newsroom}>"
         except AttributeError:
-            # Journalist writes back to source.
-            # Attach MLKEM_ENCAPS
+            # Journalist writes back to source
             return f"<Plaintext msg={self.msg} PK_PKE={self.PK_PKE} MLKEM_ECAPS={self.MLKEM_ENCAPS}>"
 
 
@@ -327,8 +338,7 @@ class Envelope:
     @param c ciphertext
     @param ME_PK_DH  Message ephemeral pubkey
     @param PQ_CT KEM ciphertext encrypted to the recipient. Used by receiving party to
-    decapsulate and recover
-    shared encapsulation key.
+    decapsulate and recover shared encapsulation key.
     """
     def __init__(self, ckey: bytes, c: bytes, ME_PK_DH: bytes, KEM_CT: bytes):
         self.ckey = ckey
@@ -348,7 +358,7 @@ def main():
     print("\n\nTest 1: Source to Journalist")
     message_in = b"uber secret"
     envelope = source.encrypt(
-        message_in, journalist, journalist.JE_PK_DH, journalist.JE_PK_PKE, journalist.MLKEM_ENCAPS
+        message_in, journalist, journalist.JE_PK_DH, journalist.JE_PK_PKE, journalist.JE_MLKEM_ENCAPS
     )
     print(f"{source} --> {message_in} --> {envelope}")
     message_out = journalist.decrypt(envelope.ckey, envelope.c, envelope.ME_PK_DH, envelope.KEM_CT)
@@ -369,7 +379,7 @@ def main():
     journalist2 = Journalist(newsroom)
     message3_in = b"internal memo"
     envelope3 = journalist.encrypt(
-        message3_in, journalist2, journalist2.JE_PK_DH, journalist2.JE_PK_PKE, journalist2.MLKEM_ENCAPS
+        message3_in, journalist2, journalist2.JE_PK_DH, journalist2.JE_PK_PKE, journalist2.JE_MLKEM_ENCAPS
     )
     print(f"{journalist} --> {message3_in} --> {envelope3}")
     message3_out = journalist2.decrypt(envelope3.ckey, envelope3.c, envelope3.ME_PK_DH, envelope3.KEM_CT)
@@ -377,7 +387,6 @@ def main():
     assert message3_out.msg == message3_in
 
     print("\n\nTest 4: Source to Source")
-    # TODO: Should this work?
     source2 = Source()
     message4_in = b"covert comm :()"
     envelope4 = source.encrypt(
