@@ -225,6 +225,12 @@ options:
 
 ```
 
+## Assumptions
+
+* **This is a cryptographic protocol conducted via a REST API.**  In theory, it
+  is agnostic to the underlying transport.  In practice, all parties
+  communicate with the server via HTTP over Tor.
+
 ## Parties
   * **Source(s)**: A source is someone who wants to share information. A source is considered unknown prior to their first contact. A source may want to send a text message and/or add attachments, and may want to return at a later time to read replies. The source's safety, and their ability to preserve their anonymity, are vital; the higher the degree of plausible deniability a source has, the better. No on-device persistence shall be required for a source to interact with the system; they should be able to conduct all communications using only a single, theoretically-memorizable passphrase. The source uses Tor Browser to preserve their anonymity.
   * **Journalist(s)**: Journalists are those designated to receive, triage, and reply to submissions from sources. Journalists are not anonymous, and the newsroom they work for is a discoverable public entity. Journalists are expected to access SecureDrop via a dedicated client, which has persistent encrypted storage.
