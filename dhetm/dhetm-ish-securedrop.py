@@ -16,6 +16,9 @@ def DH(secret: bytes, public: Optional[bytes] = None) -> bytes:
 
 
 def KDF(x: bytes) -> bytes:
+    # TODO: "set dkLen to be a more standard length to get one key and then use
+    # something like HKDF.Expand on this key with different context strings to
+    # get each of the keys you actually need"
     return scrypt(x, n=2, dklen=SecretBox.KEY_SIZE)
 
 
