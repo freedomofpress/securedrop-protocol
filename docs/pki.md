@@ -4,13 +4,13 @@
 
 The readme sketches the following PKI scheme for use with the SecureDrop Protocol:
 
-| The party... | ...has the secret key... | ...with the public key... | ...signed by...    | ...so that...                                       |
-| ------------ | ------------------------ | ------------------------- | ------------------ | --------------------------------------------------- |
-| FPF          | _FPF<sub>SK</sub>_       | _FPF<sub>PK<sub>_         | —                  |
-| Newsroom     | _NR<sub>SK</sub>_        | _NR<sub>PK</sub>_         | _FPF<sub>SK</sub>_ | FPF can attest to an instance's legitimacy.[^1]     |
-| Journalist   | _J<sub>SK</sub>_         | _J<sub>PK</sub>_          | _NR<sub>SK</sub>_  | a source can verify a journalist's enrollment.      |
-| Journalist   | _JC<sub>SK</sub>_        | _JC<sub>PK</sub>_         | _J<sub>SK</sub>_   | the server can verify a journalist's fetching key.  |
-| Journalist   | _JE<sub>SK</sub>_        | _JE<sub>PK</sub>_         | _J<sub>SK</sub>_   | a source can verify a journalist's per-message key. |
+| The party... | ...has the secret key... | ...with the public key... | ...with the signature[^1]... | ...so that...                                       |
+| ------------ | ------------------------ | ------------------------- | ---------------------------- | --------------------------------------------------- |
+| FPF          | $FPF_{SK}$               | $FPF_{PK}$                | $\bot$                       |
+| Newsroom     | $NR_{SK}$                | $NR_{PK}$                 | $sig^{FPF_{SK}}(NR_{PK})$    | FPF can attest to an instance's legitimacy.[^2]     |
+| Journalist   | $J_{SK}$                 | $J_{PK}$                  | $sig^{NR_{SK}}(J_{PK})$      | a source can verify a journalist's enrollment.      |
+| Journalist   | $JC_{SK}$                | $JC_{PK}$                 | $sig^{J_{SK}}(JC_{PK})$      | the server can verify a journalist's fetching key.  |
+| Journalist   | $JE_{SK}$                | $JE_{PK}$                 | $sig^{J_{SK}}(JE_{PK})$      | a source can verify a journalist's per-message key. |
 
 @mmaker described the need for
 
@@ -18,7 +18,7 @@ The readme sketches the following PKI scheme for use with the SecureDrop Protoco
 > errors in deployments. For example, the FPF could implement canaries to alert
 > users of potential compromises; Newsrooms should adhere to a minimal set of
 > rules of key rotation and identity validation for journalists, and
-> accountability that they still possess the key from time to time.[^2]
+> accountability that they still possess the key from time to time.[^3]
 
 @lsd-cat captured other considerations in [#32] and [#54].
 
@@ -53,7 +53,7 @@ gives these goals for a key-transparency system:
 >
 > - Allow end-users to perform this verification of a globally consistent view
 >   via an out-of-band mechanism for small groups, or use an anonymous check with
->   the communication service provider in-band for larger groups.[^3]
+>   the communication service provider in-band for larger groups.[^4]
 
 The advantages of key transparency (KT) are:
 
@@ -75,9 +75,17 @@ The disadvantages of KT are:
 2. **Operational implications:** KT is another service to run, with new failure
    modes to reason about and manage.
 
-[^1]: One reviewer has suggested including a countersignature $sig^{NR_{SK}}(FPF_{PK})$.
-[^2]: https://github.com/freedomofpress/securedrop-poc/files/14903819/securedrop.report.pdf
-[^3]: https://datatracker.ietf.org/wg/keytrans/about/
+[^1]:
+    See
+    <https://github.com/freedomofpress/securedrop-protocol?tab=readme-ov-file#functions>
+    for the notation used here.
+
+[^2]:
+    One reviewer has suggested including a countersignature
+    $sig^{NR_{SK}}(FPF_{PK})$.
+
+[^3]: https://github.com/freedomofpress/securedrop-poc/files/14903819/securedrop.report.pdf
+[^4]: https://datatracker.ietf.org/wg/keytrans/about/
 
 [#32]: https://github.com/freedomofpress/securedrop-protocol/issues/32
 [#54]: https://github.com/freedomofpress/securedrop-protocol/issues/54
