@@ -230,6 +230,8 @@ options:
 * **This is a cryptographic protocol conducted via a REST API.**  In theory, it
   is agnostic to the underlying transport.  In practice, all parties
   communicate with the server via HTTP over Tor.
+    * The protocol is amenable to mitigations against traffic analysis,
+      but they are out of scope.
 
 * **Message expiry/deletion will occur on a fuzzy interval.** 
   The computation and bandwidth required for the message-fetching portion of this protocol limits the number of messages that can be stored on the server at once (a current estimate is that more than a few thousand would produce unreasonably slow computation times).
