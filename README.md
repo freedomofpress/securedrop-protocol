@@ -225,6 +225,29 @@ options:
 
 ```
 
+## Assumptions
+
+* **This is a cryptographic protocol agnostic to the underlying transport.**
+  In this proof-of-concept implementation, the server exposes a REST API; all
+  parties communicate with the server via HTTP over Tor.  A production
+  implementation may use HTTP and/or WebSockets over Tor.
+    * The protocol is amenable to mitigations against traffic analysis beyond
+      the use of Tor, but they are out of the scope of this document.
+
+* **Message expiry/deletion will occur on a fuzzy interval.** 
+  The computation and bandwidth required for the message-fetching portion of this protocol limits the number of messages that can be stored on the server at once (a current estimate is that more than a few thousand would produce unreasonably slow computation times).
+  The protocol will expire messages on the server at a fuzzy interval ``d`` days +/- ``i`` (for example, 37 +- 7 days would guarantee message availability for a minimum of 30 days). The goal of fuzzy-interval message expiry is to avoid writing precise metadata to disk about when a message was submitted, which would be implied by a fixed expiry time.
+  Client-side (local) message deletion will be supported for journalists. Note this is not an anti-forensic measure, because some indicator will be retained in order to avoid re-downloading it.
+
+* **Messaging an arbitrary subset of journalists will not be supported.**
+  Messages from source to newsroom will be delivered to all* enrolled journalists for a given newsroom. Replies to sources from journalists will be delivered to all enrolled journalists plus the source. Journalists will be able to send group messages to all other journalists enrolled at their newsroom. Neither journalists nor sources will
+  have individual messaging or arbitrary group messaging capabilities exposed to
+  them via the UI.
+  *(The message delivery behaviour if a particular journalist's ephemeral key supply has been exhausted has yet to be finalized).
+
+* **The server OS and filesystem will minimize metadata.** OS implementation-level
+  specifications are not part of the protocol, but it is assumed that file creation/deletion operations will not be logged to disk, and options will be explored for minimizing timestamps and other metadata at the filesystem level.
+
 ## Parties
   * **Source(s)**: A source is someone who wants to share information. A source is considered unknown prior to their first contact. A source may want to send a text message and/or add attachments, and may want to return at a later time to read replies. The source's safety, and their ability to preserve their anonymity, are vital; the higher the degree of plausible deniability a source has, the better. No on-device persistence shall be required for a source to interact with the system; they should be able to conduct all communications using only a single, theoretically-memorizable passphrase. The source uses Tor Browser to preserve their anonymity.
   * **Journalist(s)**: Journalists are those designated to receive, triage, and reply to submissions from sources. Journalists are not anonymous, and the newsroom they work for is a discoverable public entity. Journalists are expected to access SecureDrop via a dedicated client, which has persistent encrypted storage.
@@ -762,9 +785,6 @@ Key expiration is not currently implemented, but ephemeral keys could include a 
 
 ### Decoy traffic
 One mitigation for behavioural analysis is the introduction of decoy traffic, which is readily compatible with this protocol. Since all messages and all submissions are structurally indistinguishable from a server perspective, as are all fetching operations, and there is no state or cookies involved between requests, any party on the internet could produce decoy traffic on any instance. Newsrooms, journalists or even FPF could produce all the required traffic just from a single machine.
-
-### Message retention
-The computation and bandwidth required for the message-fetching portion of this protocol limits the number of messages that can be stored on the server at once (a current estimate is that more than a few thousand would produce unreasonably slow computation times). Messages either need to be deleted upon receipt or to automatically expire after a reasonable interval. If implementing automatic message expiry, the expiration should have a degree of randomness, in order to avoid leaking metadata that could function as a form of timestamp.
 
 ### Denial of service
 Without traditional accounts, it might be easy to flood the service with unwanted messages or fetch requests that would be heavy on the server CPU. Depending on the individual *Newsroom*'s previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
