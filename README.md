@@ -18,7 +18,17 @@ What is implemented here is a small-scale, self-contained, anonymous message box
 Nonetheless, the server must not reveal information about its internal state to external parties (such as generic internet users or sources), and must not allow those parties to enumerate or discern any information about messages stored on the server. To satisfy this constraint, a special message-fetching mechanism is implemented, where only the intended recipients are able to discover if they have pending messages.
 
 ## Security
-A preliminary cryptographic audit has been performed by [mmaker](https://github.com/mmaker) in December 2023. See https://github.com/freedomofpress/securedrop-protocol/issues/36.
+**January 2025:**  A formal analysis was performed by
+[Luca Maier](https://github.com/lumaier) in
+<https://github.com/lumaier/securedrop-formalanalysis> and published as ["A
+Formal Analysis of the SecureDrop
+Protocol"](https://doi.org/10.3929/ethz-b-000718325), supervised by David Basin,
+Felix Linker, and Shannon Veitch in the Information Security Group at ETH
+Zürich.
+
+**December 2023:**  A preliminary cryptographic audit was performed by
+[Michele Orrù](https://github.com/mmaker). See
+<https://github.com/freedomofpress/securedrop-protocol/issues/36>.
 
 ## Config
 In `commons.py` there are the following configuration values which are global for all components, even though not all parties need all of them.
