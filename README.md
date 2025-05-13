@@ -43,6 +43,17 @@ In `commons.py` there are the following configuration values which are global fo
 | `MAX_MESSAGES` | `500` | server | How many potential messages the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
 | `CHUNK` | `512 * 1024` | source | The base size of every part which attachments are split into or padded to. This is not the actual size on disk; that will be a bit larger depending on the nacl SecretBox implementation. |
 
+The following parameters are not currently configurable or used but should be in
+a production implementation:
+
+| Variable                                | Value  | Components | Description                                                                                                                  |
+| --------------------------------------- | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `SOURCE_PASSPHRASE_DICTIONARY_MIN_SIZE` | `7300` | components | Require that `DICTIONARY_SIZE >= SOURCE_PASSPHRASE_DICTIONARY_MIN_SIZE`. [Inherited from current SecureDrop.][passphrases.py] |
+| `SOURCE_PASSPHRASE_ENTROPY_MIN_BITS`    | `89`   | source     | Target for $\texttt{SOURCE\\_PASSPHRASE\\_WORDS\\_NUM} \times \log_2(\texttt{DICTIONARY\\_SIZE})$.                            |
+| `SOURCE_PASSPHRASE_WORDS_NUM`           | `7`    | source     | [Inherited from current SecureDrop.][passphrases.py]                                                                          |
+
+[passphrases.py]: https://github.com/freedomofpress/securedrop/blob/abbe222dcee90ef2dcc8218a2e151b4ed7935715/securedrop/passphrases.py#L21-L27
+
 ## Installation (Fedora)
 
 Install dependencies and create the virtual environment.
@@ -334,7 +345,7 @@ options:
      * *JE<sub>SK</sub>*: Ephemeral per-message key-agreement private key
      * *JE<sub>PK</sub>*: Ephemeral per-message key-agreement public key
  * **Sources**:
-     * *PW*: Secret passphrase
+     * *PW*: Secret passphrase, per the `SOURCE_PASSPHRASE_*` parameters defined [above](#config)
      * *S<sub>SK</sub>*: Long term Source key-agreement private key
      * *S<sub>PK</sub>*: Long term Source key-agreement public key
      * *SC<sub>SK</sub>*: Long term Source message-fetching private key
