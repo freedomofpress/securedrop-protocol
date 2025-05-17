@@ -1,5 +1,9 @@
 # PKI for SecureDrop: problem statement
 
+> [!NOTE]
+> This document is a draft for future work.  It does not describe the current
+> implementation.
+
 ## PKI: the status quo
 
 The readme sketches the following PKI scheme for use with the SecureDrop Protocol:
