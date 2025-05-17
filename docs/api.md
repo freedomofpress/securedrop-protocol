@@ -1,8 +1,8 @@
-## Server endpoints
+# Server API
 
 No endpoints require authentication or sessions. The only data store is Redis and is schema-less. Encrypted file chunks are stored to disk. No database bootstrap is required.
 
-### /journalists
+## /journalists
 
 **Legend**:
 
@@ -14,7 +14,7 @@ No endpoints require authentication or sessions. The only data store is Redis an
 |`journalist_fetching_key` | *base64(JC<sub>PK</sub>)* |
 |`journalist_fetching_sig` | *base64(sig<sup>J</sup>(JC<sub>PK</sub>))* |
 
-#### POST
+### POST
 Adds *Newsroom* signed *Journalist* to the *Server*.
 ```
 curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/journalists" --data
@@ -31,7 +31,7 @@ curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/journali
 
 The server checks for proper signature using *NR<sub>PK</sub>*. If both signatures are valid, the request fields are added to the `journalists` Redis *set*.
 
-#### GET
+### GET
 Gets the journalists enrolled in *Newsroom* and published in the *Server*.
 The *Journalist* UID is a hex encoded hash of the Journalist long-term signing key.
 
@@ -57,10 +57,10 @@ curl -X GET "http://127.0.0.1:5000/journalists"
 
 At this point *Source* must have a verified *NR<sub>PK</sub>* and must verify both *sig<sub>J</sub>* and *sig<sub>JC</sub>*.
 
-#### DELETE (TODO)
+### DELETE (TODO)
 *Not implemented yet. A Newsroom must be able to remove Journalists.*
 
-### /ephemeral_keys
+## /ephemeral_keys
 
 **Legend**:
 
@@ -72,7 +72,7 @@ At this point *Source* must have a verified *NR<sub>PK</sub>* and must verify bo
 |`journalist_key` | *base64(J<sub>PK</sub>)* |
 
 
-#### POST
+### POST
 Adds *n* *Journalist* signed ephemeral key agreement keys to Server.
 The keys are stored in a Redis *set* specific per *Journalist*, which key is `journalist:<hex(public_key)>`. In the demo implementation, the number of ephemeral keys to generate and upload each time is `commons.ONETIMEKEYS`. 
 
@@ -95,7 +95,7 @@ curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/ephemera
   "status": "OK"
 }
 ```
-#### GET
+### GET
 The server pops a random ephemeral_key from every enrolled journalist bucket and returns it. The `pop` operation effectively removes the returned keys from the corresponding *Journalist* bucket.
 ```
 curl -X GET http://127.0.0.1:5000/ephemeral_keys
@@ -117,10 +117,10 @@ curl -X GET http://127.0.0.1:5000/ephemeral_keys
 ```
 At this point *Source* must have verified all the J<sup>[0-i]</sup><sub>PK</sub>*  and can thus verify all the corresponding *sig<sup>[0-n]</sup><sub>JE</sub>*.
 
-#### DELETE (TODO)
+### DELETE (TODO)
 *Not implemented yet. A Journalist shall be able to revoke keys from the server.*
 
-### /fetch
+## /fetch
 
 **Legend**:
 
@@ -154,7 +154,7 @@ curl -X GET http://127.0.0.1:5000/fetch
   "status": "OK"
 }
 ```
-### /message/[message_id]
+## /message/[message_id]
 
 **Legend**:
 
@@ -165,7 +165,7 @@ curl -X GET http://127.0.0.1:5000/fetch
 |`message_public_key` | *base64(ME<sub>PK</sub>)* |
 |`message_gdh` | *base64(ME<sub>SK</sub>,SC/JC<sub>PK</sub>)* |
 
-#### POST
+### POST
 ```
 curl -X POST -H "Content_Type: application/json" http://127.0.0.1:5000/message --data
 {
@@ -183,7 +183,7 @@ curl -X POST -H "Content_Type: application/json" http://127.0.0.1:5000/message -
 
 Note that `message_id` is not returned upon submission, so that the sending party cannot delete or fetch it unless they maliciously craft the `message_gdh` for themselves, but at that point it would never be delivered to any other party.
 
-#### GET
+### GET
 `message_public_key` is necessary for completing the key agreement protocol and obtaining the shared symmetric key to decrypt the message. `message_public_key`, is ephemeral, unique per message, and has no links to anything else.
 
 ```
@@ -200,7 +200,7 @@ curl -X GET http://127.0.0.1:5000/message/<message_id>
 }
 ```
 
-#### DELETE
+### DELETE
 
 ```
 curl -X DELETE http://127.0.0.1:5000/message/<message_id>
@@ -212,7 +212,7 @@ curl -X DELETE http://127.0.0.1:5000/message/<message_id>
 }
 ```
 
-### /file/[file_id]
+## /file/[file_id]
 Slicing and encrypting is up to the *Source* client. The server cannot enforce encryption, but it can enforce equal chunk size (TODO: not implemented).
 
 **Legend**:
@@ -222,7 +222,7 @@ Slicing and encrypting is up to the *Source* client. The server cannot enforce e
 |`file_id` | Unique, randomly generated per upload id. Files are sliced, paded and encrypted to a fixed size so that all files looks equal and there are no metadata, however that is up to the uploading client. |
 | `raw_encrypted_file_content` | Raw bytes composing the encrypted file object. |
 
-#### POST
+### POST
 The `file_id` is secret, meaning that any parties with knowledge of it can either download the encrypted chunk or delete it. In production, it could be possible to set `commons.UPLOADS` to a FUSE filesystem without timestamps.
 
 ```
@@ -236,7 +236,7 @@ curl -X POST http://127.0.0.1:5000/file -F <path_to_encrypted_chunk>
 }
 ```
 
-#### GET
+### GET
 The server will return either the raw encrypted content or a `404` status code.
 ```
 curl -X GET http://127.0.0.1:5000/file/<message_id>
@@ -245,7 +245,7 @@ curl -X GET http://127.0.0.1:5000/file/<message_id>
 200 OK
 <raw_encrypted_file_content>
 ```
-#### DELETE
+### DELETE
 A delete request deletes both the entry in the database and the encrypted chunk stored on the server.
 ```
 curl -X DELETE http://127.0.0.1:5000/file/<file_id>

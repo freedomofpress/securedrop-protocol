@@ -1,6 +1,8 @@
-# SecureDrop Protocol Research
+# SecureDrop Protocol
 ## Status
-*This is proof-of-concept code and is not intended for production use. The protocol details are not yet finalized.*
+
+> [!WARNING]
+> This is proof-of-concept code and is not intended for production use. The protocol details are not yet finalized.
 
 **January 2025:**  A formal analysis was performed by
 [Luca Maier](https://github.com/lumaier) in
@@ -41,31 +43,9 @@ Data is persisted in the following ways:
 - Messages downloaded and decrypted by journalists are persisted in an SQLite3 database, which is stored in the `files/` directory
 - Attachments downloaded and decrypted by journalists are stored on-disk under `downloads/`
 
+See the [documentation](https://github.com/freedomofpress/securedrop-protocol/tree/main/docs) for the protocol's architecture, threat model, and specification.
+
 Another PoC server implementation in Lua is available in the [securedrop-protocol-server-resty](https://github.com/freedomofpress/securedrop-protocol-server-resty) repository.
-
-## Config
-In `commons.py` there are the following configuration values which are global for all components, even though not all parties need all of them.
-
-| Variable | Value | Components | Description |
-|---|---|---|---|
-| `SERVER` | `127.0.0.1:5000` | source, journalist | The URL the Flask server listens on; used by both the journalist and the source clients. |
-| `DIR` | `keys/` | server, source, journalist | The folder where everybody will load the keys from. There is no separation for demo simplicity but in an actual implementation everybody will only have their keys and the required public one to ensure the trust chain. |
-| `UPLOADS` | `files/` | server | The folder where the Flask server will store uploaded files
-| `JOURNALISTS` | `10` | server, source |  How many journalists do we create and enroll. In general, this is realistic; in current SecureDrop usage it is typically a smaller number. For demo purposes everybody knows this, in a real scenario it would not be needed. |
-| `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist creates, signs and uploads when required. |
-| `MAX_MESSAGES` | `500` | server | How many potential messages the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
-| `CHUNK` | `512 * 1024` | source | The base size of every part which attachments are split into or padded to. This is not the actual size on disk; that will be a bit larger depending on the nacl SecretBox implementation. |
-
-The following parameters are not currently configurable or used but should be in
-a production implementation:
-
-| Variable                                | Value  | Components | Description                                                                                                                  |
-| --------------------------------------- | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `SOURCE_PASSPHRASE_DICTIONARY_MIN_SIZE` | `7300` | components | Require that `DICTIONARY_SIZE >= SOURCE_PASSPHRASE_DICTIONARY_MIN_SIZE`. [Inherited from current SecureDrop.][passphrases.py] |
-| `SOURCE_PASSPHRASE_ENTROPY_MIN_BITS`    | `89`   | source     | Target for $\texttt{SOURCE\\_PASSPHRASE\\_WORDS\\_NUM} \times \log_2(\texttt{DICTIONARY\\_SIZE})$.                            |
-| `SOURCE_PASSPHRASE_WORDS_NUM`           | `7`    | source     | [Inherited from current SecureDrop.][passphrases.py]                                                                          |
-
-[passphrases.py]: https://github.com/freedomofpress/securedrop/blob/abbe222dcee90ef2dcc8218a2e151b4ed7935715/securedrop/passphrases.py#L21-L27
 
 ## Installation (Fedora)
 
@@ -95,6 +75,30 @@ for i in $(seq 0 9); do python3 journalist.py -j $i -a upload_keys; done;
 
 Call/caller charts can be generated with `make docs`.
 
+## Config
+In `commons.py` there are the following configuration values which are global for all components, even though not all parties need all of them.
+
+| Variable | Value | Components | Description |
+|---|---|---|---|
+| `SERVER` | `127.0.0.1:5000` | source, journalist | The URL the Flask server listens on; used by both the journalist and the source clients. |
+| `DIR` | `keys/` | server, source, journalist | The folder where everybody will load the keys from. There is no separation for demo simplicity but in an actual implementation everybody will only have their keys and the required public one to ensure the trust chain. |
+| `UPLOADS` | `files/` | server | The folder where the Flask server will store uploaded files
+| `JOURNALISTS` | `10` | server, source |  How many journalists do we create and enroll. In general, this is realistic; in current SecureDrop usage it is typically a smaller number. For demo purposes everybody knows this, in a real scenario it would not be needed. |
+| `ONETIMEKEYS` | `30` | journalist | How many ephemeral keys each journalist creates, signs and uploads when required. |
+| `MAX_MESSAGES` | `500` | server | How many potential messages the server sends to each party when they try to fetch messages. This basically must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
+| `CHUNK` | `512 * 1024` | source | The base size of every part which attachments are split into or padded to. This is not the actual size on disk; that will be a bit larger depending on the nacl SecretBox implementation. |
+
+The following parameters are not currently configurable or used but should be in
+a production implementation:
+
+| Variable                                | Value  | Components | Description                                                                                                                  |
+| --------------------------------------- | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `SOURCE_PASSPHRASE_DICTIONARY_MIN_SIZE` | `7300` | components | Require that `DICTIONARY_SIZE >= SOURCE_PASSPHRASE_DICTIONARY_MIN_SIZE`. [Inherited from current SecureDrop.][passphrases.py] |
+| `SOURCE_PASSPHRASE_ENTROPY_MIN_BITS`    | `89`   | source     | Target for $\texttt{SOURCE\\_PASSPHRASE\\_WORDS\\_NUM} \times \log_2(\texttt{DICTIONARY\\_SIZE})$.                            |
+| `SOURCE_PASSPHRASE_WORDS_NUM`           | `7`    | source     | [Inherited from current SecureDrop.][passphrases.py]                                                                          |
+
+[passphrases.py]: https://github.com/freedomofpress/securedrop/blob/abbe222dcee90ef2dcc8218a2e151b4ed7935715/securedrop/passphrases.py#L21-L27
+
 ## Demo
 
 ```
@@ -103,7 +107,7 @@ bash demo.sh
 
 The demo script will clean past keys and files, flush Redis, generate a new PKI, start the server, generate and upload journalists and simulate submissions and replies from different sources/journalists.
 
-## Command-line
+## Usage
 ### Source
 #### Help
 

@@ -1,3 +1,4 @@
+# SecureDrop Protocol architecture
 ## Why is this unique?
 What is implemented here is a small-scale, self-contained, anonymous message box, where anonymous parties (sources) can contact and receive replies from trusted parties (journalists). The whole protocol does not require server authentication, and every API call is independent and self-contained. Message submission and retrieval are completely symmetric for both sources and journalists, making the individual HTTP requests potentially indistinguishable. The server does not have information about message senders, receivers, the number of sources or login times, because there are no accounts, and therefore, no logins.
 

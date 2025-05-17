@@ -1,3 +1,18 @@
+# SecureDrop Protocol specification
+
+![chart](../imgs/sd_schema.png)
+
+For simplicity, in this chart, messages are sent to a single *Journalist* rather than to all journalists enrolled with a given newsroom, and the attachment submission and retrieval procedure is omitted.
+
+Observe the asymmetry in the client-side operations:
+
+| Routine | Journalist fetch and decrypt | Source fetch and decrypt |
+| --- | --- | --- |
+| **Leg** | **message_ciphertext,ME<sub>PK</sub>** | **message_ciphertext,ME<sub>PK</sub>** |
+| Step 1. | k = DH(ME<sub>PK</sub>,<sup>i</sup>JE<sub>SK</sub>) | k = DH(ME<sub>PK</sub>,S<sub>SK</sub>) |
+| Step 2. | Discard(<sup>i</sup>JE<sub>SK</sub>) |
+| Step 3. | S<sub>PK</sub>,SC<sub>PK</sub>,m = Dec(k,message_ciphertext) | <sup>m</sup>JE<sub>PK</sub>,JC<sub>PK</sub>,m = Dec(k,message_ciphertext) |
+
 ## Keys summary
  * **FPF**:
      * *FPF<sub>SK</sub>*: Long term FPF signing private key
@@ -186,18 +201,3 @@ See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in th
 
 ### Source reply
 *Source* replies work the exact same way as a first submission, except the source is already known to the *Journalist*. As an additional difference, a *Journalist* might choose to attach their (and eventually others') keys in the reply, so that *Source* does not have to fetch those from the server as in a first submission.
-
-### Flow Chart
-
-![chart](imgs/sd_schema.png)
-
-For simplicity, in this chart, messages are sent to a single *Journalist* rather than to all journalists enrolled with a given newsroom, and the attachment submission and retrieval procedure is omitted.
-
-Observe the asymmetry in the client-side operations:
-
-| Routine | Journalist fetch and decrypt | Source fetch and decrypt |
-| --- | --- | --- |
-| **Leg** | **message_ciphertext,ME<sub>PK</sub>** | **message_ciphertext,ME<sub>PK</sub>** |
-| Step 1. | k = DH(ME<sub>PK</sub>,<sup>i</sup>JE<sub>SK</sub>) | k = DH(ME<sub>PK</sub>,S<sub>SK</sub>) |
-| Step 2. | Discard(<sup>i</sup>JE<sub>SK</sub>) |
-| Step 3. | S<sub>PK</sub>,SC<sub>PK</sub>,m = Dec(k,message_ciphertext) | <sup>m</sup>JE<sub>PK</sub>,JC<sub>PK</sub>,m = Dec(k,message_ciphertext) |
