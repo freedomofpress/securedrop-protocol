@@ -1,5 +1,9 @@
 .DEFAULT_GOAL := help
 
+.PHONY: ci-lint
+ci-lint:  ## Lint GitHub Actions workflows.
+	@poetry run zizmor .
+
 .PHONY: docs-lint
 docs-lint: $(wildcard *.md) $(wildcard **/*.md)  ## Lint Markdown-format documentation.
 	@npx prettier --check $^
