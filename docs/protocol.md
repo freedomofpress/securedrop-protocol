@@ -1,5 +1,10 @@
 # SecureDrop Protocol specification
 
+> [!NOTE]
+> Except where indicated, this document follows the notation and other
+> conventions used in Luca Maier's ["Formal Analysis of the SecureDrop
+> Protocol"](https://github.com/lumaier/securedrop-formalanalysis).
+
 ![chart](../imgs/sd_schema.png)
 
 For simplicity, in this chart, messages are sent to a single _Journalist_ rather than to all journalists enrolled with a given newsroom, and the attachment submission and retrieval procedure is omitted.
