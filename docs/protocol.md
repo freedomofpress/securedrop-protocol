@@ -9,15 +9,6 @@
 
 For simplicity, in this chart, messages are sent to a single _Journalist_ rather than to all journalists enrolled with a given newsroom, and the attachment submission and retrieval procedure is omitted.
 
-Observe the asymmetry in the client-side operations:
-
-| Routine | Journalist fetch and decrypt                                 | Source fetch and decrypt                                                  |
-| ------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| **Leg** | **message_ciphertext,ME<sub>PK</sub>**                       | **message_ciphertext,ME<sub>PK</sub>**                                    |
-| Step 1. | k = DH(ME<sub>PK</sub>,<sup>i</sup>JE<sub>SK</sub>)          | k = DH(ME<sub>PK</sub>,S<sub>SK</sub>)                                    |
-| Step 2. | Discard(<sup>i</sup>JE<sub>SK</sub>)                         |
-| Step 3. | S<sub>PK</sub>,SC<sub>PK</sub>,m = Dec(k,message_ciphertext) | <sup>m</sup>JE<sub>PK</sub>,JC<sub>PK</sub>,m = Dec(k,message_ciphertext) |
-
 ## Keys
 
 <!--
@@ -55,6 +46,21 @@ In the table below:
 | Source     | $`S_{dh,sk}`$    | $`S_{dh,pk}`$    | DH            | DH-AKEM          |                 |
 | Source     | $`S_{kem,sk}`$   | $`S_{kem,pk}`$   | PPK           | KEM<sub>pq</sub> |                 |
 | Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | PPK           | PKE              |                 |
+
+### Usage
+
+| Source → Journalist            | Journalist → Source          |
+| ------------------------------ | ---------------------------- |
+| $`(S_{dh,sk}, S_{dh,pk})`$     | $`(J_{dh,sk}, J_{dh,pk})`$   |
+| $`(J_{edh,sk}, J_{edh,pk})`$   | $`(S_{dh,sk}, S_{dh,pk})`$   |
+| $`(J_{ekem,sk}, J_{ekem,pk})`$ | $`(S_{kem,sk}, S_{kem,pk})`$ |
+
+> For messages sent from a source to a journalist, the source is identified by
+> $S_{dh,pk}$ and utilizes the ephemeral keys $J_{edh,pk}$ and $J_{ekem,pk}$ to
+> encrypt its message. The journalist, in turn, authenticates itself using the
+> new long-term key $J_{dh,pk}$ and relies on the source's long-term keys
+> $S_{dh,pk}$ and $S_{kem,pk}$ to encrypt messages back to the source securely.
+> (Maier §5.2)
 
 ## Functions
 
