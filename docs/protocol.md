@@ -18,34 +18,43 @@ Observe the asymmetry in the client-side operations:
 | Step 2. | Discard(<sup>i</sup>JE<sub>SK</sub>)                         |
 | Step 3. | S<sub>PK</sub>,SC<sub>PK</sub>,m = Dec(k,message_ciphertext) | <sup>m</sup>JE<sub>PK</sub>,JC<sub>PK</sub>,m = Dec(k,message_ciphertext) |
 
-## Keys summary
+## Keys
 
+<!--
+TODO: Not yet accounted for from Maier:
 - **FPF**:
   - _FPF<sub>SK</sub>_: Long term FPF signing private key
   - _FPF<sub>PK</sub>_: Long term FPF signing public key
-- **Newsroom**:
-  - _NR<sub>SK</sub>_: Long term Newsroom signing private key
-  - _NR<sub>PK</sub>_: Long term Newsroom signing public key
-- **Journalists**:
-  - _J<sub>SK</sub>_: Long term Journalist signing private key
-  - _J<sub>PK</sub>_: Long term Journalist signing public key
-  - _JC<sub>SK</sub>_: Long term Journalist message-fetching private key
-  - _JC<sub>PK</sub>_: Long term Journalist message-fetching public key
-  - _JE<sub>SK</sub>_: Ephemeral per-message key-agreement private key
-  - _JE<sub>PK</sub>_: Ephemeral per-message key-agreement public key
-- **Sources**:
-  - _PW_: Secret passphrase, per the `SOURCE_PASSPHRASE_*` parameters defined [above](#config)
-  - _S<sub>SK</sub>_: Long term Source key-agreement private key
-  - _S<sub>PK</sub>_: Long term Source key-agreement public key
-  - _SC<sub>SK</sub>_: Long term Source message-fetching private key
-  - _SC<sub>PK</sub>_: Long term Source message-fetching public key
-- **Messages**:
-  - _ME<sub>SK</sub>_: Ephemeral per-message key-agreement private key
-  - _ME<sub>PK</sub>_: Ephemeral per-message key-agreement public key
 - **Server**:
   - _RE<sub>SK</sub>_: Ephemeral Server, per-request message-fetching private key
   - _RE<sub>PK</sub>_: Ephemeral Server, per-request message-fetching public key
   - _DE<sup>n</sup><sub>PK</sub>_: Per-request, ephemeral decoy public key
+-->
+
+In the table below:
+
+- **FIXME:** LaTeX set notation
+
+> For keys, we use the notation $X_{A,B}$, where $X$ represents the key owner
+> ($X \in \{NR, J, S\}$ [for newsroom, journalist, and source, respectively]), $A$
+> represents the key's usage ($A \in \{pke,sig,fetch,dh\}$), and is prefixed with an
+> "e" if the key is ephemeral. $B$ indicates whether the component is private or
+> public. For Diffie-Hellman keys $x$, the public component is represented by the
+> exponentiation $DH(g, x)$. (Maier §5.4.1)
+
+| Party      | Private Key      | Public Key       | Type          | Usage            | Signed by       |
+| ---------- | ---------------- | ---------------- | ------------- | ---------------- | --------------- |
+| Newsroom   | $`NR_{sig,sk}`$  | $`NR_{sig,pk}`$  | PPK           | Signing          |                 |
+| Journalist | $`J_{sig,sk}`$   | $`J_{sig,pk}`$   | PPK           | Signing          | $`NR_{sig,sk}`$ |
+| Journalist | $`J_{fetch,sk}`$ | $`J_{fetch,pk}`$ | DH            | Fetching         | $`NR_{sig,sk}`$ |
+| Journalist | $`J_{dh,sk}`$    | $`J_{dh,pk}`$    | DH            | DH-AKEM          | $`NR_{sig,sk}`$ |
+| Journalist | $`J_{ekem,sk}`$  | $`J_{ekem,pk}`$  | Ephemeral PPK | KEM<sub>pq</sub> | $`J_{sig,sk}`$  |
+| Journalist | $`J_{epke,sk}`$  | $`J_{epke,pk}`$  | Ephemeral PPK | PKE              | $`J_{sig,sk}`$  |
+| Journalist | $`J_{edh,sk}`$   | $`J_{edh,pk}`$   | Ephemeral DH  | DH-AKEM          | $`J_{sig,sk}`$  |
+| Source     | $`S_{fetch,sk}`$ | $`S_{fetch,pk}`$ | DH            | Fetching         |                 |
+| Source     | $`S_{dh,sk}`$    | $`S_{dh,pk}`$    | DH            | DH-AKEM          |                 |
+| Source     | $`S_{kem,sk}`$   | $`S_{kem,pk}`$   | PPK           | KEM<sub>pq</sub> |                 |
+| Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | PPK           | PKE              |                 |
 
 ## Functions
 
