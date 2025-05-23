@@ -1,0 +1,31 @@
+name: CI
+
+on: [push, pull_request]
+
+permissions: {}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    steps:
+      - name: Bootstrap Debian system package dependencies
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends \
+            git \
+            make \
+            nodejs npm \
+            python3-poetry
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Node.js dependencies
+        run: |
+          npm ci
+      - name: Install Python dependencies
+        run: |
+          poetry install --no-ansi
+      - name: Run linters
+        run: |
+          make lint
