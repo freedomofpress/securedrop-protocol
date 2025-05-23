@@ -15,6 +15,9 @@ doxygen:  ## Generate browsable documentation and call/caller graphs (requires D
 	@doxygen
 	@echo "Now open \"$(PWD)/docs/html/index.html\" in your browser."
 
+.PHONY: lint
+lint: ci-lint docs-lint  ## Run all linters.
+
 .PHONY: help
 help: ## Prints this message and exits.
 	@printf "Subcommands:\n\n"
