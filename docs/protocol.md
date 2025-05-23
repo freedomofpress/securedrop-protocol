@@ -47,27 +47,10 @@ In the table below:
 | Source     | $`S_{kem,sk}`$   | $`S_{kem,pk}`$   | PPK           | KEM<sub>pq</sub> |                 |
 | Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | PPK           | PKE              |                 |
 
-### Usage
-
-| Source → Journalist            | Journalist → Source          |
-| ------------------------------ | ---------------------------- |
-| $`(S_{dh,sk}, S_{dh,pk})`$     | $`(J_{dh,sk}, J_{dh,pk})`$   |
-| $`(J_{edh,sk}, J_{edh,pk})`$   | $`(S_{dh,sk}, S_{dh,pk})`$   |
-| $`(J_{ekem,sk}, J_{ekem,pk})`$ | $`(S_{kem,sk}, S_{kem,pk})`$ |
-
-> For messages sent from a source to a journalist, the source is identified by
-> $S_{dh,pk}$ and utilizes the ephemeral keys $J_{edh,pk}$ and $J_{ekem,pk}$ to
-> encrypt its message. The journalist, in turn, authenticates itself using the
-> new long-term key $J_{dh,pk}$ and relies on the source's long-term keys
-> $S_{dh,pk}$ and $S_{kem,pk}$ to encrypt messages back to the source securely.
-> (Maier §5.2)
-
 ## Functions
 
 | Formula                                                                                      | Description                                                                                                             |
 | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| _c = Enc(k, m)_                                                                              | Authenticated encryption of message _m_ to ciphertext _c_ using symmetric key _k_                                       |
-| _m = Dec(k, c)_                                                                              | Authenticated decryption of ciphertext _c_ to message _m_ using symmetric key _k_                                       |
 | _h = Hash(m)_                                                                                | Hash message _m_ to hash _h_                                                                                            |
 | _k = KDF(m)_                                                                                 | Derive a key _k_ from message _m_                                                                                       |
 | _SK = Gen(s)_                                                                                | Generate a private key _SK_ pair using seed _s_; if seed is empty generation is securely random                         |
@@ -75,6 +58,30 @@ In the table below:
 | _sig<sup>signer</sup>(target<sub>PK</sub>) = Sign(signer<sub>SK</sub>, target<sub>PK</sub>)_ | Create signature _sig_ using _signer<sub>SK</sub>_ as the signer key and _target<sub>PK</sub>_ as the signed public key |
 | _true/false = Verify(signer<sub>PK</sub>,sig<sup>signer</sup>(target<sub>PK</sub>))_         | Verify signature sig of public key PK using Ver<sub>PK</sub>                                                            |
 | _k = DH(A<sub>SK</sub>, B<sub>PK</sub>) == DH(A<sub>PK</sub>, B<sub>SK</sub>)_               | Generate shared key _k_ using a key agreement primitive                                                                 |
+
+### HPKE<sup>pq</sup><sub>auth</sub>
+
+| Formula                                                                             | Description                                                                   |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| $`(skS_{dh}, pkS_{dh}) = \text{Gen_S}()`$                                           | Generate keys for a sender $S$                                                |
+| $`((skR_{dh}, skR_{kem}), (pkR_{dh}, pkR_{kem})) = \text{Gen_R}()`$                 | Generate keys for a receiver $R$                                              |
+| $`((c_1, c_2), c) = \text{AuthEnc}(skS_{dh}, (pkR_{dh}, pkR_{kem}), m, aad, info)`$ | Encrypt to a receiver $R$ a message $m$ with associated data $aad$ and $info$ |
+| $`m = \text{AuthDec}((skR_{dh}, skR_{kem}), pkS_dh, ((c_1, c_2), c), aad, info)`$   | Decrypt from a sender $S$ a message $m$ with associated data $aad$ and $info$ |
+
+### Usage
+
+| Keys                       | Source → Journalist            | Journalist → Source          |
+| -------------------------- | ------------------------------ | ---------------------------- |
+| $`(skS_{dh}, pkS_{dh})`$   | $`(S_{dh,sk}, S_{dh,pk})`$     | $`(J_{dh,sk}, J_{dh,pk})`$   |
+| $`(skR_{dh}, pkR_{dh})`$   | $`(J_{edh,sk}, J_{edh,pk})`$   | $`(S_{dh,sk}, S_{dh,pk})`$   |
+| $`(skR_{kem}, pkR_{kem})`$ | $`(J_{ekem,sk}, J_{ekem,pk})`$ | $`(S_{kem,sk}, S_{kem,pk})`$ |
+
+> For messages sent from a source to a journalist, the source is identified by
+> $`S_{dh,pk}`$ and utilizes the ephemeral keys $`J_{edh,pk}`$ and $`J_{ekem,pk}`$ to
+> encrypt its message. The journalist, in turn, authenticates itself using the
+> new long-term key $`J_{dh,pk}`$ and relies on the source's long-term keys
+> $`S_{dh,pk}`$ and $`S_{kem,pk}`$ to encrypt messages back to the source securely.
+> (Maier §5.2)
 
 ## Keys setup
 
