@@ -49,22 +49,22 @@ In the table below:
 
 ## Functions
 
-| Formula                                                                                      | Description                                                                                                             |
-| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| _h = Hash(m)_                                                                                | Hash message _m_ to hash _h_                                                                                            |
-| _k = KDF(m)_                                                                                 | Derive a key _k_ from message _m_                                                                                       |
-| _SK = Gen(s)_                                                                                | Generate a private key _SK_ pair using seed _s_; if seed is empty generation is securely random                         |
-| _PK = GetPub(SK)_                                                                            | Get public key _PK_ from secret key _SK_                                                                                |
-| _sig<sup>signer</sup>(target<sub>PK</sub>) = Sign(signer<sub>SK</sub>, target<sub>PK</sub>)_ | Create signature _sig_ using _signer<sub>SK</sub>_ as the signer key and _target<sub>PK</sub>_ as the signed public key |
-| _true/false = Verify(signer<sub>PK</sub>,sig<sup>signer</sup>(target<sub>PK</sub>))_         | Verify signature sig of public key PK using Ver<sub>PK</sub>                                                            |
-| _k = DH(A<sub>SK</sub>, B<sub>PK</sub>) == DH(A<sub>PK</sub>, B<sub>SK</sub>)_               | Generate shared key _k_ using a key agreement primitive                                                                 |
+| Syntax                                                | Description                                                                                                                                                                      |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| $`h = \text{Hash}(m)`$                                | Hash message $m$ to digest $h$                                                                                                                                                   |
+| $`k \Vert k_1 \Vert \dots \Vert k_n = \text{KDF}(m)`$ | Derive one or more keys $k$ from a message $m$                                                                                                                                   |
+| $`\sigma = \text{Sign}(sk, m)`$                       | Sign a message $m$ with the private key $sk$                                                                                                                                     |
+| $`b \in {0,1} = \text{Vfy}(pk, m, \sigma)`$           | Verify a message $m$ and a signature $\sigma$ with a public key $pk$                                                                                                             |
+| $`(sk, pk) = \text{KGen}()`$                          | Generate keys; for DH-AKEM, $(sk, pk) = (x, g^x)$                                                                                                                                |
+| $`(c, K) = \text{AuthEncap}(skS, pkR)`$               | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $skS$ and a receiver's public key $pkR$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
+| $`K = \text{AuthDecap}(skR, pkS, pkE)`$               | Decapsulate a shared secret $K$ using a receiver's private key $skR$, a sender's public key $pkS$, and a ciphertext $c$                                                          |
 
 ### HPKE<sup>pq</sup><sub>auth</sub>
 
-| Formula                                                                             | Description                                                                   |
+| Syntax                                                                              | Description                                                                   |
 | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| $`(skS_{dh}, pkS_{dh}) = \text{Gen_S}()`$                                           | Generate keys for a sender $S$                                                |
-| $`((skR_{dh}, skR_{kem}), (pkR_{dh}, pkR_{kem})) = \text{Gen_R}()`$                 | Generate keys for a receiver $R$                                              |
+| $`(skS_{dh}, pkS_{dh}) = \text{Gen}_S()`$                                           | Generate keys for a sender $S$                                                |
+| $`((skR_{dh}, skR_{kem}), (pkR_{dh}, pkR_{kem})) = \text{Gen}_R()`$                 | Generate keys for a receiver $R$                                              |
 | $`((c_1, c_2), c) = \text{AuthEnc}(skS_{dh}, (pkR_{dh}, pkR_{kem}), m, aad, info)`$ | Encrypt to a receiver $R$ a message $m$ with associated data $aad$ and $info$ |
 | $`m = \text{AuthDec}((skR_{dh}, skR_{kem}), pkS_dh, ((c_1, c_2), c), aad, info)`$   | Decrypt from a sender $S$ a message $m$ with associated data $aad$ and $info$ |
 
