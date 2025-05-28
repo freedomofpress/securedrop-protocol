@@ -1,7 +1,7 @@
 # PKI for SecureDrop: problem statement
 
 > [!NOTE]
-> This document is a draft for future work.  It does not describe the current
+> This document is a draft for future work. It does not describe the current
 > implementation.
 
 ## PKI: the status quo
@@ -50,11 +50,9 @@ gives these goals for a key-transparency system:
 > - Allow an end-user to search and download the public keys of themselves or
 >   for other end-users; and enable a process for updating their public key with the
 >   authentication service of the communication service provider
->
 > - Allow end-users to verify on an ongoing basis that they have a globally
 >   consistent view of which public keys have been associated with which accounts,
 >   including their own.
->
 > - Allow end-users to perform this verification of a globally consistent view
 >   via an out-of-band mechanism for small groups, or use an anonymous check with
 >   the communication service provider in-band for larger groups.[^4]
@@ -89,6 +87,7 @@ The disadvantages of KT are:
     $sig^{NR_{SK}}(FPF_{PK})$.
 
 [^3]: https://github.com/freedomofpress/securedrop-poc/files/14903819/securedrop.report.pdf
+
 [^4]: https://datatracker.ietf.org/wg/keytrans/about/
 
 [#32]: https://github.com/freedomofpress/securedrop-protocol/issues/32
