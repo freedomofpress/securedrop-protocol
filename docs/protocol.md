@@ -85,32 +85,26 @@ In the table below:
 
 ## Setup
 
-<!--
-TODO: Not yet accounted for from Maier:
-- **FPF**:
+### FPF
 
-  | Operation                                     | Description                                                                                                                      |
-  | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-  | _FPF<sub>SK</sub> = Gen()_                    | FPF generates a random private key (we might add HSM requirements, or certificate style PKI, i.e.: self signing some attributes) |
-  | _FPF<sub>PK</sub> = GetPub(FPF<sub>SK</sub>)_ | Derive the corresponding public key                                                                                              |
+| FPF                                                           |
+| ------------------------------------------------------------- |
+| $`(FPF_{sig,sk}, FPF_{sig,pk}) \leftarrow^{\$} \text{Gen}()`$ |
 
-  **FPF** pins _FPF<sub>PK</sub>_ in the **Journalist** client, in the **Source** client and in the **Server** code.
--->
+$FPF_{sig,pk}$ is pinned in all components that participate in the protocol
+(likely in a library they share): the server, the journalist client, and the
+source client.
 
 ### Newsroom
 
-| Newsroom                                                        |
-| --------------------------------------------------------------- |
-| $`(NR_{sig,sk}, NR_{sig,pk}) \longleftarrow^{\$} \text{Gen}()`$ |
+| Newsroom                                                        |                                 | FPF                                                       |
+| --------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------- |
+| $`(NR_{sig,sk}, NR_{sig,pk}) \longleftarrow^{\$} \text{Gen}()`$ |                                 |                                                           |
+|                                                                 | $`\longrightarrow NR_{sig,pk}`$ | for manual verification.                                  |
+|                                                                 |                                 | $`\sigma^{FPF} = \text{Sign}(FPF_{sig,sk}, NR_{sig,pk})`$ |
+|                                                                 | $`\sigma^{FPF} \longleftarrow`$ |
 
-$NR_{sig,pk}$ is pinned in the server during deployment.
-
-<!--
-TODO: Not yet accounted for from Maier:
-  | _sig<sup>FPF</sup>(NR<sub>PK</sub>) = Sign(FPF<sub>SK</sub>, NR<sub>PK</sub>)_ | Newsroom sends a CSR or the public key to FPF; FPF validates manually/physically before signing |
-
-  **Newsroom** pins _NR<sub>PK</sub>_ and _sig<sup>FPF</sup>(NR<sub>PK</sub>)_ in the **Server** during initial server setup.
--->
+$NR_{sig,pk}$ and $\sigma^{FPF}$ are pinned in the server during deployment.[^1]
 
 ### Journalist
 
@@ -252,3 +246,5 @@ See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in th
 ### Source reply
 
 _Source_ replies work the exact same way as a first submission, except the source is already known to the _Journalist_. As an additional difference, a _Journalist_ might choose to attach their (and eventually others') keys in the reply, so that _Source_ does not have to fetch those from the server as in a first submission.
+
+[^1]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
