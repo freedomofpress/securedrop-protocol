@@ -112,21 +112,33 @@ TODO: Not yet accounted for from Maier:
   **Newsroom** pins _NR<sub>PK</sub>_ and _sig<sup>FPF</sup>(NR<sub>PK</sub>)_ in the **Server** during initial server setup.
 -->
 
-- **Journalist [0-i]**:
+### Journalist
 
-  | Operation                                                                                                                  | Description                                                                                              |
-  | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-  | _J<sub>SK</sub> = Gen()_                                                                                                   | Journalist generates the long-term signing key randomly                                                  |
-  | _J<sub>PK</sub> = GetPub(J<sub>SK</sub>)_                                                                                  | Derive the corresponding public key                                                                      |
-  | _sig<sup>NR</sup>(J<sub>PK</sub>) = Sign(NR<sub>SK</sub>, J<sub>PK</sub>)_                                                 | Journalist sends a CSR or the public key to the Newsroom admin/managers for signing                      |
-  | _JC<sub>SK</sub> = Gen()_                                                                                                  | Journalist generates the long-term message-fetching key randomly (TODO: this key could be rotated often) |
-  | _JC<sub>PK</sub> = GetPub(JC<sub>SK</sub>)_                                                                                | Derive the corresponding public key                                                                      |
-  | _sig<sup>J</sup>(JC<sub>PK</sub>) = Sign(J<sub>SK</sub>, JC<sub>PK</sub>)_                                                 | Journalist signs the long-term message-fetching key with the long-term signing key                       |
-  | _<sup>[0-n]</sup>JE<sub>SK</sub> = Gen()_                                                                                  | Journalist generates a number _n_ of ephemeral key agreement keys randomly                               |
-  | _<sup>[0-n]</sup>JE<sub>PK</sub> = GetPub(<sup>[0-n]</sup>JE<sub>SK</sub>)_                                                | Derive the corresponding public keys                                                                     |
-  | _<sup>[0-n]</sup>sig<sup>J</sup>(<sup>[0-n]</sup>JE<sub>PK</sub>) = Sign(J<sub>SK</sub>, <sup>[0-n]</sup>JE<sub>PK</sub>)_ | Journalist individually signs the ephemeral key agreement keys (TODO: add ephemeral key expiration)      |
+#### Enrollment
 
-  **Journalist** sends _J<sub>PK</sub>_, _sig<sup>NR</sup>(J<sub>PK</sub>)_, _JC<sub>PK</sub>_, _sig<sup>J</sup>(JC<sub>PK</sub>)_, _<sup>[0-n]</sup>JE<sub>PK</sub>_ and _<sup>[0-n]</sup>sig<sup>J</sup>(<sup>[0-n]</sup>JE<sub>PK</sub>)_ to **Server** which verifies and publishes them.
+| Journalist                                                    |                                                         | Newsroom                                                                                        |
+| ------------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| $`(J_{sig,sk}, J_{sig,pk}) \leftarrow^{\$} \text{Gen}()`$     |                                                         |                                                                                                 |
+| $`(J_{fetch,sk}, J_{fetch,pk}) \leftarrow^{\$} \text{Gen}()`$ |                                                         |                                                                                                 |
+| $`(J_{dh,sk}, J_{dh,pk}) \leftarrow^{\$} \text{Gen}()`$       |                                                         |                                                                                                 |
+|                                                               | $`\longrightarrow J_{sig,pk}, J_{fetch,pk}, J_{dh,pk}`$ | for manual verification.                                                                        |
+|                                                               |                                                         | $`\sigma^{NR} \leftarrow^{\$} \text{Sign}(NR_{sig,sk}, (J_{sig,pk}, J_{fetch,pk}, J_{dh,pk}))`$ |
+|                                                               | $`\sigma^{NR} \longleftarrow`$                          |                                                                                                 |
+
+Public keys and $\sigma^{NR}$ are saved to the server.
+
+#### Setup and periodic replenishment of $n$ ephemeral keys
+
+Repeat $n$ times:
+
+| Journalist                                                                                   |
+| -------------------------------------------------------------------------------------------- |
+| $`(J_{edh,sk}, J_{edh,pk}) \longleftarrow^{\$} \text{Gen}()`$                                |
+| $`(J_{ekem,sk}, J_{ekem,pk}) \longleftarrow^{\$} \text{Gen}()`$                              |
+| $`(J_{epke,sk}, J_{epke,pk}) \longleftarrow^{\$} \text{Gen}()`$                              |
+| $`\sigma^J \leftarrow^{\$} \text{Sign}(J_{sig,sk}, (J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}))`$ |
+
+Public keys and $\sigma^{J}$ are saved to the server.
 
 - **Source [0-j]**:
 
