@@ -55,7 +55,7 @@ In the table below:
 | $`k \Vert k_1 \Vert \dots \Vert k_n = \text{KDF}(m)`$ | Derive one or more keys $k$ from a message $m$                                                                                                                                   |
 | $`\sigma = \text{Sign}(sk, m)`$                       | Sign a message $m$ with the private key $sk$                                                                                                                                     |
 | $`b \in {0,1} = \text{Vfy}(pk, m, \sigma)`$           | Verify a message $m$ and a signature $\sigma$ with a public key $pk$                                                                                                             |
-| $`(sk, pk) = \text{KGen}()`$                          | Generate keys; for DH-AKEM, $(sk, pk) = (x, g^x)$                                                                                                                                |
+| $`(sk, pk) = \text{Gen}()`$                           | Generate keys; for DH-AKEM, $(sk, pk) = (x, g^x)$                                                                                                                                |
 | $`(c, K) = \text{AuthEncap}(skS, pkR)`$               | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $skS$ and a receiver's public key $pkR$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
 | $`K = \text{AuthDecap}(skR, pkS, pkE)`$               | Decapsulate a shared secret $K$ using a receiver's private key $skR$, a sender's public key $pkS$, and a ciphertext $c$                                                          |
 
@@ -83,8 +83,10 @@ In the table below:
 > $`S_{dh,pk}`$ and $`S_{kem,pk}`$ to encrypt messages back to the source securely.
 > (Maier §5.2)
 
-## Keys setup
+## Setup
 
+<!--
+TODO: Not yet accounted for from Maier:
 - **FPF**:
 
   | Operation                                     | Description                                                                                                                      |
@@ -93,16 +95,22 @@ In the table below:
   | _FPF<sub>PK</sub> = GetPub(FPF<sub>SK</sub>)_ | Derive the corresponding public key                                                                                              |
 
   **FPF** pins _FPF<sub>PK</sub>_ in the **Journalist** client, in the **Source** client and in the **Server** code.
+-->
 
-- **Newsroom**:
+### Newsroom
 
-  | Operation                                                                      | Description                                                                                     |
-  | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-  | _NR<sub>SK</sub> = Gen()_                                                      | Newsroom generates a random private key with similar security to the FPF one                    |
-  | _NR<sub>PK</sub> = GetPub(<sub>SK</sub>)_                                      | Derive the corresponding public key                                                             |
+| Newsroom                                                        |
+| --------------------------------------------------------------- |
+| $`(NR_{sig,sk}, NR_{sig,pk}) \longleftarrow^{\$} \text{Gen}()`$ |
+
+$NR_{sig,pk}$ is pinned in the server during deployment.
+
+<!--
+TODO: Not yet accounted for from Maier:
   | _sig<sup>FPF</sup>(NR<sub>PK</sub>) = Sign(FPF<sub>SK</sub>, NR<sub>PK</sub>)_ | Newsroom sends a CSR or the public key to FPF; FPF validates manually/physically before signing |
 
   **Newsroom** pins _NR<sub>PK</sub>_ and _sig<sup>FPF</sup>(NR<sub>PK</sub>)_ in the **Server** during initial server setup.
+-->
 
 - **Journalist [0-i]**:
 
