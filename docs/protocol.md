@@ -140,17 +140,13 @@ Repeat $n$ times:
 
 Public keys and $\sigma^{J}$ are saved to the server.
 
-- **Source [0-j]**:
+### Source
 
-  | Operation                                            | Description                                                                                              |
-  | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-  | _PW_ = Gen()                                         | Source generates a secure passphrase which is the only state available to clients                        |
-  | _S<sub>SK</sub> = Gen(KDF(encryption_salt \|\| PW))_ | Source deterministically generates the long-term key agreement key-pair using a specific hard-coded salt |
-  | _S<sub>PK</sub> = GetPub(S<sub>SK</sub>)_            | Derive the corresponding public key                                                                      |
-  | _SC<sub>SK</sub> = Gen(KDF(fetching_salt \|\| PW))_  | Source deterministically generates the long-term fetching key-pair using a specific hard-coded salt      |
-  | _SC<sub>PK</sub> = GetPub(SC<sub>SK</sub>)_          | Derive the corresponding public key                                                                      |
+After entering (on their first visit) or reentering (on a subsequent visit) some $passphrase$:
 
-  **Source** does not need to publish anything until the first submission is sent.
+| Source                                                                                      |
+| ------------------------------------------------------------------------------------------- |
+| $`S_{dh,sk} \Vert S_{fetch,sk} \Vert S_{pke,sk} \Vert S_{kem,sk} = \text{KDF}(passphrase)`$ |
 
 ## Messaging protocol overview
 
