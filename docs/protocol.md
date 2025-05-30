@@ -49,7 +49,7 @@ In the table below:
 
 ## Functions and notation
 
-- **FIXME:** Replace `\leftarrow^{\$}` with `\xleftarrow{\$}`; use consistently versus `=`
+- **FIXME:** Replace `\leftarrow^{\$}` with `\xleftarrow{\$}`; use consistently versus `=` or $\gets$
 
 | Syntax                                                | Description                                                                                                                                                                      |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -195,33 +195,10 @@ For some message $msg$ to all journalists $J^i$ enrolled for a newsroom $NR$:
 |                                                                                                                                   |                             | $`id \leftarrow^{\$} \text{Rand}()`$  |
 |                                                                                                                                   |                             | $`messages[id] \leftarrow (C, Z, X)`$ |
 
-### Server message id fetching protocol
+### Source or journalist fetches messages IDs
 
-1. For every entry _<sup>i</sup>mid_ -> _<sup>i</sup>ME<sub>PK</sub>_, _<sup>i</sup>mgdh_ (`message_id` -> (`message_gdh`, `message_public_key`)):
-   - _Server_ generates per-request, per-message, ephemeral secret key _<sup>i</sup>RE<sub>SK</sub> = Gen()_
-   - _Server_ calculates _<sup>i</sup>kmid = DH(<sup>i</sup>RE<sub>SK</sub>,<sup>i</sup>mgdh)_
-   - _Server_ calculates _<sup>i</sup>pmgdh = DH(<sup>i</sup>RE<sub>SK</sub>,<sup>i</sup>ME<sub>PK</sub>)_
-   - _Server_ encrypts _<sup>i</sup>mid_ using _<sup>i</sup>kmid_: _<sup>i</sup>enc_mid = Enc(<sup>i</sup>kmid, <sup>i</sup>mid)_
-   - _Server_ discards _<sup>i</sup>RE<sub>SK</sub>_
-2. _Server_ generates _j = [`commons.MAX_MESSAGES - i`]_ random decoys _<sup>[0-j]</sup>decoy_pmgdh_ and _<sup>[0-j]</sup>decoy_enc_mid_
-3. _Server_ returns a shuffled list of `commons.MAX_MESSAGES` (_i+j_) tuples of _(<sup>[0-i]</sup>pmgdh,<sup>[0-i]</sup>enc_mid) U (<sup>[0-j]</sup>decoy_pmgdh,<sup>[0-j]</sup>enc_mid)_
+For a total of $n$ messages:
 
-### Source message id fetching protocol
-
-1. _Source_ derives _SC<sub>SK</sub> = G(KDF(fetching_salt + PW))_
-2. _Source_ fetches _(<sup>[0-n]</sup>pmgdh,<sup>[0-n]</sup>enc_mid)_ from _Server_ (`n=commons.MAX_MESSAGES`)
-3. For every _(<sup>i</sup>pmgdh,<sup>i</sup>enc_mid)_:
-   - _Source_ calculates _<sup>i</sup>kmid = DH(<sup>i</sup>pmgdh,SC<sub>SK</sub>)_
-   - _Source_ attempts to decrypt _<sup>i</sup>mid = Dec(<sup>i</sup>kmid,<sup>i</sup>enc_mid)_
-   - If decryption succeeds, save _<sup>i</sup>mid_
-
-### Journalist message id fetching protocol
-
-1. _Journalist_ fetches _(<sup>[0-n]</sup>pmgdh,<sup>[0-n]</sup>enc_mid)_ from _Server_ (`n=commons.MAX_MESSAGES`)
-2. For every _(<sup>i</sup>pmgdh,<sup>i</sup>enc_mid)_:
-   - _Journalist_ calculates _<sup>i</sup>kmid = DH(<sup>i</sup>pmgdh,JC<sub>SK</sub>)_
-   - _Journalist_ attempts to decrypt _<sup>i</sup>mid = Dec(<sup>i</sup>kmid,<sup>i</sup>enc_mid)_
-   - If decryption succeeds, save _<sup>i</sup>mid_
 
 ### Journalist read
 
@@ -236,6 +213,28 @@ For some message $msg$ to all journalists $J^i$ enrolled for a newsroom $NR$:
     - _Journalist_ decrypts _<sup>m</sup>f_ using _<sup>m</sup>s_: _<sup>m</sup>u = Dec(<sup>m</sup>s, <sup>m</sup>)f_
 5.  _Journalist_ joins _<sup>m</sup>u_ according to metadata and saves back the original files
 6.  _Journalist_ reads the message _m_
+| User $U \in \set{J, S}$ for journalist $J$ or source $S$ |                                                   | Server                                                            |
+| -------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------- |
+|                                                          | $\longrightarrow$ request messages                |                                                                   |
+|                                                          |                                                   | $`\forall i \in 0\dots \text{Len}(messages)`$:                    |
+|                                                          |                                                   | $`(id_i, (c_i, Z_i, X_i)) \leftarrow messages.\text{items}()[i]`$ |
+|                                                          |                                                   | $`y \leftarrow^{\$} \mathbb Z_q`$                                 |
+|                                                          |                                                   | $`k_i \leftarrow \text{DH}(Z_i, y)`$                              |
+|                                                          |                                                   | $`Q_i \leftarrow \text{DH}(X_i, y)`$                              |
+|                                                          |                                                   | $`cid_i \leftarrow^{\$} \text{Enc}(k_i, id_i)`$                   |
+|                                                          |                                                   |                                                                   |
+|                                                          |                                                   | $`\forall i \in \text{Len}(messages) \dots n`$:                   |
+|                                                          |                                                   | $`Q_i \leftarrow \text{DH}(X_i, y)`$                              |
+|                                                          |                                                   | $`cid_i \leftarrow^{\$} \text{Enc}(k_i, id_i)`$                   |
+|                                                          |                                                   |                                                                   |
+|                                                          | $`Q_{0 \dots n}, cid_{0 \dots n} \longleftarrow`$ |
+| $`ids \leftarrow \set{}`$                                |                                                   |                                                                   |
+| $`\forall i \in 0 \dots n`$:                             |                                                   |                                                                   |
+| $`k_i \leftarrow \text{DH}(Q_i, U_{fetch,sk})`$:         |                                                   |                                                                   |
+| $`id_i \leftarrow \text{Dec}(k_i, cid_i) \neq \bot`$     |                                                   |                                                                   |
+| $`ids \leftarrow ids \cup\set{id_i}`$                    |                                                   |                                                                   |
+|                                                          |                                                   |                                                                   |
+| Return $ids$                                             |                                                   |                                                                   |
 
 ### Journalist reply
 
