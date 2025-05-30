@@ -155,12 +155,13 @@ For some newsroom $NR$ and all its enrolled journalists $J^i$:
 | Source                                                    |                                                 | Server                                                             |
 | --------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
 |                                                           | $\longrightarrow$ request keys for $NR$         |                                                                    |
-|                                                           | $`NR_{sig,pk} \longleftarrow`$                  |
+|                                                           | $`NR_{sig,pk}, \sigma^{FPF} \longleftarrow`$    |
 |                                                           |                                                 | $`\forall J^i`$:                                                   |
 |                                                           | $`J^i_{sig,pk}, \sigma^{NR} \longleftarrow`$    |                                                                    |
 |                                                           | $`J^i_{fetch,pk}, \sigma^{J^i} \longleftarrow`$ |                                                                    |
 |                                                           | $`J^i_{edh,pk}, \sigma^{J^i} \longleftarrow`$   | chosen at random for $J^i$                                         |
 |                                                           |                                                 | $`\text{Discard}(J^{edh,pk})`$ and its component in $\sigma^{J^i}$ |
+| $`\text{Vfy}(FPF_{sig,pk}, NR_{sig,pk}, \sigma^{FPF})`$   |                                                 |                                                                    |
 | $`\forall J^i`$:                                          |                                                 |                                                                    |
 | $`\text{Vfy}(NR_{sig,pk}, J^i_{sig,pk}, \sigma^{NR})`$    |                                                 |                                                                    |
 | $`\text{Vfy}(J^i{sig,pk}, J^i_{fetch,pk}, \sigma^{J^i})`$ |                                                 |                                                                    |
