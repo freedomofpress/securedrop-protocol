@@ -47,7 +47,7 @@ In the table below:
 | Source     | $`S_{kem,sk}`$   | $`S_{kem,pk}`$   | PPK           | KEM<sub>pq</sub> |                 |
 | Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | PPK           | PKE              |                 |
 
-## Functions
+## Functions and notation
 
 | Syntax                                                | Description                                                                                                                                                                      |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -55,10 +55,13 @@ In the table below:
 | $`k \Vert k_1 \Vert \dots \Vert k_n = \text{KDF}(m)`$ | Derive one or more keys $k$ from a message $m$                                                                                                                                   |
 | $`\sigma = \text{Sign}(sk, m)`$                       | Sign a message $m$ with the private key $sk$                                                                                                                                     |
 | $`b \in {0,1} = \text{Vfy}(pk, m, \sigma)`$           | Verify a message $m$ and a signature $\sigma$ with a public key $pk$                                                                                                             |
-| $`(sk, pk) = \text{Gen}()`$                           | Generate keys; for DH-AKEM, $(sk, pk) = (x, g^x)$                                                                                                                                |
+| $` g^x = \text{DH(g, x)}`$                            | Diffie-Hellman exponentiation of private component $x$                                                                                                                           |
+| $`(sk, pk) = \text{Gen}()`$                           | Generate keys; for DH-AKEM, $(sk, pk) = (x, \text{DH}(g, x)) = (x, g^x)$                                                                                                         |
 | $`(c, K) = \text{AuthEncap}(skS, pkR)`$               | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $skS$ and a receiver's public key $pkR$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
 | $`K = \text{AuthDecap}(skR, pkS, pkE)`$               | Decapsulate a shared secret $K$ using a receiver's private key $skR$, a sender's public key $pkS$, and a ciphertext $c$                                                          |
+| $`r = \text{Rand}()`$                                 | Generate a random value                                                                                                                                                          |
 | $`\text{Discard}(x)`$                                 | Discard some value $x$ from local state/storage                                                                                                                                  |
+| $`\varepsilon`$                                       | The empty string                                                                                                                                                                 |
 
 ### HPKE<sup>pq</sup><sub>auth</sub>
 
@@ -171,29 +174,26 @@ For some newsroom $NR$ and all its enrolled journalists $J^i$:
 | $`\text{Vfy}(J^i_{sig,pk}, J^i_{ekem,pk}, \sigma^{J^i})`$ |                                                                             |                                   |
 | $`\text{Vfy}(J^i_{sig,pk}, J^i_{epke,pk}, \sigma^{J^i})`$ |                                                                             |                                   |
 
-### Source submission to Journalist
+### Source submits a message
 
-4.  _Source_ generates the unique passphrase randomly _PW = G()_ (the only state that identifies the specific _Source_)
-5.  _Source_ derives _S<sub>SK</sub> = G(KDF(encryption_salt + PW))_, _S<sub>PK</sub> = GetPub(S<sub>SK</sub>)_
-6.  _Source_ derives _SC<sub>SK</sub> = G(KDF(fetching_salt + PW))_, _SC<sub>PK</sub> = GetPub(SC<sub>SK</sub>)_
-7.  _Source_ splits any attachment in parts of size `commons.CHUNKS`. Any chunk smaller is padded to `commons.CHUNKS` size.
-8.  For every _Chunk_, _<sup>m</sup>u_
-    - _Source_ generate a random key _<sup>m</sup>s = G()_
-    - _Source_ encrypts _<sup>m</sup>u_ using _<sup>m</sup>s_: _<sup>m</sup>f = E(<sup>m</sup>s, <sup>m</sup>u)_
-    - _Source_ uploads _<sup>m</sup>f_ to _Server_, which returns a random token <sup>m</sup>t (`file_id`)
-    - _Server_ stores <sup>m</sup>t -> _<sup>m</sup>f_ (`file_id` -> `file`)
-9.  _Source_ adds metadata, _S<sub>PK</sub>_, _SC<sub>PK</sub>_ to message _m_.
-10. _Source_ adds all the _<sup>[0-m]</sup>s_ keys and all the tokens <sup>[0-m]</sup>t (`file_id`) to message _m_
+For some message $msg$ to a journalists $J$ enrolled for a newsroom $NR$:
+
+| Source                                                                                                                  |                             | Server                                |
+| ----------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------- |
+| $`m \leftarrow msg \Vert S_{dh,pk} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert J_{sig,pk} \Vert NR`$     |                             |                                       |
+| $`((c_1, c_2), C'') \leftarrow^{\$} \text{AuthEnc}(S_{dh,pk}, (J_{edh,pk}, J_{ekem,pk}), m, \varepsilon, \varepsilon)`$ |                             |
+| $`C' \leftarrow^{\$} \text{Enc}(J_{epke,pk}, S_d,pk \Vert c_1 \Vert c_2)`$                                              |                             |                                       |
+| $`C \leftarrow C' \Vert C''`$                                                                                           |                             |                                       |
+| $`x \leftarrow^{\$} \mathbb Z_q`$                                                                                       |                             |                                       |
+| $`X \leftarrow \text{DH}(g, x)`$                                                                                        |                             |                                       |
+| $`Z \leftarrow \text{DH}(J_{fetch,pk}, x)`$                                                                             |                             |                                       |
+|                                                                                                                         | $`\longrightarrow C, Z, X`$ |
+|                                                                                                                         |                             | $`id \leftarrow^{\$} \text{Rand}()`$  |
+|                                                                                                                         |                             | $`messages[id] \leftarrow (C, Z, X)`$ |
+
+<!--
 11. _Source_ pads the resulting text to a fixed size: _mp = Pad(message, metadata, S<sub>PK</sub>, SC<sub>PK</sub>, <sup>[0-m]</sup>s, <sup>[0-m]</sup>t)_
-12. For every _Journalist_ (i) in _Newsroom_
-    - _Source_ generates _<sup>i</sup>ME<sub>SK</sub> = Gen()_ (random, per-message secret key)
-    - _Source_ derives the corresponding public key _<sup>i</sup>ME<sub>PK</sub> = GetPub(<sup>i</sup>ME<sub>SK</sub>)_ (`message_public_key`)
-    - _Source_ derives the shared encryption key using a key-agreement primitive _<sup>i</sup>k = DH(<sup>i</sup>ME<sub>SK</sub>,<sup>i</sup>JE<sub>PK</sub>)_
-    - _Source_ encrypts _mp_ using _<sup>i</sup>k_: _<sup>i</sup>c = Enc(<sup>i</sup>k, mp)_ (`message_ciphertext`)
-    - _Source_ calculates _mgdh = DH(<sup>i</sup>ME<sub>SK</sub>,<sup>i</sup>JC<sub>PK</sub>)_ (`message_gdh`)
-    - _Source_ discards <sup>i</sup>ME<sub>SK</sub> to ensure forward secrecy
-    - _Source_ sends _(<sup>i</sup>c,<sup>i</sup>ME<sub>PK</sub>,<sup>i</sup>mgdh)_ to _Server_
-    - _Server_ generates _<sup>i</sup>mid = Gen()_ (`message_id`) and stores _<sup>i</sup>mid_ -> _(<sup>i</sup>c,<sup>i</sup>ME<sub>PK</sub>,<sup>i</sup>mgdh)_ (`message_id` -> (`message_ciphertext`, `message_public_key`, `message_gdh`))
+-->
 
 ### Server message id fetching protocol
 
