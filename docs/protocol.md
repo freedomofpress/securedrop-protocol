@@ -176,20 +176,21 @@ For some newsroom $NR$ and all its enrolled journalists $J^i$:
 
 ### Source submits a message
 
-For some message $msg$ to a journalists $J$ enrolled for a newsroom $NR$:
+For some message $msg$ to all journalists $J^i$ enrolled for a newsroom $NR$:
 
-| Source                                                                                                                  |                             | Server                                |
-| ----------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------- |
-| $`m \leftarrow msg \Vert S_{dh,pk} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert J_{sig,pk} \Vert NR`$     |                             |                                       |
-| $`((c_1, c_2), C'') \leftarrow^{\$} \text{AuthEnc}(S_{dh,pk}, (J_{edh,pk}, J_{ekem,pk}), m, \varepsilon, \varepsilon)`$ |                             |
-| $`C' \leftarrow^{\$} \text{Enc}(J_{epke,pk}, S_d,pk \Vert c_1 \Vert c_2)`$                                              |                             |                                       |
-| $`C \leftarrow C' \Vert C''`$                                                                                           |                             |                                       |
-| $`x \leftarrow^{\$} \mathbb Z_q`$                                                                                       |                             |                                       |
-| $`X \leftarrow \text{DH}(g, x)`$                                                                                        |                             |                                       |
-| $`Z \leftarrow \text{DH}(J_{fetch,pk}, x)`$                                                                             |                             |                                       |
-|                                                                                                                         | $`\longrightarrow C, Z, X`$ |
-|                                                                                                                         |                             | $`id \leftarrow^{\$} \text{Rand}()`$  |
-|                                                                                                                         |                             | $`messages[id] \leftarrow (C, Z, X)`$ |
+| Source                                                                                                                      |                             | Server                                |
+| --------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------- |
+| $`\forall J^i`$:                                                                                                            |                             |                                       |
+| $`m \leftarrow msg \Vert S_{dh,pk} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert J^i_{sig,pk} \Vert NR`$       |                             |                                       |
+| $`((c_1, c_2), C'') \leftarrow^{\$} \text{AuthEnc}(S_{dh,pk}, (J^i_{edh,pk}, J^i_{ekem,pk}), m, \varepsilon, \varepsilon)`$ |                             |
+| $`C' \leftarrow^{\$} \text{Enc}(J^i_{epke,pk}, S_d,pk \Vert c_1 \Vert c_2)`$                                                |                             |                                       |
+| $`C \leftarrow C' \Vert C''`$                                                                                               |                             |                                       |
+| $`x \leftarrow^{\$} \mathbb Z_q`$                                                                                           |                             |                                       |
+| $`X \leftarrow \text{DH}(g, x)`$                                                                                            |                             |                                       |
+| $`Z \leftarrow \text{DH}(J^i_{fetch,pk}, x)`$                                                                               |                             |                                       |
+|                                                                                                                             | $`\longrightarrow C, Z, X`$ |
+|                                                                                                                             |                             | $`id \leftarrow^{\$} \text{Rand}()`$  |
+|                                                                                                                             |                             | $`messages[id] \leftarrow (C, Z, X)`$ |
 
 <!--
 11. _Source_ pads the resulting text to a fixed size: _mp = Pad(message, metadata, S<sub>PK</sub>, SC<sub>PK</sub>, <sup>[0-m]</sup>s, <sup>[0-m]</sup>t)_
