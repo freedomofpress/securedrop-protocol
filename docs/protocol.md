@@ -58,6 +58,7 @@ In the table below:
 | $`(sk, pk) = \text{Gen}()`$                           | Generate keys; for DH-AKEM, $(sk, pk) = (x, g^x)$                                                                                                                                |
 | $`(c, K) = \text{AuthEncap}(skS, pkR)`$               | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $skS$ and a receiver's public key $pkR$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
 | $`K = \text{AuthDecap}(skR, pkS, pkE)`$               | Decapsulate a shared secret $K$ using a receiver's private key $skR$, a sender's public key $pkS$, and a ciphertext $c$                                                          |
+| $`\text{Discard}(x)`$                                 | Discard some value $x$ from local state/storage                                                                                                                                  |
 
 ### HPKE<sup>pq</sup><sub>auth</sub>
 
@@ -144,20 +145,27 @@ After entering (on their first visit) or reentering (on a subsequent visit) some
 
 ## Messaging protocol overview
 
-Only a source can initiate a conversation; there are no other choices as sources are effectively unknown until they initiate contact first.
+Only a source can initiate a conversation; there are no other choices as sources
+are effectively unknown until they initiate contact first.
 
-See the ["Flow Chart"](#flow-chart) section for a summary of the asymmetry in this protocol.
+### Source fetches keys and verifies their authenticity
+
+For some newsroom $NR$ and journalist $J$:
+
+| Source                                               |                                             | Server                                                           |
+| ---------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------- |
+|                                                      | $\longrightarrow$ request keys for $NR$     |                                                                  |
+|                                                      | $`NR_{sig,pk} \longleftarrow`$              |
+|                                                      | $`J_{sig,pk}, \sigma^{NR} \longleftarrow`$  |                                                                  |
+|                                                      | $`J_{fetch,pk}, \sigma^{J} \longleftarrow`$ |                                                                  |
+|                                                      | $`J_{edh,pk}, \sigma^{J} \longleftarrow`$   | chosen at random for $J$                                         |
+|                                                      |                                             | $`\text{Discard}(J^{edh,pk})`$ and its component in $\sigma^{J}$ |
+| $`\text{Vfy}(NR_{sig,pk}, J_{sig,pk}, \sigma^{NR})`$ |                                             |                                                                  |
+| $`\text{Vfy}(J{sig,pk}, J_{fetch,pk}, \sigma^{J})`$  |                                             |                                                                  |
+| $`\text{Vfy}(J{sig,pk}, J_{edh,pk}, \sigma^{J})`$    |                                             |                                                                  |
 
 ### Source submission to Journalist
 
-1.  _Source_ fetches _NR<sub>PK</sub>_, _sig<sup>FPF</sup>(NR<sub>PK</sub>)_
-2.  _Source_ checks _Verify(FPF<sub>PK</sub>,sig<sup>FPF</sup>(NR<sub>PK</sub>)) == true_, since FPF<sub>PK</sub> is pinned in the Source client
-3.  For every _Journalist_ (i) in _Newsroom_
-    - _Source_ fetches _<sup>i</sup>J<sub>PK</sub>_, _<sup>i</sup>sig<sup>NR</sup>(<sup>i</sup>J<sub>PK</sub>)_, _<sup>i</sup>JC<sub>PK</sub>_, _<sup>i</sup>sig<sup>iJ</sup>(<sup>i</sup>JC<sub>PK</sub>)_
-    - _Source_ checks _Verify(NR<sub>PK</sub>,<sup>i</sup>sig<sup>NR</sup>(<sup>i</sup>J<sub>PK</sub>)) == true_
-    - _Source_ checks _Verify(<sup>i</sup>J<sub>PK</sub>,<sup>i</sup>sig<sup>iJ</sup>(<sup>i</sup>JC<sub>PK</sub>)) == true_
-    - _Source_ fetches _<sup>ik</sup>JE<sub>PK</sub>_, _<sup>ik</sup>sig<sup>iJ</sup>(<sup>ik</sup>JE<sub>PK</sub>)_ (k is random from the pool of non-used, non-expired, _Journalist_ ephemeral keys)
-    - _Source_ checks _Verify(<sup>i</sup>J<sub>PK</sub>,<sup>ik</sup>sig<sup>iJ</sup>(<sup>ik</sup>JE<sub>PK</sub>)) == true_
 4.  _Source_ generates the unique passphrase randomly _PW = G()_ (the only state that identifies the specific _Source_)
 5.  _Source_ derives _S<sub>SK</sub> = G(KDF(encryption_salt + PW))_, _S<sub>PK</sub> = GetPub(S<sub>SK</sub>)_
 6.  _Source_ derives _SC<sub>SK</sub> = G(KDF(fetching_salt + PW))_, _SC<sub>PK</sub> = GetPub(SC<sub>SK</sub>)_
