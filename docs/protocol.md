@@ -256,14 +256,22 @@ For some message $id$:
 8.  _Journalist_ sends _(c,ME<sub>PK</sub>,mgdh)_ to _Server_
 9.  _Server_ generates _mid = Gen()_ (`message_id`) and stores _mid_ -> _(c,ME<sub>PK</sub>,mgdh)_ (`message_id` -> (`message_ciphertext`, `message_public_key`, `message_gdh`))
 
-### Source read
+### Source fetches and decrypts a message
 
-1.  _Source_ fetches from _Server_ _mid_ -> (_c_, _ME<sub>PK</sub>_) (`message_id` -> (`message_ciphertext`, `message_public_key`))
-2.  _Source_ derives _S<sub>SK</sub> = G(KDF(encryption_salt + PW))_
-3.  _Source_ calculates the shared encryption key using a key agreement protocol _k = DH(S<sub>SK</sub>, ME<sub>PK</sub>)_
-4.  _Source_ decrypts the message using _k_: _mp = Dec(k<sup>k</sup>, c)_
-5.  _Source_ removes padding from the decrypted message: _m = Unpad(mp)_
-6.  _Source_ reads the message and the metadata
+For some message $id$:
+
+| Source                                                                                                             |                         | Server                              |
+| ------------------------------------------------------------------------------------------------------------------ | ----------------------- | ----------------------------------- |
+|                                                                                                                    | $`\longrightarrow id`$  |                                     |
+|                                                                                                                    |                         | $`C, Z, X \leftarrow messages[id]`$ |
+|                                                                                                                    | $`C, X \longleftarrow`$ |                                     |
+| Parse $C$ as $C' \Vert C''$                                                                                        |                         |                                     |
+| $`\tilde{M} \leftarrow \text{Dec}(S_{pke,sk}, C') \neq \bot`$                                                      |                         |                                     |
+| Parse $\tilde{M}$ as $J \Vert c_1 \Vert c_2$                                                                       |                         |                                     |
+| $`m \leftarrow \text{AuthDec}((S_{dh,sk}, S_{kem,sk}), J, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$ |                         |                                     |
+| Parse $m$ as $msg \Vert \tilde{S} \Vert J_1 \Vert J_2 \Vert J_3 \Vert \sigma \Vert \tilde{NR}$                     |                         |                                     |
+| Check $NR = \tilde{NR}$, $J = J_3$, $S_{dh,pk} = \tilde{S}$                                                        |                         |                                     |
+| Return $msg \Vert J \Vert NR$                                                                                      |                         |                                     |
 
 ### Source reply
 
