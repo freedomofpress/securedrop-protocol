@@ -201,6 +201,10 @@ For some message $msg$ to all journalists $J^i$ enrolled for a newsroom $NR$:
 |                                                                                                                                   |                             | $`id \leftarrow^{\$} \text{Rand}()`$  |
 |                                                                                                                                   |                             | $`messages[id] \leftarrow (C, Z, X)`$ |
 
+> [!NOTE]
+> The source client MUST follow the same procedure for replying to a message
+> from a journalist.
+
 ### Source or journalist fetches messages IDs
 
 For a total of $n$ messages:
@@ -287,9 +291,9 @@ For some message $id$:
 | Check $NR = \tilde{NR}$, $J = J_3$, $S_{dh,pk} = \tilde{S}$                                                        |                         |                                     |
 | Return $msg \Vert J \Vert NR$                                                                                      |                         |                                     |
 
-### Source reply
+### Source replies to a journalist
 
-_Source_ replies work the exact same way as a first submission, except the source is already known to the _Journalist_. As an additional difference, a _Journalist_ might choose to attach their (and eventually others') keys in the reply, so that _Source_ does not have to fetch those from the server as in a first submission.
+See ["Source Submits a Message"](#source-submits-a-message).
 
 [^1]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
 
