@@ -50,6 +50,7 @@ In the table below:
 ## Functions and notation
 
 - **FIXME:** Replace `\leftarrow^{\$}` with `\xleftarrow{\$}`; use consistently versus `=` or $\gets$
+- **FIXME:** `Discard()` probably isn't worth specifying
 
 | Syntax                                                | Description                                                                                                                                                                      |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -199,20 +200,6 @@ For some message $msg$ to all journalists $J^i$ enrolled for a newsroom $NR$:
 
 For a total of $n$ messages:
 
-
-### Journalist read
-
-1.  _Journalist_ fetches from _Server_ _mid_ -> (_c_, _ME<sub>PK</sub>_) (`message_id` -> (`message_ciphertext`, `message_public_key`))
-2.  For every unused _Journalist_ ephemeral key _<sup>i</sup>JE<sub>SK</sub>_
-    - _Journalist_ calculates a tentative encryption key using the key agreemenet primitive _<sup>i</sup>k = DH(<sup>i</sup>JE<sub>SK</sub>, ME<sub>PK</sub>)_
-    - _Journalist_ attempts to decrypt _mp = Dec(<sup>i</sup>k, c)_
-    - _Journalist_ verifies that _mp_ decrypted successfully, if yes exits the loop
-3.  _Journalist_ removes padding from the decrypted message: *(message, metadata, *S<sub>PK</sub>*, *SC<sub>PK</sub>_, _<sup>[0-m]</sup>s*, *<sup>[0-m]</sup>t*) = Unpad(mp)*
-4.  For every attachment _Chunk_ token _<sup>m</sup>t_
-    - _Journalist_ fetches from _Server_ _<sup>m</sup>t_ -> _<sup>m</sup>f_ (`file_id` -> `file`)
-    - _Journalist_ decrypts _<sup>m</sup>f_ using _<sup>m</sup>s_: _<sup>m</sup>u = Dec(<sup>m</sup>s, <sup>m</sup>)f_
-5.  _Journalist_ joins _<sup>m</sup>u_ according to metadata and saves back the original files
-6.  _Journalist_ reads the message _m_
 | User $U \in \set{J, S}$ for journalist $J$ or source $S$ |                                                   | Server                                                            |
 | -------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------- |
 |                                                          | $\longrightarrow$ request messages                |                                                                   |
@@ -235,6 +222,27 @@ For a total of $n$ messages:
 | $`ids \leftarrow ids \cup\set{id_i}`$                    |                                                   |                                                                   |
 |                                                          |                                                   |                                                                   |
 | Return $ids$                                             |                                                   |                                                                   |
+
+### Journalist fetches and decrypts a message
+
+For some message $id$:
+
+| Journalist                                                                                                               |                         | Server                              |
+| ------------------------------------------------------------------------------------------------------------------------ | ----------------------- | ----------------------------------- |
+|                                                                                                                          | $`\longrightarrow id`$  |                                     |
+|                                                                                                                          |                         | $`C, Z, X \leftarrow messages[id]`$ |
+|                                                                                                                          | $`c, X \longleftarrow`$ |
+| $`\forall J_{edh,sk}, J_{ekem,sk}, J_{epke,sk}`$:                                                                        |                         |                                     |
+| Parse $C$ as $C' \Vert C''$                                                                                              |                         |                                     |
+| $`\tilde{M} \leftarrow \text{Dec}(J_{epke,sk}, C') \neq \bot`$                                                           |                         |                                     |
+| Parse $\tilde{M}$ as $S \Vert c_1 \Vert c_2$                                                                             |                         |                                     |
+| $`m \leftarrow \text{AuthDec}((J_{edh,sk}, J_{ekem,sk}), S, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$     |                         |                                     |
+| Parse $m$ as $msg \Vert \tilde{S} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert \tilde{J} \Vert \tilde{NR}$ |                         |                                     |
+| Check $NR = \tilde{NR}$, $J_{sig,pk} \tilde{J}$, $S = \tilde{S}$                                                         |                         |                                     |
+| $`\text{Discard}(J_{edh,sk})`$                                                                                           |
+| $`\text{Discard}(J_{ekem,sk})`$                                                                                          |
+| $`\text{Discard}(J_{fetch,sk})`$                                                                                         |
+| Return $msg \Vert S_{dh,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk}$                                                         |                         |                                     |
 
 ### Journalist reply
 
