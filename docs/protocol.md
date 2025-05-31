@@ -3,7 +3,12 @@
 > [!NOTE]
 > Except where indicated, this document follows the notation and other
 > conventions used in Luca Maier's ["Formal Analysis of the SecureDrop
-> Protocol"](https://github.com/lumaier/securedrop-formalanalysis).
+> Protocol"][maier].
+
+> [!NOTE]
+> The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT,
+> RECOMMENDED, MAY, and OPTIONAL in this document are to be interpreted as
+> described in [RFC 2119].
 
 ![chart](../imgs/sd_schema.png)
 
@@ -244,17 +249,26 @@ For some message $id$:
 | $`\text{Discard}(J_{fetch,sk})`$                                                                                         |
 | Return $msg \Vert S_{dh,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk}$                                                         |                         |                                     |
 
-### Journalist reply
+### Journalist replies to a source
 
-1.  _Journalist_ has plaintext _mp_, which contains also _S<sub>PK</sub>_ and SC<sub>PK</sub>
-2.  _Journalist_ generates _ME<sub>SK</sub> = Gen()_ (random, per-message secret key)
-3.  _Journalist_ derives the shared encryption key using a key-agreement primitive _k = DH(ME<sub>SK</sub>,S<sub>PK</sub>)_
-4.  _Journalist_ pads the text to a fixed size: _mp = Pad(message, metadata)_ (note: Journalist can potetially attach _<sup>r</sup>JE<sub>PK</sub>,JC<sub>PK</sub>_)
-5.  _Journalist_ encrypts _mp_ using _k_: _c = Enc(k, mp)_
-6.  _Journalist_ calculates _mgdh = DH(ME<sub>SK</sub>,SC<sub>PK</sub>)_ (`message_gdh`)
-7.  _Journalist_ discards _ME<sub>SK</sub>_
-8.  _Journalist_ sends _(c,ME<sub>PK</sub>,mgdh)_ to _Server_
-9.  _Server_ generates _mid = Gen()_ (`message_id`) and stores _mid_ -> _(c,ME<sub>PK</sub>,mgdh)_ (`message_id` -> (`message_ciphertext`, `message_public_key`, `message_gdh`))
+| Journalist                                                                                                  |                             | Server                               |
+| ----------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------ |
+| $`m \leftarrow msg \Vert S \Vert J_{sig,pk} \Vert J_{fetch,pk} \Vert J_{dh,pk} \Vert \sigma^{NR} \Vert NR`$ |                             |                                      |
+| $`((c_1, c_2), C'') \leftarrow \text{AuthEnc}(J_{dh,sk}, (S, S_{kem,pk}), m, \varepsilon, \varepsilon)`$    |                             |
+| $`C' \leftarrow^{\$} \text{Enc}(S_{pke,pk}, J_{dh,pk} \Vert c_1 \Vert c_2)`$                                |                             |                                      |
+| $`C \leftarrow C' \Vert C''`$                                                                               |                             |                                      |
+| $`x \leftarrow^{\$} \mathbb Z_q`$                                                                           |                             |                                      |
+| $`Z \leftarrow \text{DH}(S_{fetch,pk}, x)`$                                                                 |                             |                                      |
+| $`X \leftarrow \text{DH}(g, x)`$                                                                            |                             |                                      |
+|                                                                                                             | $`\longrightarrow C, Z, X`$ |                                      |
+|                                                                                                             |                             | $`id \leftarrow^{\$} \text{Rand}()`$ |
+|                                                                                                             |                             | $`messages[id] \leftarrow C, Z, X`$  |
+
+> [!NOTE]
+> As a mitigation against traffic analysis, in addition to sending the reply
+> encrypted to the source $S$, the journalist client SHOULD also send a copy
+> encrypted to each of the other $n-1$ journalists currently enrolled in the
+> newsroom $NR$.
 
 ### Source fetches and decrypts a message
 
@@ -278,3 +292,6 @@ For some message $id$:
 _Source_ replies work the exact same way as a first submission, except the source is already known to the _Journalist_. As an additional difference, a _Journalist_ might choose to attach their (and eventually others') keys in the reply, so that _Source_ does not have to fetch those from the server as in a first submission.
 
 [^1]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
+
+[maier]: https://datatracker.ietf.org/doc/html/rfc2119
+[RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
