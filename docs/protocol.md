@@ -78,18 +78,18 @@ In the table below:
 
 ### Usage
 
-| Keys                       | Source → Journalist            | Journalist → Source          |
-| -------------------------- | ------------------------------ | ---------------------------- |
-| $`(skS_{dh}, pkS_{dh})`$   | $`(S_{dh,sk}, S_{dh,pk})`$     | $`(J_{dh,sk}, J_{dh,pk})`$   |
-| $`(skR_{dh}, pkR_{dh})`$   | $`(J_{edh,sk}, J_{edh,pk})`$   | $`(S_{dh,sk}, S_{dh,pk})`$   |
-| $`(skR_{kem}, pkR_{kem})`$ | $`(J_{ekem,sk}, J_{ekem,pk})`$ | $`(S_{kem,sk}, S_{kem,pk})`$ |
+| Keys                       | Source → Journalist                              | Journalist → Source          |
+| -------------------------- | ------------------------------------------------ | ---------------------------- |
+| $`(skS_{dh}, pkS_{dh})`$   | $`(S_{dh,sk}, S_{dh,pk})`$                       | $`(J_{dh,sk}, J_{dh,pk})`$   |
+| $`(skR_{dh}, pkR_{dh})`$   | $`(J_{\textbf{edh},sk}, J_{\textbf{edh},pk})`$   | $`(S_{dh,sk}, S_{dh,pk})`$   |
+| $`(skR_{kem}, pkR_{kem})`$ | $`(J_{\textbf{ekem},sk}, J_{\textbf{ekem},pk})`$ | $`(S_{kem,sk}, S_{kem,pk})`$ |
 
 > For messages sent from a source to a journalist, the source is identified by
-> $`S_{dh,pk}`$ and utilizes the ephemeral keys $`J_{edh,pk}`$ and $`J_{ekem,pk}`$ to
-> encrypt its message. The journalist, in turn, authenticates itself using the
-> new long-term key $`J_{dh,pk}`$ and relies on the source's long-term keys
-> $`S_{dh,pk}`$ and $`S_{kem,pk}`$ to encrypt messages back to the source securely.
-> (Maier §5.2)
+> $`S_{dh,pk}`$ and utilizes the [bolded] ephemeral keys $`J_{edh,pk}`$ and
+> $`J_{ekem,pk}`$ to encrypt its message. The journalist, in turn, authenticates
+> itself using the new long-term key $`J_{dh,pk}`$ and relies on the source's
+> long-term keys $`S_{dh,pk}`$ and $`S_{kem,pk}`$ to encrypt messages back to the
+> source securely. (Maier §5.2)
 
 ## Setup
 
