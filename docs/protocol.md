@@ -99,20 +99,20 @@ In the table below:
 | -------------------------------------------------------- |
 | $`(FPF_{sig,sk}, FPF_{sig,pk}) \gets^{\$} \text{Gen}()`$ |
 
-$FPF_{sig,pk}$ is pinned in all components that participate in the protocol
-(likely in a library they share): the server, the journalist client, and the
-source client.
+The server, the journalist client, and the source client SHOULD be built with
+$FPF_{sig,pk}$ pinned.[^1]
 
 ### Newsroom
 
 | Newsroom                                               |                                 | FPF                                                                |
 | ------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------ |
 | $`(NR_{sig,sk}, NR_{sig,pk}) \gets^{\$} \text{Gen}()`$ |                                 |                                                                    |
-|                                                        | $`\longrightarrow NR_{sig,pk}`$ | for manual verification.                                           |
+|                                                        | $`\longrightarrow NR_{sig,pk}`$ | Verify manually                                                    |
 |                                                        |                                 | $`\sigma^{FPF} \gets^{\$} \text{Sign}(FPF_{sig,sk}, NR_{sig,pk})`$ |
 |                                                        | $`\sigma^{FPF} \longleftarrow`$ |
 
-$NR_{sig,pk}$ and $\sigma^{FPF}$ are pinned in the server during deployment.[^1]
+The server MUST be deployed with $NR_{sig,pk}$ pinned. The server MAY be
+deployed with $\sigma^{FPF}$ pinned.[^1]
 
 ### Journalist
 
@@ -123,37 +123,37 @@ $NR_{sig,pk}$ and $\sigma^{FPF}$ are pinned in the server during deployment.[^1]
 | $`(J_{sig,sk}, J_{sig,pk}) \gets^{\$} \text{Gen}()`$     |                                                         |                                                                                            |
 | $`(J_{fetch,sk}, J_{fetch,pk}) \gets^{\$} \text{Gen}()`$ |                                                         |                                                                                            |
 | $`(J_{dh,sk}, J_{dh,pk}) \gets^{\$} \text{Gen}()`$       |                                                         |                                                                                            |
-|                                                          | $`\longrightarrow J_{sig,pk}, J_{fetch,pk}, J_{dh,pk}`$ | for manual verification.                                                                   |
+|                                                          | $`\longrightarrow J_{sig,pk}, J_{fetch,pk}, J_{dh,pk}`$ | Verify manually, then save for $J$                                                         |
 |                                                          |                                                         | $`\sigma^{NR} \gets^{\$} \text{Sign}(NR_{sig,sk}, (J_{sig,pk}, J_{fetch,pk}, J_{dh,pk}))`$ |
 |                                                          | $`\sigma^{NR} \longleftarrow`$                          |                                                                                            |
 
-Public keys and $\sigma^{NR}$ are saved to the server.
-
 #### Setup and periodic replenishment of $n$ ephemeral keys
 
-Repeat $n$ times:
+Each journalist $J$ MUST generate and maintain a pool of $n$ ephemeral keys.
+For each key:
 
-| Journalist                                                                              |
-| --------------------------------------------------------------------------------------- |
-| $`(J_{edh,sk}, J_{edh,pk}) \gets^{\$} \text{Gen}()`$                                    |
-| $`(J_{ekem,sk}, J_{ekem,pk}) \gets^{\$} \text{Gen}()`$                                  |
-| $`(J_{epke,sk}, J_{epke,pk}) \gets^{\$} \text{Gen}()`$                                  |
-| $`\sigma^J \gets^{\$} \text{Sign}(J_{sig,sk}, (J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}))`$ |
-
-Public keys and $\sigma^{J}$ are saved to the server.
+| Journalist                                                                              |                                                                    | Server       |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------ |
+| $`(J_{edh,sk}, J_{edh,pk}) \gets^{\$} \text{Gen}()`$                                    |                                                                    |              |
+| $`(J_{ekem,sk}, J_{ekem,pk}) \gets^{\$} \text{Gen}()`$                                  |                                                                    |              |
+| $`(J_{epke,sk}, J_{epke,pk}) \gets^{\$} \text{Gen}()`$                                  |                                                                    |              |
+| $`\sigma^J \gets^{\$} \text{Sign}(J_{sig,sk}, (J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}))`$ |                                                                    |              |
+|                                                                                         | $`\longrightarrow J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}, \sigma^J`$ | Save for $J$ |
 
 ### Source
 
-After entering (on their first visit) or reentering (on a subsequent visit) some $passphrase$:
+To begin each session, a source MUST enter (on their first visit) or reenter (on
+a subsequent visit) some $passphrase$:
 
 | Source                                                                                          |
 | ----------------------------------------------------------------------------------------------- |
 | $`S_{dh,sk} \Vert S_{fetch,sk} \Vert S_{pke,sk} \Vert S_{kem,sk} \gets \text{KDF}(passphrase)`$ |
 
-## Messaging protocol overview
+## Messaging protocol
 
-Only a source can initiate a conversation; there are no other choices as sources
-are effectively unknown until they initiate contact first.
+SecureDrop is a first-contact protocol between an unknwn party (an anonymous
+source) and well-known parties (journalists). Only a source can initiate a
+conversation.
 
 ### Source fetches keys and verifies their authenticity
 
@@ -165,7 +165,7 @@ For some newsroom $NR$ and all its enrolled journalists $J^i$:
 |                                                           | $`NR_{sig,pk}, \sigma^{FPF} \longleftarrow`$                                |                                                      |
 |                                                           |                                                                             | $`\forall J^i`$:                                     |
 |                                                           | $`J^i_{sig,pk}, J^i_{fetch,pk}, J^i_{dh,pk}, \sigma^{NR} \longleftarrow`$   |                                                      |
-|                                                           | $`J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}, \sigma^{J^i} \longleftarrow`$ | chosen at random for $J^i$                           |
+|                                                           | $`J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}, \sigma^{J^i} \longleftarrow`$ | Chosen at random for $J^i$                           |
 |                                                           |                                                                             | Discard $J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}$ |
 | $`\text{Vfy}(FPF_{sig,pk}, NR_{sig,pk}, \sigma^{FPF})`$   |                                                                             |                                                      |
 | $`\forall J^i`$:                                          |                                                                             |                                                      |
@@ -178,7 +178,11 @@ For some newsroom $NR$ and all its enrolled journalists $J^i$:
 
 ### Source submits a message
 
-For some message $msg$ to all journalists $J^i$ enrolled for a newsroom $NR$:
+For some message $msg$ to each journalist $J^i$ enrolled with a newsroom $NR$:
+
+> [!NOTE]
+> The source client MUST submit a distinct copy of $msg$ to each journalist
+> $J_i$: i.e., a total of $n$ unique ciphertexts for $n$ journalists.
 
 | Source                                                                                                                       |                             | Server                           |
 | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------- |
