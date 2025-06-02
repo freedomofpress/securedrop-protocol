@@ -14,9 +14,90 @@
 > RECOMMENDED, MAY, and OPTIONAL in this document are to be interpreted as
 > described in [RFC 2119].
 
-![chart](../imgs/sd_schema.png)
+## Overview
 
-For simplicity, in this chart, messages are sent to a single _Journalist_ rather than to all journalists enrolled with a given newsroom, and the attachment submission and retrieval procedure is omitted.
+This sequence diagram shows the flow of messages and values in the SecureDrop
+Protocol. The yellow boxes correspond to sections in the specification below
+that describe how these values are constructed and consumed.
+
+```mermaid
+sequenceDiagram
+
+participant Source
+
+box News Organization
+participant Server
+participant Journalist
+participant Newsroom
+end
+
+participant FPF
+
+Note over Newsroom, FPF: 2. Newsroom setup
+activate FPF
+activate Newsroom
+Newsroom ->> FPF: NRsig,pk := newsroom's signing key
+FPF ->> Newsroom: σFPF := FPF's signature
+deactivate FPF
+activate Server
+
+Note over Journalist, Server: 3.1. Journalist enrollment
+activate Journalist
+Journalist ->> Server: J{sig,fetch,dh},pk := journalist's long-term keys
+Newsroom ->> Server: σNR := newsroom's signature
+deactivate Newsroom
+
+Note over Journalist, Server: 3.2. Setup and periodic replenishment<br>of n ephemeral keys
+loop forall n:
+Journalist ->> Server: J{edh,ekem,epke},pk := journalist's ephemeral keys<br>σJ := journalist's signature
+end
+
+Note over Source: 4. Source setup
+Source ->> Source: passphrase
+
+alt Source → Journalist
+Note over Source, Server: 5. Source fetches keys and verifies<br>their authenticity
+activate Source
+Source ->> Server: request keys for newsroom
+Server ->> Source: NRsig,pk<br>σFPF
+loop forall journalists J:
+Server ->> Source: J{sig,fetch,dh},pk<br>σNR<br>J{edh,ekem,epke},pk<br>σJ
+end
+
+Note over Source, Server: 6. Source submits a message
+loop forall journalists J:
+Source ->> Server: C := message ciphertext<br>Z := public key<br>X := Diffie-Hellman share
+end
+
+Note over Server, Journalist: 7. Journalist fetches message IDs
+Journalist ->> Server: request messages
+loop forall n  messages:
+Server ->> Journalist: Q0...n := public keys<br>cid0...n := encrypted message IDs
+end
+
+Note over Server, Journalist: 8. Journalist fetches and decrypts a message
+Journalist ->> Server: id := decrypted message ID
+Server ->> Journalist: C
+
+else Journalist → Source
+Note over Server, Journalist: 9. Journalist replies to a source
+Journalist ->> Server: C' := message ciphertext<br>Z' := public key<br>X' := Diffie-Hellman share
+
+Note over Source, Server: 7. Source fetches message IDs
+Source ->> Server: request messages
+loop forall n  messages:
+Server ->> Source: Q'0...n := public keys<br>cid'0...n := encrypted message IDs
+end
+
+Note over Source, Server: 10. Source fetches and decrypts a message
+Source ->> Server: id' := decrypted message ID
+Server ->> Source: C'<br>X'
+end
+
+deactivate Source
+deactivate Journalist
+deactivate Server
+```
 
 ## Keys
 
@@ -86,7 +167,7 @@ In the table below:
 
 ## Setup
 
-### FPF
+### 1. FPF
 
 | FPF                                                      |
 | -------------------------------------------------------- |
@@ -95,7 +176,7 @@ In the table below:
 The server, the journalist client, and the source client SHOULD be built with
 $FPF_{sig,pk}$ pinned.[^1]
 
-### Newsroom
+### 2. Newsroom
 
 | Newsroom                                               |                                 | FPF                                                                |
 | ------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------ |
@@ -107,9 +188,9 @@ $FPF_{sig,pk}$ pinned.[^1]
 The server MUST be deployed with $NR_{sig,pk}$ pinned. The server MAY be
 deployed with $\sigma^{FPF}$ pinned.[^1]
 
-### Journalist
+### 3. Journalist
 
-#### Enrollment
+#### 3.1. Enrollment
 
 | Journalist                                               |                                                         | Newsroom                                                                                   |
 | -------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
@@ -118,9 +199,8 @@ deployed with $\sigma^{FPF}$ pinned.[^1]
 | $`(J_{dh,sk}, J_{dh,pk}) \gets^{\$} \text{Gen}()`$       |                                                         |                                                                                            |
 |                                                          | $`\longrightarrow J_{sig,pk}, J_{fetch,pk}, J_{dh,pk}`$ | Verify manually, then save for $J$                                                         |
 |                                                          |                                                         | $`\sigma^{NR} \gets^{\$} \text{Sign}(NR_{sig,sk}, (J_{sig,pk}, J_{fetch,pk}, J_{dh,pk}))`$ |
-|                                                          | $`\sigma^{NR} \longleftarrow`$                          |                                                                                            |
 
-#### Setup and periodic replenishment of $n$ ephemeral keys
+#### 3.2. Setup and periodic replenishment of $n$ ephemeral keys
 
 Each journalist $J$ MUST generate and maintain a pool of $n$ ephemeral keys.
 For each key:
@@ -133,7 +213,7 @@ For each key:
 | $`\sigma^J \gets^{\$} \text{Sign}(J_{sig,sk}, (J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}))`$ |                                                                    |              |
 |                                                                                         | $`\longrightarrow J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}, \sigma^J`$ | Save for $J$ |
 
-### Source
+### 4. Source
 
 To begin each session, a source MUST enter (on their first visit) or reenter (on
 a subsequent visit) some $passphrase$:
@@ -148,7 +228,7 @@ SecureDrop is a first-contact protocol between an unknwn party (an anonymous
 source) and well-known parties (journalists). Only a source can initiate a
 conversation.
 
-### Source fetches keys and verifies their authenticity
+### 5. Source fetches keys and verifies their authenticity
 
 For some newsroom $NR$ and all its enrolled journalists $J^i$:
 
@@ -169,7 +249,7 @@ For some newsroom $NR$ and all its enrolled journalists $J^i$:
 | $`\text{Vfy}(J^i_{sig,pk}, J^i_{ekem,pk}, \sigma^{J^i})`$ |                                                                             |                                                      |
 | $`\text{Vfy}(J^i_{sig,pk}, J^i_{epke,pk}, \sigma^{J^i})`$ |                                                                             |                                                      |
 
-### Source submits a message
+### 6. Source submits a message
 
 For some message $msg$ to each journalist $J^i$ enrolled with a newsroom $NR$:
 
@@ -195,7 +275,7 @@ For some message $msg$ to each journalist $J^i$ enrolled with a newsroom $NR$:
 > The source client MUST follow the same procedure for replying to a message
 > from a journalist.
 
-### Source or journalist fetches messages IDs
+### 7. Source or journalist fetches messages IDs
 
 For a total of $n$ messages:
 
@@ -222,26 +302,26 @@ For a total of $n$ messages:
 |                                                          |                                                   |                                                              |
 | Return $ids$                                             |                                                   |                                                              |
 
-### Journalist fetches and decrypts a message
+### 8. Journalist fetches and decrypts a message
 
 For some message $id$:
 
-| Journalist                                                                                                               |                         | Server                           |
-| ------------------------------------------------------------------------------------------------------------------------ | ----------------------- | -------------------------------- |
-|                                                                                                                          | $`\longrightarrow id`$  |                                  |
-|                                                                                                                          |                         | $`(C, Z, X) \gets messages[id]`$ |
-|                                                                                                                          | $`c, X \longleftarrow`$ |                                  |
-| $`\forall J_{edh,sk}, J_{ekem,sk}, J_{epke,sk}`$:                                                                        |                         |                                  |
-| Parse $C$ as $C' \Vert C''$                                                                                              |                         |                                  |
-| $`\tilde{M} \gets \text{Dec}(J_{epke,sk}, C') \neq \bot`$                                                                |                         |                                  |
-| Parse $\tilde{M}$ as $S \Vert c_1 \Vert c_2$                                                                             |                         |                                  |
-| $`m \gets \text{AuthDec}((J_{edh,sk}, J_{ekem,sk}), S, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$          |                         |                                  |
-| Parse $m$ as $msg \Vert \tilde{S} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert \tilde{J} \Vert \tilde{NR}$ |                         |                                  |
-| Check $NR = \tilde{NR}, J_{sig,pk} = \tilde{J}, S = \tilde{S}$                                                           |                         |                                  |
-| Discard $J_{edh,sk}, J_{ekem,sk}, J_{fetch,sk}$                                                                          |                         |                                  |
-| Return $msg \Vert S_{dh,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk}$                                                         |                         |                                  |
+| Journalist                                                                                                               |                        | Server                           |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------- | -------------------------------- |
+|                                                                                                                          | $`\longrightarrow id`$ |                                  |
+|                                                                                                                          |                        | $`(C, Z, X) \gets messages[id]`$ |
+|                                                                                                                          | $`C\longleftarrow`$    |                                  |
+| $`\forall J_{edh,sk}, J_{ekem,sk}, J_{epke,sk}`$:                                                                        |                        |                                  |
+| Parse $C$ as $C' \Vert C''$                                                                                              |                        |                                  |
+| $`\tilde{M} \gets \text{Dec}(J_{epke,sk}, C') \neq \bot`$                                                                |                        |                                  |
+| Parse $\tilde{M}$ as $S \Vert c_1 \Vert c_2$                                                                             |                        |                                  |
+| $`m \gets \text{AuthDec}((J_{edh,sk}, J_{ekem,sk}), S, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$          |                        |                                  |
+| Parse $m$ as $msg \Vert \tilde{S} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert \tilde{J} \Vert \tilde{NR}$ |                        |                                  |
+| Check $NR = \tilde{NR}, J_{sig,pk} = \tilde{J}, S = \tilde{S}$                                                           |                        |                                  |
+| Discard $J_{edh,sk}, J_{ekem,sk}, J_{fetch,sk}$                                                                          |                        |                                  |
+| Return $msg \Vert S_{dh,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk}$                                                         |                        |                                  |
 
-### Journalist replies to a source
+### 9. Journalist replies to a source
 
 For some message $msg$ in reply to a source $S$:
 
@@ -264,7 +344,7 @@ For some message $msg$ in reply to a source $S$:
 > encrypted to each of the other $n-1$ journalists currently enrolled with the
 > newsroom $NR$.
 
-### Source fetches and decrypts a message
+### 10. Source fetches and decrypts a message
 
 For some message $id$:
 
@@ -281,7 +361,7 @@ For some message $id$:
 | Check $NR = \tilde{NR}, J = J_3, S_{dh,pk} = \tilde{S}$                                                       |                         |                                  |
 | Return $msg \Vert J \Vert NR$                                                                                 |                         |                                  |
 
-### Source replies to a journalist
+### 11. Source replies to a journalist
 
 See ["Source Submits a Message"](#source-submits-a-message).
 
