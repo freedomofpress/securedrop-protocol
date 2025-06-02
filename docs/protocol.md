@@ -29,14 +29,12 @@ TODO: Not yet accounted for from Maier:
 
 In the table below:
 
-- **FIXME:** LaTeX set notation
-
 > For keys, we use the notation $X_{A,B}$, where $X$ represents the key owner
-> ($X \in \{NR, J, S\}$ [for newsroom, journalist, and source, respectively]), $A$
-> represents the key's usage ($A \in \{pke,sig,fetch,dh\}$), and is prefixed with an
-> "e" if the key is ephemeral. $B$ indicates whether the component is private or
-> public. For Diffie-Hellman keys $x$, the public component is represented by the
-> exponentiation $DH(g, x)$. (Maier §5.4.1)
+> ($`X \in \{NR, J, S\}`$ [for newsroom, journalist, and source, respectively]),
+> $A$ represents the key's usage ($`A \in \{pke,sig,fetch,dh\}`$), and is prefixed
+> with an "e" if the key is ephemeral. $B$ indicates whether the component is
+> private or public. For Diffie-Hellman keys $x$, the public component is
+> represented by the exponentiation $DH(g, x)$. (Maier §5.4.1)
 
 | Party      | Private Key      | Public Key       | Type          | Usage            | Signed by       |
 | ---------- | ---------------- | ---------------- | ------------- | ---------------- | --------------- |
@@ -62,7 +60,7 @@ In the table below:
 | $`h = \text{Hash}(m)`$                                | Hash message $m$ to digest $h$                                                                                                                                                   |
 | $`k \Vert k_1 \Vert \dots \Vert k_n = \text{KDF}(m)`$ | Derive one or more keys $k$ from a message $m$                                                                                                                                   |
 | $`\sigma = \text{Sign}(sk, m)`$                       | Sign a message $m$ with the private key $sk$                                                                                                                                     |
-| $`b \in {0,1} = \text{Vfy}(pk, m, \sigma)`$           | Verify a message $m$ and a signature $\sigma$ with a public key $pk$                                                                                                             |
+| $`b \in \{0,1\} = \text{Vfy}(pk, m, \sigma)`$         | Verify a message $m$ and a signature $\sigma$ with a public key $pk$                                                                                                             |
 | $` g^x = \text{DH(g, x)}`$                            | Diffie-Hellman exponentiation of private component $x$                                                                                                                           |
 | $`(sk, pk) = \text{Gen}()`$                           | Generate keys; for DH-AKEM, $(sk, pk) = (x, \text{DH}(g, x)) = (x, g^x)$                                                                                                         |
 | $`(c, K) = \text{AuthEncap}(skS, pkR)`$               | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $skS$ and a receiver's public key $pkR$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
@@ -209,7 +207,7 @@ For some message $msg$ to all journalists $J^i$ enrolled for a newsroom $NR$:
 
 For a total of $n$ messages:
 
-| User $U \in \set{J, S}$ for journalist $J$ or source $S$ |                                                   | Server                                                            |
+| User $`U \in \{J, S\}`$ for journalist $J$ or source $S$ |                                                   | Server                                                            |
 | -------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------- |
 |                                                          | $\longrightarrow$ request messages                |                                                                   |
 |                                                          |                                                   | $`\forall i \in 0\dots \text{Len}(messages)`$:                    |
@@ -224,11 +222,11 @@ For a total of $n$ messages:
 |                                                          |                                                   | $`cid_i \leftarrow^{\$} \text{Enc}(k_i, id_i)`$                   |
 |                                                          |                                                   |                                                                   |
 |                                                          | $`Q_{0 \dots n}, cid_{0 \dots n} \longleftarrow`$ |
-| $`ids \leftarrow \set{}`$                                |                                                   |                                                                   |
+| $`ids \leftarrow \{\}`$                                  |                                                   |                                                                   |
 | $`\forall i \in 0 \dots n`$:                             |                                                   |                                                                   |
 | $`k_i \leftarrow \text{DH}(Q_i, U_{fetch,sk})`$:         |                                                   |                                                                   |
 | $`id_i \leftarrow \text{Dec}(k_i, cid_i) \neq \bot`$     |                                                   |                                                                   |
-| $`ids \leftarrow ids \cup\set{id_i}`$                    |                                                   |                                                                   |
+| $`ids \leftarrow ids \cup \{id_i\}`$                     |                                                   |                                                                   |
 |                                                          |                                                   |                                                                   |
 | Return $ids$                                             |                                                   |                                                                   |
 
