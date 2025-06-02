@@ -1,7 +1,7 @@
 # SecureDrop Protocol specification
 
 > [!NOTE]
-> Except where indicated, this document follows the notation and other
+> Except where otherwise indicated, this document follows the notation and other
 > conventions used in Luca Maier's ["Formal Analysis of the SecureDrop
 > Protocol"][maier].
 
@@ -15,17 +15,6 @@
 For simplicity, in this chart, messages are sent to a single _Journalist_ rather than to all journalists enrolled with a given newsroom, and the attachment submission and retrieval procedure is omitted.
 
 ## Keys
-
-<!--
-TODO: Not yet accounted for from Maier:
-- **FPF**:
-  - _FPF<sub>SK</sub>_: Long term FPF signing private key
-  - _FPF<sub>PK</sub>_: Long term FPF signing public key
-- **Server**:
-  - _RE<sub>SK</sub>_: Ephemeral Server, per-request message-fetching private key
-  - _RE<sub>PK</sub>_: Ephemeral Server, per-request message-fetching public key
-  - _DE<sup>n</sup><sub>PK</sub>_: Per-request, ephemeral decoy public key
--->
 
 In the table below:
 
@@ -188,13 +177,13 @@ For some message $msg$ to each journalist $J^i$ enrolled with a newsroom $NR$:
 | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------- |
 | $`\forall J^i`$:                                                                                                             |                             |                                  |
 | $`m \gets \text{Pad}(msg \Vert S_{dh,pk} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert J^i_{sig,pk} \Vert NR)`$ |                             |                                  |
-| $`((c_1, c_2), C'') \gets^{\$} \text{AuthEnc}(S_{dh,pk}, (J^i_{edh,pk}, J^i_{ekem,pk}), m, \varepsilon, \varepsilon)`$       |                             |
-| $`C' \gets^{\$} \text{Enc}(J^i_{epke,pk}, S_d,pk \Vert c_1 \Vert c_2)`$                                                      |                             |                                  |
+| $`((c_1, c_2), C'') \gets^{\$} \text{AuthEnc}(S_{dh,pk}, (J^i_{edh,pk}, J^i_{ekem,pk}), m, \varepsilon, \varepsilon)`$       |                             |                                  |
+| $`C' \gets^{\$} \text{Enc}(J^i_{epke,pk}, S_dh,pk \Vert c_1 \Vert c_2)`$                                                     |                             |                                  |
 | $`C \gets C' \Vert C''`$                                                                                                     |                             |                                  |
 | $`x \gets^{\$} \mathbb Z_q`$                                                                                                 |                             |                                  |
 | $`X \gets \text{DH}(g, x)`$                                                                                                  |                             |                                  |
 | $`Z \gets \text{DH}(J^i_{fetch,pk}, x)`$                                                                                     |                             |                                  |
-|                                                                                                                              | $`\longrightarrow C, Z, X`$ |
+|                                                                                                                              | $`\longrightarrow C, Z, X`$ |                                  |
 |                                                                                                                              |                             | $`id \gets^{\$} \text{Rand}()`$  |
 |                                                                                                                              |                             | $`messages[id] \gets (C, Z, X)`$ |
 
@@ -220,7 +209,7 @@ For a total of $n$ messages:
 |                                                          |                                                   | $`Q_i \gets \text{DH}(X_i, y)`$                              |
 |                                                          |                                                   | $`cid_i \gets ^{\$} \text{Enc}(k_i, id_i)`$                  |
 |                                                          |                                                   |                                                              |
-|                                                          | $`Q_{0 \dots n}, cid_{0 \dots n} \longleftarrow`$ |
+|                                                          | $`Q_{0 \dots n}, cid_{0 \dots n} \longleftarrow`$ |                                                              |
 | $`ids \gets \{\}`$                                       |                                                   |                                                              |
 | $`\forall i \in 0 \dots n`$:                             |                                                   |                                                              |
 | $`k_i \gets \text{DH}(Q_i, U_{fetch,sk})`$:              |                                                   |                                                              |
@@ -233,58 +222,60 @@ For a total of $n$ messages:
 
 For some message $id$:
 
-| Journalist                                                                                                               |                         | Server                         |
-| ------------------------------------------------------------------------------------------------------------------------ | ----------------------- | ------------------------------ |
-|                                                                                                                          | $`\longrightarrow id`$  |                                |
-|                                                                                                                          |                         | $`C, Z, X \gets messages[id]`$ |
-|                                                                                                                          | $`c, X \longleftarrow`$ |
-| $`\forall J_{edh,sk}, J_{ekem,sk}, J_{epke,sk}`$:                                                                        |                         |                                |
-| Parse $C$ as $C' \Vert C''$                                                                                              |                         |                                |
-| $`\tilde{M} \gets \text{Dec}(J_{epke,sk}, C') \neq \bot`$                                                                |                         |                                |
-| Parse $\tilde{M}$ as $S \Vert c_1 \Vert c_2$                                                                             |                         |                                |
-| $`m \gets \text{AuthDec}((J_{edh,sk}, J_{ekem,sk}), S, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$          |                         |                                |
-| Parse $m$ as $msg \Vert \tilde{S} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert \tilde{J} \Vert \tilde{NR}$ |                         |                                |
-| Check $NR = \tilde{NR}$, $J_{sig,pk} = \tilde{J}$, $S = \tilde{S}$                                                       |                         |                                |
-| Discard $J_{edh,sk}, J_{ekem,sk}, J_{fetch,sk}$                                                                          |                         |                                |
-| Return $msg \Vert S_{dh,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk}$                                                         |                         |                                |
+| Journalist                                                                                                               |                         | Server                           |
+| ------------------------------------------------------------------------------------------------------------------------ | ----------------------- | -------------------------------- |
+|                                                                                                                          | $`\longrightarrow id`$  |                                  |
+|                                                                                                                          |                         | $`(C, Z, X) \gets messages[id]`$ |
+|                                                                                                                          | $`c, X \longleftarrow`$ |                                  |
+| $`\forall J_{edh,sk}, J_{ekem,sk}, J_{epke,sk}`$:                                                                        |                         |                                  |
+| Parse $C$ as $C' \Vert C''$                                                                                              |                         |                                  |
+| $`\tilde{M} \gets \text{Dec}(J_{epke,sk}, C') \neq \bot`$                                                                |                         |                                  |
+| Parse $\tilde{M}$ as $S \Vert c_1 \Vert c_2$                                                                             |                         |                                  |
+| $`m \gets \text{AuthDec}((J_{edh,sk}, J_{ekem,sk}), S, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$          |                         |                                  |
+| Parse $m$ as $msg \Vert \tilde{S} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert \tilde{J} \Vert \tilde{NR}$ |                         |                                  |
+| Check $NR = \tilde{NR}, J_{sig,pk} = \tilde{J}, S = \tilde{S}$                                                           |                         |                                  |
+| Discard $J_{edh,sk}, J_{ekem,sk}, J_{fetch,sk}$                                                                          |                         |                                  |
+| Return $msg \Vert S_{dh,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk}$                                                         |                         |                                  |
 
 ### Journalist replies to a source
 
-| Journalist                                                                                               |                             | Server                          |
-| -------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------- |
-| $`m \gets msg \Vert S \Vert J_{sig,pk} \Vert J_{fetch,pk} \Vert J_{dh,pk} \Vert \sigma^{NR} \Vert NR`$   |                             |                                 |
-| $`((c_1, c_2), C'') \gets^{\$} \text{AuthEnc}(J_{dh,sk}, (S, S_{kem,pk}), m, \varepsilon, \varepsilon)`$ |                             |
-| $`C' \gets ^{\$} \text{Enc}(S_{pke,pk}, J_{dh,pk} \Vert c_1 \Vert c_2)`$                                 |                             |                                 |
-| $`C \gets C' \Vert C''`$                                                                                 |                             |                                 |
-| $`x \gets^{\$} \mathbb Z_q`$                                                                             |                             |                                 |
-| $`Z \gets \text{DH}(S_{fetch,pk}, x)`$                                                                   |                             |                                 |
-| $`X \gets \text{DH}(g, x)`$                                                                              |                             |                                 |
-|                                                                                                          | $`\longrightarrow C, Z, X`$ |                                 |
-|                                                                                                          |                             | $`id \gets^{\$} \text{Rand}()`$ |
-|                                                                                                          |                             | $`messages[id] \gets C, Z, X`$  |
+For some message $msg$ in reply to a source $S$:
+
+| Journalist                                                                                               |                             | Server                           |
+| -------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------- |
+| $`m \gets msg \Vert S \Vert J_{sig,pk} \Vert J_{fetch,pk} \Vert J_{dh,pk} \Vert \sigma^{NR} \Vert NR`$   |                             |                                  |
+| $`((c_1, c_2), C'') \gets^{\$} \text{AuthEnc}(J_{dh,sk}, (S, S_{kem,pk}), m, \varepsilon, \varepsilon)`$ |                             |                                  |
+| $`C' \gets ^{\$} \text{Enc}(S_{pke,pk}, J_{dh,pk} \Vert c_1 \Vert c_2)`$                                 |                             |                                  |
+| $`C \gets C' \Vert C''`$                                                                                 |                             |                                  |
+| $`x \gets^{\$} \mathbb Z_q`$                                                                             |                             |                                  |
+| $`Z \gets \text{DH}(S_{fetch,pk}, x)`$                                                                   |                             |                                  |
+| $`X \gets \text{DH}(g, x)`$                                                                              |                             |                                  |
+|                                                                                                          | $`\longrightarrow C, Z, X`$ |                                  |
+|                                                                                                          |                             | $`id \gets^{\$} \text{Rand}()`$  |
+|                                                                                                          |                             | $`messages[id] \gets (C, Z, X)`$ |
 
 > [!NOTE]
 > As a mitigation against traffic analysis, in addition to sending the reply
 > encrypted to the source $S$, the journalist client SHOULD also send a copy
-> encrypted to each of the other $n-1$ journalists currently enrolled in the
+> encrypted to each of the other $n-1$ journalists currently enrolled with the
 > newsroom $NR$.
 
 ### Source fetches and decrypts a message
 
 For some message $id$:
 
-| Source                                                                                                        |                         | Server                         |
-| ------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------ |
-|                                                                                                               | $`\longrightarrow id`$  |                                |
-|                                                                                                               |                         | $`C, Z, X \gets messages[id]`$ |
-|                                                                                                               | $`C, X \longleftarrow`$ |                                |
-| Parse $C$ as $C' \Vert C''$                                                                                   |                         |                                |
-| $`\tilde{M} \gets \text{Dec}(S_{pke,sk}, C') \neq \bot`$                                                      |                         |                                |
-| Parse $\tilde{M}$ as $J \Vert c_1 \Vert c_2$                                                                  |                         |                                |
-| $`m \gets \text{AuthDec}((S_{dh,sk}, S_{kem,sk}), J, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$ |                         |                                |
-| Parse $m$ as $msg \Vert \tilde{S} \Vert J_1 \Vert J_2 \Vert J_3 \Vert \sigma \Vert \tilde{NR}$                |                         |                                |
-| Check $NR = \tilde{NR}$, $J = J_3$, $S_{dh,pk} = \tilde{S}$                                                   |                         |                                |
-| Return $msg \Vert J \Vert NR$                                                                                 |                         |                                |
+| Source                                                                                                        |                         | Server                           |
+| ------------------------------------------------------------------------------------------------------------- | ----------------------- | -------------------------------- |
+|                                                                                                               | $`\longrightarrow id`$  |                                  |
+|                                                                                                               |                         | $`(C, Z, X) \gets messages[id]`$ |
+|                                                                                                               | $`C, X \longleftarrow`$ |                                  |
+| Parse $C$ as $C' \Vert C''$                                                                                   |                         |                                  |
+| $`\tilde{M} \gets \text{Dec}(S_{pke,sk}, C') \neq \bot`$                                                      |                         |                                  |
+| Parse $\tilde{M}$ as $J \Vert c_1 \Vert c_2$                                                                  |                         |                                  |
+| $`m \gets \text{AuthDec}((S_{dh,sk}, S_{kem,sk}), J, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$ |                         |                                  |
+| Parse $m$ as $msg \Vert \tilde{S} \Vert J_1 \Vert J_2 \Vert J_3 \Vert \sigma \Vert \tilde{NR}$                |                         |                                  |
+| Check $NR = \tilde{NR}, J = J_3, S_{dh,pk} = \tilde{S}$                                                       |                         |                                  |
+| Return $msg \Vert J \Vert NR$                                                                                 |                         |                                  |
 
 ### Source replies to a journalist
 
