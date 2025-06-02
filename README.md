@@ -1,5 +1,12 @@
 # SecureDrop Protocol
 
+|                       | Version |
+| --------------------- | ------- |
+| Implementation (here) | 0.1     |
+| [Specification]       | 0.2     |
+
+[specification]: ./docs/protocol.md
+
 ## Status
 
 > [!WARNING]

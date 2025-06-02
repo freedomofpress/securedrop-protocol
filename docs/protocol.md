@@ -1,5 +1,9 @@
 # SecureDrop Protocol specification
 
+| Version |
+| ------- |
+| 0.2     |
+
 > [!NOTE]
 > Except where otherwise indicated, this document follows the notation and other
 > conventions used in Luca Maier's ["Formal Analysis of the SecureDrop
