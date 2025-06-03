@@ -339,10 +339,9 @@ For some message $msg$ in reply to a source $S$:
 |                                                                                                          |                             | $`messages[id] \gets (C, Z, X)`$ |
 
 > [!NOTE]
-> As a mitigation against traffic analysis, in addition to sending the reply
-> encrypted to the source $S$, the journalist client SHOULD also send a copy
-> encrypted to each of the other $n-1$ journalists currently enrolled with the
-> newsroom $NR$.
+> In addition to sending the reply encrypted to the source $S$, the journalist
+> client SHOULD also send a copy encrypted to each of the other $n-1$ journalists
+> currently enrolled with the newsroom $NR$.
 
 ### 10. Source fetches and decrypts a message
 
