@@ -23,11 +23,11 @@ that describe how these values are constructed and consumed.
 ```mermaid
 sequenceDiagram
 
-participant Source
+actor Source
 
 box News Organization
 participant Server
-participant Journalist
+actor Journalist
 participant Newsroom
 end
 
