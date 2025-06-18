@@ -36,20 +36,20 @@ participant FPF
 Note over Newsroom, FPF: 2. Newsroom setup
 activate FPF
 activate Newsroom
-Newsroom ->> FPF: NRsig,pk := newsroom's signing key
-FPF ->> Newsroom: σFPF := FPF's signature
+Newsroom ->> FPF: $$NR_{sig,pk} \coloneqq$$ newsroom's signing key
+FPF ->> Newsroom: $$σ^{FPF} \coloneqq$$ FPF's signature
 deactivate FPF
 activate Server
 
 Note over Journalist, Server: 3.1. Journalist enrollment
 activate Journalist
-Journalist ->> Server: J{sig,fetch,dh},pk := journalist's long-term keys
-Newsroom ->> Server: σNR := newsroom's signature
+Journalist ->> Server: $$J_{\{sig,fetch,dh\},pk} \coloneqq$$ journalist's long-term keys
+Newsroom ->> Server: $$σ^{NR} \coloneqq$$ newsroom's signature
 deactivate Newsroom
 
 Note over Journalist, Server: 3.2. Setup and periodic replenishment<br>of n ephemeral keys
-loop forall n:
-Journalist ->> Server: J{edh,ekem,epke},pk := journalist's ephemeral keys<br>σJ := journalist's signature
+loop $$\forall n$$:
+Journalist ->> Server: $$J_{\{edh,ekem,epke\},pk} \coloneqq$$ journalist's ephemeral keys<br>$$σ^J \coloneqq$$ journalist's signature
 end
 
 Note over Source: 4. Source setup
@@ -59,39 +59,39 @@ alt Source → Journalist
 Note over Source, Server: 5. Source fetches keys and verifies<br>their authenticity
 activate Source
 Source ->> Server: request keys for newsroom
-Server ->> Source: NRsig,pk<br>σFPF
-loop forall journalists J:
-Server ->> Source: J{sig,fetch,dh},pk<br>σNR<br>J{edh,ekem,epke},pk<br>σJ
+Server ->> Source: $$NR_{sig,pk}$$<br>$$σ^{FPF}$$
+loop $$\forall J^i$$:
+Server ->> Source: $$J^i_{\{sig,fetch,dh\},pk}$$<br>$$σ^{NR}$$<br>$$J^i_{\{edh,ekem,epke\},pk}$$<br>$$σ^{J^i}$$
 end
 
 Note over Source, Server: 6. Source submits a message
-loop forall journalists J:
-Source ->> Server: C := message ciphertext<br>Z := public key<br>X := Diffie-Hellman share
+loop $$\forall J^i$$:
+Source ->> Server: $$C \coloneqq$$ message ciphertext<br>$$Z \coloneqq$$ public key<br>$$X \coloneqq$$ Diffie-Hellman share
 end
 
 Note over Server, Journalist: 7. Journalist fetches message IDs
 Journalist ->> Server: request messages
-loop forall n  messages:
-Server ->> Journalist: Q0...n := public keys<br>cid0...n := encrypted message IDs
+loop $$\forall n$$ messages:
+Server ->> Journalist: $$Q_{0\dots n} \coloneqq$$ public keys<br>$$cid_{0\dots n} \coloneqq$$ encrypted message IDs
 end
 
 Note over Server, Journalist: 8. Journalist fetches and decrypts a message
-Journalist ->> Server: id := decrypted message ID
-Server ->> Journalist: C
+Journalist ->> Server: $$id \coloneqq$$ decrypted message ID
+Server ->> Journalist: $$C$$
 
 else Journalist → Source
 Note over Server, Journalist: 9. Journalist replies to a source
-Journalist ->> Server: C' := message ciphertext<br>Z' := public key<br>X' := Diffie-Hellman share
+Journalist ->> Server: $$C' \coloneqq$$ message ciphertext<br>$$Z' \coloneqq$$ public key<br>$$X' \coloneqq$$ Diffie-Hellman share
 
 Note over Source, Server: 7. Source fetches message IDs
 Source ->> Server: request messages
-loop forall n  messages:
-Server ->> Source: Q'0...n := public keys<br>cid'0...n := encrypted message IDs
+loop $$\forall n$$ messages:
+Server ->> Source: $$Q'_{0\dots n} \coloneqq$$ public keys<br>$$cid'_{0\dots n} \coloneqq$$ encrypted message IDs
 end
 
 Note over Source, Server: 10. Source fetches and decrypts a message
-Source ->> Server: id' := decrypted message ID
-Server ->> Source: C'<br>X'
+Source ->> Server: $$id' \coloneqq$$ decrypted message ID
+Server ->> Source: $$C'$$<br>$$X'$$
 end
 
 deactivate Source
