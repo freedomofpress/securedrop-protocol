@@ -286,8 +286,8 @@ For a total of $n$ messages:
 |                                                          |                                                   | $`cid_i \gets^{\$} \text{Enc}(k_i, id_i)`$                   |
 |                                                          |                                                   |                                                              |
 |                                                          |                                                   | $`\forall i \in \text{Len}(messages) \dots n`$:              |
-|                                                          |                                                   | $`Q_i \gets \text{DH}(X_i, y)`$                              |
-|                                                          |                                                   | $`cid_i \gets ^{\$} \text{Enc}(k_i, id_i)`$                  |
+|                                                          |                                                   | $`Q_i \gets^{\$} \text{Rand}()`$                             |
+|                                                          |                                                   | $`cid_i \gets^{\$} \text{Rand}()`$                           |
 |                                                          |                                                   |                                                              |
 |                                                          | $`Q_{0 \dots n}, cid_{0 \dots n} \longleftarrow`$ |                                                              |
 | $`ids \gets \{\}`$                                       |                                                   |                                                              |
