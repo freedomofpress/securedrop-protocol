@@ -353,6 +353,7 @@ For some message $id$:
 | Parse $\tilde{M}$ as $J \Vert c_1 \Vert c_2$                                                                  |                         |                                  |
 | $`m \gets \text{AuthDec}((S_{dh,sk}, S_{kem,sk}), J, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$ |                         |                                  |
 | Parse $m$ as $msg \Vert \tilde{S} \Vert J_1 \Vert J_2 \Vert J_3 \Vert \sigma \Vert \tilde{NR}$                |                         |                                  |
+| $`\text{Vfy}(NR_{sig,pk}, \sigma, J_1 \Vert J_2 \Vert J_3)`$                                                  |                         |                                  |
 | Check $NR = \tilde{NR}, J = J_3, S_{dh,pk} = \tilde{S}$                                                       |                         |                                  |
 | Return $msg \Vert J \Vert NR$                                                                                 |                         |                                  |
 
