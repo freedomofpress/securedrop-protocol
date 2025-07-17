@@ -138,7 +138,7 @@ In the table below:
 | $`(c, K) \gets^{\$} \text{AuthEncap}(skS, pkR)`$          | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $skS$ and a receiver's public key $pkR$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
 | $`K \gets \text{AuthDecap}(skR, pkS, c)`$                 | Decapsulate a shared secret $K$ using a receiver's private key $skR$, a sender's public key $pkS$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                                  |
 | $`r \gets^{\$} \text{Rand}()`$                            | Generate a random value                                                                                                                                                          |
-| $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$                                                                                                                                                                |
+| $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$ to a constant size[^1]                                                                                                                                         |
 | $`\varepsilon`$                                           | The empty string                                                                                                                                                                 |
 
 ### HPKE<sup>pq</sup><sub>auth</sub>
@@ -174,7 +174,7 @@ In the table below:
 | $`(FPF_{sig,sk}, FPF_{sig,pk}) \gets^{\$} \text{Gen}()`$ |
 
 The server, the journalist client, and the source client SHOULD be built with
-$FPF_{sig,pk}$ pinned.[^1]
+$FPF_{sig,pk}$ pinned.[^2]
 
 ### 2. Newsroom
 
@@ -364,7 +364,10 @@ For some message $id$:
 
 See ["Source Submits a Message"](#source-submits-a-message).
 
-[^1]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
+[^1]: Currently configured as [`CHUNK`][chunk].
 
+[^2]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
+
+[chunk]: https://github.com/freedomofpress/securedrop-protocol/blob/664f8c66312b45e00d1e2b4a26bc466ff105c3ca/README.md?plain=1#L105
 [maier]: https://datatracker.ietf.org/doc/html/rfc2119
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
