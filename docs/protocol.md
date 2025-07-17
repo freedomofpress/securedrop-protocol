@@ -259,7 +259,7 @@ For some message $msg$ to each journalist $J^i$ enrolled with a newsroom $NR$:
 | $`\forall J^i`$:                                                                                                             |                             |                                  |
 | $`m \gets \text{Pad}(msg \Vert S_{dh,pk} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert J^i_{sig,pk} \Vert NR)`$ |                             |                                  |
 | $`((c_1, c_2), C'') \gets^{\$} \text{AuthEnc}(S_{dh,pk}, (J^i_{edh,pk}, J^i_{ekem,pk}), m, \varepsilon, \varepsilon)`$       |                             |                                  |
-| $`C' \gets^{\$} \text{Enc}(J^i_{epke,pk}, S_dh,pk \Vert c_1 \Vert c_2)`$                                                     |                             |                                  |
+| $`C' \gets^{\$} \text{Enc}(J^i_{epke,pk}, S_{dh,pk} \Vert c_1 \Vert c_2)`$                                                   |                             |                                  |
 | $`C \gets C' \Vert C''`$                                                                                                     |                             |                                  |
 | $`x \gets^{\$} \mathbb Z_q`$                                                                                                 |                             |                                  |
 | $`X \gets \text{DH}(g, x)`$                                                                                                  |                             |                                  |
