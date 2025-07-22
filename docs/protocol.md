@@ -138,7 +138,7 @@ In the table below:
 | $`(c, K) \gets^{\$} \text{AuthEncap}(skS, pkR)`$          | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $skS$ and a receiver's public key $pkR$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
 | $`K \gets \text{AuthDecap}(skR, pkS, c)`$                 | Decapsulate a shared secret $K$ using a receiver's private key $skR$, a sender's public key $pkS$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                                  |
 | $`r \gets^{\$} \text{Rand}()`$                            | Generate a random value                                                                                                                                                          |
-| $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$                                                                                                                                                                |
+| $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$ to a constant size[^1]                                                                                                                                         |
 | $`\varepsilon`$                                           | The empty string                                                                                                                                                                 |
 
 ### HPKE<sup>pq</sup><sub>auth</sub>
@@ -174,7 +174,7 @@ In the table below:
 | $`(FPF_{sig,sk}, FPF_{sig,pk}) \gets^{\$} \text{Gen}()`$ |
 
 The server, the journalist client, and the source client SHOULD be built with
-$FPF_{sig,pk}$ pinned.[^1]
+$FPF_{sig,pk}$ pinned.[^2]
 
 ### 2. Newsroom
 
@@ -205,13 +205,14 @@ deployed with $\sigma^{FPF}$ pinned.[^1]
 Each journalist $J$ MUST generate and maintain a pool of $n$ ephemeral keys.
 For each key:
 
-| Journalist                                                                              |                                                                    | Server       |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------ |
-| $`(J_{edh,sk}, J_{edh,pk}) \gets^{\$} \text{Gen}()`$                                    |                                                                    |              |
-| $`(J_{ekem,sk}, J_{ekem,pk}) \gets^{\$} \text{Gen}()`$                                  |                                                                    |              |
-| $`(J_{epke,sk}, J_{epke,pk}) \gets^{\$} \text{Gen}()`$                                  |                                                                    |              |
-| $`\sigma^J \gets^{\$} \text{Sign}(J_{sig,sk}, (J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}))`$ |                                                                    |              |
-|                                                                                         | $`\longrightarrow J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}, \sigma^J`$ | Save for $J$ |
+| Journalist                                                                              |                                                                    | Server                                                                       |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| $`(J_{edh,sk}, J_{edh,pk}) \gets^{\$} \text{Gen}()`$                                    |                                                                    |                                                                              |
+| $`(J_{ekem,sk}, J_{ekem,pk}) \gets^{\$} \text{Gen}()`$                                  |                                                                    |                                                                              |
+| $`(J_{epke,sk}, J_{epke,pk}) \gets^{\$} \text{Gen}()`$                                  |                                                                    |                                                                              |
+| $`\sigma^J \gets^{\$} \text{Sign}(J_{sig,sk}, (J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}))`$ |                                                                    |                                                                              |
+|                                                                                         |                                                                    | $`\text{Vfy}(J_{sig,pk}, (J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}), \sigma^J)`$ |
+|                                                                                         | $`\longrightarrow J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}, \sigma^J`$ | Save for $J$                                                                 |
 
 ### 4. Source
 
@@ -232,22 +233,18 @@ conversation.
 
 For some newsroom $NR$ and all its enrolled journalists $J^i$:
 
-| Source                                                    |                                                                             | Server                                               |
-| --------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- |
-|                                                           | $\longrightarrow$ request keys for $NR$                                     |                                                      |
-|                                                           | $`NR_{sig,pk}, \sigma^{FPF} \longleftarrow`$                                |                                                      |
-|                                                           |                                                                             | $`\forall J^i`$:                                     |
-|                                                           | $`J^i_{sig,pk}, J^i_{fetch,pk}, J^i_{dh,pk}, \sigma^{NR} \longleftarrow`$   |                                                      |
-|                                                           | $`J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}, \sigma^{J^i} \longleftarrow`$ | Chosen at random for $J^i$                           |
-|                                                           |                                                                             | Discard $J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}$ |
-| $`\text{Vfy}(FPF_{sig,pk}, NR_{sig,pk}, \sigma^{FPF})`$   |                                                                             |                                                      |
-| $`\forall J^i`$:                                          |                                                                             |                                                      |
-| $`\text{Vfy}(NR_{sig,pk}, J^i_{sig,pk}, \sigma^{NR})`$    |                                                                             |                                                      |
-| $`\text{Vfy}(NR_{sig,pk}, J^i_{fetch,pk}, \sigma^{NR})`$  |                                                                             |                                                      |
-| $`\text{Vfy}(NR_{sig,pk}, J^i_{dh,pk}, \sigma^{NR})`$     |                                                                             |                                                      |
-| $`\text{Vfy}(J^i_{sig,pk}, J^i_{edh,pk}, \sigma^{J^i})`$  |                                                                             |                                                      |
-| $`\text{Vfy}(J^i_{sig,pk}, J^i_{ekem,pk}, \sigma^{J^i})`$ |                                                                             |                                                      |
-| $`\text{Vfy}(J^i_{sig,pk}, J^i_{epke,pk}, \sigma^{J^i})`$ |                                                                             |                                                      |
+| Source                                                                                   |                                                                             | Server                                               |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- |
+|                                                                                          | $\longrightarrow$ request keys for $NR$                                     |                                                      |
+|                                                                                          | $`NR_{sig,pk}, \sigma^{FPF} \longleftarrow`$                                |                                                      |
+|                                                                                          |                                                                             | $`\forall J^i`$:                                     |
+|                                                                                          | $`J^i_{sig,pk}, J^i_{fetch,pk}, J^i_{dh,pk}, \sigma^{NR} \longleftarrow`$   |                                                      |
+|                                                                                          | $`J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}, \sigma^{J^i} \longleftarrow`$ | Chosen at random for $J^i$                           |
+|                                                                                          |                                                                             | Discard $J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}$ |
+| $`\text{Vfy}(FPF_{sig,pk}, NR_{sig,pk}, \sigma^{FPF})`$                                  |                                                                             |                                                      |
+| $`\forall J^i`$:                                                                         |                                                                             |                                                      |
+| $`\text{Vfy}(NR_{sig,pk}, (J^i_{sig,pk}, J^i_{fetch,pk}, J^i_{dh,pk}), \sigma^{NR})`$    |                                                                             |                                                      |
+| $`\text{Vfy}(J^i_{sig,pk}, (J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}), \sigma^{J^i})`$ |                                                                             |                                                      |
 
 ### 6. Source submits a message
 
@@ -262,7 +259,7 @@ For some message $msg$ to each journalist $J^i$ enrolled with a newsroom $NR$:
 | $`\forall J^i`$:                                                                                                             |                             |                                  |
 | $`m \gets \text{Pad}(msg \Vert S_{dh,pk} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert J^i_{sig,pk} \Vert NR)`$ |                             |                                  |
 | $`((c_1, c_2), C'') \gets^{\$} \text{AuthEnc}(S_{dh,pk}, (J^i_{edh,pk}, J^i_{ekem,pk}), m, \varepsilon, \varepsilon)`$       |                             |                                  |
-| $`C' \gets^{\$} \text{Enc}(J^i_{epke,pk}, S_dh,pk \Vert c_1 \Vert c_2)`$                                                     |                             |                                  |
+| $`C' \gets^{\$} \text{Enc}(J^i_{epke,pk}, S_{dh,pk} \Vert c_1 \Vert c_2)`$                                                   |                             |                                  |
 | $`C \gets C' \Vert C''`$                                                                                                     |                             |                                  |
 | $`x \gets^{\$} \mathbb Z_q`$                                                                                                 |                             |                                  |
 | $`X \gets \text{DH}(g, x)`$                                                                                                  |                             |                                  |
@@ -290,8 +287,8 @@ For a total of $n$ messages:
 |                                                          |                                                   | $`cid_i \gets^{\$} \text{Enc}(k_i, id_i)`$                   |
 |                                                          |                                                   |                                                              |
 |                                                          |                                                   | $`\forall i \in \text{Len}(messages) \dots n`$:              |
-|                                                          |                                                   | $`Q_i \gets \text{DH}(X_i, y)`$                              |
-|                                                          |                                                   | $`cid_i \gets ^{\$} \text{Enc}(k_i, id_i)`$                  |
+|                                                          |                                                   | $`Q_i \gets^{\$} \text{Rand}()`$                             |
+|                                                          |                                                   | $`cid_i \gets^{\$} \text{Rand}()`$                           |
 |                                                          |                                                   |                                                              |
 |                                                          | $`Q_{0 \dots n}, cid_{0 \dots n} \longleftarrow`$ |                                                              |
 | $`ids \gets \{\}`$                                       |                                                   |                                                              |
@@ -357,6 +354,7 @@ For some message $id$:
 | Parse $\tilde{M}$ as $J \Vert c_1 \Vert c_2$                                                                  |                         |                                  |
 | $`m \gets \text{AuthDec}((S_{dh,sk}, S_{kem,sk}), J, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$ |                         |                                  |
 | Parse $m$ as $msg \Vert \tilde{S} \Vert J_1 \Vert J_2 \Vert J_3 \Vert \sigma \Vert \tilde{NR}$                |                         |                                  |
+| $`\text{Vfy}(NR_{sig,pk}, \sigma, J_1 \Vert J_2 \Vert J_3)`$                                                  |                         |                                  |
 | Check $NR = \tilde{NR}, J = J_3, S_{dh,pk} = \tilde{S}$                                                       |                         |                                  |
 | Return $msg \Vert J \Vert NR$                                                                                 |                         |                                  |
 
@@ -364,7 +362,10 @@ For some message $id$:
 
 See ["Source Submits a Message"](#source-submits-a-message).
 
-[^1]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
+[^1]: Currently configured as [`CHUNK`][chunk].
 
+[^2]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
+
+[chunk]: https://github.com/freedomofpress/securedrop-protocol/blob/664f8c66312b45e00d1e2b4a26bc466ff105c3ca/README.md?plain=1#L105
 [maier]: https://datatracker.ietf.org/doc/html/rfc2119
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
