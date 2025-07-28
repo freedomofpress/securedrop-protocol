@@ -186,7 +186,7 @@ $FPF_{sig,pk}$ pinned.[^2]
 |                                                        | $`\sigma^{FPF} \longleftarrow`$ |
 
 The server MUST be deployed with $NR_{sig,pk}$ pinned. The server MAY be
-deployed with $\sigma^{FPF}$ pinned.[^1]
+deployed with $\sigma^{FPF}$ pinned.[^2]
 
 ### 3. Journalist
 
