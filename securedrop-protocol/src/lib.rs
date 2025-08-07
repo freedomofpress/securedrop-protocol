@@ -22,3 +22,6 @@ pub mod primitives;
 pub mod sign;
 
 pub use sign::{Signature, SigningKey, VerifyingKey};
+
+/// Server storage
+pub mod storage;
