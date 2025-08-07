@@ -1,3 +1,4 @@
+/// Abstracts over the signing primitive used.
 use rand_core::{CryptoRng, RngCore};
 
 // TODO(jen): Replace with libcrux Ed25519 types

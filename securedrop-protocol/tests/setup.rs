@@ -1,3 +1,6 @@
+//! Tests for the setup steps of the protocol.
+//! These correspond to steps 1-4 of the spec.
+
 use rand::OsRng;
 
 use securedrop_protocol::keys::FPFKeyPair;
