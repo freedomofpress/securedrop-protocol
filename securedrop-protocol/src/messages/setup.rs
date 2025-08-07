@@ -40,3 +40,13 @@ pub struct JournalistSetupResponse {
     /// A signature over the journalist verifying key by the newsroom signing key
     pub sig: Signature,
 }
+
+/// Request from the journalist to the SecureDrop server for key replenishment.
+///
+/// Step 3.2 in the spec.
+pub struct JournalistRefreshRequest {
+    pub verifying_key: VerifyingKey,
+    pub fetch_pubkey: DHPublicKey,
+    pub dh_pubkey: DHPublicKey,
+    pub sig: Signature,
+}
