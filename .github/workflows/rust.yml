@@ -67,3 +67,20 @@ jobs:
          override: true
      - run: cargo install --locked cargo-nono
      - run: cargo nono check --no-default-features
+
+  build_wasm:
+    name: wasm build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --package securedrop-protocol --target wasm32-unknown-unknown --no-default-features
