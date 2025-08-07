@@ -1,0 +1,16 @@
+[package]
+name = "securedrop-protocol"
+version = "0.1.0"
+edition = "2024"
+authors = ["redshiftzero <jen@freedom.press>"]
+description = "A wip impl of the securedrop protocol"
+license = "GPL-3.0"
+
+[dependencies]
+libcrux-curve25519 = "0.0.3"
+libcrux-chacha20poly1305 = "0.0.3"
+rand = "0.9.2"
+anyhow = "1.0"
+
+[dev-dependencies]
+proptest = "1.3"
