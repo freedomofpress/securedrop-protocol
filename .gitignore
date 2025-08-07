@@ -1,7 +1,7 @@
 __pycache*
 .venv
 files/
-keys/
+cryptokeys/
 downloads/
 docs/html/
 node_modules/
