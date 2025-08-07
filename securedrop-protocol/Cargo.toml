@@ -7,6 +7,7 @@ description = "A wip impl of the securedrop protocol"
 license = "GPL-3.0"
 
 [dependencies]
+libcrux-ed25519 = "0.0.3"
 libcrux-curve25519 = "0.0.3"
 libcrux-chacha20poly1305 = "0.0.3"
 rand = "0.9.2"
