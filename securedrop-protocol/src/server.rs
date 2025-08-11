@@ -11,6 +11,7 @@ use crate::messages::core::{
     MessageSubmitRequest, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
     SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
 };
+use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupResponse};
 use crate::storage::{JournalistEphemeralKeys, ServerStorage};
 
 /// Server session for handling source requests
@@ -22,6 +23,20 @@ impl ServerSession {
     /// Create a new server session
     pub fn new(storage: ServerStorage) -> Self {
         Self { storage }
+    }
+
+    /// Setup a journalist. This corresponds to step 3.1 in the spec.
+    ///
+    /// The generated journalist keys are sent to the newsroom,
+    /// which produces a signature over the bundle of journalist keys using
+    /// the newsroom signing key.
+    ///
+    /// TODO: There is a manual verification step here, so the caller should
+    /// instruct the user to stop, verify the fingerprint out of band, and
+    /// then proceed. The caller should also persist the fingerprint and signature
+    /// in its local data store.
+    pub fn setup_journalist(&self) -> Result<JournalistSetupResponse, Error> {
+        unimplemented!()
     }
 
     /// Handle source newsroom key request (step 5)
@@ -67,6 +82,17 @@ impl ServerSession {
         &self,
         _request: MessageFetchRequest,
     ) -> Option<MessageFetchResponse> {
+        unimplemented!()
+    }
+
+    /// Process a new refresh request from the journalist.
+    ///
+    /// TODO: The caller should persist the keys for J.
+    pub fn handle_journalist_refresh(
+        &mut self,
+        _request: JournalistRefreshRequest,
+    ) -> Result<(), Error> {
+        // TODO: Check signature and store ephemeral keys
         unimplemented!()
     }
 }

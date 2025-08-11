@@ -3,6 +3,8 @@
 //! This module implements the journalist-side handling of SecureDrop protocol steps 7-9.
 
 use crate::messages::core::{MessageFetchResponse, MessageIdFetchResponse};
+use crate::messages::setup::{JournalistSetupRequest, JournalistSetupResponse};
+use crate::sign::SigningKey;
 use alloc::vec::Vec;
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
@@ -16,6 +18,16 @@ impl JournalistSession {
     /// Create a new journalist session
     pub fn new() -> Self {
         Self {}
+    }
+
+    /// Generate a new journalist setup request.
+    ///
+    /// TODO: The caller (eventual CLI) should persist these keys to disk.
+    pub fn create_setup_request<R: RngCore + CryptoRng>(
+        &self,
+        mut rng: R,
+    ) -> Result<JournalistSetupRequest, Error> {
+        unimplemented!()
     }
 
     /// Fetch message IDs (step 7)
