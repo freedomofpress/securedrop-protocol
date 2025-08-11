@@ -1,11 +1,14 @@
+use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 
+use crate::{Signature, SigningKey, VerifyingKey};
+
 // Newsroom onboarding: Spec step 2
-use messages::setup::{NewsroomSetupRequest, NewsroomSetupResponse};
+use crate::messages::setup::{NewsroomSetupRequest, NewsroomSetupResponse};
 // Journalist initial onboarding: Spec step 3.1
-use messages::setup::{JournalistSetupRequest, JournalistSetupResponse};
+use crate::messages::setup::{JournalistSetupRequest, JournalistSetupResponse};
 // Journalist key replenishment: Spec step 3.2
-use messages::setup::JournalistRefreshRequest;
+use crate::messages::setup::JournalistRefreshRequest;
 
 impl NewsroomSetupRequest {
     /// Generate a new newsroom setup request.
@@ -74,7 +77,7 @@ impl JournalistRefreshRequest {
     /// This runs on the SecureDrop server.
     ///
     /// TODO: The caller should persist the keys for J.
-    pub fn verify() -> Result<()> {
+    pub fn verify() -> Result<(), Error> {
         // TODO: Check signature
         unimplemented!()
     }

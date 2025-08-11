@@ -6,7 +6,7 @@ use crate::sign::{SigningKey, VerifyingKey};
 
 /// Journalists signing key pair
 /// Signed by the newsroom
-pub struct JournalistSigningKeypair {
+pub struct JournalistSigningKeyPair {
     pub(crate) vk: VerifyingKey,
     sk: SigningKey,
 }

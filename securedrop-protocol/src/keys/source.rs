@@ -4,6 +4,7 @@ use crate::primitives::{DHPrivateKey, DHPublicKey, PPKPrivateKey, PPKPublicKey};
 
 // TODO: Name these better
 
+#[derive(Debug, Clone)]
 pub struct SourceKeyBundle {
     pub fetch: SourceFetchKeyPair,
     pub long_term_dh: SourceDHKeyPair,
@@ -13,22 +14,26 @@ pub struct SourceKeyBundle {
 
 pub struct SourcePassphrase {}
 
-struct SourceFetchKeyPair {
+#[derive(Debug, Clone)]
+pub struct SourceFetchKeyPair {
     pub(crate) public_key: DHPublicKey,
     private_key: DHPrivateKey,
 }
 
-struct SourceDHKeyPair {
+#[derive(Debug, Clone)]
+pub struct SourceDHKeyPair {
     pub(crate) public_key: DHPublicKey,
     private_key: DHPrivateKey,
 }
 
-struct SourceKEMKeyPair {
+#[derive(Debug, Clone)]
+pub struct SourceKEMKeyPair {
     pub(crate) public_key: PPKPublicKey,
     private_key: PPKPrivateKey,
 }
 
-struct SourcePKEKeyPair {
+#[derive(Debug, Clone)]
+pub struct SourcePKEKeyPair {
     pub(crate) public_key: PPKPublicKey,
     private_key: PPKPrivateKey,
 }

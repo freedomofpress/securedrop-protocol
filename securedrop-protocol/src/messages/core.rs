@@ -1,3 +1,5 @@
+use crate::{Signature, VerifyingKey};
+
 pub struct MessageBundle {}
 
 /// Source fetches keys for the newsroom

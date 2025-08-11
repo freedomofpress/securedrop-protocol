@@ -1,3 +1,5 @@
+use anyhow::Error;
+
 /// Abstracts over the signing primitive used.
 use rand_core::{CryptoRng, RngCore};
 
@@ -12,6 +14,7 @@ pub struct SigningKey {
 #[derive(Copy, Clone)]
 pub struct VerifyingKey {}
 
+#[derive(Debug, Clone)]
 pub struct Signature {}
 
 impl SigningKey {

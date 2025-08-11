@@ -7,7 +7,7 @@
 //! are both local only and do not involve any protocol messages.
 
 use crate::primitives::{DHPublicKey, PPKPublicKey};
-use crate::sign::Signature;
+use crate::{Signature, VerifyingKey};
 
 /// Request from the newsroom to FPF for verification.
 ///

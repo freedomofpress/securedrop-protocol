@@ -1,8 +1,10 @@
+use rand::Rng;
+use rand_core::{CryptoRng, RngCore};
 use std::collections::HashMap;
 
+use crate::messages::MessageBundle;
 use crate::primitives::{DHPublicKey, PPKPublicKey};
 use crate::sign::{Signature, VerifyingKey};
-use crate::MessageBundle;
 
 /// Ephemeral key set for a journalist
 #[derive(Debug, Clone)]
@@ -60,9 +62,10 @@ impl ServerStorage {
 
     /// Get a random ephemeral key set for a journalist and remove it from the pool
     /// Returns None if no keys are available for this journalist
-    pub fn pop_random_ephemeral_keys(
+    pub fn pop_random_ephemeral_keys<R: RngCore + CryptoRng>(
         &mut self,
         journalist_id: u64,
+        rng: &mut R,
     ) -> Option<JournalistEphemeralKeys> {
         if let Some(keys) = self.ephemeral_keys.get_mut(&journalist_id) {
             if keys.is_empty() {
@@ -70,8 +73,6 @@ impl ServerStorage {
             }
 
             // Select a random index
-            use rand::Rng;
-            let mut rng = rand::thread_rng();
             let index = rng.gen_range(0..keys.len());
 
             // Remove and return the selected key set
@@ -84,12 +85,15 @@ impl ServerStorage {
     /// Get random ephemeral keys for all journalists
     /// Returns a vector of (journalist_id, ephemeral_keys) pairs
     /// Only includes journalists that have available keys
-    pub fn get_all_ephemeral_keys(&mut self) -> Vec<(u64, JournalistEphemeralKeys)> {
+    pub fn get_all_ephemeral_keys<R: RngCore + CryptoRng>(
+        &mut self,
+        rng: &mut R,
+    ) -> Vec<(u64, JournalistEphemeralKeys)> {
         let mut result = Vec::new();
         let journalist_ids: Vec<u64> = self.ephemeral_keys.keys().copied().collect();
 
         for journalist_id in journalist_ids {
-            if let Some(keys) = self.pop_random_ephemeral_keys(journalist_id) {
+            if let Some(keys) = self.pop_random_ephemeral_keys(journalist_id, rng) {
                 result.push((journalist_id, keys));
             }
         }

@@ -19,7 +19,7 @@ impl FPFKeyPair {
 
 pub use journalist::{
     JournalistDHKeyPair, JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair,
-    JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair, JournalistSigningKeypair,
+    JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair, JournalistSigningKeyPair,
 };
 pub use newsroom::NewsroomKeyPair;
-pub use source::{SourceDHKeyPair, SourceFetchKeyPair, SourceFetchKeyPair, SourceKEMKeyPair};
+pub use source::{SourceDHKeyPair, SourceFetchKeyPair, SourceKEMKeyPair, SourcePKEKeyPair};
