@@ -1,20 +1,14 @@
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::{Signature, SigningKey, VerifyingKey};
-
 // Newsroom onboarding: Spec step 2
 use crate::messages::setup::{NewsroomSetupRequest, NewsroomSetupResponse};
-// Journalist initial onboarding: Spec step 3.1
-use crate::messages::setup::{JournalistSetupRequest, JournalistSetupResponse};
-// Journalist key replenishment: Spec step 3.2
-use crate::messages::setup::JournalistRefreshRequest;
 
 impl NewsroomSetupRequest {
     /// Generate a new newsroom setup request.
     ///
     /// TODO: The caller (eventual CLI) should persist these keys to disk.
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> Result<Self, Error> {
+    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> Result<Self, Error> {
         unimplemented!()
     }
 

@@ -40,7 +40,7 @@ pub struct SourcePKEKeyPair {
 
 /// Generate a passphrase and the corresponding keys (via KDF).
 impl SourceKeyBundle {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> (SourcePassphrase, SourceKeyBundle) {
+    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> (SourcePassphrase, SourceKeyBundle) {
         unimplemented!()
     }
 }

@@ -12,7 +12,7 @@ pub struct JournalistSigningKeyPair {
 }
 
 impl JournalistSigningKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistSigningKeyPair {
+    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistSigningKeyPair {
         unimplemented!()
     }
 }
@@ -25,7 +25,7 @@ pub struct JournalistFetchKeyPair {
 }
 
 impl JournalistFetchKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistFetchKeyPair {
+    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistFetchKeyPair {
         unimplemented!()
     }
 }
@@ -38,7 +38,7 @@ pub struct JournalistDHKeyPair {
 }
 
 impl JournalistDHKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistDHKeyPair {
+    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistDHKeyPair {
         unimplemented!()
     }
 }
@@ -51,7 +51,7 @@ pub struct JournalistEphemeralKEMKeyPair {
 }
 
 impl JournalistEphemeralKEMKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistEphemeralKEMKeyPair {
+    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistEphemeralKEMKeyPair {
         unimplemented!()
     }
 }
@@ -64,7 +64,7 @@ pub struct JournalistEphemeralPKEKeyPair {
 }
 
 impl JournalistEphemeralPKEKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistEphemeralPKEKeyPair {
+    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistEphemeralPKEKeyPair {
         unimplemented!()
     }
 }
@@ -77,7 +77,7 @@ pub struct JournalistEphemeralDHKeyPair {
 }
 
 impl JournalistEphemeralDHKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistEphemeralDHKeyPair {
+    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistEphemeralDHKeyPair {
         unimplemented!()
     }
 }

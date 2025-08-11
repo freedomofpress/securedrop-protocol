@@ -12,7 +12,7 @@ pub struct FPFKeyPair {
 }
 
 impl FPFKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> FPFKeyPair {
+    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> FPFKeyPair {
         unimplemented!()
     }
 }

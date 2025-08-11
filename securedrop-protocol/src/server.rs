@@ -12,7 +12,7 @@ use crate::messages::core::{
     SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
 };
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupResponse};
-use crate::storage::{JournalistEphemeralKeys, ServerStorage};
+use crate::storage::ServerStorage;
 
 /// Server session for handling source requests
 pub struct ServerSession {
@@ -54,7 +54,7 @@ impl ServerSession {
     pub fn handle_source_journalist_key_request<R: RngCore + CryptoRng>(
         &mut self,
         _request: SourceJournalistKeyRequest,
-        rng: &mut R,
+        _rng: &mut R,
     ) -> Vec<SourceJournalistKeyResponse> {
         unimplemented!()
     }
@@ -62,8 +62,8 @@ impl ServerSession {
     /// Handle message submission (step 6 for sources, step 9 for journalists)
     pub fn handle_message_submit<R: RngCore + CryptoRng>(
         &mut self,
-        request: MessageSubmitRequest,
-        rng: &mut R,
+        _request: MessageSubmitRequest,
+        _rng: &mut R,
     ) -> Result<(), Error> {
         unimplemented!()
     }
