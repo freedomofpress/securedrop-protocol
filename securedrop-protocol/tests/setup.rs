@@ -1,14 +1,14 @@
 //! Tests for the setup steps of the protocol.
 //! These correspond to steps 1-4 of the spec.
 
-use rand::OsRng;
+use rand::rngs::OsRng;
 
 use securedrop_protocol::keys::FPFKeyPair;
 
 /// Step 1: Generate FPF keys
 #[test]
 fn generate_fpf_keys() {
-    let rng = OsRng;
+    let mut rng = OsRng;
     let fpf_keys = FPFKeyPair::new(&mut rng);
     // todo: test serialization / deserialization round trip once we impl that
 }
