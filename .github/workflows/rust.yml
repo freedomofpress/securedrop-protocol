@@ -1,23 +1,27 @@
 on:
   pull_request:
   push:
-    branches:
-      - main
 
 name: Rust CI
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: check
@@ -26,13 +30,15 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -42,13 +48,15 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1
         with:
@@ -59,7 +67,9 @@ jobs:
    name: no-std compatibility check
    runs-on: ubuntu-latest
    steps:
-     - uses: actions/checkout@v2
+     - uses: actions/checkout@v4
+       with:
+         persist-credentials: false
      - uses: actions-rs/toolchain@v1
        with:
          profile: minimal
@@ -73,14 +83,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
       - run: rustup target add wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --package securedrop-protocol --target wasm32-unknown-unknown --no-default-features
+          args: --package securedrop-protocol --target wasm32-unknown-unknown
