@@ -29,6 +29,7 @@ jobs:
       - uses: actions-rs/cargo@ae10961054e4aa8b4aa7dffede299aaf087aa33b
         with:
           command: check
+          working-directory: securedrop-protocol
 
   test:
     name: Test Suite
@@ -51,6 +52,7 @@ jobs:
         with:
           command: test
           args: --all-features
+          working-directory: securedrop-protocol
 
   fmt:
     name: Rustfmt
@@ -74,6 +76,7 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+          working-directory: securedrop-protocol
 
   no-std:
    name: no-std compatibility check
@@ -91,6 +94,7 @@ jobs:
          override: true
      - run: cargo install --locked cargo-nono
      - run: cargo nono check --no-default-features
+       working-directory: securedrop-protocol
 
   build_wasm:
     name: wasm build
@@ -114,3 +118,4 @@ jobs:
         with:
           command: build
           args: --package securedrop-protocol --target wasm32-unknown-unknown
+          working-directory: securedrop-protocol
