@@ -13,16 +13,20 @@ jobs:
     name: Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout@v4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
         with:
           persist-credentials: false
-      - uses: actions-rs/toolchain@v1
+      # actions-rs/toolchain@v1.0.6
+      - uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions-rs/cargo@v1
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+      # actions-rs/cargo@v1.0.1
+      - uses: actions-rs/cargo@ae10961054e4aa8b4aa7dffede299aaf087aa33b
         with:
           command: check
 
@@ -30,16 +34,20 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout@4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
         with:
           persist-credentials: false
-      - uses: actions-rs/toolchain@v1
+      # actions-rs/toolchain@v1.0.6
+      - uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions-rs/cargo@v1
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+      # actions-rs/cargo@v1.0.1
+      - uses: actions-rs/cargo@ae10961054e4aa8b4aa7dffede299aaf087aa33b
         with:
           command: test
           args: --all-features
@@ -48,17 +56,21 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout@4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
         with:
           persist-credentials: false
-      - uses: actions-rs/toolchain@v1
+      # actions-rs/toolchain@v1.0.6
+      - uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v2
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
       - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
+      # actions-rs/cargo@v1.0.1
+      - uses: actions-rs/cargo@ae10961054e4aa8b4aa7dffede299aaf087aa33b
         with:
           command: fmt
           args: --all -- --check
@@ -67,10 +79,12 @@ jobs:
    name: no-std compatibility check
    runs-on: ubuntu-latest
    steps:
-     - uses: actions/checkout@v4
+     # actions/checkout@4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
        with:
          persist-credentials: false
-     - uses: actions-rs/toolchain@v1
+     # actions-rs/toolchain@v1.0.6
+      - uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
        with:
          profile: minimal
          toolchain: stable
@@ -82,17 +96,21 @@ jobs:
     name: wasm build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout@4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
         with:
           persist-credentials: false
-      - uses: actions-rs/toolchain@v1
+      # actions-rs/toolchain@v1.0.6
+      - uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
         with:
           profile: minimal
           toolchain: stable
           override: true
       - run: rustup target add wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions-rs/cargo@v1
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+      # actions-rs/cargo@v1.0.1
+      - uses: actions-rs/cargo@ae10961054e4aa8b4aa7dffede299aaf087aa33b
         with:
           command: build
           args: --package securedrop-protocol --target wasm32-unknown-unknown
