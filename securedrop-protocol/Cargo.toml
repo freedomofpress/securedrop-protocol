@@ -15,6 +15,7 @@ rand = {version = "0.8", features = ["getrandom"]}
 # Needed for wasm compat
 getrandom = {version = "0.2", features = ["js"]}
 anyhow = "1.0"
+hashbrown = {version = "0.14", features = ["raw"]}
 
 [dev-dependencies]
 proptest = "1.3"

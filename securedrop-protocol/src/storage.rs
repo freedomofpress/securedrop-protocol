@@ -1,5 +1,5 @@
-use alloc::collections::HashMap;
 use alloc::vec::Vec;
+use hashbrown::HashMap;
 use rand::Rng;
 use rand_core::{CryptoRng, RngCore};
 

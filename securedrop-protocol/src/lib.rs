@@ -1,11 +1,11 @@
 #![no_std]
 
-extern crate alloc;
-
 //! A draft implementation of the SecureDrop protocol.
 //!
 //! WARNING: This was implemented only for benchmarking and research purposes
 //! and is not ready for production use.
+
+extern crate alloc;
 
 /// The keys used in the SecureDrop protocol.
 pub mod keys;
@@ -13,8 +13,14 @@ pub mod keys;
 /// Protocol messages used in the setup and core messaging protocol.
 pub mod messages;
 
-/// Core messaging protocol.
-pub mod core;
+/// Server-side protocol implementation.
+pub mod server;
+
+/// Source-side protocol implementation.
+pub mod source;
+
+/// Journalist-side protocol implementation.
+pub mod journalist;
 
 /// Setup steps in the protocol.
 pub mod setup;

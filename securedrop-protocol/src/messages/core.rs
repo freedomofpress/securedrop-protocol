@@ -13,8 +13,8 @@ pub struct SourceNewsroomKeyRequest {}
 ///
 /// This is the first response in step 5 of the spec.
 pub struct SourceNewsroomKeyResponse {
-    newsroom_verifying_key: VerifyingKey,
-    fpf_sig: Signature,
+    pub newsroom_verifying_key: VerifyingKey,
+    pub fpf_sig: Signature,
 }
 
 /// Source fetches journalist keys for the newsroom
@@ -48,10 +48,10 @@ pub struct SourceJournalistKeyResponse {
     journalist_ephemeral_sig: Signature,
 }
 
-/// Source submits a message to the server $(C, Z, X)$
+/// User submits a message to the server $(C, Z, X)$
 ///
-/// This corresponds to step 6 in the spec.
-pub struct SourceMessageSubmitRequest {
+/// This corresponds to step 6 for sources and step 9 for journalists in the spec.
+pub struct MessageSubmitRequest {
     /// Encrypted message ciphertext
     ciphertext: Vec<u8>,
     /// Diffie-Hellman share Z
