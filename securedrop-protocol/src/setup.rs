@@ -1,17 +1,11 @@
-use anyhow::Error;
-use rand_core::{CryptoRng, RngCore};
+//! Setup module for FPF hardware operations
+//!
+//! This module contains implementations that run on FPF hardware.
 
-// Newsroom onboarding: Spec step 2
 use crate::messages::setup::{NewsroomSetupRequest, NewsroomSetupResponse};
+use anyhow::Error;
 
 impl NewsroomSetupRequest {
-    /// Generate a new newsroom setup request.
-    ///
-    /// TODO: The caller (eventual CLI) should persist these keys to disk.
-    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> Result<Self, Error> {
-        unimplemented!()
-    }
-
     /// Setup a newsroom. This corresponds to step 2 in the spec.
     ///
     /// This runs on FPF hardware.

@@ -11,7 +11,9 @@ use crate::messages::core::{
     MessageSubmitRequest, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
     SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
 };
-use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupResponse};
+use crate::messages::setup::{
+    JournalistRefreshRequest, JournalistSetupResponse, NewsroomSetupRequest, NewsroomSetupResponse,
+};
 use crate::storage::ServerStorage;
 
 /// Server session for handling source requests
@@ -23,6 +25,16 @@ impl ServerSession {
     /// Create a new server session
     pub fn new(storage: ServerStorage) -> Self {
         Self { storage }
+    }
+
+    /// Generate a new newsroom setup request.
+    ///
+    /// TODO: The caller should persist these keys to disk.
+    pub fn create_newsroom_setup_request<R: RngCore + CryptoRng>(
+        &self,
+        _rng: R,
+    ) -> Result<NewsroomSetupRequest, Error> {
+        unimplemented!()
     }
 
     /// Setup a journalist. This corresponds to step 3.1 in the spec.
