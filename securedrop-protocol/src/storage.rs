@@ -1,6 +1,7 @@
+use alloc::collections::HashMap;
+use alloc::vec::Vec;
 use rand::Rng;
 use rand_core::{CryptoRng, RngCore};
-use std::collections::HashMap;
 
 use crate::messages::MessageBundle;
 use crate::primitives::{DHPublicKey, PPKPublicKey};
