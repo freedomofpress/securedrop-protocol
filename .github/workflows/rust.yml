@@ -1,8 +1,6 @@
-on:
-  pull_request:
-  push:
-
 name: Rust CI
+
+on: [push, pull_request]
 
 permissions:
   contents: read
