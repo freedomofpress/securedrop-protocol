@@ -2,10 +2,11 @@ use rand_core::{CryptoRng, RngCore};
 
 // TODO: These names are kinda bad
 use crate::primitives::{DHPrivateKey, DHPublicKey, PPKPrivateKey, PPKPublicKey};
-use crate::sign::{SigningKey, VerifyingKey};
+use crate::sign::{Signature, SigningKey, VerifyingKey};
 
 /// Journalists signing key pair
 /// Signed by the newsroom
+/// Long-term
 pub struct JournalistSigningKeyPair {
     pub(crate) vk: VerifyingKey,
     sk: SigningKey,
@@ -19,6 +20,7 @@ impl JournalistSigningKeyPair {
 
 /// Journalist fetching key pair
 /// Signed by the newsroom
+/// Medium-term
 pub struct JournalistFetchKeyPair {
     pub(crate) public_key: DHPublicKey,
     private_key: DHPrivateKey,
@@ -80,4 +82,49 @@ impl JournalistEphemeralDHKeyPair {
     pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistEphemeralDHKeyPair {
         unimplemented!()
     }
+}
+
+/// (new) 0.3 Keys
+
+/// Journalist message encryption PSK
+///
+/// One-time (ephemeral) key
+///
+/// $J_epq$ in the specification.
+pub struct JournalistEphemeralMessagePSKKeyPair {
+    pub(crate) public_key: PPKPublicKey,
+    private_key: PPKPrivateKey,
+}
+
+/// Journalist message encryption keypair
+///
+/// One-time (ephemeral) key
+///
+/// $J_epke$ in the specification.
+pub struct JournalistEphemeralMessageKeyPair {
+    pub(crate) public_key: PPKPublicKey,
+    private_key: PPKPrivateKey,
+}
+
+/// Journalist metadata keypair
+///
+/// One-time (ephemeral) key
+///
+/// $J_emd$ in the specification.
+pub struct JournalistEphemeralMetadataKeyPair {
+    pub(crate) public_key: PPKPublicKey,
+    private_key: PPKPrivateKey,
+}
+
+/// Ephemeral key set for a journalist (0.2)
+#[derive(Debug, Clone)]
+pub struct JournalistEphemeralKeyBundle {
+    /// Ephemeral DH public key for DH-AKEM
+    pub edh_pk: DHPublicKey,
+    /// Ephemeral PPK public key for KEM
+    pub ekem_pk: PPKPublicKey,
+    /// Ephemeral PPK public key for PKE
+    pub epke_pk: PPKPublicKey,
+    /// Journalist's signature over the ephemeral keys
+    pub signature: Signature,
 }

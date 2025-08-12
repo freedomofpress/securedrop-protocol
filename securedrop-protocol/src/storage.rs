@@ -3,22 +3,10 @@ use hashbrown::HashMap;
 use rand::Rng;
 use rand_core::{CryptoRng, RngCore};
 
+use crate::keys::JournalistEphemeralKeyBundle;
 use crate::messages::MessageBundle;
 use crate::primitives::{DHPublicKey, PPKPublicKey};
 use crate::sign::{Signature, VerifyingKey};
-
-/// Ephemeral key set for a journalist
-#[derive(Debug, Clone)]
-pub struct JournalistEphemeralKeys {
-    /// Ephemeral DH public key for DH-AKEM
-    pub edh_pk: DHPublicKey,
-    /// Ephemeral PPK public key for KEM
-    pub ekem_pk: PPKPublicKey,
-    /// Ephemeral PPK public key for PKE
-    pub epke_pk: PPKPublicKey,
-    /// Journalist's signature over the ephemeral keys
-    pub signature: Signature,
-}
 
 pub struct ServerStorage {
     /// Newsroom verifying key
@@ -30,7 +18,7 @@ pub struct ServerStorage {
     /// Journalists ephemeral keystore
     /// Maps journalist ID to a vector of ephemeral key sets
     /// Each journalist maintains a pool of ephemeral keys that are randomly selected and removed when fetched
-    ephemeral_keys: HashMap<u64, Vec<JournalistEphemeralKeys>>,
+    ephemeral_keys: HashMap<u64, Vec<JournalistEphemeralKeyBundle>>,
     /// Store of messages
     messages: HashMap<u64, MessageBundle>,
 }
@@ -53,7 +41,11 @@ impl ServerStorage {
     }
 
     /// Add ephemeral keys for a journalist
-    pub fn add_ephemeral_keys(&mut self, journalist_id: u64, keys: Vec<JournalistEphemeralKeys>) {
+    pub fn add_ephemeral_keys(
+        &mut self,
+        journalist_id: u64,
+        keys: Vec<JournalistEphemeralKeyBundle>,
+    ) {
         let journalist_keys = self
             .ephemeral_keys
             .entry(journalist_id)
@@ -67,7 +59,7 @@ impl ServerStorage {
         &mut self,
         journalist_id: u64,
         rng: &mut R,
-    ) -> Option<JournalistEphemeralKeys> {
+    ) -> Option<JournalistEphemeralKeyBundle> {
         if let Some(keys) = self.ephemeral_keys.get_mut(&journalist_id) {
             if keys.is_empty() {
                 return None;
@@ -89,7 +81,7 @@ impl ServerStorage {
     pub fn get_all_ephemeral_keys<R: RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,
-    ) -> Vec<(u64, JournalistEphemeralKeys)> {
+    ) -> Vec<(u64, JournalistEphemeralKeyBundle)> {
         let mut result = Vec::new();
         let journalist_ids: Vec<u64> = self.ephemeral_keys.keys().copied().collect();
 

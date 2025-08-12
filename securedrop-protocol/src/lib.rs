@@ -29,6 +29,8 @@ pub mod setup;
 pub mod primitives;
 
 /// Primitives for signing.
+///
+/// TODO: Move to primitives?
 pub mod sign;
 
 pub use sign::{Signature, SigningKey, VerifyingKey};

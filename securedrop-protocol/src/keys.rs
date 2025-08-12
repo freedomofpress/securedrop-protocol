@@ -19,7 +19,10 @@ impl FPFKeyPair {
 
 pub use journalist::{
     JournalistDHKeyPair, JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair,
-    JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair, JournalistSigningKeyPair,
+    JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair,
+    JournalistSigningKeyPair,
 };
 pub use newsroom::NewsroomKeyPair;
 pub use source::{SourceDHKeyPair, SourceFetchKeyPair, SourceKEMKeyPair, SourcePKEKeyPair};
+
+// TODO: Define User trait that provides methods for keys shared between source and journalist?
