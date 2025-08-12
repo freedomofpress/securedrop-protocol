@@ -13,13 +13,14 @@ pub struct ServerStorage {
     newsroom_vk: VerifyingKey,
     /// Signature demonstrating onboarding
     fpf_sig: Signature,
-    /// Journalists with their long term keys
+    /// Journalists with their long/medium term keys
     journalists: HashMap<u64, (VerifyingKey, DHPublicKey, DHPublicKey, Signature)>,
     /// Journalists ephemeral keystore
     /// Maps journalist ID to a vector of ephemeral key sets
     /// Each journalist maintains a pool of ephemeral keys that are randomly selected and removed when fetched
     ephemeral_keys: HashMap<u64, Vec<JournalistEphemeralKeyBundle>>,
     /// Store of messages
+    /// TODO: Should not map u64 to MessageBundles, instead UUID
     messages: HashMap<u64, MessageBundle>,
 }
 

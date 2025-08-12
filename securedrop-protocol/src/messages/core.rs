@@ -2,6 +2,7 @@ use crate::primitives::{DHPublicKey, PPKPublicKey};
 use crate::{Signature, VerifyingKey};
 use alloc::vec::Vec;
 
+/// TODO: Should be (C, Z, X)
 pub struct MessageBundle {}
 
 /// Source fetches keys for the newsroom

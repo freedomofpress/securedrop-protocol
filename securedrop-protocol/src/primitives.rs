@@ -1,4 +1,6 @@
-// TODO: fill this in
+// TODO(ro): Import whatever crate provides the appropriate keys
+
+// TODO(ro): Fill in types here
 
 #[derive(Debug, Clone)]
 pub struct PPKPrivateKey;

@@ -47,6 +47,8 @@ impl ServerSession {
     /// instruct the user to stop, verify the fingerprint out of band, and
     /// then proceed. The caller should also persist the fingerprint and signature
     /// in its local data store.
+    ///
+    /// TODO(later): How to handle signing when offline? (Not relevant for benchmarking)
     pub fn setup_journalist(&self) -> Result<JournalistSetupResponse, Error> {
         unimplemented!()
     }
@@ -100,6 +102,10 @@ impl ServerSession {
     /// Process a new refresh request from the journalist.
     ///
     /// TODO: The caller should persist the keys for J.
+    ///
+    /// Step 3.2 in the 0.2 spec.
+    ///
+    /// TODO(later): How to handle signing when offline? (Not relevant for benchmarking)
     pub fn handle_journalist_refresh(
         &mut self,
         _request: JournalistRefreshRequest,

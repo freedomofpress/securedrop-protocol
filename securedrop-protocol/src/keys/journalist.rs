@@ -84,34 +84,37 @@ impl JournalistEphemeralDHKeyPair {
     }
 }
 
-/// (new) 0.3 Keys
+// TODO(ro): Fill in types here
 
-/// Journalist message encryption PSK
+// (new) 0.3 Keys
+
+/// Journalist message encryption PSK (used for PQ secret)
 ///
-/// One-time (ephemeral) key
+/// One-time key
 ///
 /// $J_epq$ in the specification.
-pub struct JournalistEphemeralMessagePSKKeyPair {
+pub struct JournalistOneTimeMessagePQKeyPair {
     pub(crate) public_key: PPKPublicKey,
     private_key: PPKPrivateKey,
 }
 
 /// Journalist message encryption keypair
 ///
-/// One-time (ephemeral) key
+/// One-time key
 ///
 /// $J_epke$ in the specification.
-pub struct JournalistEphemeralMessageKeyPair {
+pub struct JournalistOneTimeMessageClassicalKeyPair {
+    // TODO(ro): Fill in types here from primitives module
     pub(crate) public_key: PPKPublicKey,
     private_key: PPKPrivateKey,
 }
 
 /// Journalist metadata keypair
 ///
-/// One-time (ephemeral) key
+/// One-time key
 ///
 /// $J_emd$ in the specification.
-pub struct JournalistEphemeralMetadataKeyPair {
+pub struct JournalistOneTimeMetadataKeyPair {
     pub(crate) public_key: PPKPublicKey,
     private_key: PPKPrivateKey,
 }
