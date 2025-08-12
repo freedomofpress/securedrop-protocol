@@ -1,0 +1,3 @@
+pynacl
+ruff
+kyber_py @ git+https://github.com/GiacomoPope/kyber-py@v1.0
