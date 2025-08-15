@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use hashbrown::HashMap;
-use rand::Rng;
+use rand::{Rng, RngCore as RandRngCore};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::keys::JournalistEphemeralKeyBundle;
@@ -56,7 +56,7 @@ impl ServerStorage {
 
     /// Get a random ephemeral key set for a journalist and remove it from the pool
     /// Returns None if no keys are available for this journalist
-    pub fn pop_random_ephemeral_keys<R: RngCore + CryptoRng>(
+    pub fn pop_random_ephemeral_keys<R: rand::RngCore + CryptoRng>(
         &mut self,
         journalist_id: u64,
         rng: &mut R,
@@ -79,7 +79,7 @@ impl ServerStorage {
     /// Get random ephemeral keys for all journalists
     /// Returns a vector of (journalist_id, ephemeral_keys) pairs
     /// Only includes journalists that have available keys
-    pub fn get_all_ephemeral_keys<R: RngCore + CryptoRng>(
+    pub fn get_all_ephemeral_keys<R: rand::RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,
     ) -> Vec<(u64, JournalistEphemeralKeyBundle)> {
