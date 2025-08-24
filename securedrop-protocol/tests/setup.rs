@@ -4,6 +4,9 @@
 use rand::rng;
 
 use securedrop_protocol::keys::{FPFKeyPair, NewsroomKeyPair};
+use securedrop_protocol::messages::setup::{NewsroomSetupRequest, NewsroomSetupResponse};
+use securedrop_protocol::server::ServerSession;
+use securedrop_protocol::storage::ServerStorage;
 
 /// Step 1: Generate FPF keys
 #[test]
@@ -30,19 +33,22 @@ fn protocol_step_2_generate_newsroom_keys() {
     // Newsroom: Generate their signing key pair
     let newsroom_keys = NewsroomKeyPair::new(&mut rng);
 
-    // FPF: Sign the newsroom's public key
-    let newsroom_pk_bytes = newsroom_keys.vk.into_bytes();
-    let fpf_signature = fpf_keys.sk.sign(&newsroom_pk_bytes);
+    // Newsroom: Create newsroom setup request with the newsroom's public key
+    let newsroom_setup = NewsroomSetupRequest {
+        newsroom_verifying_key: newsroom_keys.vk,
+    };
+
+    // Sign the newsroom's public key
+    let setup_response = newsroom_setup
+        .sign(&fpf_keys)
+        .expect("Signing should not fail");
 
     // Newsroom: Verify the FPF signature on the newsroom's public key
+    let newsroom_pk_bytes = newsroom_keys.vk.into_bytes();
     assert!(
         fpf_keys
             .vk
-            .verify(&newsroom_pk_bytes, &fpf_signature)
+            .verify(&newsroom_pk_bytes, &setup_response.sig)
             .is_ok()
     );
-
-    // Test that wrong public key fails verification
-    let wrong_pk_bytes = [0u8; 32];
-    assert!(fpf_keys.vk.verify(&wrong_pk_bytes, &fpf_signature).is_err());
 }

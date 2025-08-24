@@ -2,6 +2,7 @@
 //!
 //! This module contains implementations that run on FPF hardware.
 
+use crate::keys::FPFKeyPair;
 use crate::messages::setup::{NewsroomSetupRequest, NewsroomSetupResponse};
 use anyhow::Error;
 
@@ -18,7 +19,10 @@ impl NewsroomSetupRequest {
     /// instruct the user to stop, verify the fingerprint out of band, and
     /// then proceed. The caller should also persist the fingerprint and signature
     /// in its local data store.
-    pub fn sign() -> Result<NewsroomSetupResponse, Error> {
-        unimplemented!()
+    ///
+    pub fn sign(self, fpf_keys: &FPFKeyPair) -> Result<NewsroomSetupResponse, Error> {
+        let newsroom_pk_bytes = self.newsroom_verifying_key.into_bytes();
+        let sig = fpf_keys.sk.sign(&newsroom_pk_bytes);
+        Ok(NewsroomSetupResponse { sig })
     }
 }
