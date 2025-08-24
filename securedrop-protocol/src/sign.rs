@@ -44,3 +44,52 @@ impl VerifyingKey {
             .map_err(|_| anyhow::anyhow!("Signature verification failed"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec::Vec;
+    use proptest::prelude::*;
+    use rand::thread_rng;
+
+    proptest! {
+        #[test]
+        fn test_sign_verify_roundtrip(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
+            let mut rng = thread_rng();
+            let signing_key = SigningKey::new(&mut rng).unwrap();
+            let signature = signing_key.sign(&msg);
+
+            assert!(signing_key.vk.verify(&msg, &signature).is_ok());
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_verify_fails_with_wrong_message(
+            msg1 in proptest::collection::vec(any::<u8>(), 0..100),
+            msg2 in proptest::collection::vec(any::<u8>(), 0..100)
+        ) {
+            if msg1 == msg2 {
+                return Ok(());
+            }
+
+            let mut rng = thread_rng();
+            let signing_key = SigningKey::new(&mut rng).unwrap();
+            let signature = signing_key.sign(&msg1);
+
+            assert!(signing_key.vk.verify(&msg2, &signature).is_err());
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_verify_fails_with_wrong_key(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
+            let mut rng = thread_rng();
+            let key1 = SigningKey::new(&mut rng).unwrap();
+            let key2 = SigningKey::new(&mut rng).unwrap();
+            let signature = key1.sign(&msg);
+
+            assert!(key2.vk.verify(&msg, &signature).is_err());
+        }
+    }
+}
