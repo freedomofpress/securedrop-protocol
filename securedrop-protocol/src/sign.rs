@@ -38,6 +38,11 @@ impl SigningKey {
 }
 
 impl VerifyingKey {
+    /// Get the raw bytes of this verification key
+    pub fn into_bytes(self) -> [u8; 32] {
+        self.0.into_bytes()
+    }
+
     /// Verify a signature on `msg` using this `VerifyingKey`
     pub fn verify(&self, msg: &[u8], signature: &Signature) -> Result<(), Error> {
         libcrux_ed25519::verify(msg, self.0.as_ref(), &signature.0)
