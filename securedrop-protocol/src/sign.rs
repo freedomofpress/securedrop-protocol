@@ -48,14 +48,13 @@ impl VerifyingKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::vec::Vec;
     use proptest::prelude::*;
-    use rand::thread_rng;
+    use rand::rng;
 
     proptest! {
         #[test]
         fn test_sign_verify_roundtrip(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
-            let mut rng = thread_rng();
+            let mut rng = rng();
             let signing_key = SigningKey::new(&mut rng).unwrap();
             let signature = signing_key.sign(&msg);
 
@@ -73,7 +72,7 @@ mod tests {
                 return Ok(());
             }
 
-            let mut rng = thread_rng();
+            let mut rng = rng();
             let signing_key = SigningKey::new(&mut rng).unwrap();
             let signature = signing_key.sign(&msg1);
 
@@ -84,7 +83,7 @@ mod tests {
     proptest! {
         #[test]
         fn test_verify_fails_with_wrong_key(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
-            let mut rng = thread_rng();
+            let mut rng = rng();
             let key1 = SigningKey::new(&mut rng).unwrap();
             let key2 = SigningKey::new(&mut rng).unwrap();
             let signature = key1.sign(&msg);

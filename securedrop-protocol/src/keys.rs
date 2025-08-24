@@ -6,14 +6,19 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::{SigningKey, VerifyingKey};
 
+/// A key pair for FPF.
+///
+/// TODO: Make the signing key private.
 pub struct FPFKeyPair {
     pub sk: SigningKey,
-    pub(crate) vk: VerifyingKey,
+    pub vk: VerifyingKey,
 }
 
 impl FPFKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> FPFKeyPair {
-        unimplemented!()
+    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> FPFKeyPair {
+        let sk = SigningKey::new(&mut rng).unwrap();
+        let vk = sk.vk;
+        FPFKeyPair { sk, vk }
     }
 }
 
