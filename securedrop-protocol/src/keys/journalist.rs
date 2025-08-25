@@ -29,9 +29,13 @@ pub struct JournalistFetchKeyPair {
 }
 
 impl JournalistFetchKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistFetchKeyPair {
-        // TODO: Implement DH key generation when primitives are available
-        unimplemented!("DH key generation not yet implemented")
+    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistFetchKeyPair {
+        let (private_key, public_key) =
+            crate::primitives::generate_dh_keypair(&mut rng).expect("DH key generation failed");
+        JournalistFetchKeyPair {
+            private_key,
+            public_key,
+        }
     }
 }
 
@@ -43,9 +47,13 @@ pub struct JournalistDHKeyPair {
 }
 
 impl JournalistDHKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistDHKeyPair {
-        // TODO: Implement DH key generation when primitives are available
-        unimplemented!("DH key generation not yet implemented")
+    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistDHKeyPair {
+        let (private_key, public_key) =
+            crate::primitives::generate_dh_keypair(&mut rng).expect("DH key generation failed");
+        JournalistDHKeyPair {
+            private_key,
+            public_key,
+        }
     }
 }
 
@@ -57,9 +65,16 @@ pub struct JournalistEphemeralKEMKeyPair {
 }
 
 impl JournalistEphemeralKEMKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistEphemeralKEMKeyPair {
-        // TODO: Implement PPK key generation when primitives are available
-        unimplemented!("PPK key generation not yet implemented")
+    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistEphemeralKEMKeyPair {
+        // Temporarily use DH keys as PPK placeholders
+        let (dh_private_key, dh_public_key) =
+            crate::primitives::generate_dh_keypair(&mut rng).expect("DH key generation failed");
+        let private_key = PPKPrivateKey::new(dh_private_key);
+        let public_key = PPKPublicKey::new(dh_public_key);
+        JournalistEphemeralKEMKeyPair {
+            private_key,
+            public_key,
+        }
     }
 }
 
@@ -71,9 +86,16 @@ pub struct JournalistEphemeralPKEKeyPair {
 }
 
 impl JournalistEphemeralPKEKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistEphemeralPKEKeyPair {
-        // TODO: Implement PPK key generation when primitives are available
-        unimplemented!("PPK key generation not yet implemented")
+    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistEphemeralPKEKeyPair {
+        // Temporarily use DH keys as PPK placeholders
+        let (dh_private_key, dh_public_key) =
+            crate::primitives::generate_dh_keypair(&mut rng).expect("DH key generation failed");
+        let private_key = PPKPrivateKey::new(dh_private_key);
+        let public_key = PPKPublicKey::new(dh_public_key);
+        JournalistEphemeralPKEKeyPair {
+            private_key,
+            public_key,
+        }
     }
 }
 
@@ -85,9 +107,13 @@ pub struct JournalistEphemeralDHKeyPair {
 }
 
 impl JournalistEphemeralDHKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistEphemeralDHKeyPair {
-        // TODO: Implement DH key generation when primitives are available
-        unimplemented!("DH key generation not yet implemented")
+    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistEphemeralDHKeyPair {
+        let (private_key, public_key) =
+            crate::primitives::generate_dh_keypair(&mut rng).expect("DH key generation failed");
+        JournalistEphemeralDHKeyPair {
+            private_key,
+            public_key,
+        }
     }
 }
 

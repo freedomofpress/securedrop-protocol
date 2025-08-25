@@ -3,16 +3,38 @@ use libcrux_curve25519::{DK_LEN as SK_LEN, EK_LEN as PK_LEN};
 use libcrux_traits::kem::arrayref::Kem;
 use rand_core::{CryptoRng, RngCore};
 
+// temp: use proper type
 #[derive(Debug, Clone)]
-pub struct PPKPrivateKey;
+pub struct PPKPrivateKey(DHPrivateKey);
 
 #[derive(Debug, Clone)]
-pub struct PPKPublicKey;
+pub struct PPKPublicKey(DHPublicKey);
 
 impl PPKPublicKey {
+    pub fn new(public_key: DHPublicKey) -> Self {
+        Self(public_key)
+    }
+
     pub fn into_bytes(self) -> [u8; 32] {
-        // TODO: Implement when actual PPK types are available
-        [0u8; 32]
+        self.0.into_bytes()
+    }
+
+    pub fn from_bytes(bytes: [u8; PK_LEN]) -> Self {
+        Self(DHPublicKey::from_bytes(bytes))
+    }
+}
+
+impl PPKPrivateKey {
+    pub fn new(private_key: DHPrivateKey) -> Self {
+        Self(private_key)
+    }
+
+    pub fn into_bytes(self) -> [u8; SK_LEN] {
+        self.0.into_bytes()
+    }
+
+    pub fn from_bytes(bytes: [u8; SK_LEN]) -> Self {
+        Self(DHPrivateKey::from_bytes(bytes))
     }
 }
 
