@@ -2,6 +2,10 @@
 //!
 //! This module implements the journalist-side handling of SecureDrop protocol steps 7-9.
 
+use crate::keys::{
+    JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistFetchKeyPair,
+    JournalistSigningKeyPair,
+};
 use crate::messages::core::{MessageFetchResponse, MessageIdFetchResponse};
 use crate::messages::setup::JournalistSetupRequest;
 use alloc::vec::Vec;
@@ -21,12 +25,30 @@ impl JournalistSession {
 
     /// Generate a new journalist setup request.
     ///
+    /// This generates the journalist's key pairs and creates a setup request
+    /// containing only the public keys to send to the newsroom.
+    ///
     /// TODO: The caller (eventual CLI) should persist these keys to disk.
     pub fn create_setup_request<R: RngCore + CryptoRng>(
         &self,
-        _rng: R,
+        mut rng: R,
     ) -> Result<JournalistSetupRequest, Error> {
-        unimplemented!()
+        // Generate journalist key pairs
+        let signing_key = JournalistSigningKeyPair::new(&mut rng);
+        let fetching_key = JournalistFetchKeyPair::new(&mut rng);
+        let dh_key = JournalistDHKeyPair::new(&mut rng);
+
+        // Create enrollment key bundle with public keys
+        let enrollment_key_bundle = JournalistEnrollmentKeyBundle {
+            signing_key: signing_key.vk,
+            fetching_key: fetching_key.public_key,
+            dh_key: dh_key.public_key,
+        };
+
+        // Create setup request with the enrollment key bundle
+        Ok(JournalistSetupRequest {
+            enrollment_key_bundle,
+        })
     }
 
     /// Fetch message IDs (step 7)

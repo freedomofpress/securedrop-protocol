@@ -2,49 +2,38 @@ use alloc::vec::Vec;
 use hashbrown::HashMap;
 use rand::{Rng, RngCore as RandRngCore};
 use rand_core::{CryptoRng, RngCore};
+use uuid::Uuid;
 
-use crate::keys::JournalistEphemeralKeyBundle;
+use crate::keys::{JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle};
 use crate::messages::MessageBundle;
 use crate::primitives::{DHPublicKey, PPKPublicKey};
 use crate::sign::{Signature, VerifyingKey};
 
 pub struct ServerStorage {
-    /// Newsroom verifying key
-    newsroom_vk: VerifyingKey,
-    /// Signature demonstrating onboarding
-    fpf_sig: Signature,
     /// Journalists with their long/medium term keys
-    journalists: HashMap<u64, (VerifyingKey, DHPublicKey, DHPublicKey, Signature)>,
+    journalists: HashMap<Uuid, (VerifyingKey, DHPublicKey, DHPublicKey, Signature)>,
     /// Journalists ephemeral keystore
     /// Maps journalist ID to a vector of ephemeral key sets
     /// Each journalist maintains a pool of ephemeral keys that are randomly selected and removed when fetched
-    ephemeral_keys: HashMap<u64, Vec<JournalistEphemeralKeyBundle>>,
+    ephemeral_keys: HashMap<Uuid, Vec<JournalistEphemeralKeyBundle>>,
     /// Store of messages
-    /// TODO: Should not map u64 to MessageBundles, instead UUID
-    messages: HashMap<u64, MessageBundle>,
+    messages: HashMap<Uuid, MessageBundle>,
 }
 
 impl ServerStorage {
     /// Create a new ServerStorage instance
-    pub fn new(newsroom_vk: VerifyingKey, fpf_sig: Signature) -> Self {
+    pub fn new() -> Self {
         Self {
-            newsroom_vk,
-            fpf_sig,
             journalists: HashMap::new(),
             ephemeral_keys: HashMap::new(),
             messages: HashMap::new(),
         }
     }
 
-    // TODO: Rename
-    pub fn keys(self) -> (VerifyingKey, Signature) {
-        (self.newsroom_vk, self.fpf_sig)
-    }
-
     /// Add ephemeral keys for a journalist
     pub fn add_ephemeral_keys(
         &mut self,
-        journalist_id: u64,
+        journalist_id: Uuid,
         keys: Vec<JournalistEphemeralKeyBundle>,
     ) {
         let journalist_keys = self
@@ -58,7 +47,7 @@ impl ServerStorage {
     /// Returns None if no keys are available for this journalist
     pub fn pop_random_ephemeral_keys<R: rand::RngCore + CryptoRng>(
         &mut self,
-        journalist_id: u64,
+        journalist_id: Uuid,
         rng: &mut R,
     ) -> Option<JournalistEphemeralKeyBundle> {
         if let Some(keys) = self.ephemeral_keys.get_mut(&journalist_id) {
@@ -82,9 +71,9 @@ impl ServerStorage {
     pub fn get_all_ephemeral_keys<R: rand::RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,
-    ) -> Vec<(u64, JournalistEphemeralKeyBundle)> {
+    ) -> Vec<(Uuid, JournalistEphemeralKeyBundle)> {
         let mut result = Vec::new();
-        let journalist_ids: Vec<u64> = self.ephemeral_keys.keys().copied().collect();
+        let journalist_ids: Vec<Uuid> = self.ephemeral_keys.keys().copied().collect();
 
         for journalist_id in journalist_ids {
             if let Some(keys) = self.pop_random_ephemeral_keys(journalist_id, rng) {
@@ -96,50 +85,48 @@ impl ServerStorage {
     }
 
     /// Check how many ephemeral keys are available for a journalist
-    pub fn ephemeral_keys_count(&self, journalist_id: u64) -> usize {
+    pub fn ephemeral_keys_count(&self, journalist_id: Uuid) -> usize {
         self.ephemeral_keys
             .get(&journalist_id)
             .map_or(0, |keys| keys.len())
     }
 
     /// Check if a journalist has any ephemeral keys available
-    pub fn has_ephemeral_keys(&self, journalist_id: u64) -> bool {
+    pub fn has_ephemeral_keys(&self, journalist_id: Uuid) -> bool {
         self.ephemeral_keys_count(journalist_id) > 0
     }
 
     /// Get all journalists
     pub fn get_journalists(
         &self,
-    ) -> &HashMap<u64, (VerifyingKey, DHPublicKey, DHPublicKey, Signature)> {
+    ) -> &HashMap<Uuid, (VerifyingKey, DHPublicKey, DHPublicKey, Signature)> {
         &self.journalists
     }
 
-    /// Add a journalist to storage
+    /// Add a journalist to storage and return the generated UUID
     pub fn add_journalist(
         &mut self,
-        journalist_id: u64,
-        keys: (VerifyingKey, DHPublicKey, DHPublicKey, Signature),
-    ) {
+        enrollment_bundle: JournalistEnrollmentKeyBundle,
+        signature: Signature,
+    ) -> Uuid {
+        let journalist_id = Uuid::new_v4();
+        let keys = (
+            enrollment_bundle.signing_key,
+            enrollment_bundle.fetching_key,
+            enrollment_bundle.dh_key,
+            signature,
+        );
         self.journalists.insert(journalist_id, keys);
+        journalist_id
     }
 
     /// Get all messages
-    pub fn get_messages(&self) -> &HashMap<u64, MessageBundle> {
+    pub fn get_messages(&self) -> &HashMap<Uuid, MessageBundle> {
         &self.messages
     }
 
     /// Add a message to storage
-    pub fn add_message(&mut self, message_id: u64, message: MessageBundle) {
+    pub fn add_message(&mut self, message_id: Uuid, message: MessageBundle) {
         self.messages.insert(message_id, message);
-    }
-
-    /// Get the newsroom verifying key
-    pub fn get_newsroom_vk(&self) -> &VerifyingKey {
-        &self.newsroom_vk
-    }
-
-    /// Get the FPF signature
-    pub fn get_fpf_sig(&self) -> &Signature {
-        &self.fpf_sig
     }
 }

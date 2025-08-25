@@ -10,12 +10,14 @@ license = "GPL-3.0"
 libcrux-ed25519 = { version = "0.0.3", features = ["rand"] }
 libcrux-curve25519 = "0.0.3"
 libcrux-chacha20poly1305 = "0.0.3"
+hpke-rs = {version = "0.3.0"}
 rand_core = {version = "0.9"}
 rand = {version = "0.9"}
 # Needed for wasm compat
 getrandom = {version = "0.3", features = ["wasm_js"]}
 anyhow = "1.0"
 hashbrown = {version = "0.14", features = ["raw"]}
+uuid = {version = "1.0", features = ["v4", "rng-getrandom"]}
 
 [dev-dependencies]
 proptest = "1.3"

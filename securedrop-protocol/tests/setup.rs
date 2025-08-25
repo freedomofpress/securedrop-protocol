@@ -30,13 +30,14 @@ fn protocol_step_2_generate_newsroom_keys() {
     // Setup: FPF generates their keys (from previous step)
     let fpf_keys = FPFKeyPair::new(&mut rng);
 
-    // Newsroom: Generate their signing key pair
-    let newsroom_keys = NewsroomKeyPair::new(&mut rng);
+    // Newsroom: Create server session and generate setup request
+    let mut server_session = ServerSession::new();
+    let newsroom_setup = server_session
+        .create_newsroom_setup_request(&mut rng)
+        .expect("Can create newsroom setup request");
 
-    // Newsroom: Create newsroom setup request with the newsroom's public key
-    let newsroom_setup = NewsroomSetupRequest {
-        newsroom_verifying_key: newsroom_keys.vk,
-    };
+    // Store the newsroom verifying key for verification
+    let newsroom_vk = newsroom_setup.newsroom_verifying_key;
 
     // Sign the newsroom's public key
     let setup_response = newsroom_setup
@@ -44,7 +45,7 @@ fn protocol_step_2_generate_newsroom_keys() {
         .expect("Signing should not fail");
 
     // Newsroom: Verify the FPF signature on the newsroom's public key
-    let newsroom_pk_bytes = newsroom_keys.vk.into_bytes();
+    let newsroom_pk_bytes = newsroom_vk.into_bytes();
     assert!(
         fpf_keys
             .vk

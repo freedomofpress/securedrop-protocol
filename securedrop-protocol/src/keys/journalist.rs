@@ -13,8 +13,10 @@ pub struct JournalistSigningKeyPair {
 }
 
 impl JournalistSigningKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistSigningKeyPair {
-        unimplemented!()
+    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistSigningKeyPair {
+        let sk = SigningKey::new(&mut rng).unwrap();
+        let vk = sk.vk;
+        JournalistSigningKeyPair { vk, sk }
     }
 }
 
@@ -28,7 +30,8 @@ pub struct JournalistFetchKeyPair {
 
 impl JournalistFetchKeyPair {
     pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistFetchKeyPair {
-        unimplemented!()
+        // TODO: Implement DH key generation when primitives are available
+        unimplemented!("DH key generation not yet implemented")
     }
 }
 
@@ -41,7 +44,8 @@ pub struct JournalistDHKeyPair {
 
 impl JournalistDHKeyPair {
     pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistDHKeyPair {
-        unimplemented!()
+        // TODO: Implement DH key generation when primitives are available
+        unimplemented!("DH key generation not yet implemented")
     }
 }
 
@@ -54,7 +58,8 @@ pub struct JournalistEphemeralKEMKeyPair {
 
 impl JournalistEphemeralKEMKeyPair {
     pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistEphemeralKEMKeyPair {
-        unimplemented!()
+        // TODO: Implement PPK key generation when primitives are available
+        unimplemented!("PPK key generation not yet implemented")
     }
 }
 
@@ -67,7 +72,8 @@ pub struct JournalistEphemeralPKEKeyPair {
 
 impl JournalistEphemeralPKEKeyPair {
     pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistEphemeralPKEKeyPair {
-        unimplemented!()
+        // TODO: Implement PPK key generation when primitives are available
+        unimplemented!("PPK key generation not yet implemented")
     }
 }
 
@@ -80,7 +86,8 @@ pub struct JournalistEphemeralDHKeyPair {
 
 impl JournalistEphemeralDHKeyPair {
     pub fn new<R: RngCore + CryptoRng>(_rng: R) -> JournalistEphemeralDHKeyPair {
-        unimplemented!()
+        // TODO: Implement DH key generation when primitives are available
+        unimplemented!("DH key generation not yet implemented")
     }
 }
 
@@ -130,4 +137,36 @@ pub struct JournalistEphemeralKeyBundle {
     pub epke_pk: PPKPublicKey,
     /// Journalist's signature over the ephemeral keys
     pub signature: Signature,
+}
+
+/// Journalist enrollment key bundle
+///
+/// This bundle is used to enroll a journalist into the system.
+/// It contains the journalist's signing, fetching, and DH keys.
+#[derive(Clone)]
+pub struct JournalistEnrollmentKeyBundle {
+    /// Journalist's signing key
+    pub signing_key: VerifyingKey,
+    /// Journalist's fetching key
+    pub fetching_key: DHPublicKey,
+    /// Journalist's DH key
+    pub dh_key: DHPublicKey,
+}
+
+/// a 96 byte array of the required keys for enrollment
+impl JournalistEnrollmentKeyBundle {
+    pub fn into_bytes(self) -> [u8; 96] {
+        let mut bytes = [0u8; 96];
+
+        // Signing key verification key (32 bytes)
+        bytes[0..32].copy_from_slice(&self.signing_key.into_bytes());
+
+        // Fetching key public key (32 bytes)
+        bytes[32..64].copy_from_slice(&self.fetching_key.into_bytes());
+
+        // DH key public key (32 bytes)
+        bytes[64..96].copy_from_slice(&self.dh_key.into_bytes());
+
+        bytes
+    }
 }
