@@ -20,7 +20,7 @@ use crate::messages::setup::{
     NewsroomSetupRequest, NewsroomSetupResponse,
 };
 use crate::primitives::PPKPublicKey;
-use crate::sign::Signature;
+use crate::sign::{Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 
 /// Server session for handling source requests
@@ -96,6 +96,11 @@ impl ServerSession {
         Ok(JournalistSetupResponse {
             sig: newsroom_signature,
         })
+    }
+
+    /// Get the newsroom verifying key
+    pub fn get_newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
+        self.newsroom_keys.as_ref().map(|keys| &keys.vk)
     }
 
     /// Handle source newsroom key request (step 5)
