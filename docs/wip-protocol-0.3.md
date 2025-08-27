@@ -1,6 +1,6 @@
 ## Journalist Enrollemnt
 
-- see protocol.md (TODO)
+- see protocol.md (WIP)
 
 ## Initial keys fetch (`/journalists`)
 
@@ -84,8 +84,9 @@
 
 ### Messaging
 
-- Presumes Newsroom PKI set up (ie FPF has signed Newsroom key, newsroom has signed journalist signing keys. Still TBD whether newsroom or journalist signs journo fetching key.)
+- Presumes Newsroom PKI set up (ie FPF has signed Newsroom key, newsroom has signed journalist signing key. Under discussion: Journalist signs their own long-term dh-akem and fetching key.)
 - Fetching key lifetime still TBD; might want to make it easier to roll than the journo signing key
+- There is still an open issue to discuss the lifetime of the journalist messaging key bundles that are used by senders to send them messages. (Discussion of time-scoped keys instead of one-time keys depending on key exhaustion concerns).
 - Presumes source verifies signatures on keys before using (omits error checking)
 - Source creates message for each journalist individually (n journalists)
 - Journalist creates reply for all other journalists + source (n-1 + 1 = n, to be sure that ciphertext numbers match in each direction and avoid attacks that allow for probabilistically identifying a user's role)
@@ -93,11 +94,10 @@
 - Still for discussion: Message (plaintext) structure. Includes at minimum the pubkeys needed for replies, but could also include NR key/identifier (avoid cross-instance replays), additional application-level metadata.
 - "Clue" (output of DH agreement) needs to be exposed by whatever primitives library we are using.
 - Error-handling/robust implementation details omitted for clarity for now
+- Of note: In one-shot/unidirectional dead-drop mode, the source could avoid attaching their public keys used for replies, improving deniability.
 
 ### Fetch/delete
 
 - Fuzzy message expiry planned for messages on server (vs one-time delivery, sending a message to the server upon read, or any other mechanisms). This contrasts with the Tamarin model in progres where one-time message delivery is modeled.
 - Some discussion about issuing one fetch request (one ID per request) vs fetching multiple IDs at once. For now assume one fetch request is one message ID.
 - The ephemeral key used by the sender to generate the Clue isn't included anywhere or bound to the ciphertext at all; in previous designs it was the message ephemeral pubkey. EthZ says it is by design that nothing can link the key to the message; however, is it worth considering identifying the key _inside_ the message ciphertext (eg a key hash)?
-
-\*\*\*: In a unidirectional dead-drop mode, attaching these PQ keys could be avoided, since they are only used for replies.
