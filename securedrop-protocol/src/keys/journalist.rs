@@ -18,11 +18,20 @@ impl JournalistSigningKeyPair {
         let vk = sk.vk;
         JournalistSigningKeyPair { vk, sk }
     }
+
+    pub fn sign(&self, message: &[u8]) -> Signature {
+        self.sk.sign(message)
+    }
+
+    pub fn verifying_key(&self) -> &VerifyingKey {
+        &self.vk
+    }
 }
 
 /// Journalist fetching key pair
 /// Signed by the newsroom
 /// Medium-term
+#[derive(Clone)]
 pub struct JournalistFetchKeyPair {
     pub(crate) public_key: DHPublicKey,
     private_key: DHPrivateKey,
@@ -41,6 +50,7 @@ impl JournalistFetchKeyPair {
 
 /// Journalist long term DH-AKEM keypair
 /// Signed by the newsroom
+#[derive(Clone)]
 pub struct JournalistDHKeyPair {
     pub(crate) public_key: DHPublicKey,
     private_key: DHPrivateKey,
@@ -152,15 +162,48 @@ pub struct JournalistOneTimeMetadataKeyPair {
     private_key: PPKPrivateKey,
 }
 
-/// Ephemeral key set for a journalist (0.2)
+/// Ephemeral public keys for a journalist (without signature)
+///
+/// This struct contains just the ephemeral public keys that need to be signed.
+/// Used for creating the message to sign in Step 3.2.
 #[derive(Debug, Clone)]
-pub struct JournalistEphemeralKeyBundle {
+pub struct JournalistEphemeralPublicKeys {
     /// Ephemeral DH public key for DH-AKEM
     pub edh_pk: DHPublicKey,
     /// Ephemeral PPK public key for KEM
     pub ekem_pk: PPKPublicKey,
     /// Ephemeral PPK public key for PKE
     pub epke_pk: PPKPublicKey,
+}
+
+impl JournalistEphemeralPublicKeys {
+    /// Convert the ephemeral public keys to a byte array for signing
+    ///
+    /// Returns a 96-byte array containing the concatenated public keys:
+    /// - edh_pk (32 bytes)
+    /// - ekem_pk (32 bytes)
+    /// - epke_pk (32 bytes)
+    pub fn into_bytes(self) -> [u8; 96] {
+        let mut bytes = [0u8; 96];
+
+        // Ephemeral DH public key (32 bytes)
+        bytes[0..32].copy_from_slice(&self.edh_pk.into_bytes());
+
+        // Ephemeral KEM public key (32 bytes)
+        bytes[32..64].copy_from_slice(&self.ekem_pk.into_bytes());
+
+        // Ephemeral PKE public key (32 bytes)
+        bytes[64..96].copy_from_slice(&self.epke_pk.into_bytes());
+
+        bytes
+    }
+}
+
+/// Ephemeral key set for a journalist (0.2)
+#[derive(Debug, Clone)]
+pub struct JournalistEphemeralKeyBundle {
+    /// The ephemeral public keys
+    pub public_keys: JournalistEphemeralPublicKeys,
     /// Journalist's signature over the ephemeral keys
     pub signature: Signature,
 }

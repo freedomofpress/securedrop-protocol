@@ -8,7 +8,8 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::keys::{
     JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle,
-    JournalistFetchKeyPair, JournalistSigningKeyPair, NewsroomKeyPair,
+    JournalistEphemeralPublicKeys, JournalistFetchKeyPair, JournalistSigningKeyPair,
+    NewsroomKeyPair,
 };
 use crate::messages::core::{
     MessageFetchRequest, MessageFetchResponse, MessageIdFetchRequest, MessageIdFetchResponse,
@@ -16,8 +17,8 @@ use crate::messages::core::{
     SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
 };
 use crate::messages::setup::{
-    JournalistRefreshRequest, JournalistSetupRequest, JournalistSetupResponse,
-    NewsroomSetupRequest, NewsroomSetupResponse,
+    JournalistRefreshRequest, JournalistRefreshResponse, JournalistSetupRequest,
+    JournalistSetupResponse, NewsroomSetupRequest, NewsroomSetupResponse,
 };
 use crate::primitives::PPKPublicKey;
 use crate::sign::{Signature, VerifyingKey};
@@ -96,6 +97,41 @@ impl ServerSession {
         Ok(JournalistSetupResponse {
             sig: newsroom_signature,
         })
+    }
+
+    /// Handle journalist ephemeral key replenishment. This corresponds to step 3.2 in the spec.
+    ///
+    /// The journalist sends ephemeral keys signed by their signing key, and the server
+    /// verifies the signature and stores the ephemeral keys.
+    pub fn handle_ephemeral_key_request(
+        &mut self,
+        request: JournalistRefreshRequest,
+    ) -> Result<JournalistRefreshResponse, Error> {
+        let bundle = request.ephemeral_key_bundle;
+
+        // Get the ephemeral public keys from the bundle
+        let ephemeral_public_keys = &bundle.public_keys;
+
+        // Create the message that was signed
+        let signed_message = ephemeral_public_keys.clone().into_bytes();
+
+        // Look up the journalist by their verifying key
+        let journalist_id = self
+            .storage
+            .find_journalist_by_verifying_key(&request.journalist_verifying_key)
+            .ok_or_else(|| anyhow::anyhow!("Journalist not found in storage"))?;
+
+        // Verify the signature using the journalist's verifying key
+        request
+            .journalist_verifying_key
+            .verify(&signed_message, &bundle.signature)
+            .map_err(|_| anyhow::anyhow!("Invalid signature on ephemeral keys"))?;
+
+        // Store the ephemeral keys for the journalist
+        self.storage
+            .add_ephemeral_keys(journalist_id, Vec::from([bundle]));
+
+        Ok(JournalistRefreshResponse { success: true })
     }
 
     /// Get the newsroom verifying key

@@ -120,6 +120,19 @@ impl ServerStorage {
         journalist_id
     }
 
+    /// Find a journalist by their verifying key
+    /// Returns the journalist ID if found
+    ///
+    /// TODO: Remove?
+    pub fn find_journalist_by_verifying_key(&self, verifying_key: &VerifyingKey) -> Option<Uuid> {
+        for (journalist_id, (stored_vk, _, _, _)) in &self.journalists {
+            if stored_vk.into_bytes() == verifying_key.into_bytes() {
+                return Some(*journalist_id);
+            }
+        }
+        None
+    }
+
     /// Get all messages
     pub fn get_messages(&self) -> &HashMap<Uuid, MessageBundle> {
         &self.messages
