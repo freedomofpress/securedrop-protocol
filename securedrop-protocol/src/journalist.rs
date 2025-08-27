@@ -9,6 +9,7 @@ use crate::keys::{
 };
 use crate::messages::core::{MessageFetchResponse, MessageIdFetchResponse};
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
+use crate::primitives::DHPublicKey;
 use crate::sign::VerifyingKey;
 use alloc::vec::Vec;
 use anyhow::Error;
@@ -126,9 +127,19 @@ impl JournalistSession {
         })
     }
 
-    /// Get the journalist's verifying key from the session
+    /// Get the journalist's verifying key
     pub fn verifying_key(&self) -> Option<&VerifyingKey> {
         self.signing_key.as_ref().map(|sk| &sk.vk)
+    }
+
+    /// Get the journalist's fetching key
+    pub fn fetching_key(&self) -> Option<&DHPublicKey> {
+        self.fetching_key.as_ref().map(|fk| &fk.public_key)
+    }
+
+    /// Get the journalist's DH key
+    pub fn dh_key(&self) -> Option<&DHPublicKey> {
+        self.dh_key.as_ref().map(|dk| &dk.public_key)
     }
 
     /// Fetch message IDs (step 7)

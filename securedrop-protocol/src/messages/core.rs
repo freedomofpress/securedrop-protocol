@@ -32,21 +32,21 @@ pub struct SourceJournalistKeyRequest {}
 /// This is the second part of step 5 in the spec.
 pub struct SourceJournalistKeyResponse {
     /// Journalist's signing public key
-    journalist_sig_pk: VerifyingKey,
+    pub journalist_sig_pk: VerifyingKey,
     /// Journalist's fetching public key
-    journalist_fetch_pk: DHPublicKey,
+    pub journalist_fetch_pk: DHPublicKey,
     /// Journalist's long-term DH public key
-    journalist_dh_pk: DHPublicKey,
+    pub journalist_dh_pk: DHPublicKey,
     /// Newsroom's signature over journalist keys
-    newsroom_sig: Signature,
+    pub newsroom_sig: Signature,
     /// Random ephemeral DH public key for this journalist
-    ephemeral_dh_pk: DHPublicKey,
+    pub ephemeral_dh_pk: DHPublicKey,
     /// Random ephemeral KEM public key for this journalist
-    ephemeral_kem_pk: PPKPublicKey,
+    pub ephemeral_kem_pk: PPKPublicKey,
     /// Random ephemeral PKE public key for this journalist
-    ephemeral_pke_pk: PPKPublicKey,
+    pub ephemeral_pke_pk: PPKPublicKey,
     /// Journalist's signature over ephemeral keys
-    journalist_ephemeral_sig: Signature,
+    pub journalist_ephemeral_sig: Signature,
 }
 
 /// User submits a message to the server $(C, Z, X)$

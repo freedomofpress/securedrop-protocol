@@ -45,6 +45,9 @@ impl ServerStorage {
 
     /// Get a random ephemeral key set for a journalist and remove it from the pool
     /// Returns None if no keys are available for this journalist
+    ///
+    /// Note: This method deletes the ephemeral key from storage.
+    /// The returned key is permanently removed from the journalist's ephemeral key pool.
     pub fn pop_random_ephemeral_keys<R: rand::RngCore + CryptoRng>(
         &mut self,
         journalist_id: Uuid,
@@ -68,6 +71,9 @@ impl ServerStorage {
     /// Get random ephemeral keys for all journalists
     /// Returns a vector of (journalist_id, ephemeral_keys) pairs
     /// Only includes journalists that have available keys
+    ///
+    /// Note: This method deletes the ephemeral keys from storage.
+    /// Each call removes the returned keys from the journalist's ephemeral key pool.
     pub fn get_all_ephemeral_keys<R: rand::RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,

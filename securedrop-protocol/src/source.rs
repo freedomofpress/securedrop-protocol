@@ -2,11 +2,14 @@
 //!
 //! This module implements the source-side handling of SecureDrop protocol steps 5-10.
 
-use crate::keys::{SourceKeyBundle, SourcePassphrase};
-use crate::messages::core::{
-    MessageFetchResponse, MessageIdFetchResponse, SourceJournalistKeyResponse,
-    SourceNewsroomKeyResponse,
+use crate::keys::{
+    JournalistEnrollmentKeyBundle, JournalistEphemeralPublicKeys, SourceKeyBundle, SourcePassphrase,
 };
+use crate::messages::core::{
+    MessageFetchResponse, MessageIdFetchResponse, SourceJournalistKeyRequest,
+    SourceJournalistKeyResponse, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
+};
+use crate::sign::VerifyingKey;
 use alloc::vec::Vec;
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
@@ -50,16 +53,70 @@ impl SourceSession {
     }
 
     /// Fetch newsroom keys (step 5)
-    pub fn fetch_newsroom_keys(&self) -> SourceNewsroomKeyResponse {
-        unimplemented!()
+    pub fn fetch_newsroom_keys(&self) -> SourceNewsroomKeyRequest {
+        SourceNewsroomKeyRequest {}
+    }
+
+    /// Handle and verify newsroom key response (step 5)
+    ///
+    /// This verifies the FPF signature on the newsroom's verifying key.
+    pub fn handle_newsroom_key_response(
+        &self,
+        response: &SourceNewsroomKeyResponse,
+        fpf_verifying_key: &VerifyingKey,
+    ) -> Result<(), Error> {
+        // Verify the FPF signature on the newsroom's verifying key
+        let newsroom_vk_bytes = response.newsroom_verifying_key.into_bytes();
+        fpf_verifying_key
+            .verify(&newsroom_vk_bytes, &response.fpf_sig)
+            .map_err(|_| anyhow::anyhow!("Invalid FPF signature on newsroom verifying key"))?;
+
+        Ok(())
     }
 
     /// Fetch journalist keys (step 5)
-    pub fn fetch_journalist_keys<R: RngCore + CryptoRng>(
+    pub fn fetch_journalist_keys(&self) -> SourceJournalistKeyRequest {
+        SourceJournalistKeyRequest {}
+    }
+
+    /// Handle and verify journalist key response (step 5)
+    ///
+    /// This verifies the newsroom signature on the journalist's keys
+    /// and the journalist signature on the ephemeral keys.
+    pub fn handle_journalist_key_response(
         &self,
-        _rng: &mut R,
-    ) -> Vec<SourceJournalistKeyResponse> {
-        unimplemented!()
+        response: &SourceJournalistKeyResponse,
+        newsroom_verifying_key: &VerifyingKey,
+    ) -> Result<(), Error> {
+        // Create the enrollment bundle that was signed by the newsroom
+        let enrollment_bundle = JournalistEnrollmentKeyBundle {
+            signing_key: response.journalist_sig_pk,
+            fetching_key: response.journalist_fetch_pk.clone(),
+            dh_key: response.journalist_dh_pk.clone(),
+        };
+
+        // Verify the newsroom signature on the journalist's enrollment bundle
+        newsroom_verifying_key
+            .verify(&enrollment_bundle.into_bytes(), &response.newsroom_sig)
+            .map_err(|_| anyhow::anyhow!("Invalid newsroom signature on journalist keys"))?;
+
+        // Create the ephemeral keys that were signed by the journalist
+        let ephemeral_keys = JournalistEphemeralPublicKeys {
+            edh_pk: response.ephemeral_dh_pk.clone(),
+            ekem_pk: response.ephemeral_kem_pk.clone(),
+            epke_pk: response.ephemeral_pke_pk.clone(),
+        };
+
+        // Verify the journalist signature on the ephemeral keys
+        response
+            .journalist_sig_pk
+            .verify(
+                &ephemeral_keys.into_bytes(),
+                &response.journalist_ephemeral_sig,
+            )
+            .map_err(|_| anyhow::anyhow!("Invalid journalist signature on ephemeral keys"))?;
+
+        Ok(())
     }
 
     /// Submit a message (step 6)

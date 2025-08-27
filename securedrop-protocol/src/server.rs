@@ -5,6 +5,7 @@
 use alloc::vec::Vec;
 use anyhow::{Error, anyhow};
 use rand_core::{CryptoRng, RngCore};
+use uuid::Uuid;
 
 use crate::keys::{
     JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle,
@@ -139,6 +140,26 @@ impl ServerSession {
         self.newsroom_keys.as_ref().map(|keys| &keys.vk)
     }
 
+    /// Set the FPF signature for the newsroom
+    pub fn set_fpf_signature(&mut self, signature: Signature) {
+        self.signature = Some(signature);
+    }
+
+    /// Get the ephemeral key count for a journalist
+    pub fn ephemeral_keys_count(&self, journalist_id: Uuid) -> usize {
+        self.storage.ephemeral_keys_count(journalist_id)
+    }
+
+    /// Check if a journalist has ephemeral keys available
+    pub fn has_ephemeral_keys(&self, journalist_id: Uuid) -> bool {
+        self.storage.has_ephemeral_keys(journalist_id)
+    }
+
+    /// Find journalist ID by verifying key
+    pub fn find_journalist_id(&self, verifying_key: &VerifyingKey) -> Option<Uuid> {
+        self.storage.find_journalist_by_verifying_key(verifying_key)
+    }
+
     /// Handle source newsroom key request (step 5)
     pub fn handle_source_newsroom_key_request(
         &self,
@@ -162,9 +183,39 @@ impl ServerSession {
     pub fn handle_source_journalist_key_request<R: RngCore + CryptoRng>(
         &mut self,
         _request: SourceJournalistKeyRequest,
-        _rng: &mut R,
+        rng: &mut R,
     ) -> Vec<SourceJournalistKeyResponse> {
-        unimplemented!()
+        let mut responses = Vec::new();
+
+        // Get all journalists and their ephemeral keys
+        let journalist_ephemeral_keys = self.storage.get_all_ephemeral_keys(rng);
+
+        for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys {
+            // Get the journalist's long-term keys
+            // TODO: Do something better than expect here
+            let (signing_key, fetching_key, dh_key, newsroom_sig) = self
+                .storage
+                .get_journalists()
+                .get(&journalist_id)
+                .expect("Journalist should exist in storage")
+                .clone();
+
+            // Create response for this journalist
+            let response = SourceJournalistKeyResponse {
+                journalist_sig_pk: signing_key,
+                journalist_fetch_pk: fetching_key,
+                journalist_dh_pk: dh_key,
+                newsroom_sig,
+                ephemeral_dh_pk: ephemeral_bundle.public_keys.edh_pk,
+                ephemeral_kem_pk: ephemeral_bundle.public_keys.ekem_pk,
+                ephemeral_pke_pk: ephemeral_bundle.public_keys.epke_pk,
+                journalist_ephemeral_sig: ephemeral_bundle.signature,
+            };
+
+            responses.push(response);
+        }
+
+        responses
     }
 
     /// Handle message submission (step 6 for sources, step 9 for journalists)
