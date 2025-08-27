@@ -20,6 +20,7 @@ getrandom = {version = "0.3", features = ["wasm_js"]}
 anyhow = "1.0"
 hashbrown = {version = "0.14", features = ["raw"]}
 uuid = {version = "1.0", features = ["v4", "rng-getrandom"]}
+blake2 = "0.10"
 
 [dev-dependencies]
 proptest = "1.3"

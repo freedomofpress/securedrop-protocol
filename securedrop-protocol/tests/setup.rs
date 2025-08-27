@@ -6,6 +6,7 @@ use rand::rng;
 use securedrop_protocol::journalist::JournalistSession;
 use securedrop_protocol::keys::{
     FPFKeyPair, JournalistEphemeralPublicKeys, JournalistSigningKeyPair, NewsroomKeyPair,
+    SourceKeyBundle,
 };
 use securedrop_protocol::messages::setup::{
     JournalistRefreshRequest, JournalistSetupRequest, NewsroomSetupRequest, NewsroomSetupResponse,
@@ -206,5 +207,38 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
         server_session
             .handle_ephemeral_key_request(unknown_journalist_request)
             .is_err()
+    );
+}
+
+/// Step 4: Source setup - derive keys from passphrase
+#[test]
+fn protocol_step_4_source_setup() {
+    let mut rng = rng();
+
+    // Generate a new source key bundle with a random passphrase
+    let (passphrase, key_bundle) = SourceKeyBundle::new(&mut rng);
+
+    // Verify that all keys were generated
+    assert_eq!(passphrase.passphrase.len(), 32);
+
+    // Test that we can reconstruct the same keys from the passphrase
+    let reconstructed_bundle = SourceKeyBundle::from_passphrase(&passphrase.passphrase);
+
+    // Verify that the reconstructed keys match the original keys
+    assert_eq!(
+        key_bundle.fetch.public_key_bytes(),
+        reconstructed_bundle.fetch.public_key_bytes()
+    );
+    assert_eq!(
+        key_bundle.long_term_dh.public_key_bytes(),
+        reconstructed_bundle.long_term_dh.public_key_bytes()
+    );
+    assert_eq!(
+        key_bundle.kem.public_key_bytes(),
+        reconstructed_bundle.kem.public_key_bytes()
+    );
+    assert_eq!(
+        key_bundle.pke.public_key_bytes(),
+        reconstructed_bundle.pke.public_key_bytes()
     );
 }
