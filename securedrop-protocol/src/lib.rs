@@ -10,6 +10,10 @@ extern crate alloc;
 /// The keys used in the SecureDrop protocol.
 pub mod keys;
 
+/// Common client functionality.
+pub mod client;
+pub use client::Client;
+
 /// Protocol messages used in the setup and core messaging protocol.
 pub mod messages;
 

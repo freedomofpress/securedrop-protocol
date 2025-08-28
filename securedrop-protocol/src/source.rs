@@ -6,6 +6,7 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
+use crate::Client;
 use crate::keys::{
     JournalistEnrollmentKeyBundle, JournalistEphemeralPublicKeys, SourceKeyBundle, SourcePassphrase,
 };
@@ -59,19 +60,21 @@ impl SourceSession {
     pub fn key_bundle(&self) -> Option<&SourceKeyBundle> {
         self.key_bundle.as_ref()
     }
+}
 
-    /// Get the newsroom's verifying key
-    pub fn newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
+impl Client for SourceSession {
+    type NewsroomKey = VerifyingKey;
+
+    fn newsroom_verifying_key(&self) -> Option<&Self::NewsroomKey> {
         self.newsroom_verifying_key.as_ref()
     }
 
-    /// Get the newsroom's verifying key, returning an error if not available
-    pub fn get_newsroom_verifying_key(&self) -> Result<&VerifyingKey, Error> {
-        self.newsroom_verifying_key
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Newsroom verifying key not available"))
+    fn set_newsroom_verifying_key(&mut self, key: Self::NewsroomKey) {
+        self.newsroom_verifying_key = Some(key);
     }
+}
 
+impl SourceSession {
     /// Fetch newsroom keys (step 5)
     pub fn fetch_newsroom_keys(&self) -> SourceNewsroomKeyRequest {
         SourceNewsroomKeyRequest {}

@@ -6,6 +6,7 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
+use crate::Client;
 use crate::keys::SourcePublicKeys;
 use crate::keys::{
     JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralDHKeyPair,
@@ -151,24 +152,21 @@ impl JournalistSession {
     pub fn dh_key(&self) -> Option<&DHPublicKey> {
         self.dh_key.as_ref().map(|dk| &dk.public_key)
     }
+}
 
-    /// Get the newsroom's verifying key
-    pub fn newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
+impl Client for JournalistSession {
+    type NewsroomKey = VerifyingKey;
+
+    fn newsroom_verifying_key(&self) -> Option<&Self::NewsroomKey> {
         self.newsroom_verifying_key.as_ref()
     }
 
-    /// Get the newsroom's verifying key, returning an error if not available
-    pub fn get_newsroom_verifying_key(&self) -> Result<&VerifyingKey, Error> {
-        self.newsroom_verifying_key
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Newsroom verifying key not available"))
+    fn set_newsroom_verifying_key(&mut self, key: Self::NewsroomKey) {
+        self.newsroom_verifying_key = Some(key);
     }
+}
 
-    /// Store the newsroom's verifying key
-    pub fn set_newsroom_verifying_key(&mut self, newsroom_verifying_key: VerifyingKey) {
-        self.newsroom_verifying_key = Some(newsroom_verifying_key);
-    }
-
+impl JournalistSession {
     /// Fetch message IDs (step 7)
     pub fn fetch_message_ids<R: RngCore + CryptoRng>(&self, _rng: &mut R) -> MessageIdFetchRequest {
         MessageIdFetchRequest {}
