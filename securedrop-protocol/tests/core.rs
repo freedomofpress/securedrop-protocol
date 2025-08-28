@@ -3,6 +3,7 @@
 
 use rand::rng;
 
+use securedrop_protocol::Client;
 use securedrop_protocol::journalist::JournalistSession;
 use securedrop_protocol::keys::{
     FPFKeyPair, JournalistEphemeralPublicKeys, JournalistSigningKeyPair, NewsroomKeyPair,
