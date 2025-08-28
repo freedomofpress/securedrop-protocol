@@ -106,14 +106,12 @@ pub type MessageSubmitRequest = MessageBundle;
 /// User (source or journalist) fetches message IDs
 ///
 /// This corresponds to step 7 in the spec.
-/// TODO: "FetchRequest/ChallengeFetchRequest"
-pub struct MessageIdFetchRequest {}
+pub struct MessageChallengeFetchRequest {}
 
 /// Server returns encrypted message IDs
 ///
 /// This corresponds to step 7 in the spec.
-/// TODO: naming as above?
-pub struct MessageIdFetchResponse {
+pub struct MessageChallengeFetchResponse {
     /// Number of message entries returned
     /// TODO: constant size response
     count: usize,

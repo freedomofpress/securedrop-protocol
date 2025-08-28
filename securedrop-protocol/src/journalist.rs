@@ -7,7 +7,7 @@ use crate::keys::{
     JournalistEphemeralKEMKeyPair, JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair,
     JournalistEphemeralPublicKeys, JournalistFetchKeyPair, JournalistSigningKeyPair,
 };
-use crate::messages::core::{MessageFetchResponse, MessageIdFetchResponse};
+use crate::messages::core::{MessageChallengeFetchResponse, MessageFetchResponse};
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
 use crate::primitives::DHPublicKey;
 use crate::sign::VerifyingKey;
@@ -146,7 +146,7 @@ impl JournalistSession {
     pub fn fetch_message_ids<R: RngCore + CryptoRng>(
         &self,
         _rng: &mut R,
-    ) -> MessageIdFetchResponse {
+    ) -> MessageChallengeFetchResponse {
         // TODO: Implement message ID fetching
         unimplemented!()
     }

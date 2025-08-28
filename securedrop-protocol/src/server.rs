@@ -13,9 +13,9 @@ use crate::keys::{
     NewsroomKeyPair,
 };
 use crate::messages::core::{
-    MessageFetchRequest, MessageFetchResponse, MessageIdFetchRequest, MessageIdFetchResponse,
-    MessageSubmitRequest, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
-    SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
+    MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchRequest,
+    MessageFetchResponse, MessageSubmitRequest, SourceJournalistKeyRequest,
+    SourceJournalistKeyResponse, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
 };
 use crate::messages::setup::{
     JournalistRefreshRequest, JournalistRefreshResponse, JournalistSetupRequest,
@@ -230,9 +230,9 @@ impl ServerSession {
     /// Handle message ID fetch request (step 7)
     pub fn handle_message_id_fetch<R: RngCore + CryptoRng>(
         &self,
-        _request: MessageIdFetchRequest,
+        _request: MessageChallengeFetchRequest,
         _rng: &mut R,
-    ) -> MessageIdFetchResponse {
+    ) -> MessageChallengeFetchResponse {
         unimplemented!()
     }
 
