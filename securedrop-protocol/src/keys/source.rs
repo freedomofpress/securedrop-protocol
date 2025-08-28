@@ -1,6 +1,6 @@
 use rand_core::{CryptoRng, RngCore};
 
-use crate::primitives::{DHPrivateKey, DHPublicKey, PPKPrivateKey, PPKPublicKey};
+use crate::primitives::{DHPrivateKey, DHPublicKey, MessageEncPrivateKey, MessageEncPublicKey};
 
 // TODO: Name these better
 
@@ -74,18 +74,18 @@ impl SourceDHKeyPair {
 
 #[derive(Debug, Clone)]
 pub struct SourceKEMKeyPair {
-    pub(crate) public_key: PPKPublicKey,
-    private_key: PPKPrivateKey,
+    pub(crate) public_key: MessageEncPublicKey,
+    private_key: MessageEncPrivateKey,
 }
 
 impl SourceKEMKeyPair {
     /// Create a KEM key pair from private key bytes
     fn new(private_key_bytes: [u8; 32]) -> Self {
-        let private_key = PPKPrivateKey::new(DHPrivateKey::from_bytes(private_key_bytes));
+        let private_key = MessageEncPrivateKey::new(DHPrivateKey::from_bytes(private_key_bytes));
 
         let mut public_key_bytes = [0u8; 32];
         libcrux_curve25519::secret_to_public(&mut public_key_bytes, &private_key_bytes);
-        let public_key = PPKPublicKey::new(DHPublicKey::from_bytes(public_key_bytes));
+        let public_key = MessageEncPublicKey::new(DHPublicKey::from_bytes(public_key_bytes));
 
         Self {
             public_key,
@@ -101,18 +101,18 @@ impl SourceKEMKeyPair {
 
 #[derive(Debug, Clone)]
 pub struct SourcePKEKeyPair {
-    pub(crate) public_key: PPKPublicKey,
-    private_key: PPKPrivateKey,
+    pub(crate) public_key: MessageEncPublicKey,
+    private_key: MessageEncPrivateKey,
 }
 
 impl SourcePKEKeyPair {
     /// Create a PKE key pair from private key bytes
     fn new(private_key_bytes: [u8; 32]) -> Self {
-        let private_key = PPKPrivateKey::new(DHPrivateKey::from_bytes(private_key_bytes));
+        let private_key = MessageEncPrivateKey::new(DHPrivateKey::from_bytes(private_key_bytes));
 
         let mut public_key_bytes = [0u8; 32];
         libcrux_curve25519::secret_to_public(&mut public_key_bytes, &private_key_bytes);
-        let public_key = PPKPublicKey::new(DHPublicKey::from_bytes(public_key_bytes));
+        let public_key = MessageEncPublicKey::new(DHPublicKey::from_bytes(public_key_bytes));
 
         Self {
             public_key,

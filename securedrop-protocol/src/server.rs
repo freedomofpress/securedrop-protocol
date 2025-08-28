@@ -8,7 +8,7 @@ use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
 use crate::keys::{
-    JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle,
+    JournalistMessageEncKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle,
     JournalistEphemeralPublicKeys, JournalistFetchKeyPair, JournalistSigningKeyPair,
     NewsroomKeyPair,
 };
@@ -21,7 +21,7 @@ use crate::messages::setup::{
     JournalistRefreshRequest, JournalistRefreshResponse, JournalistSetupRequest,
     JournalistSetupResponse, NewsroomSetupRequest, NewsroomSetupResponse,
 };
-use crate::primitives::PPKPublicKey;
+use crate::primitives::MessageEncPublicKey;
 use crate::sign::{Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 
@@ -206,9 +206,9 @@ impl ServerSession {
                 journalist_fetch_pk: fetching_key,
                 journalist_dh_pk: dh_key,
                 newsroom_sig,
-                ephemeral_dh_pk: ephemeral_bundle.public_keys.edh_pk,
-                ephemeral_kem_pk: ephemeral_bundle.public_keys.ekem_pk,
-                ephemeral_pke_pk: ephemeral_bundle.public_keys.epke_pk,
+                ephemeral_dh_pk: ephemeral_bundle.public_keys.edhakem_pk,
+                ephemeral_kem_pk: ephemeral_bundle.public_keys.epqkem_pk,
+                ephemeral_pke_pk: ephemeral_bundle.public_keys.emetadata_pk,
                 journalist_ephemeral_sig: ephemeral_bundle.signature,
             };
 

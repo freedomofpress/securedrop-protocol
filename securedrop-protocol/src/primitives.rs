@@ -1,16 +1,20 @@
+
 use anyhow::Error;
 use libcrux_curve25519::{DK_LEN as SK_LEN, EK_LEN as PK_LEN};
+use hpke_rs::hpke_types::KemAlgorithm::{XWingDraft06, DhKem25519};
+use hpke_rs::HpkeKeyPair;
 use libcrux_traits::kem::arrayref::Kem;
 use rand_core::{CryptoRng, RngCore};
 
 // temp: use proper type
+// This is a DH-AKEM key
 #[derive(Debug, Clone)]
-pub struct PPKPrivateKey(DHPrivateKey);
+pub struct MessageEncPrivateKey(DHPrivateKey);
 
 #[derive(Debug, Clone)]
-pub struct PPKPublicKey(DHPublicKey);
+pub struct MessageEncPublicKey(DHPublicKey);
 
-impl PPKPublicKey {
+impl MessageEncPublicKey {
     pub fn new(public_key: DHPublicKey) -> Self {
         Self(public_key)
     }
@@ -24,7 +28,7 @@ impl PPKPublicKey {
     }
 }
 
-impl PPKPrivateKey {
+impl MessageEncPrivateKey {
     pub fn new(private_key: DHPrivateKey) -> Self {
         Self(private_key)
     }
@@ -37,6 +41,31 @@ impl PPKPrivateKey {
         Self(DHPrivateKey::from_bytes(bytes))
     }
 }
+
+
+#[derive(Debug, Clone)]
+pub struct MessagePQPSKEncapsKey();
+pub struct MessagePQPSKDecapsKey();
+
+
+#[derive(Debug, Clone)]
+pub struct MetadataEncapsKey();
+pub struct MetadataDecapsKey();
+
+
+/// TODO: use proper type
+/// These are plain DH keys (not DH-AKEM)
+pub type FetchPublicKey = DHPublicKey;
+pub type  FetchPrivateKey = DHPrivateKey;
+
+/// TODO: will this still exist? Long-term DH key for journalists
+pub type JournalistDHPublicKey = DHPublicKey;
+pub type JournalistDHPrivateKey = DHPrivateKey;
+
+/// TODO: these are plain DH keys used to calculate "Clue"
+/// (aka Z, X, aka mgdh) and Per-Request Clue aka pmgdh
+pub type EphemeralDHPublicKey = DHPublicKey;
+pub type EphemeralDHPrivateKey = DHPrivateKey;
 
 #[derive(Debug, Clone)]
 pub struct DHPublicKey([u8; PK_LEN]);
@@ -80,4 +109,23 @@ pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
         .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
 
     Ok((DHPrivateKey(secret_key), DHPublicKey(public_key)))
+}
+
+/// Generate new PQ-KEM (ML-KEM768) encaps/decaps pair.
+/// Not our prod method! Expose randomness for benchmark purposes
+pub fn generate_pqkem_keypair<R: RngCore + CryptoRng>(
+    mut rng: R,
+) -> Result<(MessagePQPSKDecapsKey, MessagePQPSKEncapsKey), Error> {
+    unimplemented!()
+    // TODO!!
+}
+
+/// Generate new PQ-KEM (ML-KEM768) encaps/decaps pair.
+/// Not our prod method! Expose randomness for benchmark purposes
+pub fn generate_xwing_keypair<R: RngCore + CryptoRng>(
+    mut rng: R,
+) -> Result<(MetadataDecapsKey, MetadataEncapsKey), Error> {
+    unimplemented!()
+
+    // TODO !!
 }

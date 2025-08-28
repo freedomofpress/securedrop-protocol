@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::keys::{JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle};
 use crate::messages::MessageBundle;
-use crate::primitives::{DHPublicKey, PPKPublicKey};
+use crate::primitives::{DHPublicKey, MessageEncPublicKey};
 use crate::sign::{Signature, VerifyingKey};
 
 pub struct ServerStorage {

@@ -3,13 +3,13 @@
 //! This module implements the journalist-side handling of SecureDrop protocol steps 7-9.
 
 use crate::keys::{
-    JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralDHKeyPair,
-    JournalistEphemeralKEMKeyPair, JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair,
+    JournalistMessageEncKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralMessageEncKeyPair,
+    JournalistEphemeralKEMKeyPair, JournalistEphemeralKeyBundle, JournalistEphemeralMetadataKeyPair,
     JournalistEphemeralPublicKeys, JournalistFetchKeyPair, JournalistSigningKeyPair,
 };
 use crate::messages::core::{MessageChallengeFetchResponse, MessageFetchResponse};
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
-use crate::primitives::DHPublicKey;
+use crate::primitives::FetchPublicKey;
 use crate::sign::VerifyingKey;
 use alloc::vec::Vec;
 use anyhow::Error;
@@ -24,7 +24,7 @@ pub struct JournalistSession {
     /// Journalist's long-term fetching key pair
     fetching_key: Option<JournalistFetchKeyPair>,
     /// Journalist's long-term DH key pair
-    dh_key: Option<JournalistDHKeyPair>,
+    dh_key: Option<JournalistMessageEncKeyPair>,
     /// Generated ephemeral key pairs (for reuse)
     ephemeral_keys: Vec<JournalistEphemeralKeyBundle>,
 }
@@ -55,7 +55,7 @@ impl JournalistSession {
         // Generate journalist key pairs
         let signing_key = JournalistSigningKeyPair::new(&mut rng);
         let fetching_key = JournalistFetchKeyPair::new(&mut rng);
-        let dh_key = JournalistDHKeyPair::new(&mut rng);
+        let dh_key = JournalistMessageEncKeyPair::new(&mut rng);
 
         // Extract public keys before moving the key pairs
         let signing_vk = signing_key.vk;
@@ -96,9 +96,9 @@ impl JournalistSession {
         })?;
 
         // Generate ephemeral key pairs
-        let ephemeral_dh = JournalistEphemeralDHKeyPair::new(&mut rng);
+        let ephemeral_dh = JournalistEphemeralMessageEncKeyPair::new(&mut rng);
         let ephemeral_kem = JournalistEphemeralKEMKeyPair::new(&mut rng);
-        let ephemeral_pke = JournalistEphemeralPKEKeyPair::new(&mut rng);
+        let ephemeral_pke = JournalistEphemeralMetadataKeyPair::new(&mut rng);
 
         // Extract public keys
         let ephemeral_dh_pubkey = ephemeral_dh.public_key;
@@ -107,9 +107,9 @@ impl JournalistSession {
 
         // Create ephemeral public keys struct for signing
         let ephemeral_public_keys = JournalistEphemeralPublicKeys {
-            edh_pk: ephemeral_dh_pubkey,
-            ekem_pk: ephemeral_kem_pubkey,
-            epke_pk: ephemeral_pke_pubkey,
+            edhakem_pk: ephemeral_dh_pubkey,
+            epqkem_pk: ephemeral_kem_pubkey,
+            emetadata_pk: ephemeral_pke_pubkey,
         };
 
         // Create the ephemeral key bundle
@@ -133,12 +133,12 @@ impl JournalistSession {
     }
 
     /// Get the journalist's fetching key
-    pub fn fetching_key(&self) -> Option<&DHPublicKey> {
+    pub fn fetching_key(&self) -> Option<&FetchPublicKey> {
         self.fetching_key.as_ref().map(|fk| &fk.public_key)
     }
 
     /// Get the journalist's DH key
-    pub fn dh_key(&self) -> Option<&DHPublicKey> {
+    pub fn dh_key(&self) -> Option<&FetchPublicKey> {
         self.dh_key.as_ref().map(|dk| &dk.public_key)
     }
 

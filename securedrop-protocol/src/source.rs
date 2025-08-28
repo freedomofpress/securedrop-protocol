@@ -102,9 +102,9 @@ impl SourceSession {
 
         // Create the ephemeral keys that were signed by the journalist
         let ephemeral_keys = JournalistEphemeralPublicKeys {
-            edh_pk: response.ephemeral_dh_pk.clone(),
-            ekem_pk: response.ephemeral_kem_pk.clone(),
-            epke_pk: response.ephemeral_pke_pk.clone(),
+            edhakem_pk: response.ephemeral_dh_pk.clone(),
+            epqkem_pk: response.ephemeral_kem_pk.clone(),
+            emetadata_pk: response.ephemeral_pke_pk.clone(),
         };
 
         // Verify the journalist signature on the ephemeral keys

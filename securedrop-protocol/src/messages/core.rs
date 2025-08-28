@@ -1,11 +1,12 @@
-use crate::primitives::{DHPublicKey, PPKPublicKey};
+use crate::primitives::{EphemeralDHPublicKey, FetchPublicKey, JournalistDHPublicKey, MessageEncPublicKey, MessagePQPSKEncapsKey, MetadataEncapsKey};
 use crate::{Signature, VerifyingKey};
 use alloc::vec::Vec;
 
+/// (C, (Z, X)). Message payload to the server
 pub struct MessageBundle {
-    /// C
+    // C
     pub sealed_envelope: SealedEnvelope,
-    /// (Z, X)
+    // (Z, X)
     pub message_clue: MessageClue,
 }
 
@@ -13,11 +14,11 @@ pub struct SealedEnvelope {
     /// HPKE AuthPSK Sealed ciphertext
     pub sealed_message: SealedMessage,
 
-    /// HPKE BaseMode Sealed X-WING encapsulated metadata (contains
-    /// sender pubkey needed to open SealedMessage.
-    /// See https://www.rfc-editor.org/rfc/rfc9180#section-9.9)
+    // HPKE BaseMode Sealed X-WING encapsulated metadata (contains
+    // sender pubkey needed to open SealedMessage.
+    // See https://www.rfc-editor.org/rfc/rfc9180#section-9.9)
     pub sealed_metadata: SealedMessageMetadata,
-    /// X-WING shared secret encaps, 1120 bytes
+    // X-WING shared secret encaps, 1120 bytes
     pub metadata_encaps: Vec<u8>,
 }
 
@@ -27,7 +28,10 @@ pub struct SealedMessageMetadata {}
 /// Metadata for decrypting ciphertext
 /// TODO: check int sizes
 pub struct MessageMetadata {
-    pub sender_key: DHPublicKey,
+    /// Message encryption key (DH-AKEM) is attached in metadata
+    /// so that it can be used to open the authenticated sealed ct.
+    /// Other keys are inside the ct
+    pub sender_pubkey: MessageEncPublicKey,
     message_dhakem_secret_encaps: Vec<u8>,
     message_psk_secret_encaps: Vec<u8>,
 }
@@ -35,22 +39,28 @@ pub struct MessageMetadata {
 /// Ciphertext bytes
 pub struct SealedMessage {}
 
-/// TODO: Plaintext message structure (i.e what keys or hashes of keys are included?)
-/// At minimum:
-/// Sender XWING key (for replies metadata)
-/// Sender MLKEM key (for replies)
-/// Identifiers: newsroom identifier
-/// Fetching key identifier?
-/// DH-AKEM key identifier (maybe not needed bc of how auth mode in hpke works)?
-/// Plaintext
-pub struct Message {}
+
+/// Plaintext message structure
+pub struct Message {
+    // TODO: if from journalist, these will be discarded because
+    // a new one-time key bundle will be pulled; do we skip attaching these in journo messages?
+    // Additional sender  pubkeys - attached only to allow replies
+    pub sender_key_metadata: MetadataEncapsKey,
+    pub sender_key_psk: MessagePQPSKEncapsKey,
+    pub message_bytes: Vec<u8>,
+    // TODO: Rest of message structure:
+    // * newsroom identifier
+    // * fetching key identifier?
+    // * DH-AKEM key identifier (maybe not needed_?
+
+}
 
 /// (Z, X)
 pub struct MessageClue {
     /// DH share
     pub clue_bytes: Vec<u8>,
     /// Ephemeral DH pubkey
-    pub clue_pubkey: DHPublicKey,
+    pub clue_pubkey: EphemeralDHPublicKey,
 }
 
 /// Source fetches keys for the newsroom
@@ -81,26 +91,29 @@ pub struct SourceJournalistKeyRequest {}
 pub struct SourceJournalistKeyResponse {
     /// Journalist's signing public key
     pub journalist_sig_pk: VerifyingKey,
-    /// Journalist's fetching public key
-    pub journalist_fetch_pk: DHPublicKey,
+    /// Journalist's medium/long-term fetching public key
+    pub journalist_fetch_pk: FetchPublicKey,
+
     /// Journalist's long-term DH public key
-    pub journalist_dh_pk: DHPublicKey,
+    /// TODO: haven't discussed if we will still have this key,
+    /// if it will be a "key of last resport", or not
+    pub journalist_dh_pk: JournalistDHPublicKey,
     /// Newsroom's signature over journalist keys
     pub newsroom_sig: Signature,
-    /// Random ephemeral DH public key for this journalist
-    pub ephemeral_dh_pk: DHPublicKey,
-    /// Random ephemeral KEM public key for this journalist
-    pub ephemeral_kem_pk: PPKPublicKey,
-    /// Random ephemeral PKE public key for this journalist
-    pub ephemeral_pke_pk: PPKPublicKey,
-    /// Journalist's signature over ephemeral keys
+    /// Random one-time DH-AKEM public key for this journalist
+    pub ephemeral_dh_pk: MessageEncPublicKey,
+    /// Random one-time KEM encaps (public) key for this journalist
+    pub ephemeral_kem_pk: MessagePQPSKEncapsKey,
+    /// Random one-time Metadata encaps (public) key for this journalist
+    pub ephemeral_pke_pk: MetadataEncapsKey,
+    /// Journalist's signature over one-time keys
     pub journalist_ephemeral_sig: Signature,
 }
 
 /// User submits a message to the server $(C, Z, X)$
 ///
 /// This corresponds to step 6 for sources and step 9 for journalists in the spec.
-/// TODO: could remove this, just kept it for consistency of naming with the other types
+// TODO: could remove this, just kept it for consistency of naming with the other types
 pub type MessageSubmitRequest = MessageBundle;
 
 /// User (source or journalist) fetches message IDs
@@ -131,5 +144,5 @@ pub struct MessageFetchRequest {
 /// Server returns the requested message
 ///
 /// This corresponds to step 8 and 10 in the spec.
-/// TODO: may remove alias
+// TODO: may remove alias
 pub type MessageFetchResponse = MessageBundle;
