@@ -2,9 +2,6 @@ use crate::primitives::{DHPublicKey, PPKPublicKey};
 use crate::{Signature, VerifyingKey};
 use alloc::vec::Vec;
 
-/// TODO: Should be (C, Z, X)
-pub struct MessageBundle {}
-
 /// Source fetches keys for the newsroom
 ///
 /// This is the first request in step 5 of the spec.
@@ -52,13 +49,14 @@ pub struct SourceJournalistKeyResponse {
 /// User submits a message to the server $(C, Z, X)$
 ///
 /// This corresponds to step 6 for sources and step 9 for journalists in the spec.
-pub struct MessageSubmitRequest {
+#[derive(Clone)]
+pub struct Message {
     /// Encrypted message ciphertext
-    ciphertext: Vec<u8>,
+    pub ciphertext: Vec<u8>,
     /// Diffie-Hellman share Z
-    dh_share_z: Vec<u8>,
+    pub dh_share_z: Vec<u8>,
     /// Diffie-Hellman share X
-    dh_share_x: Vec<u8>,
+    pub dh_share_x: Vec<u8>,
 }
 
 /// User (source or journalist) fetches message IDs

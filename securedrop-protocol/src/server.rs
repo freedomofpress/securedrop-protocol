@@ -13,8 +13,8 @@ use crate::keys::{
     NewsroomKeyPair,
 };
 use crate::messages::core::{
-    MessageFetchRequest, MessageFetchResponse, MessageIdFetchRequest, MessageIdFetchResponse,
-    MessageSubmitRequest, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
+    Message, MessageFetchRequest, MessageFetchResponse, MessageIdFetchRequest,
+    MessageIdFetchResponse, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
     SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
 };
 use crate::messages::setup::{
@@ -160,6 +160,11 @@ impl ServerSession {
         self.storage.find_journalist_by_verifying_key(verifying_key)
     }
 
+    /// Check if a message exists with the given ID
+    pub fn has_message(&self, message_id: &Uuid) -> bool {
+        self.storage.get_messages().contains_key(message_id)
+    }
+
     /// Handle source newsroom key request (step 5)
     pub fn handle_source_newsroom_key_request(
         &self,
@@ -221,10 +226,16 @@ impl ServerSession {
     /// Handle message submission (step 6 for sources, step 9 for journalists)
     pub fn handle_message_submit<R: RngCore + CryptoRng>(
         &mut self,
-        _request: MessageSubmitRequest,
-        _rng: &mut R,
-    ) -> Result<(), Error> {
-        unimplemented!()
+        message: Message,
+        rng: &mut R,
+    ) -> Result<Uuid, Error> {
+        // Generate a random message ID
+        let message_id = Uuid::new_v4();
+
+        // Store the message with the generated ID
+        self.storage.add_message(message_id, message);
+
+        Ok(message_id)
     }
 
     /// Handle message ID fetch request (step 7)
