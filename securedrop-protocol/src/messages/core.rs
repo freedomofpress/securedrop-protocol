@@ -18,7 +18,7 @@ pub struct SealedEnvelope {
     /// See https://www.rfc-editor.org/rfc/rfc9180#section-9.9)
     pub sealed_metadata: SealedMessageMetadata,
     /// X-WING shared secret encaps, 1120 bytes
-    pub metadata_encaps: Vec<u16>,
+    pub metadata_encaps: Vec<u8>,
 }
 
 /// Sealed metadata bytes
