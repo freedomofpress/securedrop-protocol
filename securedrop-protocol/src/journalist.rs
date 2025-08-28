@@ -1,19 +1,26 @@
 //! Journalist-side protocol implementation
 //!
 //! This module implements the journalist-side handling of SecureDrop protocol steps 7-9.
+use alloc::vec::Vec;
+use anyhow::Error;
+use rand_core::{CryptoRng, RngCore};
+use uuid::Uuid;
 
+use crate::keys::SourcePublicKeys;
 use crate::keys::{
     JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralDHKeyPair,
     JournalistEphemeralKEMKeyPair, JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair,
     JournalistEphemeralPublicKeys, JournalistFetchKeyPair, JournalistSigningKeyPair,
 };
-use crate::messages::core::{MessageFetchResponse, MessageIdFetchResponse};
+use crate::messages::core::{
+    JournalistReplyMessage, Message, MessageFetchResponse, MessageIdFetchRequest,
+    MessageIdFetchResponse,
+};
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
-use crate::primitives::DHPublicKey;
+use crate::primitives::{
+    DHPublicKey, decrypt_message_id, dh_public_key_from_scalar, dh_shared_secret,
+};
 use crate::sign::VerifyingKey;
-use alloc::vec::Vec;
-use anyhow::Error;
-use rand_core::{CryptoRng, RngCore};
 
 /// Journalist session for interacting with the server
 ///
@@ -27,6 +34,8 @@ pub struct JournalistSession {
     dh_key: Option<JournalistDHKeyPair>,
     /// Generated ephemeral key pairs (for reuse)
     ephemeral_keys: Vec<JournalistEphemeralKeyBundle>,
+    /// Newsroom's verifying key
+    newsroom_verifying_key: Option<VerifyingKey>,
 }
 
 impl JournalistSession {
@@ -39,6 +48,7 @@ impl JournalistSession {
             fetching_key: None,
             dh_key: None,
             ephemeral_keys: Vec::new(),
+            newsroom_verifying_key: None,
         }
     }
 
@@ -142,13 +152,69 @@ impl JournalistSession {
         self.dh_key.as_ref().map(|dk| &dk.public_key)
     }
 
+    /// Get the newsroom's verifying key
+    pub fn newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
+        self.newsroom_verifying_key.as_ref()
+    }
+
+    /// Get the newsroom's verifying key, returning an error if not available
+    pub fn get_newsroom_verifying_key(&self) -> Result<&VerifyingKey, Error> {
+        self.newsroom_verifying_key
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Newsroom verifying key not available"))
+    }
+
+    /// Store the newsroom's verifying key
+    pub fn set_newsroom_verifying_key(&mut self, newsroom_verifying_key: VerifyingKey) {
+        self.newsroom_verifying_key = Some(newsroom_verifying_key);
+    }
+
     /// Fetch message IDs (step 7)
-    pub fn fetch_message_ids<R: RngCore + CryptoRng>(
+    pub fn fetch_message_ids<R: RngCore + CryptoRng>(&self, _rng: &mut R) -> MessageIdFetchRequest {
+        MessageIdFetchRequest {}
+    }
+
+    /// Process message ID fetch response (step 7)
+    pub fn process_message_id_response(
         &self,
-        _rng: &mut R,
-    ) -> MessageIdFetchResponse {
-        // TODO: Implement message ID fetching
-        unimplemented!()
+        response: &MessageIdFetchResponse,
+    ) -> Result<Vec<Uuid>, Error> {
+        let mut message_ids = Vec::new();
+
+        // Get the journalist's fetching private key
+        let fetching_private_key = self
+            .fetching_key
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No fetching key found in session"))?
+            .private_key
+            .clone()
+            .into_bytes();
+
+        // Process each (Q_i, cid_i) pair
+        for (q_i, cid_i) in &response.messages {
+            // k_i = DH(Q_i, U_fetch,sk)
+            let q_public_key =
+                dh_public_key_from_scalar(q_i.clone().try_into().unwrap_or([0u8; 32]));
+            let k_i = dh_shared_secret(&q_public_key, fetching_private_key).into_bytes();
+
+            // Decrypt message ID: id_i = Dec(k_i, cid_i)
+            match decrypt_message_id(&k_i, cid_i) {
+                Ok(decrypted_id) => {
+                    // Try to parse as UUID
+                    if decrypted_id.len() == 16 {
+                        if let Ok(id_bytes) = decrypted_id.try_into() {
+                            let uuid = Uuid::from_bytes(id_bytes);
+                            message_ids.push(uuid);
+                        }
+                    }
+                }
+                Err(_) => {
+                    // Decryption failed, this is a random entry
+                }
+            }
+        }
+
+        Ok(message_ids)
     }
 
     /// Fetch a specific message (step 8)
@@ -158,12 +224,75 @@ impl JournalistSession {
     }
 
     /// Reply to a source (step 9)
+    ///
+    /// This is similar to Step 6 (source message submission) but from the journalist's perspective.
+    /// The journalist encrypts a message for a specific source using the source's public keys.
     pub fn reply_to_source<R: RngCore + CryptoRng>(
         &self,
-        _message: Vec<u8>,
-        _rng: &mut R,
-    ) -> Result<(), Error> {
-        // TODO: Implement message encryption
-        unimplemented!()
+        message: Vec<u8>,
+        source_public_keys: &SourcePublicKeys,
+        source: Uuid,
+        newsroom_signature: crate::sign::Signature,
+        rng: &mut R,
+    ) -> Result<Message, Error> {
+        // Get the journalist's DH private key
+        let journalist_dh_private_key = self
+            .dh_key
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No DH key found in session"))?
+            .private_key
+            .clone();
+
+        // 1. Create the structured message according to Step 9 format:
+        // msg || S || J_sig,pk || J_fetch,pk || J_dh,pk || σ^NR || NR
+        let journalist_reply_message = JournalistReplyMessage {
+            message,
+            source,
+            journalist_sig_pk: self.signing_key.as_ref().unwrap().vk,
+            journalist_fetch_pk: self.fetching_key.as_ref().unwrap().public_key.clone(),
+            journalist_dh_pk: self.dh_key.as_ref().unwrap().public_key.clone(),
+            newsroom_signature,
+            newsroom_sig_pk: self.get_newsroom_verifying_key()?.clone(),
+        };
+
+        // 2. Create the padded message
+        let padded_message = crate::primitives::pad_message(&journalist_reply_message.into_bytes());
+
+        // 3. Perform authenticated encryption using journalist's DH private key
+        // and source's ephemeral keys
+        let ((c1, c2), c_double_prime) = crate::primitives::auth_encrypt(
+            &journalist_dh_private_key,
+            (
+                &source_public_keys.ephemeral_dh_pk,
+                &source_public_keys.ephemeral_kem_pk,
+            ),
+            &padded_message,
+        )?;
+
+        // 4. Encrypt the DH key and ciphertexts using source's ephemeral PKE key
+        let c_prime = crate::primitives::enc(
+            &source_public_keys.ephemeral_pke_pk,
+            self.dh_key().unwrap(),
+            &c1,
+            &c2,
+        )?;
+
+        // 5. Combine ciphertexts
+        let ciphertext = [c_prime, c_double_prime].concat();
+
+        // 6. Generate DH shares for message ID encryption
+        let x_bytes = crate::primitives::generate_random_scalar(rng)
+            .map_err(|e| anyhow::anyhow!("Failed to generate random scalar: {}", e))?;
+        let x_share = crate::primitives::dh_public_key_from_scalar(x_bytes);
+        let z_share = crate::primitives::dh_shared_secret(&source_public_keys.fetch_pk, x_bytes);
+
+        // 7. Create message submit request
+        let request = Message {
+            ciphertext,
+            dh_share_z: z_share.into_bytes().to_vec(),
+            dh_share_x: x_share.into_bytes().to_vec(),
+        };
+
+        Ok(request)
     }
 }

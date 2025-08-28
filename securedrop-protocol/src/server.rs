@@ -4,6 +4,7 @@
 
 use alloc::vec::Vec;
 use anyhow::{Error, anyhow};
+use rand::seq::SliceRandom;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
@@ -21,7 +22,7 @@ use crate::messages::setup::{
     JournalistRefreshRequest, JournalistRefreshResponse, JournalistSetupRequest,
     JournalistSetupResponse, NewsroomSetupRequest, NewsroomSetupResponse,
 };
-use crate::primitives::PPKPublicKey;
+use crate::primitives::MESSAGE_ID_FETCH_SIZE;
 use crate::sign::{Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 
@@ -239,12 +240,84 @@ impl ServerSession {
     }
 
     /// Handle message ID fetch request (step 7)
+    ///
+    /// TODO: Nothing here prevents someone from requesting messages
+    /// that aren't theirs? Should request messages have a signature?
     pub fn handle_message_id_fetch<R: RngCore + CryptoRng>(
         &self,
         _request: MessageIdFetchRequest,
-        _rng: &mut R,
+        rng: &mut R,
     ) -> MessageIdFetchResponse {
-        unimplemented!()
+        use crate::primitives::{
+            dh_public_key_from_scalar, dh_shared_secret, encrypt_message_id, generate_random_scalar,
+        };
+
+        let messages = self.storage.get_messages();
+        let message_count = messages.len();
+
+        // Fixed response size to prevent traffic analysis
+
+        let mut q_entries = Vec::new();
+        let mut cid_entries = Vec::new();
+
+        // Process real messages
+        for (message_id, message) in messages.iter() {
+            let y = generate_random_scalar(rng).expect("Failed to generate random scalar");
+
+            // k_i = DH(Z_i, y)
+            let z_public_key = dh_public_key_from_scalar(
+                message.dh_share_z.clone().try_into().unwrap_or([0u8; 32]),
+            );
+            let k_i = dh_shared_secret(&z_public_key, y).into_bytes();
+
+            // Q_i = DH(X_i, y)
+            let x_public_key = dh_public_key_from_scalar(
+                message.dh_share_x.clone().try_into().unwrap_or([0u8; 32]),
+            );
+            let q_i = dh_shared_secret(&x_public_key, y).into_bytes();
+
+            // ID: cid_i = Enc(k_i, id_i)
+            let message_id_bytes = message_id.as_bytes().to_vec();
+            let cid_i =
+                encrypt_message_id(&k_i, &message_id_bytes).expect("Failed to encrypt message ID");
+
+            q_entries.push(q_i.to_vec());
+            cid_entries.push(cid_i);
+        }
+
+        // Fill remaining slots with random data
+        while q_entries.len() < MESSAGE_ID_FETCH_SIZE {
+            // Generate random Q_i that matches the structure of real Q_i
+            // Real Q_i = DH(X_i, y), so random Q_i should also be a DH shared secret
+            let random_y = generate_random_scalar(rng).expect("Failed to generate random scalar");
+            let random_x = generate_random_scalar(rng).expect("Failed to generate random scalar");
+            let random_x_pub = dh_public_key_from_scalar(random_x);
+            let random_q = dh_shared_secret(&random_x_pub, random_y).into_bytes();
+
+            // Generate random cid by encrypting a random UUID
+            // This ensures indistinguishability from real cid_i
+            let random_uuid = Uuid::new_v4();
+            let random_key = generate_random_scalar(rng).expect("Failed to generate random key");
+            let random_cid =
+                crate::primitives::encrypt_message_id(&random_key, random_uuid.as_bytes())
+                    .expect("Failed to encrypt random UUID");
+
+            q_entries.push(random_q.to_vec());
+            cid_entries.push(random_cid);
+        }
+
+        // Shuffle the entries to hide which are real vs random
+        // Zip the arrays together, shuffle, then unzip
+        let mut pairs: Vec<_> = q_entries.into_iter().zip(cid_entries).collect();
+        pairs.shuffle(rng);
+
+        // Unzip back into separate arrays
+        let (q_entries, cid_entries): (Vec<_>, Vec<_>) = pairs.into_iter().unzip();
+
+        MessageIdFetchResponse {
+            count: MESSAGE_ID_FETCH_SIZE,
+            messages: q_entries.into_iter().zip(cid_entries).collect(),
+        }
     }
 
     /// Handle message fetch request (step 8/10)
