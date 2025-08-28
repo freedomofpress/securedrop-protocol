@@ -2,6 +2,21 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::primitives::{DHPrivateKey, DHPublicKey, PPKPrivateKey, PPKPublicKey};
 
+/// Source public keys needed for journalist to reply to a source
+///
+/// This contains the ephemeral keys that the source provided during their message submission.
+#[derive(Debug, Clone)]
+pub struct SourcePublicKeys {
+    /// Source's ephemeral DH public key
+    pub ephemeral_dh_pk: DHPublicKey,
+    /// Source's ephemeral KEM public key
+    pub ephemeral_kem_pk: PPKPublicKey,
+    /// Source's ephemeral PKE public key
+    pub ephemeral_pke_pk: PPKPublicKey,
+    /// Source's fetching public key
+    pub fetch_pk: DHPublicKey,
+}
+
 // TODO: Name these better
 
 #[derive(Debug, Clone)]

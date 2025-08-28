@@ -33,8 +33,8 @@ impl JournalistSigningKeyPair {
 /// Medium-term
 #[derive(Clone)]
 pub struct JournalistFetchKeyPair {
-    pub(crate) public_key: DHPublicKey,
-    private_key: DHPrivateKey,
+    pub public_key: DHPublicKey,
+    pub(crate) private_key: DHPrivateKey,
 }
 
 impl JournalistFetchKeyPair {
@@ -52,8 +52,8 @@ impl JournalistFetchKeyPair {
 /// Signed by the newsroom
 #[derive(Clone)]
 pub struct JournalistDHKeyPair {
-    pub(crate) public_key: DHPublicKey,
-    private_key: DHPrivateKey,
+    pub public_key: DHPublicKey,
+    pub(crate) private_key: DHPrivateKey,
 }
 
 impl JournalistDHKeyPair {
@@ -70,8 +70,8 @@ impl JournalistDHKeyPair {
 /// Journalist ephemeral KEM key pair
 /// Signed by the journalist signing key
 pub struct JournalistEphemeralKEMKeyPair {
-    pub(crate) public_key: PPKPublicKey,
-    private_key: PPKPrivateKey,
+    pub public_key: PPKPublicKey,
+    pub(crate) private_key: PPKPrivateKey,
 }
 
 impl JournalistEphemeralKEMKeyPair {
