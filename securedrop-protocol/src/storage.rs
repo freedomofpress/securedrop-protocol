@@ -5,7 +5,7 @@ use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
 use crate::keys::{JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle};
-use crate::messages::MessageBundle;
+use crate::messages::core::Message;
 use crate::primitives::{DHPublicKey, PPKPublicKey};
 use crate::sign::{Signature, VerifyingKey};
 
@@ -17,7 +17,7 @@ pub struct ServerStorage {
     /// Each journalist maintains a pool of ephemeral keys that are randomly selected and removed when fetched
     ephemeral_keys: HashMap<Uuid, Vec<JournalistEphemeralKeyBundle>>,
     /// Store of messages
-    messages: HashMap<Uuid, MessageBundle>,
+    messages: HashMap<Uuid, Message>,
 }
 
 impl ServerStorage {
@@ -140,12 +140,12 @@ impl ServerStorage {
     }
 
     /// Get all messages
-    pub fn get_messages(&self) -> &HashMap<Uuid, MessageBundle> {
+    pub fn get_messages(&self) -> &HashMap<Uuid, Message> {
         &self.messages
     }
 
     /// Add a message to storage
-    pub fn add_message(&mut self, message_id: Uuid, message: MessageBundle) {
+    pub fn add_message(&mut self, message_id: Uuid, message: Message) {
         self.messages.insert(message_id, message);
     }
 }

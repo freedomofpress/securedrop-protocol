@@ -20,8 +20,8 @@ pub struct SourcePassphrase {
 
 #[derive(Debug, Clone)]
 pub struct SourceFetchKeyPair {
-    pub(crate) public_key: DHPublicKey,
-    private_key: DHPrivateKey,
+    pub public_key: DHPublicKey,
+    pub(crate) private_key: DHPrivateKey,
 }
 
 impl SourceFetchKeyPair {
@@ -47,8 +47,8 @@ impl SourceFetchKeyPair {
 
 #[derive(Debug, Clone)]
 pub struct SourceDHKeyPair {
-    pub(crate) public_key: DHPublicKey,
-    private_key: DHPrivateKey,
+    pub public_key: DHPublicKey,
+    pub(crate) private_key: DHPrivateKey,
 }
 
 impl SourceDHKeyPair {
@@ -74,8 +74,8 @@ impl SourceDHKeyPair {
 
 #[derive(Debug, Clone)]
 pub struct SourceKEMKeyPair {
-    pub(crate) public_key: PPKPublicKey,
-    private_key: PPKPrivateKey,
+    pub public_key: PPKPublicKey,
+    pub(crate) private_key: PPKPrivateKey,
 }
 
 impl SourceKEMKeyPair {
@@ -101,8 +101,8 @@ impl SourceKEMKeyPair {
 
 #[derive(Debug, Clone)]
 pub struct SourcePKEKeyPair {
-    pub(crate) public_key: PPKPublicKey,
-    private_key: PPKPrivateKey,
+    pub public_key: PPKPublicKey,
+    pub(crate) private_key: PPKPrivateKey,
 }
 
 impl SourcePKEKeyPair {
@@ -128,6 +128,26 @@ impl SourcePKEKeyPair {
 
 /// Generate a passphrase and the corresponding keys (via KDF).
 impl SourceKeyBundle {
+    /// Get the source's DH public key
+    pub fn dh_public_key(&self) -> &DHPublicKey {
+        &self.long_term_dh.public_key
+    }
+
+    /// Get the source's PKE public key
+    pub fn pke_public_key(&self) -> &PPKPublicKey {
+        &self.pke.public_key
+    }
+
+    /// Get the source's KEM public key
+    pub fn kem_public_key(&self) -> &PPKPublicKey {
+        &self.kem.public_key
+    }
+
+    /// Get the source's fetch public key
+    pub fn fetch_public_key(&self) -> &DHPublicKey {
+        &self.fetch.public_key
+    }
+
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> (SourcePassphrase, SourceKeyBundle) {
         // Generate a random passphrase
         let mut passphrase = [0u8; 32];

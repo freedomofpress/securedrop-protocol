@@ -43,7 +43,7 @@ pub struct SealedMessage {}
 /// Fetching key identifier?
 /// DH-AKEM key identifier (maybe not needed bc of how auth mode in hpke works)?
 /// Plaintext
-pub struct Message {}
+//pub struct Message {}
 
 /// (Z, X)
 pub struct MessageClue {
@@ -102,6 +102,16 @@ pub struct SourceJournalistKeyResponse {
 /// This corresponds to step 6 for sources and step 9 for journalists in the spec.
 /// TODO: could remove this, just kept it for consistency of naming with the other types
 pub type MessageSubmitRequest = MessageBundle;
+
+#[derive(Clone)]
+pub struct Message {
+    /// Encrypted message ciphertext
+    pub ciphertext: Vec<u8>,
+    /// Diffie-Hellman share Z
+    pub dh_share_z: Vec<u8>,
+    /// Diffie-Hellman share X
+    pub dh_share_x: Vec<u8>,
+}
 
 /// User (source or journalist) fetches message IDs
 ///
