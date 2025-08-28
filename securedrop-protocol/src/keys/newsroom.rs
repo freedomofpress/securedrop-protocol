@@ -17,4 +17,3 @@ impl NewsroomKeyPair {
         NewsroomKeyPair { sk, vk }
     }
 }
-

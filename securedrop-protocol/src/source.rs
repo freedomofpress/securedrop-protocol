@@ -6,7 +6,7 @@ use crate::keys::{
     JournalistEnrollmentKeyBundle, JournalistEphemeralPublicKeys, SourceKeyBundle, SourcePassphrase,
 };
 use crate::messages::core::{
-    MessageFetchResponse, MessageIdFetchResponse, SourceJournalistKeyRequest,
+    MessageChallengeFetchResponse, MessageFetchResponse, SourceJournalistKeyRequest,
     SourceJournalistKeyResponse, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
 };
 use crate::sign::VerifyingKey;
@@ -132,7 +132,7 @@ impl SourceSession {
     pub fn fetch_message_ids<R: RngCore + CryptoRng>(
         &self,
         _rng: &mut R,
-    ) -> MessageIdFetchResponse {
+    ) -> MessageChallengeFetchResponse {
         unimplemented!()
     }
 
