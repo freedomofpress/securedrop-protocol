@@ -9,6 +9,7 @@ use crate::messages::core::Message;
 use crate::primitives::DHPublicKey;
 use crate::sign::{Signature, VerifyingKey};
 
+#[derive(Default)]
 pub struct ServerStorage {
     /// Journalists with their long/medium term keys
     journalists: HashMap<Uuid, (VerifyingKey, DHPublicKey, DHPublicKey, Signature)>,
@@ -23,11 +24,7 @@ pub struct ServerStorage {
 impl ServerStorage {
     /// Create a new ServerStorage instance
     pub fn new() -> Self {
-        Self {
-            journalists: HashMap::new(),
-            ephemeral_keys: HashMap::new(),
-            messages: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Add ephemeral keys for a journalist

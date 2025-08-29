@@ -20,14 +20,14 @@ use crate::sign::VerifyingKey;
 ///
 /// TODO: Load from storage
 #[derive(Clone)]
-pub struct SourceSession {
+pub struct SourceClient {
     /// Source's key bundle derived from passphrase
     key_bundle: Option<SourceKeyBundle>,
     /// Newsroom's verifying key (stored after verification)
     newsroom_verifying_key: Option<VerifyingKey>,
 }
 
-impl SourceSession {
+impl SourceClient {
     /// Initialize source session with keys derived from passphrase (Protocol Step 4)
     pub fn initialize_with_passphrase<R: RngCore + CryptoRng>(
         mut rng: R,
@@ -59,7 +59,7 @@ impl SourceSession {
     }
 }
 
-impl Client for SourceSession {
+impl Client for SourceClient {
     type NewsroomKey = VerifyingKey;
 
     fn newsroom_verifying_key(&self) -> Option<&Self::NewsroomKey> {
@@ -78,7 +78,7 @@ impl Client for SourceSession {
     }
 }
 
-impl ClientPrivate for SourceSession {
+impl ClientPrivate for SourceClient {
     fn fetching_private_key(&self) -> Result<[u8; 32], Error> {
         Ok(self
             .key_bundle
@@ -91,7 +91,7 @@ impl ClientPrivate for SourceSession {
     }
 }
 
-impl SourceSession {
+impl SourceClient {
     /// Fetch newsroom keys (step 5)
     pub fn fetch_newsroom_keys(&self) -> SourceNewsroomKeyRequest {
         SourceNewsroomKeyRequest {}

@@ -4,7 +4,7 @@
 use rand::rng;
 
 use securedrop_protocol::Client;
-use securedrop_protocol::journalist::JournalistSession;
+use securedrop_protocol::journalist::JournalistClient;
 use securedrop_protocol::keys::{
     FPFKeyPair, JournalistEphemeralPublicKeys, JournalistSigningKeyPair, NewsroomKeyPair,
     SourceKeyBundle,
@@ -13,8 +13,8 @@ use securedrop_protocol::messages::setup::{
     JournalistRefreshRequest, JournalistSetupRequest, NewsroomSetupRequest, NewsroomSetupResponse,
 };
 use securedrop_protocol::primitives::MESSAGE_ID_FETCH_SIZE;
-use securedrop_protocol::server::ServerSession;
-use securedrop_protocol::source::SourceSession;
+use securedrop_protocol::server::Server;
+use securedrop_protocol::source::SourceClient;
 use securedrop_protocol::storage::ServerStorage;
 
 /// Step 5: Source fetches keys and verifies their authenticity
@@ -23,7 +23,7 @@ fn protocol_step_5_source_fetch_keys() {
     let mut rng = rng();
 
     // Setup: Create server with newsroom and journalist
-    let mut server_session = ServerSession::new();
+    let mut server_session = Server::new();
 
     // Setup newsroom
     let newsroom_setup_request = server_session
@@ -43,7 +43,7 @@ fn protocol_step_5_source_fetch_keys() {
     server_session.set_fpf_signature(newsroom_setup_response.sig);
 
     // Setup journalist
-    let mut journalist_session = JournalistSession::new();
+    let mut journalist_session = JournalistClient::new();
     let journalist_setup_request = journalist_session
         .create_setup_request(&mut rng)
         .expect("Can create journalist setup request");
@@ -62,7 +62,7 @@ fn protocol_step_5_source_fetch_keys() {
         .expect("Can handle ephemeral key request");
 
     // Step 4: Generate source session from passphrase
-    let mut source_session = SourceSession::from_passphrase(&[1u8; 32]);
+    let mut source_session = SourceClient::from_passphrase(&[1u8; 32]);
 
     // Step 5: Source fetches newsroom keys
     let newsroom_key_request = source_session.fetch_newsroom_keys();
@@ -151,7 +151,7 @@ fn protocol_step_6_source_submits_message() {
     let mut rng = rng();
 
     // Setup: Complete steps 1-5 (reuse from previous test)
-    let mut server_session = ServerSession::new();
+    let mut server_session = Server::new();
 
     // Setup newsroom
     let newsroom_setup_request = server_session
@@ -168,7 +168,7 @@ fn protocol_step_6_source_submits_message() {
     server_session.set_fpf_signature(newsroom_setup_response.sig);
 
     // Setup journalist
-    let mut journalist_session = JournalistSession::new();
+    let mut journalist_session = JournalistClient::new();
     let journalist_setup_request = journalist_session
         .create_setup_request(&mut rng)
         .expect("Can create journalist setup request");
@@ -190,7 +190,7 @@ fn protocol_step_6_source_submits_message() {
         .expect("Can handle ephemeral key request");
 
     // Source setup
-    let mut source_session = SourceSession::from_passphrase(&[1u8; 32]);
+    let mut source_session = SourceClient::from_passphrase(&[1u8; 32]);
 
     // Source fetches keys (Step 5)
     let newsroom_key_request = source_session.fetch_newsroom_keys();
@@ -242,7 +242,7 @@ fn protocol_step_7_message_id_fetch() {
     let mut rng = rng();
 
     // Setup: Complete steps 1-6 (reuse from previous test)
-    let mut server_session = ServerSession::new();
+    let mut server_session = Server::new();
 
     // Setup newsroom
     let newsroom_setup_request = server_session
@@ -259,7 +259,7 @@ fn protocol_step_7_message_id_fetch() {
     server_session.set_fpf_signature(newsroom_setup_response.sig);
 
     // Setup journalist
-    let mut journalist_session = JournalistSession::new();
+    let mut journalist_session = JournalistClient::new();
     let journalist_setup_request = journalist_session
         .create_setup_request(&mut rng)
         .expect("Can create journalist setup request");
@@ -281,7 +281,7 @@ fn protocol_step_7_message_id_fetch() {
         .expect("Can handle ephemeral key request");
 
     // Source setup
-    let mut source_session = SourceSession::from_passphrase(&[1u8; 32]);
+    let mut source_session = SourceClient::from_passphrase(&[1u8; 32]);
 
     // Source fetches keys (Step 5)
     let newsroom_key_request = source_session.fetch_newsroom_keys();

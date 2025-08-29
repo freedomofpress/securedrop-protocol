@@ -3,7 +3,7 @@
 
 use rand::rng;
 
-use securedrop_protocol::journalist::JournalistSession;
+use securedrop_protocol::journalist::JournalistClient;
 use securedrop_protocol::keys::{
     FPFKeyPair, JournalistEphemeralPublicKeys, JournalistSigningKeyPair, NewsroomKeyPair,
     SourceKeyBundle,
@@ -11,8 +11,8 @@ use securedrop_protocol::keys::{
 use securedrop_protocol::messages::setup::{
     JournalistRefreshRequest, JournalistSetupRequest, NewsroomSetupRequest, NewsroomSetupResponse,
 };
-use securedrop_protocol::server::ServerSession;
-use securedrop_protocol::source::SourceSession;
+use securedrop_protocol::server::Server;
+use securedrop_protocol::source::SourceClient;
 use securedrop_protocol::storage::ServerStorage;
 
 /// Step 1: Generate FPF keys
@@ -38,7 +38,7 @@ fn protocol_step_2_generate_newsroom_keys() {
     let fpf_keys = FPFKeyPair::new(&mut rng);
 
     // Newsroom: Create server session and generate setup request
-    let mut server_session = ServerSession::new();
+    let mut server_session = Server::new();
     let newsroom_setup = server_session
         .create_newsroom_setup_request(&mut rng)
         .expect("Can create newsroom setup request");
@@ -70,7 +70,7 @@ fn protocol_step_3_1_journalist_enrollment() {
     let fpf_keys = FPFKeyPair::new(&mut rng);
 
     // Setup: Newsroom creates server session and generates setup request (from step 2)
-    let mut server_session = ServerSession::new();
+    let mut server_session = Server::new();
     let newsroom_setup = server_session
         .create_newsroom_setup_request(&mut rng)
         .expect("Can create newsroom setup request");
@@ -81,7 +81,7 @@ fn protocol_step_3_1_journalist_enrollment() {
         .expect("Signing should not fail");
 
     // Journalist: Create journalist session and generate setup request
-    let mut journalist_session = JournalistSession::new();
+    let mut journalist_session = JournalistClient::new();
     let journalist_setup_request = journalist_session
         .create_setup_request(&mut rng)
         .expect("Can create journalist setup request");
@@ -123,7 +123,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
     let fpf_keys = FPFKeyPair::new(&mut rng);
 
     // Setup: Newsroom creates server session and generates setup request (Step 2)
-    let mut server_session = ServerSession::new();
+    let mut server_session = Server::new();
     let newsroom_setup = server_session
         .create_newsroom_setup_request(&mut rng)
         .expect("Can create newsroom setup request");
@@ -134,7 +134,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
         .expect("Signing should not fail");
 
     // Setup: Journalist enrollment (Step 3.1)
-    let mut journalist_session = JournalistSession::new();
+    let mut journalist_session = JournalistClient::new();
     let journalist_setup_request = journalist_session
         .create_setup_request(&mut rng)
         .expect("Can create journalist setup request");
@@ -217,7 +217,7 @@ fn protocol_step_4_source_setup() {
     let mut rng = rng();
 
     // Initialize source session with new passphrase (Protocol Step 4)
-    let (passphrase, source_session) = SourceSession::initialize_with_passphrase(&mut rng);
+    let (passphrase, source_session) = SourceClient::initialize_with_passphrase(&mut rng);
 
     // Verify that all keys were generated
     assert_eq!(passphrase.passphrase.len(), 32);

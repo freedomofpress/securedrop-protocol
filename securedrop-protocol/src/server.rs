@@ -26,23 +26,20 @@ use crate::sign::{Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 
 /// Server session for handling source requests
-pub struct ServerSession {
+#[derive(Default)]
+pub struct Server {
     storage: ServerStorage,
     newsroom_keys: Option<NewsroomKeyPair>,
     /// Signature from FPF over the newsroom keys
     signature: Option<Signature>,
 }
 
-impl ServerSession {
+impl Server {
     /// Create a new server session
     ///
     /// TODO: Load newsroom keys from storage if they exist.
     pub fn new() -> Self {
-        Self {
-            storage: ServerStorage::new(),
-            newsroom_keys: None,
-            signature: None,
-        }
+        Self::default()
     }
 
     /// Generate a new newsroom setup request.

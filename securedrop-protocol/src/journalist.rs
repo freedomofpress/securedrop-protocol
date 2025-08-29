@@ -22,7 +22,7 @@ use crate::{Client, client::ClientPrivate};
 ///
 /// TODO: All this stuff should be persisted to disk.
 #[derive(Default)]
-pub struct JournalistSession {
+pub struct JournalistClient {
     /// Journalist's long-term signing key pair
     signing_key: Option<JournalistSigningKeyPair>,
     /// Journalist's long-term fetching key pair
@@ -35,7 +35,7 @@ pub struct JournalistSession {
     newsroom_verifying_key: Option<VerifyingKey>,
 }
 
-impl JournalistSession {
+impl JournalistClient {
     /// Create a new journalist session
     ///
     /// TODO: Load from storage
@@ -144,7 +144,7 @@ impl JournalistSession {
     }
 }
 
-impl Client for JournalistSession {
+impl Client for JournalistClient {
     type NewsroomKey = VerifyingKey;
 
     fn newsroom_verifying_key(&self) -> Option<&Self::NewsroomKey> {
@@ -163,7 +163,7 @@ impl Client for JournalistSession {
     }
 }
 
-impl ClientPrivate for JournalistSession {
+impl ClientPrivate for JournalistClient {
     fn fetching_private_key(&self) -> Result<[u8; 32], Error> {
         Ok(self
             .fetching_key
@@ -175,7 +175,7 @@ impl ClientPrivate for JournalistSession {
     }
 }
 
-impl JournalistSession {
+impl JournalistClient {
     /// Reply to a source (step 9)
     ///
     /// This is similar to Step 6 (source message submission) but from the journalist's perspective.
