@@ -6,7 +6,6 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
-use crate::Client;
 use crate::keys::SourcePublicKeys;
 use crate::keys::{
     JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralDHKeyPair,
@@ -14,14 +13,12 @@ use crate::keys::{
     JournalistEphemeralPublicKeys, JournalistFetchKeyPair, JournalistSigningKeyPair,
 };
 use crate::messages::core::{
-    JournalistReplyMessage, Message, MessageChallengeFetchRequest, MessageChallengeFetchResponse,
-    MessageFetchResponse,
+    JournalistReplyMessage, Message, MessageChallengeFetchRequest, MessageFetchResponse,
 };
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
-use crate::primitives::{
-    DHPublicKey, decrypt_message_id, dh_public_key_from_scalar, dh_shared_secret,
-};
+use crate::primitives::DHPublicKey;
 use crate::sign::VerifyingKey;
+use crate::{Client, client::ClientPrivate};
 
 /// Journalist session for interacting with the server
 ///
@@ -159,60 +156,28 @@ impl Client for JournalistSession {
     fn set_newsroom_verifying_key(&mut self, key: Self::NewsroomKey) {
         self.newsroom_verifying_key = Some(key);
     }
-}
 
-impl JournalistSession {
-    /// Fetch message IDs (step 7)
-    pub fn fetch_message_ids<R: RngCore + CryptoRng>(
+    fn fetch_message_ids<R: RngCore + CryptoRng>(
         &self,
         _rng: &mut R,
     ) -> MessageChallengeFetchRequest {
         MessageChallengeFetchRequest {}
     }
+}
 
-    /// Process message ID fetch response (step 7)
-    pub fn process_message_id_response(
-        &self,
-        response: &MessageChallengeFetchResponse,
-    ) -> Result<Vec<Uuid>, Error> {
-        let mut message_ids = Vec::new();
-
-        // Get the journalist's fetching private key
-        let fetching_private_key = self
+impl ClientPrivate for JournalistSession {
+    fn fetching_private_key(&self) -> Result<[u8; 32], Error> {
+        Ok(self
             .fetching_key
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No fetching key found in session"))?
+            .expect("Fetching key in session")
             .private_key
             .clone()
-            .into_bytes();
-
-        // Process each (Q_i, cid_i) pair
-        for (q_i, cid_i) in &response.messages {
-            // k_i = DH(Q_i, U_fetch,sk)
-            let q_public_key =
-                dh_public_key_from_scalar(q_i.clone().try_into().unwrap_or([0u8; 32]));
-            let k_i = dh_shared_secret(&q_public_key, fetching_private_key).into_bytes();
-
-            // Decrypt message ID: id_i = Dec(k_i, cid_i)
-            match decrypt_message_id(&k_i, cid_i) {
-                Ok(decrypted_id) => {
-                    // Try to parse as UUID
-                    if decrypted_id.len() == 16 {
-                        if let Ok(id_bytes) = decrypted_id.try_into() {
-                            let uuid = Uuid::from_bytes(id_bytes);
-                            message_ids.push(uuid);
-                        }
-                    }
-                }
-                Err(_) => {
-                    // Decryption failed, this is a random entry
-                }
-            }
-        }
-
-        Ok(message_ids)
+            .into_bytes())
     }
+}
 
+impl JournalistSession {
     /// Fetch a specific message (step 8)
     pub fn fetch_message(&self, _message_id: u64) -> Option<MessageFetchResponse> {
         // TODO: Implement HTTP request to server

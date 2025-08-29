@@ -4,18 +4,16 @@
 use alloc::vec::Vec;
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
-use uuid::Uuid;
 
-use crate::Client;
 use crate::keys::{
     JournalistEnrollmentKeyBundle, JournalistEphemeralPublicKeys, SourceKeyBundle, SourcePassphrase,
 };
 use crate::messages::core::{
-    Message, MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchResponse,
-    SourceJournalistKeyRequest, SourceJournalistKeyResponse, SourceMessage,
-    SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
+    Message, MessageChallengeFetchRequest, MessageFetchResponse, SourceJournalistKeyRequest,
+    SourceJournalistKeyResponse, SourceMessage, SourceNewsroomKeyRequest,
+    SourceNewsroomKeyResponse,
 };
-use crate::primitives::{decrypt_message_id, dh_public_key_from_scalar, dh_shared_secret};
+use crate::{Client, client::ClientPrivate};
 
 use crate::sign::VerifyingKey;
 
@@ -71,6 +69,26 @@ impl Client for SourceSession {
 
     fn set_newsroom_verifying_key(&mut self, key: Self::NewsroomKey) {
         self.newsroom_verifying_key = Some(key);
+    }
+
+    fn fetch_message_ids<R: RngCore + CryptoRng>(
+        &self,
+        _rng: &mut R,
+    ) -> MessageChallengeFetchRequest {
+        MessageChallengeFetchRequest {}
+    }
+}
+
+impl ClientPrivate for SourceSession {
+    fn fetching_private_key(&self) -> Result<[u8; 32], Error> {
+        Ok(self
+            .key_bundle
+            .as_ref()
+            .unwrap()
+            .fetch
+            .private_key
+            .clone()
+            .into_bytes())
     }
 }
 
@@ -219,49 +237,6 @@ impl SourceSession {
         }
 
         Ok(requests)
-    }
-
-    /// Fetch message IDs (step 7)
-    pub fn fetch_message_ids(&self) -> MessageChallengeFetchRequest {
-        MessageChallengeFetchRequest {}
-    }
-
-    /// Process message ID fetch response (step 7)
-    ///
-    /// TODO: Share logic with journalist.rs
-    pub fn process_message_id_response(
-        &self,
-        response: &MessageChallengeFetchResponse,
-    ) -> Result<Vec<Uuid>, Error> {
-        let mut message_ids = Vec::new();
-        let fetching_secret_key = self.key_bundle.as_ref().unwrap().fetch.private_key.clone();
-
-        // Process each (Q_i, cid_i) pair
-        for (q_i, cid_i) in &response.messages {
-            // k_i = DH(Q_i, U_fetch,sk)
-            let q_public_key =
-                dh_public_key_from_scalar(q_i.clone().try_into().unwrap_or([0u8; 32]));
-            let k_i = dh_shared_secret(&q_public_key, fetching_secret_key.clone().into_bytes())
-                .into_bytes();
-
-            // Decrypt message ID: id_i = Dec(k_i, cid_i)
-            match decrypt_message_id(&k_i, cid_i) {
-                Ok(decrypted_id) => {
-                    // Try to parse as UUID
-                    if decrypted_id.len() == 16 {
-                        if let Ok(id_bytes) = decrypted_id.try_into() {
-                            let uuid = Uuid::from_bytes(id_bytes);
-                            message_ids.push(uuid);
-                        }
-                    }
-                }
-                Err(_) => {
-                    // Decryption failed, this is a random entry
-                }
-            }
-        }
-
-        Ok(message_ids)
     }
 
     /// Fetch a specific message (step 10)

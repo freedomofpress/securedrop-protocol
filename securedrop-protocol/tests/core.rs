@@ -341,7 +341,7 @@ fn protocol_step_7_message_id_fetch() {
     );
 
     // Verify privacy properties: response size is always the same
-    let empty_fetch_request = source_session.fetch_message_ids();
+    let empty_fetch_request = source_session.fetch_message_ids(&mut rng);
     let empty_fetch_response =
         server_session.handle_message_id_fetch(empty_fetch_request, &mut rng);
     assert_eq!(empty_fetch_response.count, MESSAGE_ID_FETCH_SIZE);
