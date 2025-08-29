@@ -1,3 +1,4 @@
+use crate::client::StructuredMessage;
 use crate::primitives::{DHPublicKey, PPKPublicKey};
 use crate::{Signature, VerifyingKey};
 use alloc::vec::Vec;
@@ -137,6 +138,12 @@ impl SourceMessage {
     }
 }
 
+impl StructuredMessage for SourceMessage {
+    fn into_bytes(self) -> Vec<u8> {
+        self.into_bytes()
+    }
+}
+
 /// Message structure for Step 9: Journalist replies to a source
 ///
 /// This represents the message format before padding and encryption:
@@ -178,6 +185,12 @@ impl JournalistReplyMessage {
     }
 }
 
+impl StructuredMessage for JournalistReplyMessage {
+    fn into_bytes(self) -> Vec<u8> {
+        self.into_bytes()
+    }
+}
+
 /// User submits a message to the server $(C, Z, X)$
 ///
 /// This corresponds to step 6 for sources and step 9 for journalists in the spec.
@@ -216,7 +229,7 @@ pub struct MessageChallengeFetchResponse {
 /// This corresponds to step 8 and 10 in the spec.
 pub struct MessageFetchRequest {
     /// Message ID to fetch
-    message_id: u64,
+    pub message_id: u64,
 }
 
 /// Server returns the requested message

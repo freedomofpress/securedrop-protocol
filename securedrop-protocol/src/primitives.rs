@@ -140,10 +140,14 @@ pub fn dh_public_key_from_scalar(scalar: [u8; 32]) -> DHPublicKey {
 }
 
 /// Compute DH shared secret
-pub fn dh_shared_secret(public_key: &DHPublicKey, private_scalar: [u8; 32]) -> DHSharedSecret {
+pub fn dh_shared_secret(
+    public_key: &DHPublicKey,
+    private_scalar: [u8; 32],
+) -> Result<DHSharedSecret, Error> {
     let mut shared_secret_bytes = [0u8; 32];
-    libcrux_curve25519::ecdh(&mut shared_secret_bytes, &private_scalar, &public_key.0);
-    DHSharedSecret(shared_secret_bytes)
+    libcrux_curve25519::ecdh(&mut shared_secret_bytes, &private_scalar, &public_key.0)
+        .map_err(|_| anyhow::anyhow!("X25519 DH failed"))?;
+    Ok(DHSharedSecret(shared_secret_bytes))
 }
 
 /// Pad a message to a fixed length
@@ -291,7 +295,7 @@ pub fn encrypt_message_id(key: &[u8], message_id: &[u8]) -> Result<Vec<u8>, Erro
 
     // Generate a random nonce
     let mut nonce = [0u8; NONCE_LEN];
-    rand::thread_rng().fill_bytes(&mut nonce);
+    rand::rng().fill_bytes(&mut nonce);
 
     // Prepare output buffer: nonce + ciphertext + tag
     let mut output = alloc::vec::Vec::new();

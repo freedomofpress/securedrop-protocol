@@ -1,8 +1,16 @@
-use crate::messages::core::{MessageChallengeFetchRequest, MessageChallengeFetchResponse};
+use crate::messages::core::{
+    Message, MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchResponse,
+};
 use alloc::vec::Vec;
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
+
+/// Trait for structured messages that can be serialized for encryption
+pub trait StructuredMessage {
+    /// Serialize the message into bytes for padding and encryption
+    fn into_bytes(self) -> Vec<u8>;
+}
 
 /// Internal trait for private key access - not to be exposed
 pub(crate) trait ClientPrivate {
@@ -15,7 +23,7 @@ pub trait Client {
     /// Associated type for the newsroom key
     type NewsroomKey;
 
-    /// Get the newsroom's verifying key (optional access)
+    /// Get the newsroom's verifying key
     fn newsroom_verifying_key(&self) -> Option<&Self::NewsroomKey>;
 
     /// Store the newsroom's verifying key
@@ -50,7 +58,7 @@ pub trait Client {
             let q_public_key = crate::primitives::dh_public_key_from_scalar(
                 q_i.clone().try_into().unwrap_or([0u8; 32]),
             );
-            let k_i = crate::primitives::dh_shared_secret(&q_public_key, fetching_private_key)
+            let k_i = crate::primitives::dh_shared_secret(&q_public_key, fetching_private_key)?
                 .into_bytes();
 
             // Decrypt message ID: id_i = Dec(k_i, cid_i)
@@ -71,5 +79,64 @@ pub trait Client {
         }
 
         Ok(message_ids)
+    }
+
+    /// Fetch a specific message (step 8)
+    fn fetch_message(&self, _message_id: u64) -> Option<MessageFetchResponse> {
+        // TODO: Implement HTTP request to server
+        unimplemented!()
+    }
+
+    /// Submit a structured message (step 6 for sources, step 9 for journalists)
+    ///
+    /// This is a generic method that handles both source message submission and journalist replies.
+    /// The specific message structure and encryption details are provided by the implementing types.
+    fn submit_structured_message<M, R>(
+        &self,
+        message: M,
+        recipient_ephemeral_keys: (
+            &crate::primitives::DHPublicKey,
+            &crate::primitives::PPKPublicKey,
+        ),
+        recipient_pke_key: &crate::primitives::PPKPublicKey,
+        recipient_fetch_key: &crate::primitives::DHPublicKey,
+        sender_dh_private_key: &crate::primitives::DHPrivateKey,
+        sender_dh_public_key: &crate::primitives::DHPublicKey,
+        rng: &mut R,
+    ) -> Result<Message, Error>
+    where
+        M: StructuredMessage,
+        R: RngCore + CryptoRng,
+    {
+        // 1. Create the padded message
+        let padded_message = crate::primitives::pad_message(&message.into_bytes());
+
+        // 2. Perform authenticated encryption
+        let ((c1, c2), c_double_prime) = crate::primitives::auth_encrypt(
+            sender_dh_private_key,
+            recipient_ephemeral_keys,
+            &padded_message,
+        )?;
+
+        // 3. Encrypt the DH key and ciphertexts
+        let c_prime = crate::primitives::enc(recipient_pke_key, sender_dh_public_key, &c1, &c2)?;
+
+        // 4. Combine ciphertexts
+        let ciphertext = [c_prime, c_double_prime].concat();
+
+        // 5. Generate DH shares for message ID encryption
+        let x_bytes = crate::primitives::generate_random_scalar(rng)
+            .map_err(|e| anyhow::anyhow!("Failed to generate random scalar: {}", e))?;
+        let x_share = crate::primitives::dh_public_key_from_scalar(x_bytes);
+        let z_share = crate::primitives::dh_shared_secret(recipient_fetch_key, x_bytes)?;
+
+        // 6. Create message submit request
+        let request = Message {
+            ciphertext,
+            dh_share_z: z_share.into_bytes().to_vec(),
+            dh_share_x: x_share.into_bytes().to_vec(),
+        };
+
+        Ok(request)
     }
 }

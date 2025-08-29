@@ -1,12 +1,12 @@
 use alloc::vec::Vec;
 use hashbrown::HashMap;
-use rand::{Rng, RngCore as RandRngCore};
-use rand_core::{CryptoRng, RngCore};
+use rand::Rng;
+use rand_core::CryptoRng;
 use uuid::Uuid;
 
 use crate::keys::{JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle};
 use crate::messages::core::Message;
-use crate::primitives::{DHPublicKey, PPKPublicKey};
+use crate::primitives::DHPublicKey;
 use crate::sign::{Signature, VerifyingKey};
 
 pub struct ServerStorage {
@@ -59,7 +59,7 @@ impl ServerStorage {
             }
 
             // Select a random index
-            let index = rng.gen_range(0..keys.len());
+            let index = rng.random_range(0..keys.len());
 
             // Remove and return the selected key set
             Some(keys.remove(index))

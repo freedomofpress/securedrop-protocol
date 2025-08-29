@@ -9,9 +9,8 @@ use crate::keys::{
     JournalistEnrollmentKeyBundle, JournalistEphemeralPublicKeys, SourceKeyBundle, SourcePassphrase,
 };
 use crate::messages::core::{
-    Message, MessageChallengeFetchRequest, MessageFetchResponse, SourceJournalistKeyRequest,
-    SourceJournalistKeyResponse, SourceMessage, SourceNewsroomKeyRequest,
-    SourceNewsroomKeyResponse,
+    Message, MessageChallengeFetchRequest, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
+    SourceMessage, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
 };
 use crate::{Client, client::ClientPrivate};
 
@@ -193,54 +192,23 @@ impl SourceSession {
                 newsroom_sig_pk: self.get_newsroom_verifying_key()?.clone(),
             };
 
-            // 2. Create the padded message
-            let padded_message = crate::primitives::pad_message(&source_message.into_bytes());
-
-            // 3. Perform authenticated encryption
-            let ((c1, c2), c_double_prime) = crate::primitives::auth_encrypt(
-                &key_bundle.long_term_dh.private_key,
+            // 2. Use the shared method for encryption and message creation
+            let request = self.submit_structured_message(
+                source_message,
                 (
                     &journalist_response.ephemeral_dh_pk,
                     &journalist_response.ephemeral_kem_pk,
                 ),
-                &padded_message,
-            )?;
-
-            // 4. Encrypt the DH key and ciphertexts
-            let c_prime = crate::primitives::enc(
                 &journalist_response.ephemeral_pke_pk,
-                key_bundle.dh_public_key(),
-                &c1,
-                &c2,
-            )?;
-
-            // 5. Combine ciphertexts
-            let ciphertext = [c_prime, c_double_prime].concat();
-
-            // 6. Generate DH shares
-            let x_bytes = crate::primitives::generate_random_scalar(rng)
-                .map_err(|e| anyhow::anyhow!("Failed to generate random scalar: {}", e))?;
-            let x_share = crate::primitives::dh_public_key_from_scalar(x_bytes);
-            let z_share = crate::primitives::dh_shared_secret(
                 &journalist_response.journalist_fetch_pk,
-                x_bytes,
-            );
-
-            // 7. Create message submit request
-            let request = Message {
-                ciphertext,
-                dh_share_z: z_share.into_bytes().to_vec(),
-                dh_share_x: x_share.into_bytes().to_vec(),
-            };
+                &key_bundle.long_term_dh.private_key,
+                &key_bundle.long_term_dh.public_key,
+                rng,
+            )?;
 
             requests.push(request);
         }
 
         Ok(requests)
-    }
-
-    /// Fetch a specific message (step 10)
-    pub fn fetch_message(&self, _message_id: u64) -> Option<MessageFetchResponse> {
-        unimplemented!()
     }
 }

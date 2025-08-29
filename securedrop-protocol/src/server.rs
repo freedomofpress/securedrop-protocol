@@ -8,21 +8,20 @@ use rand::seq::SliceRandom;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
-use crate::keys::{
-    JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle,
-    JournalistEphemeralPublicKeys, JournalistFetchKeyPair, JournalistSigningKeyPair,
-    NewsroomKeyPair,
-};
+use crate::keys::NewsroomKeyPair;
 use crate::messages::core::{
     Message, MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchRequest,
-    MessageFetchResponse, MessageSubmitRequest, SourceJournalistKeyRequest,
-    SourceJournalistKeyResponse, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
+    MessageFetchResponse, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
+    SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
 };
 use crate::messages::setup::{
     JournalistRefreshRequest, JournalistRefreshResponse, JournalistSetupRequest,
-    JournalistSetupResponse, NewsroomSetupRequest, NewsroomSetupResponse,
+    JournalistSetupResponse, NewsroomSetupRequest,
 };
-use crate::primitives::MESSAGE_ID_FETCH_SIZE;
+use crate::primitives::{
+    MESSAGE_ID_FETCH_SIZE, dh_public_key_from_scalar, dh_shared_secret, encrypt_message_id,
+    generate_random_scalar,
+};
 use crate::sign::{Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 
@@ -225,11 +224,7 @@ impl ServerSession {
     }
 
     /// Handle message submission (step 6 for sources, step 9 for journalists)
-    pub fn handle_message_submit<R: RngCore + CryptoRng>(
-        &mut self,
-        message: Message,
-        rng: &mut R,
-    ) -> Result<Uuid, Error> {
+    pub fn handle_message_submit(&mut self, message: Message) -> Result<Uuid, Error> {
         // Generate a random message ID
         let message_id = Uuid::new_v4();
 
@@ -247,11 +242,7 @@ impl ServerSession {
         &self,
         _request: MessageChallengeFetchRequest,
         rng: &mut R,
-    ) -> MessageChallengeFetchResponse {
-        use crate::primitives::{
-            dh_public_key_from_scalar, dh_shared_secret, encrypt_message_id, generate_random_scalar,
-        };
-
+    ) -> Result<MessageChallengeFetchResponse, Error> {
         let messages = self.storage.get_messages();
         let message_count = messages.len();
 
@@ -268,13 +259,13 @@ impl ServerSession {
             let z_public_key = dh_public_key_from_scalar(
                 message.dh_share_z.clone().try_into().unwrap_or([0u8; 32]),
             );
-            let k_i = dh_shared_secret(&z_public_key, y).into_bytes();
+            let k_i = dh_shared_secret(&z_public_key, y)?.into_bytes();
 
             // Q_i = DH(X_i, y)
             let x_public_key = dh_public_key_from_scalar(
                 message.dh_share_x.clone().try_into().unwrap_or([0u8; 32]),
             );
-            let q_i = dh_shared_secret(&x_public_key, y).into_bytes();
+            let q_i = dh_shared_secret(&x_public_key, y)?.into_bytes();
 
             // ID: cid_i = Enc(k_i, id_i)
             let message_id_bytes = message_id.as_bytes().to_vec();
@@ -292,7 +283,9 @@ impl ServerSession {
             let random_y = generate_random_scalar(rng).expect("Failed to generate random scalar");
             let random_x = generate_random_scalar(rng).expect("Failed to generate random scalar");
             let random_x_pub = dh_public_key_from_scalar(random_x);
-            let random_q = dh_shared_secret(&random_x_pub, random_y).into_bytes();
+            let random_q = dh_shared_secret(&random_x_pub, random_y)
+                .map_err(|_| anyhow!("failed to construct shared secret"))?
+                .into_bytes();
 
             // Generate random cid by encrypting a random UUID
             // This ensures indistinguishability from real cid_i
@@ -314,10 +307,10 @@ impl ServerSession {
         // Unzip back into separate arrays
         let (q_entries, cid_entries): (Vec<_>, Vec<_>) = pairs.into_iter().unzip();
 
-        MessageChallengeFetchResponse {
+        Ok(MessageChallengeFetchResponse {
             count: MESSAGE_ID_FETCH_SIZE,
             messages: q_entries.into_iter().zip(cid_entries).collect(),
-        }
+        })
     }
 
     /// Handle message fetch request (step 8/10)

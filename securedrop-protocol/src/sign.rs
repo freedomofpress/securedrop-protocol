@@ -1,7 +1,6 @@
 use anyhow::Error;
-use core::ops::DerefMut;
 use libcrux_ed25519::{SigningKey as LibCruxSigningKey, VerificationKey as LibCruxVerifyingKey};
-use rand_core::{CryptoRng, RngCore};
+use rand_core::CryptoRng;
 
 /// An Ed25519 signing key.
 pub struct SigningKey {

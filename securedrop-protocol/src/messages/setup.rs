@@ -7,7 +7,6 @@
 //! are both local only and do not involve any protocol messages.
 
 use crate::keys::{JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle};
-use crate::primitives::{DHPublicKey, PPKPublicKey};
 use crate::{Signature, VerifyingKey};
 
 /// Request from the newsroom to FPF for verification.

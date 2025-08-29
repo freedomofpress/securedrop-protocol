@@ -228,7 +228,7 @@ fn protocol_step_6_source_submits_message() {
 
     // Submit the message to the server
     let message_id = server_session
-        .handle_message_submit(message.clone(), &mut rng)
+        .handle_message_submit(message.clone())
         .expect("Can handle message submission");
 
     // Verify that the message was stored
@@ -314,13 +314,14 @@ fn protocol_step_7_message_id_fetch() {
 
     let message = &messages[0];
     let message_id = server_session
-        .handle_message_submit(message.clone(), &mut rng)
+        .handle_message_submit(message.clone())
         .expect("Can handle message submission");
 
     // Step 7: Test message ID fetch from journalist perspective
     let journalist_fetch_request = journalist_session.fetch_message_ids(&mut rng);
-    let journalist_fetch_response =
-        server_session.handle_message_id_fetch(journalist_fetch_request, &mut rng);
+    let journalist_fetch_response = server_session
+        .handle_message_id_fetch(journalist_fetch_request, &mut rng)
+        .expect("should be able to fetch message IDs");
 
     // Verify response structure
     assert_eq!(journalist_fetch_response.count, MESSAGE_ID_FETCH_SIZE);
@@ -342,8 +343,9 @@ fn protocol_step_7_message_id_fetch() {
 
     // Verify privacy properties: response size is always the same
     let empty_fetch_request = source_session.fetch_message_ids(&mut rng);
-    let empty_fetch_response =
-        server_session.handle_message_id_fetch(empty_fetch_request, &mut rng);
+    let empty_fetch_response = server_session
+        .handle_message_id_fetch(empty_fetch_request, &mut rng)
+        .expect("we should be able to handle message ID fetch");
     assert_eq!(empty_fetch_response.count, MESSAGE_ID_FETCH_SIZE);
     assert_eq!(empty_fetch_response.messages.len(), MESSAGE_ID_FETCH_SIZE);
 }
