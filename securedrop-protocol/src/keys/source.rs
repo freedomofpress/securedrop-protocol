@@ -2,7 +2,10 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::primitives::{
     PPKPrivateKey, PPKPublicKey,
+    dh_akem::{DhAkemPrivateKey, DhAkemPublicKey},
+    mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey},
     x25519::{DHPrivateKey, DHPublicKey},
+    xwing::{XWingPrivateKey, XWingPublicKey},
 };
 
 /// Source public keys needed for journalist to reply to a source
@@ -64,6 +67,7 @@ impl SourceFetchKeyPair {
 }
 
 #[derive(Debug, Clone)]
+#[deprecated]
 pub struct SourceDHKeyPair {
     pub public_key: DHPublicKey,
     pub(crate) private_key: DHPrivateKey,
@@ -91,6 +95,7 @@ impl SourceDHKeyPair {
 }
 
 #[derive(Debug, Clone)]
+#[deprecated]
 pub struct SourceKEMKeyPair {
     pub public_key: PPKPublicKey,
     pub(crate) private_key: PPKPrivateKey,
@@ -118,6 +123,7 @@ impl SourceKEMKeyPair {
 }
 
 #[derive(Debug, Clone)]
+#[deprecated]
 pub struct SourcePKEKeyPair {
     pub public_key: PPKPublicKey,
     pub(crate) private_key: PPKPrivateKey,
@@ -142,6 +148,32 @@ impl SourcePKEKeyPair {
     pub fn public_key_bytes(&self) -> [u8; 32] {
         self.public_key.clone().into_bytes()
     }
+}
+
+// new 0.3 keys
+
+/// Source message encryption PSK (used for PQ secret)
+///
+/// $S_pq$ in the specification.
+pub struct SourceMessagePQKeyPair {
+    pub public_key: MLKEM768PublicKey,
+    pub(crate) private_key: MLKEM768PrivateKey,
+}
+
+/// Source message encryption keypair
+///
+/// $S_pke$ in the specification.
+pub struct SourceMessageClassicalKeyPair {
+    pub public_key: DhAkemPublicKey,
+    pub(crate) private_key: DhAkemPrivateKey,
+}
+
+/// Source metadata keypair
+///
+/// $S_md$ in the specification.
+pub struct SourceMetadataKeyPair {
+    pub public_key: XWingPublicKey,
+    pub(crate) private_key: XWingPrivateKey,
 }
 
 /// Generate a passphrase and the corresponding keys (via KDF).
