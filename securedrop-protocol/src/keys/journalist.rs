@@ -1,6 +1,7 @@
 use rand_core::{CryptoRng, RngCore};
 
-// TODO: These names are kinda bad
+use crate::primitives::mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey};
+use crate::primitives::xwing::{XWingPrivateKey, XWingPublicKey};
 use crate::primitives::{
     PPKPrivateKey, PPKPublicKey, dh_akem::DhAkemPrivateKey, dh_akem::DhAkemPublicKey,
     x25519::DHPrivateKey, x25519::DHPublicKey,
@@ -51,9 +52,11 @@ impl JournalistFetchKeyPair {
     }
 }
 
-/// Journalist medium term DH-AKEM keypair
+/// Journalist medium term keypair
 /// Signed by the newsroom
-/// TODO: DH-AKEM
+///
+/// Only used in 0.2
+#[deprecated]
 #[derive(Clone)]
 pub struct JournalistDHKeyPair {
     pub public_key: DHPublicKey,
@@ -73,6 +76,8 @@ impl JournalistDHKeyPair {
 
 /// Journalist ephemeral KEM key pair
 /// Signed by the journalist signing key
+/// Only used in 0.2
+#[deprecated]
 pub struct JournalistEphemeralKEMKeyPair {
     pub public_key: PPKPublicKey,
     pub(crate) private_key: PPKPrivateKey,
@@ -95,6 +100,8 @@ impl JournalistEphemeralKEMKeyPair {
 
 /// Journalist ephemeral PKE key pair
 /// Signed by the journalist signing key
+/// Only used in 0.2
+#[deprecated]
 pub struct JournalistEphemeralPKEKeyPair {
     pub(crate) public_key: PPKPublicKey,
     private_key: PPKPrivateKey,
@@ -117,6 +124,8 @@ impl JournalistEphemeralPKEKeyPair {
 
 /// Journalist ephemeral DH-AKEM keypair
 /// Signed by the journalist signing key
+/// Only used in 0.2
+#[deprecated]
 pub struct JournalistEphemeralDHKeyPair {
     pub(crate) public_key: DHPublicKey,
     private_key: DHPrivateKey,
@@ -133,18 +142,14 @@ impl JournalistEphemeralDHKeyPair {
     }
 }
 
-// TODO(ro): Fill in types here
-
-// (new) 0.3 Keys
-
 /// Journalist message encryption PSK (used for PQ secret)
 ///
 /// One-time key
 ///
 /// $J_epq$ in the specification.
 pub struct JournalistOneTimeMessagePQKeyPair {
-    pub public_key: PPKPublicKey,
-    pub(crate) private_key: PPKPrivateKey,
+    pub public_key: MLKEM768PublicKey,
+    pub(crate) private_key: MLKEM768PrivateKey,
 }
 
 /// Journalist message encryption keypair
@@ -153,7 +158,6 @@ pub struct JournalistOneTimeMessagePQKeyPair {
 ///
 /// $J_epke$ in the specification.
 pub struct JournalistOneTimeMessageClassicalKeyPair {
-    // TODO(ro): Fill in types here from primitives module
     pub public_key: DhAkemPublicKey,
     pub(crate) private_key: DhAkemPrivateKey,
 }
@@ -164,14 +168,15 @@ pub struct JournalistOneTimeMessageClassicalKeyPair {
 ///
 /// $J_emd$ in the specification.
 pub struct JournalistOneTimeMetadataKeyPair {
-    pub public_key: PPKPublicKey,
-    pub(crate) private_key: PPKPrivateKey,
+    pub public_key: XWingPublicKey,
+    pub(crate) private_key: XWingPrivateKey,
 }
 
 /// Ephemeral public keys for a journalist (without signature)
 ///
 /// This struct contains just the ephemeral public keys that need to be signed.
 /// Used for creating the message to sign in Step 3.2.
+#[deprecated]
 #[derive(Debug, Clone)]
 pub struct JournalistEphemeralPublicKeys {
     /// Ephemeral DH public key for DH-AKEM
@@ -205,7 +210,8 @@ impl JournalistEphemeralPublicKeys {
     }
 }
 
-/// Ephemeral key set for a journalist (0.2)
+/// Ephemeral key set for a journalist
+#[deprecated]
 #[derive(Debug, Clone)]
 pub struct JournalistEphemeralKeyBundle {
     /// The ephemeral public keys
@@ -218,6 +224,7 @@ pub struct JournalistEphemeralKeyBundle {
 ///
 /// This bundle is used to enroll a journalist into the system.
 /// It contains the journalist's signing, fetching, and DH keys.
+#[deprecated]
 #[derive(Clone)]
 pub struct JournalistEnrollmentKeyBundle {
     /// Journalist's signing key
