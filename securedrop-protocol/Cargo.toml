@@ -12,6 +12,7 @@ libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", features = ["ran
 libcrux-curve25519 = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
 libcrux-chacha20poly1305 = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
 libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
+libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
 hpke-rs = {version = "0.3.0", features = ["libcrux"]}
 rand_core = {version = "0.9"}
 rand = {version = "0.9"}
