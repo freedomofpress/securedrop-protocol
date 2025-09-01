@@ -32,6 +32,3 @@ pub use source::{
     SourceDHKeyPair, SourceFetchKeyPair, SourceKEMKeyPair, SourceKeyBundle, SourcePKEKeyPair,
     SourcePassphrase, SourcePublicKeys,
 };
-
-// TODO: Define User trait that provides methods for keys shared between source and journalist?
-// AND provides the handle methods

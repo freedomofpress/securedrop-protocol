@@ -55,11 +55,12 @@ pub trait Client {
         // Process each (Q_i, cid_i) pair
         for (q_i, cid_i) in &response.messages {
             // k_i = DH(Q_i, U_fetch,sk)
-            let q_public_key = crate::primitives::dh_public_key_from_scalar(
+            let q_public_key = crate::primitives::x25519::dh_public_key_from_scalar(
                 q_i.clone().try_into().unwrap_or([0u8; 32]),
             );
-            let k_i = crate::primitives::dh_shared_secret(&q_public_key, fetching_private_key)?
-                .into_bytes();
+            let k_i =
+                crate::primitives::x25519::dh_shared_secret(&q_public_key, fetching_private_key)?
+                    .into_bytes();
 
             // Decrypt message ID: id_i = Dec(k_i, cid_i)
             match crate::primitives::decrypt_message_id(&k_i, cid_i) {
@@ -94,13 +95,13 @@ pub trait Client {
         &self,
         message: M,
         recipient_ephemeral_keys: (
-            &crate::primitives::DHPublicKey,
+            &crate::primitives::x25519::DHPublicKey,
             &crate::primitives::PPKPublicKey,
         ),
         recipient_pke_key: &crate::primitives::PPKPublicKey,
-        recipient_fetch_key: &crate::primitives::DHPublicKey,
-        sender_dh_private_key: &crate::primitives::DHPrivateKey,
-        sender_dh_public_key: &crate::primitives::DHPublicKey,
+        recipient_fetch_key: &crate::primitives::x25519::DHPublicKey,
+        sender_dh_private_key: &crate::primitives::x25519::DHPrivateKey,
+        sender_dh_public_key: &crate::primitives::x25519::DHPublicKey,
         rng: &mut R,
     ) -> Result<Message, Error>
     where
@@ -108,7 +109,7 @@ pub trait Client {
         R: RngCore + CryptoRng,
     {
         // 1. Create the padded message
-        let padded_message = crate::primitives::pad_message(&message.into_bytes());
+        let padded_message = crate::primitives::pad::pad_message(&message.into_bytes());
 
         // 2. Perform authenticated encryption
         let ((c1, c2), c_double_prime) = crate::primitives::auth_encrypt(
@@ -124,10 +125,10 @@ pub trait Client {
         let ciphertext = [c_prime, c_double_prime].concat();
 
         // 5. Generate DH shares for message ID encryption
-        let x_bytes = crate::primitives::generate_random_scalar(rng)
+        let x_bytes = crate::primitives::x25519::generate_random_scalar(rng)
             .map_err(|e| anyhow::anyhow!("Failed to generate random scalar: {}", e))?;
-        let x_share = crate::primitives::dh_public_key_from_scalar(x_bytes);
-        let z_share = crate::primitives::dh_shared_secret(recipient_fetch_key, x_bytes)?;
+        let x_share = crate::primitives::x25519::dh_public_key_from_scalar(x_bytes);
+        let z_share = crate::primitives::x25519::dh_shared_secret(recipient_fetch_key, x_bytes)?;
 
         // 6. Create message submit request
         let request = Message {

@@ -19,8 +19,8 @@ use crate::messages::setup::{
     JournalistSetupResponse, NewsroomSetupRequest,
 };
 use crate::primitives::{
-    MESSAGE_ID_FETCH_SIZE, dh_public_key_from_scalar, dh_shared_secret, encrypt_message_id,
-    generate_random_scalar,
+    MESSAGE_ID_FETCH_SIZE, encrypt_message_id,
+    x25519::{dh_public_key_from_scalar, dh_shared_secret, generate_random_scalar},
 };
 use crate::sign::{Signature, VerifyingKey};
 use crate::storage::ServerStorage;

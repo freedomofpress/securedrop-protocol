@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::keys::{JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle};
 use crate::messages::core::Message;
-use crate::primitives::DHPublicKey;
+use crate::primitives::x25519::DHPublicKey;
 use crate::sign::{Signature, VerifyingKey};
 
 #[derive(Default)]

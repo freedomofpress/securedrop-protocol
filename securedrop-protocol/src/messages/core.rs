@@ -1,5 +1,5 @@
 use crate::client::StructuredMessage;
-use crate::primitives::{DHPublicKey, PPKPublicKey};
+use crate::primitives::{PPKPublicKey, x25519::DHPublicKey};
 use crate::{Signature, VerifyingKey};
 use alloc::vec::Vec;
 use uuid::Uuid;

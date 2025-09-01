@@ -1,12 +1,15 @@
 use rand_core::{CryptoRng, RngCore};
 
 // TODO: These names are kinda bad
-use crate::primitives::{DHPrivateKey, DHPublicKey, PPKPrivateKey, PPKPublicKey};
+use crate::primitives::{
+    PPKPrivateKey, PPKPublicKey, dh_akem::DhAkemPrivateKey, dh_akem::DhAkemPublicKey,
+    x25519::DHPrivateKey, x25519::DHPublicKey,
+};
 use crate::sign::{Signature, SigningKey, VerifyingKey};
 
 /// Journalists signing key pair
 /// Signed by the newsroom
-/// Long-term
+/// Long-term, same in 0.3
 pub struct JournalistSigningKeyPair {
     pub(crate) vk: VerifyingKey,
     sk: SigningKey,
@@ -30,7 +33,7 @@ impl JournalistSigningKeyPair {
 
 /// Journalist fetching key pair
 /// Signed by the newsroom
-/// Medium-term
+/// Medium-term X25519, same in 0.3
 #[derive(Clone)]
 pub struct JournalistFetchKeyPair {
     pub public_key: DHPublicKey,
@@ -39,8 +42,8 @@ pub struct JournalistFetchKeyPair {
 
 impl JournalistFetchKeyPair {
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistFetchKeyPair {
-        let (private_key, public_key) =
-            crate::primitives::generate_dh_keypair(&mut rng).expect("DH key generation failed");
+        let (private_key, public_key) = crate::primitives::x25519::generate_dh_keypair(&mut rng)
+            .expect("DH key generation failed");
         JournalistFetchKeyPair {
             private_key,
             public_key,
@@ -48,8 +51,9 @@ impl JournalistFetchKeyPair {
     }
 }
 
-/// Journalist long term DH-AKEM keypair
+/// Journalist medium term DH-AKEM keypair
 /// Signed by the newsroom
+/// TODO: DH-AKEM
 #[derive(Clone)]
 pub struct JournalistDHKeyPair {
     pub public_key: DHPublicKey,
@@ -58,8 +62,8 @@ pub struct JournalistDHKeyPair {
 
 impl JournalistDHKeyPair {
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistDHKeyPair {
-        let (private_key, public_key) =
-            crate::primitives::generate_dh_keypair(&mut rng).expect("DH key generation failed");
+        let (private_key, public_key) = crate::primitives::x25519::generate_dh_keypair(&mut rng)
+            .expect("DH key generation failed");
         JournalistDHKeyPair {
             private_key,
             public_key,
@@ -78,7 +82,8 @@ impl JournalistEphemeralKEMKeyPair {
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistEphemeralKEMKeyPair {
         // Temporarily use DH keys as PPK placeholders
         let (dh_private_key, dh_public_key) =
-            crate::primitives::generate_dh_keypair(&mut rng).expect("DH key generation failed");
+            crate::primitives::x25519::generate_dh_keypair(&mut rng)
+                .expect("DH key generation failed");
         let private_key = PPKPrivateKey::new(dh_private_key);
         let public_key = PPKPublicKey::new(dh_public_key);
         JournalistEphemeralKEMKeyPair {
@@ -99,7 +104,8 @@ impl JournalistEphemeralPKEKeyPair {
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistEphemeralPKEKeyPair {
         // Temporarily use DH keys as PPK placeholders
         let (dh_private_key, dh_public_key) =
-            crate::primitives::generate_dh_keypair(&mut rng).expect("DH key generation failed");
+            crate::primitives::x25519::generate_dh_keypair(&mut rng)
+                .expect("DH key generation failed");
         let private_key = PPKPrivateKey::new(dh_private_key);
         let public_key = PPKPublicKey::new(dh_public_key);
         JournalistEphemeralPKEKeyPair {
@@ -118,8 +124,8 @@ pub struct JournalistEphemeralDHKeyPair {
 
 impl JournalistEphemeralDHKeyPair {
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistEphemeralDHKeyPair {
-        let (private_key, public_key) =
-            crate::primitives::generate_dh_keypair(&mut rng).expect("DH key generation failed");
+        let (private_key, public_key) = crate::primitives::x25519::generate_dh_keypair(&mut rng)
+            .expect("DH key generation failed");
         JournalistEphemeralDHKeyPair {
             private_key,
             public_key,
@@ -137,8 +143,8 @@ impl JournalistEphemeralDHKeyPair {
 ///
 /// $J_epq$ in the specification.
 pub struct JournalistOneTimeMessagePQKeyPair {
-    pub(crate) public_key: PPKPublicKey,
-    private_key: PPKPrivateKey,
+    pub public_key: PPKPublicKey,
+    pub(crate) private_key: PPKPrivateKey,
 }
 
 /// Journalist message encryption keypair
@@ -148,8 +154,8 @@ pub struct JournalistOneTimeMessagePQKeyPair {
 /// $J_epke$ in the specification.
 pub struct JournalistOneTimeMessageClassicalKeyPair {
     // TODO(ro): Fill in types here from primitives module
-    pub(crate) public_key: PPKPublicKey,
-    private_key: PPKPrivateKey,
+    pub public_key: DhAkemPublicKey,
+    pub(crate) private_key: DhAkemPrivateKey,
 }
 
 /// Journalist metadata keypair
@@ -158,8 +164,8 @@ pub struct JournalistOneTimeMessageClassicalKeyPair {
 ///
 /// $J_emd$ in the specification.
 pub struct JournalistOneTimeMetadataKeyPair {
-    pub(crate) public_key: PPKPublicKey,
-    private_key: PPKPrivateKey,
+    pub public_key: PPKPublicKey,
+    pub(crate) private_key: PPKPrivateKey,
 }
 
 /// Ephemeral public keys for a journalist (without signature)

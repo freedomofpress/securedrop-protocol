@@ -1,6 +1,9 @@
 use rand_core::{CryptoRng, RngCore};
 
-use crate::primitives::{DHPrivateKey, DHPublicKey, PPKPrivateKey, PPKPublicKey};
+use crate::primitives::{
+    PPKPrivateKey, PPKPublicKey,
+    x25519::{DHPrivateKey, DHPublicKey},
+};
 
 /// Source public keys needed for journalist to reply to a source
 ///

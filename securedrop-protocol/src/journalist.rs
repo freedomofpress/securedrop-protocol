@@ -14,7 +14,7 @@ use crate::keys::{
 };
 use crate::messages::core::{JournalistReplyMessage, Message, MessageChallengeFetchRequest};
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
-use crate::primitives::DHPublicKey;
+use crate::primitives::x25519::DHPublicKey;
 use crate::sign::VerifyingKey;
 use crate::{Client, client::ClientPrivate};
 
