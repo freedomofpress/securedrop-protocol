@@ -164,7 +164,6 @@ impl SourceClient {
     }
 
     /// Submit a message (step 6)
-    /// TODO: Consolidate with the procedure for replying to a message from a journalist?
     pub fn submit_message<R: RngCore + CryptoRng>(
         &self,
         message: Vec<u8>,

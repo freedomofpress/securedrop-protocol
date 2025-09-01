@@ -24,3 +24,8 @@ blake2 = "0.10"
 
 [dev-dependencies]
 proptest = "1.3"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "submit"
+harness = false

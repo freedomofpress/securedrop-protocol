@@ -82,9 +82,8 @@ pub trait Client {
     }
 
     /// Fetch a specific message (step 8)
-    fn fetch_message(&self, _message_id: u64) -> Option<MessageFetchResponse> {
-        // TODO: Implement HTTP request to server
-        unimplemented!()
+    fn fetch_message(&self, _message_id: Uuid) -> Option<MessageFetchResponse> {
+        unimplemented!("")
     }
 
     /// Submit a structured message (step 6 for sources, step 9 for journalists)
