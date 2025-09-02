@@ -7,6 +7,8 @@ use hpke_rs::{
     libcrux,
     prelude::HpkeMode,
 };
+use libcrux_kem::{self, MlKem768};
+use libcrux_ml_kem::mlkem768;
 use libcrux_traits::kem::arrayref::Kem;
 
 // Later: Can make these all pub(crate)
@@ -18,8 +20,13 @@ pub mod xwing;
 
 pub use crate::primitives::dh_akem::generate_dh_akem_keypair;
 pub use crate::primitives::mlkem::generate_mlkem768_keypair;
-use crate::primitives::x25519::{DHPrivateKey, DHPublicKey};
 pub use crate::primitives::xwing::generate_xwing_keypair;
+use crate::primitives::{
+    dh_akem::{DhAkemPrivateKey, DhAkemPublicKey},
+    mlkem::MLKEM768PublicKey,
+    x25519::{DHPrivateKey, DHPublicKey},
+    xwing::XWingPublicKey,
+};
 
 /// Fixed number of message ID entries to return in privacy-preserving fetch
 ///
@@ -66,49 +73,65 @@ impl PPKPrivateKey {
 
 /// Authenticated encryption according to the SecureDrop protocol using HPKE
 ///
-/// This implements HPKE AuthEnc mode as specified in the SecureDrop protocol
-/// using the source's DH private key and journalist's ephemeral keys
+/// This implements HPKE AuthEnc with a PSK mode as specified in the SecureDrop protocol
+/// using the sender's DH-AKEM private key and the recipient's DH-AKEM pubkey
+/// and PQ KEM PSK pubkey.
 ///
+/// TODO: One-shot hpke API
+/// TODO: Exposing randomness for benchmarking purposes only
 /// TODO: Horrible types in return value
-pub fn auth_encrypt(
-    source_dh_sk: &DHPrivateKey,
-    journalist_ephemeral_keys: (&DHPublicKey, &PPKPublicKey),
+pub fn auth_encrypt<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    sender_dhakem_sk: &DhAkemPrivateKey,
+    recipient_message_keys: (&DhAkemPublicKey, &MLKEM768PublicKey),
     message: &[u8],
 ) -> Result<((Vec<u8>, Vec<u8>), Vec<u8>), Error> {
     // TODO: Update these based on primitive choices in final spec
     // Note: We need to specify the crypto backend - using libcrux for consistency
     let mut hpke: Hpke<libcrux::HpkeLibcrux> = Hpke::new(
-        HpkeMode::Auth,
+        HpkeMode::AuthPsk,
         KemAlgorithm::DhKem25519,
         KdfAlgorithm::HkdfSha256,
         AeadAlgorithm::ChaCha20Poly1305,
     );
 
+    // TODO: NOT FOR PROD; benchmarking purposes only
+    let mut rand_seed = [0u8; 32];
+    rand::rng().fill_bytes(&mut rand_seed);
+
     // Convert our key types to HPKE key types
     // TODO: Need to use these HPKE types in the keys module
     // For now, using placeholder keys
     let sender_private_key =
-        hpke_rs::HpkePrivateKey::new(source_dh_sk.clone().into_bytes().to_vec());
+        hpke_rs::HpkePrivateKey::new(sender_dhakem_sk.clone().as_bytes().to_vec());
 
-    // Need to also incorporate J_{ekem} here, mumble mumble something about PQ KEM
+    // Recipient pubkeys for message encryption + PSK
     let recipient_public_key =
-        hpke_rs::HpkePublicKey::new(journalist_ephemeral_keys.0.clone().into_bytes().to_vec());
+        hpke_rs::HpkePublicKey::new(recipient_message_keys.0.clone().as_bytes().to_vec());
+    let recipient_pq_psk_key =
+        mlkem768::MlKem768PublicKey::try_from(recipient_message_keys.1.clone().as_bytes())
+            .expect("Expected mlkem768 pubkey");
 
-    // Use HPKE seal for authenticated encryption
+    // Build PSK
+    let (psk_ct, shared_secret) = mlkem768::encapsulate(&recipient_pq_psk_key, rand_seed);
+    let fixed_psk_id = b"PSK_ID"; // TODO
+
+    // Use HPKE SealAuth for authenticated encryption
     let (encapsulated_key, ciphertext) = hpke
         .seal(
             &recipient_public_key,     // pk_r: recipient's public key
             &[],                       // info: empty for now
             &[],                       // aad: empty for now (ε in the spec)
             message,                   // plain_txt: the message to encrypt
-            None,                      // psk: no pre-shared key
-            None,                      // psk_id: no PSK ID
+            Some(&shared_secret),      // psk: PQ shared secret
+            Some(fixed_psk_id),        // psk_id: Fixed PSK ID required by spec (TODO)
             Some(&sender_private_key), // sk_s: sender's private key for authentication
         )
         .map_err(|e| anyhow::anyhow!("HPKE seal failed: {:?}", e))?;
 
     // Split the encapsulated key into c1 and c2 components
     // TODO: This is a placeholder
+    // TODO: The psk_ct needs to be returned and included in the metadata
     let c1 = if encapsulated_key.len() >= 32 {
         encapsulated_key[..32].to_vec()
     } else {
@@ -126,10 +149,14 @@ pub fn auth_encrypt(
 
 /// This implements HPKE Base mode (unauthenticated) for metadata encryption
 ///
-/// TODO: Check this is correct
+/// Encrypt the sender DH-AKEM pubkey to the recipient metadata pubkey/encaps key
+/// using HPKE.Base mode.
+/// The sender's other keys are included inside the authenticated ciphertext.
+/// This key is required to open the authenticated ciphertext.
+/// TODO: Use single-shot HPKE API instead of managing context
 pub fn enc(
-    journalist_epke_pk: &PPKPublicKey,
-    source_dh_pk: &DHPublicKey,
+    receipient_md_pk: &XWingPublicKey,
+    sender_dhakem_pk: &DhAkemPublicKey,
     c1: &[u8],
     c2: &[u8],
 ) -> Result<Vec<u8>, Error> {
@@ -143,11 +170,11 @@ pub fn enc(
 
     // Convert recipient public key to HPKE format
     let recipient_public_key =
-        hpke_rs::HpkePublicKey::new(journalist_epke_pk.clone().into_bytes().to_vec());
+        hpke_rs::HpkePublicKey::new(receipient_md_pk.clone().as_bytes().to_vec());
 
     // Prepare metadata: S_dh,pk || c_1 || c_2
     let mut metadata = Vec::new();
-    metadata.extend_from_slice(&source_dh_pk.clone().into_bytes());
+    metadata.extend_from_slice(&sender_dhakem_pk.as_bytes().clone());
     metadata.extend_from_slice(c1);
     metadata.extend_from_slice(c2);
 
