@@ -31,10 +31,14 @@ pub struct JournalistClient {
     /// Journalist's long-term fetching key pair
     fetching_key: Option<JournalistFetchKeyPair>,
     /// Journalist's long-term DH key pair
-    /// TODO: Remove
+    /// TODO: Remove? Not for use with encryption, although it
+    /// may be needed as "key of last resort" - to discuss
     dh_key: Option<JournalistDHKeyPair>,
     /// Generated ephemeral key pairs (for reuse)
-    ephemeral_keys: Vec<JournalistOneTimeKeyBundle>,
+    one_time_pubkeys: Vec<JournalistOneTimeKeyBundle>,
+    /// TODO: store complete key bundles (private and pubkey)
+    /// and use instead of dh_key for encryption
+    one_time_keystore: Vec<JournalistOneTimeKeyBundle>,
     /// Newsroom's verifying key
     newsroom_verifying_key: Option<VerifyingKey>,
 }
@@ -114,18 +118,18 @@ impl JournalistClient {
         };
 
         // Create the one-time key bundle
-        let ephemeral_key_bundle = JournalistOneTimeKeyBundle {
+        let one_time_pubkey_bundle = JournalistOneTimeKeyBundle {
             public_keys: one_time_public_keys.clone(),
             signature: signing_key.sign(&one_time_public_keys.into_bytes()),
         };
 
         // Store the ephemeral key bundle in the session
-        // TODO: Save private keys
-        self.ephemeral_keys.push(ephemeral_key_bundle.clone());
+        // TODO: Add JournalistOneTimeKeystore (internal) for managing keypairs
+        self.one_time_pubkeys.push(one_time_pubkey_bundle.clone());
 
         Ok(JournalistRefreshRequest {
             journalist_verifying_key: signing_key.vk,
-            ephemeral_key_bundle,
+            ephemeral_key_bundle: one_time_pubkey_bundle,
         })
     }
 
@@ -139,7 +143,12 @@ impl JournalistClient {
         self.fetching_key.as_ref().map(|fk| &fk.public_key)
     }
 
-    /// Get the journalist's DH key
+    /// Get the journalist's long-term DH key
+    /// TODO: keeping? (Key of last resort?)
+    /// This is not the key that should be used for message encryption!
+    /// Message encrpytion uses a one-time DH-AKEM key.
+    /// We shouldn't use this anywhere for now.
+    #[deprecated]
     pub fn dh_key(&self) -> Option<&DHPublicKey> {
         self.dh_key.as_ref().map(|dk| &dk.public_key)
     }
@@ -190,6 +199,7 @@ impl JournalistClient {
         rng: &mut R,
     ) -> Result<Message, Error> {
         // Get the journalist's DH private key
+        // TODO: not the long-term DH key!
         let journalist_dh_private_key = self
             .dh_key
             .as_ref()
@@ -198,6 +208,7 @@ impl JournalistClient {
             .clone();
 
         // 1. Create the structured message according to Step 9 format:
+        // TODO format needs revising; PQ_KEM_PSK key?
         // msg || S || J_sig,pk || J_fetch,pk || J_dh,pk || σ^NR || NR
         let journalist_reply_message = JournalistReplyMessage {
             message,
@@ -213,10 +224,10 @@ impl JournalistClient {
         self.submit_structured_message(
             journalist_reply_message,
             (
-                &source_public_keys.ephemeral_dh_pk,
-                &source_public_keys.ephemeral_kem_pk,
+                &source_public_keys.message_dhakem_pk,
+                &source_public_keys.message_pq_psk_pk,
             ),
-            &source_public_keys.ephemeral_pke_pk,
+            &source_public_keys.metadata_pk,
             &source_public_keys.fetch_pk,
             &journalist_dh_private_key,
             &self.dh_key.as_ref().unwrap().public_key,

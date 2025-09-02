@@ -12,7 +12,7 @@ pub const MLKEM768_PRIVATE_KEY_LEN: usize = 2400;
 pub struct MLKEM768PublicKey([u8; MLKEM768_PUBLIC_KEY_LEN]);
 
 /// MLKEM-768 private key.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MLKEM768PrivateKey([u8; MLKEM768_PRIVATE_KEY_LEN]);
 
 impl MLKEM768PublicKey {

@@ -212,3 +212,84 @@ impl SourceClient {
         Ok(requests)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
+
+    #[test]
+    fn test_initialize_with_passphrase() {
+        // Fixed seed RNG
+        let seed = [0u8; 32];
+        let rng: StdRng = SeedableRng::from_seed(seed);
+
+        let (source1, session1) = SourceClient::initialize_with_passphrase(rng.clone());
+        let (source2, session2) = SourceClient::initialize_with_passphrase(rng);
+
+        assert_eq!(
+            source1.passphrase, source2.passphrase,
+            "Expected identical passphrase"
+        );
+
+        let keybundle1 = session1.key_bundle.expect("Should be keybundle");
+        let keybundle2 = session2.key_bundle.expect("Should be keybundle");
+
+        fn assert_bytes_eq(bytes1: &[u8], bytes2: &[u8], label: &str) {
+            assert_eq!(bytes1, bytes2, "{} bytes should be identical", label);
+        }
+
+        let checks = [
+            (
+                &keybundle1.long_term_dh.public_key.as_bytes(),
+                &keybundle2.long_term_dh.public_key.as_bytes(),
+                "DH Pubkey",
+            ),
+            (
+                &keybundle1.long_term_dh.private_key.as_bytes(),
+                &keybundle2.long_term_dh.private_key.as_bytes(),
+                "DH Private Key",
+            ),
+            (
+                &keybundle1.pq_kem_psk.public_key.as_bytes(),
+                &keybundle2.pq_kem_psk.public_key.as_bytes(),
+                "PQ KEM Public Key",
+            ),
+            (
+                &keybundle1.pq_kem_psk.private_key.as_bytes(),
+                &keybundle2.pq_kem_psk.private_key.as_bytes(),
+                "PQ KEM Private Key",
+            ),
+            (
+                &keybundle1.metadata.public_key.as_bytes(),
+                &keybundle2.metadata.public_key.as_bytes(),
+                "Metadata Public Key",
+            ),
+            (
+                &keybundle1.metadata.private_key.as_bytes(),
+                &keybundle2.metadata.private_key.as_bytes(),
+                "Metadata Private Key",
+            ),
+        ];
+
+        // Iterate over each check and call `assert_bytes_eq`
+        for (label, bytes1, bytes2) in checks.iter() {
+            assert_bytes_eq(label, bytes1, bytes2);
+        }
+
+        // Assert that the key bundles are identical
+        assert_eq!(
+            keybundle1.long_term_dh.public_key.as_bytes(),
+            keybundle2.long_term_dh.public_key.as_bytes(),
+            "KeyBundles should be identical"
+        );
+
+        // Assert that the key bundles are identical
+        assert_eq!(
+            keybundle1.long_term_dh.private_key.as_bytes(),
+            keybundle2.long_term_dh.private_key.as_bytes(),
+            "KeyBundles should be identical"
+        );
+    }
+}
