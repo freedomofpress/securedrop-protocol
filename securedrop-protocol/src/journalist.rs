@@ -38,7 +38,7 @@ pub struct JournalistClient {
     one_time_pubkeys: Vec<JournalistOneTimeKeyBundle>,
     /// TODO: store complete key bundles (private and pubkey)
     /// and use instead of dh_key for encryption
-    one_time_keystore: Vec<JournalistOneTimeKeyBundle>,
+    /// one_time_keystore: TODO
     /// Newsroom's verifying key
     newsroom_verifying_key: Option<VerifyingKey>,
 }

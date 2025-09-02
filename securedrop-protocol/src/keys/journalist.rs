@@ -219,7 +219,7 @@ impl JournalistOneTimePublicKeys {
     }
 }
 
-/// One-time key set for a journalist
+/// One-time public key set for a journalist
 #[derive(Debug, Clone)]
 pub struct JournalistOneTimeKeyBundle {
     /// The one-time public keys
@@ -227,6 +227,25 @@ pub struct JournalistOneTimeKeyBundle {
     /// Journalist's signature over the one-time keys
     pub signature: Signature,
 }
+
+/// One-time keystore (public and private) for a journalist
+/// TODO: improve/refactor with OneTimeKeyBundle
+/// TODO: use native hpke-rs types
+#[derive(Debug, Clone)]
+pub struct JournalistOneTimeKeystore {
+    // One-time PQ KEM PSK (message enc)
+    pub(crate) one_time_message_pq_sk: MLKEM768PrivateKey,
+    pubone_time_message_pq_pk: MLKEM768PublicKey,
+    /// One-time DH-AKEM public key (message enc)
+    pub(crate) one_time_message_sk: DhAkemPrivateKey,
+    pub one_time_message_pk: DhAkemPublicKey,
+    /// One-time XWING public key (metadata enc)
+    pub(crate) one_time_metadata_sk: XWingPrivateKey,
+    pub one_time_metadata_pk: XWingPublicKey,
+}
+
+// TODO
+impl JournalistOneTimeKeystore {}
 
 /// Journalist enrollment key bundle for 0.3 spec
 ///
