@@ -6,12 +6,12 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
-use crate::keys::SourcePublicKeys;
 use crate::keys::{
     JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralDHKeyPair,
     JournalistEphemeralKEMKeyPair, JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair,
     JournalistEphemeralPublicKeys, JournalistFetchKeyPair, JournalistSigningKeyPair,
 };
+use crate::keys::{JournalistEnrollmentKeyBundle0_3, SourcePublicKeys};
 use crate::messages::core::{JournalistReplyMessage, Message, MessageChallengeFetchRequest};
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
 use crate::primitives::x25519::DHPublicKey;
@@ -56,23 +56,19 @@ impl JournalistClient {
         // Generate journalist key pairs
         let signing_key = JournalistSigningKeyPair::new(&mut rng);
         let fetching_key = JournalistFetchKeyPair::new(&mut rng);
-        let dh_key = JournalistDHKeyPair::new(&mut rng);
 
         // Extract public keys before moving the key pairs
         let signing_vk = signing_key.vk;
         let fetching_pk = fetching_key.public_key.clone();
-        let dh_pk = dh_key.public_key.clone();
 
         // Store the generated keys in the session
         self.signing_key = Some(signing_key);
         self.fetching_key = Some(fetching_key);
-        self.dh_key = Some(dh_key);
 
         // Create enrollment key bundle with public keys
-        let enrollment_key_bundle = JournalistEnrollmentKeyBundle {
+        let enrollment_key_bundle = JournalistEnrollmentKeyBundle0_3 {
             signing_key: signing_vk,
             fetching_key: fetching_pk,
-            dh_key: dh_pk,
         };
 
         // Create setup request with the enrollment key bundle

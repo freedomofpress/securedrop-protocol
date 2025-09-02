@@ -4,7 +4,9 @@ use rand::Rng;
 use rand_core::CryptoRng;
 use uuid::Uuid;
 
-use crate::keys::{JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle};
+use crate::keys::{
+    JournalistEnrollmentKeyBundle, JournalistEnrollmentKeyBundle0_3, JournalistEphemeralKeyBundle,
+};
 use crate::messages::core::Message;
 use crate::primitives::x25519::DHPublicKey;
 use crate::sign::{Signature, VerifyingKey};
@@ -12,7 +14,7 @@ use crate::sign::{Signature, VerifyingKey};
 #[derive(Default)]
 pub struct ServerStorage {
     /// Journalists with their long/medium term keys
-    journalists: HashMap<Uuid, (VerifyingKey, DHPublicKey, DHPublicKey, Signature)>,
+    journalists: HashMap<Uuid, (VerifyingKey, DHPublicKey, Signature)>,
     /// Journalists ephemeral keystore
     /// Maps journalist ID to a vector of ephemeral key sets
     /// Each journalist maintains a pool of ephemeral keys that are randomly selected and removed when fetched
@@ -100,23 +102,20 @@ impl ServerStorage {
     }
 
     /// Get all journalists
-    pub fn get_journalists(
-        &self,
-    ) -> &HashMap<Uuid, (VerifyingKey, DHPublicKey, DHPublicKey, Signature)> {
+    pub fn get_journalists(&self) -> &HashMap<Uuid, (VerifyingKey, DHPublicKey, Signature)> {
         &self.journalists
     }
 
     /// Add a journalist to storage and return the generated UUID
     pub fn add_journalist(
         &mut self,
-        enrollment_bundle: JournalistEnrollmentKeyBundle,
+        enrollment_bundle: JournalistEnrollmentKeyBundle0_3,
         signature: Signature,
     ) -> Uuid {
         let journalist_id = Uuid::new_v4();
         let keys = (
             enrollment_bundle.signing_key,
             enrollment_bundle.fetching_key,
-            enrollment_bundle.dh_key,
             signature,
         );
         self.journalists.insert(journalist_id, keys);
@@ -128,7 +127,7 @@ impl ServerStorage {
     ///
     /// TODO: Remove?
     pub fn find_journalist_by_verifying_key(&self, verifying_key: &VerifyingKey) -> Option<Uuid> {
-        for (journalist_id, (stored_vk, _, _, _)) in &self.journalists {
+        for (journalist_id, (stored_vk, _, _)) in &self.journalists {
             if stored_vk.into_bytes() == verifying_key.into_bytes() {
                 return Some(*journalist_id);
             }

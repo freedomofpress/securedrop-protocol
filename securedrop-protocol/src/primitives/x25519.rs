@@ -1,7 +1,8 @@
 use anyhow::Error;
-use libcrux_curve25519::{DK_LEN as SK_LEN, EK_LEN as PK_LEN};
 use libcrux_traits::kem::arrayref::Kem;
 use rand_core::{CryptoRng, RngCore};
+
+pub use libcrux_curve25519::{DK_LEN as SK_LEN, EK_LEN as PK_LEN};
 
 /// An X25519 public key.
 #[derive(Debug, Clone)]

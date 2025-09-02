@@ -25,8 +25,6 @@ fn protocol_step_1_generate_fpf_keys() {
     let message = b"test message";
     let signature = fpf_keys.sk.sign(message);
     assert!(fpf_keys.vk.verify(message, &signature).is_ok());
-
-    // TODO: test serialization / deserialization round trip once we impl that
 }
 
 /// Step 2: Newsroom setup

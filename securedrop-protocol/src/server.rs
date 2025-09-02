@@ -195,7 +195,7 @@ impl Server {
         for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys {
             // Get the journalist's long-term keys
             // TODO: Do something better than expect here
-            let (signing_key, fetching_key, dh_key, newsroom_sig) = self
+            let (signing_key, fetching_key, newsroom_sig) = self
                 .storage
                 .get_journalists()
                 .get(&journalist_id)
@@ -203,10 +203,11 @@ impl Server {
                 .clone();
 
             // Create response for this journalist
+            // temp: duplicated the fetching key so things compile while we transition to 0.3 spec
             let response = SourceJournalistKeyResponse {
                 journalist_sig_pk: signing_key,
-                journalist_fetch_pk: fetching_key,
-                journalist_dh_pk: dh_key,
+                journalist_fetch_pk: fetching_key.clone(),
+                journalist_dh_pk: fetching_key,
                 newsroom_sig,
                 ephemeral_dh_pk: ephemeral_bundle.public_keys.edh_pk,
                 ephemeral_kem_pk: ephemeral_bundle.public_keys.ekem_pk,

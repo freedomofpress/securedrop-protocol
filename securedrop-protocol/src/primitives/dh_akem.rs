@@ -1,8 +1,8 @@
 use rand_core::{CryptoRng, RngCore};
 
-const DH_AKEM_PUBLIC_KEY_LEN: usize = 32;
-const DH_AKEM_PRIVATE_KEY_LEN: usize = 32;
-const DH_AKEM_SECRET_LEN: usize = 32;
+pub const DH_AKEM_PUBLIC_KEY_LEN: usize = 32;
+pub const DH_AKEM_PRIVATE_KEY_LEN: usize = 32;
+pub const DH_AKEM_SECRET_LEN: usize = 32;
 
 /// An DH-AKEM public key.
 #[derive(Debug, Clone)]

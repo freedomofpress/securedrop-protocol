@@ -6,7 +6,9 @@
 //! The FPF setup process (step 1 in the spec) and source initial setup (step 4 in the spec)
 //! are both local only and do not involve any protocol messages.
 
-use crate::keys::{JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle};
+use crate::keys::{
+    JournalistEnrollmentKeyBundle, JournalistEnrollmentKeyBundle0_3, JournalistEphemeralKeyBundle,
+};
 use crate::{Signature, VerifyingKey};
 
 /// Request from the newsroom to FPF for verification.
@@ -28,14 +30,14 @@ pub struct NewsroomSetupResponse {
 ///
 /// Step 3.1 in the spec.
 pub struct JournalistSetupRequest {
-    pub enrollment_key_bundle: JournalistEnrollmentKeyBundle,
+    pub enrollment_key_bundle: JournalistEnrollmentKeyBundle0_3,
 }
 
 /// Response from the newsroom to the journalist for initial onboarding.
 ///
 /// Step 3.1 in the spec.
 pub struct JournalistSetupResponse {
-    /// A signature over the journalist verifying key by the newsroom signing key
+    /// A signature over the journalist enrollment bundle by the newsroom signing key
     pub sig: Signature,
 }
 

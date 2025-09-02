@@ -147,6 +147,7 @@ impl JournalistEphemeralDHKeyPair {
 /// One-time key
 ///
 /// $J_epq$ in the specification.
+#[derive(Clone)]
 pub struct JournalistOneTimeMessagePQKeyPair {
     pub public_key: MLKEM768PublicKey,
     pub(crate) private_key: MLKEM768PrivateKey,
@@ -157,6 +158,7 @@ pub struct JournalistOneTimeMessagePQKeyPair {
 /// One-time key
 ///
 /// $J_epke$ in the specification.
+#[derive(Clone)]
 pub struct JournalistOneTimeMessageClassicalKeyPair {
     pub public_key: DhAkemPublicKey,
     pub(crate) private_key: DhAkemPrivateKey,
@@ -167,6 +169,7 @@ pub struct JournalistOneTimeMessageClassicalKeyPair {
 /// One-time key
 ///
 /// $J_emd$ in the specification.
+#[derive(Clone)]
 pub struct JournalistOneTimeMetadataKeyPair {
     pub public_key: XWingPublicKey,
     pub(crate) private_key: XWingPrivateKey,
@@ -248,6 +251,38 @@ impl JournalistEnrollmentKeyBundle {
 
         // DH key public key (32 bytes)
         bytes[64..96].copy_from_slice(&self.dh_key.into_bytes());
+
+        bytes
+    }
+}
+
+/// Journalist enrollment key bundle for 0.3 spec
+///
+/// This bundle is used to enroll a journalist into the system.
+/// TODO: Rename to JournalistEnrollmentKeyBundle once we delete the old one
+#[derive(Clone)]
+pub struct JournalistEnrollmentKeyBundle0_3 {
+    /// Journalist's signing key
+    pub signing_key: VerifyingKey,
+    /// Journalist's fetching key
+    pub fetching_key: DHPublicKey,
+}
+
+impl JournalistEnrollmentKeyBundle0_3 {
+    /// Convert the enrollment key bundle to a byte array for signing
+    ///
+    /// Returns a byte array containing the concatenated public keys:
+    /// - signing_key (32 bytes)
+    /// - fetching_key (32 bytes)
+    /// Total: 64 bytes
+    pub fn into_bytes(self) -> [u8; 64] {
+        let mut bytes = [0u8; 64];
+
+        // Signing key verification key (32 bytes)
+        bytes[0..32].copy_from_slice(&self.signing_key.into_bytes());
+
+        // Fetching key public key (32 bytes)
+        bytes[32..64].copy_from_slice(&self.fetching_key.into_bytes());
 
         bytes
     }

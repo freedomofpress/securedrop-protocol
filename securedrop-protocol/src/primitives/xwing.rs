@@ -1,13 +1,15 @@
 use rand_core::{CryptoRng, RngCore};
 
 // From: https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/
-const XWING_PUBLIC_KEY_LEN: usize = 1216;
-const XWING_PRIVATE_KEY_LEN: usize = 32;
+pub const XWING_PUBLIC_KEY_LEN: usize = 1216;
+pub const XWING_PRIVATE_KEY_LEN: usize = 32;
 
 /// XWING public key.
+#[derive(Clone)]
 pub struct XWingPublicKey([u8; XWING_PUBLIC_KEY_LEN]);
 
 /// XWING private key.
+#[derive(Clone)]
 pub struct XWingPrivateKey([u8; XWING_PRIVATE_KEY_LEN]);
 
 impl XWingPublicKey {
