@@ -8,13 +8,16 @@ use uuid::Uuid;
 
 use crate::keys::{
     JournalistDHKeyPair, JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair,
-    JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair, JournalistEphemeralPublicKeys,
-    JournalistFetchKeyPair, JournalistSigningKeyPair,
+    JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair,
+    JournalistOneTimePublicKeys, JournalistSigningKeyPair,
 };
 use crate::keys::{JournalistEnrollmentKeyBundle, SourcePublicKeys};
 use crate::messages::core::{JournalistReplyMessage, Message, MessageChallengeFetchRequest};
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
 use crate::primitives::x25519::DHPublicKey;
+use crate::primitives::{
+    generate_dh_akem_keypair, generate_mlkem768_keypair, generate_xwing_keypair,
+};
 use crate::sign::VerifyingKey;
 use crate::{Client, client::ClientPrivate};
 
@@ -28,6 +31,7 @@ pub struct JournalistClient {
     /// Journalist's long-term fetching key pair
     fetching_key: Option<JournalistFetchKeyPair>,
     /// Journalist's long-term DH key pair
+    /// TODO: Remove
     dh_key: Option<JournalistDHKeyPair>,
     /// Generated ephemeral key pairs (for reuse)
     ephemeral_keys: Vec<JournalistEphemeralKeyBundle>,
@@ -92,30 +96,31 @@ impl JournalistClient {
             anyhow::anyhow!("No signing key found in session. Call create_setup_request first.")
         })?;
 
-        // Generate ephemeral key pairs
-        let ephemeral_dh = JournalistEphemeralDHKeyPair::new(&mut rng);
-        let ephemeral_kem = JournalistEphemeralKEMKeyPair::new(&mut rng);
-        let ephemeral_pke = JournalistEphemeralPKEKeyPair::new(&mut rng);
+        // Generate one-time key pairs for 0.3 spec
+        let (one_time_epq_sk, one_time_epq_pk) = generate_mlkem768_keypair(&mut rng)?;
+        let (one_time_epke_sk, one_time_epke_pk) = generate_dh_akem_keypair(&mut rng)?;
+        let (one_time_emd_sk, one_time_emd_pk) = generate_xwing_keypair(&mut rng)?;
 
         // Extract public keys
-        let ephemeral_dh_pubkey = ephemeral_dh.public_key;
-        let ephemeral_kem_pubkey = ephemeral_kem.public_key;
-        let ephemeral_pke_pubkey = ephemeral_pke.public_key;
+        let one_time_message_pq_pubkey = one_time_epq_pk;
+        let one_time_message_pubkey = one_time_epke_pk;
+        let one_time_metadata_pubkey = one_time_emd_pk;
 
-        // Create ephemeral public keys struct for signing
-        let ephemeral_public_keys = JournalistEphemeralPublicKeys {
-            edh_pk: ephemeral_dh_pubkey,
-            ekem_pk: ephemeral_kem_pubkey,
-            epke_pk: ephemeral_pke_pubkey,
+        // Create one-time public keys struct for signing
+        let one_time_public_keys = JournalistOneTimePublicKeys {
+            one_time_message_pq_pk: one_time_message_pq_pubkey,
+            one_time_message_pk: one_time_message_pubkey,
+            one_time_metadata_pk: one_time_metadata_pubkey,
         };
 
-        // Create the ephemeral key bundle
+        // Create the one-time key bundle
         let ephemeral_key_bundle = JournalistEphemeralKeyBundle {
-            public_keys: ephemeral_public_keys.clone(),
-            signature: signing_key.sign(&ephemeral_public_keys.into_bytes()),
+            public_keys: one_time_public_keys.clone(),
+            signature: signing_key.sign(&one_time_public_keys.into_bytes()),
         };
 
         // Store the ephemeral key bundle in the session
+        // TODO: Save private keys
         self.ephemeral_keys.push(ephemeral_key_bundle.clone());
 
         Ok(JournalistRefreshRequest {

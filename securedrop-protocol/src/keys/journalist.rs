@@ -175,51 +175,56 @@ pub struct JournalistOneTimeMetadataKeyPair {
     pub(crate) private_key: XWingPrivateKey,
 }
 
-/// Ephemeral public keys for a journalist (without signature)
+/// One-time public keys for a journalist (without signature)
 ///
-/// This struct contains just the ephemeral public keys that need to be signed.
+/// This struct contains just the one-time public keys that need to be signed.
 /// Used for creating the message to sign in Step 3.2.
-#[deprecated]
+///
+/// Updated for 0.3 spec with new key types:
+/// - J_{epq} (MLKEM-768) for message enc PSK (one-time)
+/// - J_{epke} (DH-AKEM) for message enc (one-time)
+/// - J_{emd} (XWING) for metadata enc (one-time)
 #[derive(Debug, Clone)]
-pub struct JournalistEphemeralPublicKeys {
-    /// Ephemeral DH public key for DH-AKEM
-    pub edh_pk: DHPublicKey,
-    /// Ephemeral PPK public key for KEM
-    pub ekem_pk: PPKPublicKey,
-    /// Ephemeral PPK public key for PKE
-    pub epke_pk: PPKPublicKey,
+pub struct JournalistOneTimePublicKeys {
+    /// One-time MLKEM-768 public key for message enc PSK (one-time)
+    pub one_time_message_pq_pk: MLKEM768PublicKey,
+    /// One-time DH-AKEM public key for message enc (one-time)
+    pub one_time_message_pk: DhAkemPublicKey,
+    /// One-time XWING public key for metadata enc (one-time)
+    pub one_time_metadata_pk: XWingPublicKey,
 }
 
-impl JournalistEphemeralPublicKeys {
-    /// Convert the ephemeral public keys to a byte array for signing
+impl JournalistOneTimePublicKeys {
+    /// Convert the one-time public keys to a byte array for signing
     ///
-    /// Returns a 96-byte array containing the concatenated public keys:
-    /// - edh_pk (32 bytes)
-    /// - ekem_pk (32 bytes)
-    /// - epke_pk (32 bytes)
-    pub fn into_bytes(self) -> [u8; 96] {
-        let mut bytes = [0u8; 96];
+    /// Returns a byte array containing the concatenated public keys:
+    /// - one_time_message_pq_pk (1184 bytes) - MLKEM-768
+    /// - one_time_message_pk (32 bytes) - DH-AKEM
+    /// - one_time_metadata_pk (1216 bytes) - XWING
+    /// Total: 2432 bytes
+    pub fn into_bytes(self) -> [u8; 2432] {
+        let mut bytes = [0u8; 2432];
 
-        // Ephemeral DH public key (32 bytes)
-        bytes[0..32].copy_from_slice(&self.edh_pk.into_bytes());
+        // One-time MLKEM-768 public key (1184 bytes)
+        bytes[0..1184].copy_from_slice(self.one_time_message_pq_pk.as_bytes());
 
-        // Ephemeral KEM public key (32 bytes)
-        bytes[32..64].copy_from_slice(&self.ekem_pk.into_bytes());
+        // One-time DH-AKEM public key (32 bytes)
+        bytes[1184..1216].copy_from_slice(self.one_time_message_pk.as_bytes());
 
-        // Ephemeral PKE public key (32 bytes)
-        bytes[64..96].copy_from_slice(&self.epke_pk.into_bytes());
+        // One-time XWING public key (1216 bytes)
+        bytes[1216..2432].copy_from_slice(self.one_time_metadata_pk.as_bytes());
 
         bytes
     }
 }
 
-/// Ephemeral key set for a journalist
+/// One-time key set for a journalist
 #[deprecated]
 #[derive(Debug, Clone)]
 pub struct JournalistEphemeralKeyBundle {
-    /// The ephemeral public keys
-    pub public_keys: JournalistEphemeralPublicKeys,
-    /// Journalist's signature over the ephemeral keys
+    /// The one-time public keys
+    pub public_keys: JournalistOneTimePublicKeys,
+    /// Journalist's signature over the one-time keys
     pub signature: Signature,
 }
 

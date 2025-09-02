@@ -6,7 +6,7 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::keys::{
-    JournalistEnrollmentKeyBundle, JournalistEphemeralPublicKeys, SourceKeyBundle, SourcePassphrase,
+    JournalistEnrollmentKeyBundle, JournalistOneTimePublicKeys, SourceKeyBundle, SourcePassphrase,
 };
 use crate::messages::core::{
     Message, MessageChallengeFetchRequest, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
@@ -143,21 +143,21 @@ impl SourceClient {
             .verify(&enrollment_bundle.into_bytes(), &response.newsroom_sig)
             .map_err(|_| anyhow::anyhow!("Invalid newsroom signature on journalist keys"))?;
 
-        // Create the ephemeral keys that were signed by the journalist
-        let ephemeral_keys = JournalistEphemeralPublicKeys {
-            edh_pk: response.ephemeral_dh_pk.clone(),
-            ekem_pk: response.ephemeral_kem_pk.clone(),
-            epke_pk: response.ephemeral_pke_pk.clone(),
+        // Create the one-time keys that were signed by the journalist
+        let one_time_keys = JournalistOneTimePublicKeys {
+            one_time_message_pq_pk: response.one_time_message_pq_pk.clone(),
+            one_time_message_pk: response.one_time_message_pk.clone(),
+            one_time_metadata_pk: response.one_time_metadata_pk.clone(),
         };
 
-        // Verify the journalist signature on the ephemeral keys
+        // Verify the journalist signature on the one-time keys
         response
             .journalist_sig_pk
             .verify(
-                &ephemeral_keys.into_bytes(),
+                &one_time_keys.into_bytes(),
                 &response.journalist_ephemeral_sig,
             )
-            .map_err(|_| anyhow::anyhow!("Invalid journalist signature on ephemeral keys"))?;
+            .map_err(|_| anyhow::anyhow!("Invalid journalist signature on one-time keys"))?;
 
         Ok(())
     }
@@ -178,33 +178,35 @@ impl SourceClient {
 
         // Submit a distinct copy of the message to each journalist
         for journalist_response in journalist_responses {
-            // 1. Create the structured message according to Step 6 format:
-            // msg || S_dh,pk || S_pke,pk || S_kem,pk || S_fetch,pk || J^i_sig,pk || NR
-            let source_message = SourceMessage {
-                message: message.clone(),
-                source_dh_pk: key_bundle.long_term_dh.public_key.clone(),
-                source_pke_pk: key_bundle.pke.public_key.clone(),
-                source_kem_pk: key_bundle.kem.public_key.clone(),
-                source_fetch_pk: key_bundle.fetch.public_key.clone(),
-                journalist_sig_pk: journalist_response.journalist_sig_pk,
-                newsroom_sig_pk: self.get_newsroom_verifying_key()?.clone(),
-            };
+            // TODO: update for 0.3
 
-            // 2. Use the shared method for encryption and message creation
-            let request = self.submit_structured_message(
-                source_message,
-                (
-                    &journalist_response.ephemeral_dh_pk,
-                    &journalist_response.ephemeral_kem_pk,
-                ),
-                &journalist_response.ephemeral_pke_pk,
-                &journalist_response.journalist_fetch_pk,
-                &key_bundle.long_term_dh.private_key,
-                &key_bundle.long_term_dh.public_key,
-                rng,
-            )?;
+            // // 1. Create the structured message according to Step 6 format:
+            // // msg || S_dh,pk || S_pke,pk || S_kem,pk || S_fetch,pk || J^i_sig,pk || NR
+            // let source_message = SourceMessage {
+            //     message: message.clone(),
+            //     source_message_pq_pk: key_bundle.long_term_dh.public_key.clone(),
+            //     source_message_pk: key_bundle.pke.public_key.clone(),
+            //     source_metadata_pk: key_bundle.kem.public_key.clone(),
+            //     source_fetch_pk: key_bundle.fetch.public_key.clone(),
+            //     journalist_sig_pk: journalist_response.journalist_sig_pk,
+            //     newsroom_sig_pk: self.get_newsroom_verifying_key()?.clone(),
+            // };
 
-            requests.push(request);
+            // // 2. Use the shared method for encryption and message creation
+            // let request = self.submit_structured_message(
+            //     source_message,
+            //     (
+            //         &journalist_response.one_time_message_pq_pk,
+            //         &journalist_response.one_time_message_pk,
+            //     ),
+            //     &journalist_response.one_time_metadata_pk,
+            //     &journalist_response.journalist_fetch_pk,
+            //     &key_bundle.long_term_dh.private_key,
+            //     &key_bundle.long_term_dh.public_key,
+            //     rng,
+            // )?;
+
+            //requests.push(request);
         }
 
         Ok(requests)

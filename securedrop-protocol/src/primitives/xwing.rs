@@ -5,7 +5,7 @@ pub const XWING_PUBLIC_KEY_LEN: usize = 1216;
 pub const XWING_PRIVATE_KEY_LEN: usize = 32;
 
 /// XWING public key.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct XWingPublicKey([u8; XWING_PUBLIC_KEY_LEN]);
 
 /// XWING private key.

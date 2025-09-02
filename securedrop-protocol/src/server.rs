@@ -209,9 +209,9 @@ impl Server {
                 journalist_fetch_pk: fetching_key.clone(),
                 journalist_dh_pk: fetching_key,
                 newsroom_sig,
-                ephemeral_dh_pk: ephemeral_bundle.public_keys.edh_pk,
-                ephemeral_kem_pk: ephemeral_bundle.public_keys.ekem_pk,
-                ephemeral_pke_pk: ephemeral_bundle.public_keys.epke_pk,
+                one_time_message_pq_pk: ephemeral_bundle.public_keys.one_time_message_pq_pk,
+                one_time_message_pk: ephemeral_bundle.public_keys.one_time_message_pk,
+                one_time_metadata_pk: ephemeral_bundle.public_keys.one_time_metadata_pk,
                 journalist_ephemeral_sig: ephemeral_bundle.signature,
             };
 

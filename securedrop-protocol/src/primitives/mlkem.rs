@@ -8,7 +8,7 @@ pub const MLKEM768_PUBLIC_KEY_LEN: usize = 1184;
 pub const MLKEM768_PRIVATE_KEY_LEN: usize = 2400;
 
 /// MLKEM-768 public key.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MLKEM768PublicKey([u8; MLKEM768_PUBLIC_KEY_LEN]);
 
 /// MLKEM-768 private key.

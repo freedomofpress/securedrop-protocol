@@ -1,5 +1,8 @@
 use crate::client::StructuredMessage;
-use crate::primitives::{PPKPublicKey, x25519::DHPublicKey};
+use crate::primitives::{
+    PPKPublicKey, dh_akem::DhAkemPublicKey, mlkem::MLKEM768PublicKey, x25519::DHPublicKey,
+    xwing::XWingPublicKey,
+};
 use crate::{Signature, VerifyingKey};
 use alloc::vec::Vec;
 use uuid::Uuid;
@@ -80,6 +83,11 @@ pub struct SourceJournalistKeyRequest {}
 /// Server returns journalist long-term keys and ephemeral keys
 ///
 /// This is the second part of step 5 in the spec.
+///
+/// Updated for 0.3 spec with new key types:
+/// - ephemeral_dh_pk: MLKEM-768 for message enc PSK (one-time)
+/// - ephemeral_kem_pk: DH-AKEM for message enc (one-time)
+/// - ephemeral_pke_pk: XWING for metadata enc (one-time)
 pub struct SourceJournalistKeyResponse {
     /// Journalist's signing public key
     pub journalist_sig_pk: VerifyingKey,
@@ -89,12 +97,12 @@ pub struct SourceJournalistKeyResponse {
     pub journalist_dh_pk: DHPublicKey,
     /// Newsroom's signature over journalist keys
     pub newsroom_sig: Signature,
-    /// Random ephemeral DH public key for this journalist
-    pub ephemeral_dh_pk: DHPublicKey,
-    /// Random ephemeral KEM public key for this journalist
-    pub ephemeral_kem_pk: PPKPublicKey,
-    /// Random ephemeral PKE public key for this journalist
-    pub ephemeral_pke_pk: PPKPublicKey,
+    /// MLKEM-768 public key for message enc PSK (one-time)
+    pub one_time_message_pq_pk: MLKEM768PublicKey,
+    /// DH-AKEM public key for message enc (one-time)
+    pub one_time_message_pk: DhAkemPublicKey,
+    /// XWING public key for metadata enc (one-time)
+    pub one_time_metadata_pk: XWingPublicKey,
     /// Journalist's signature over ephemeral keys
     pub journalist_ephemeral_sig: Signature,
 }
@@ -103,16 +111,21 @@ pub struct SourceJournalistKeyResponse {
 ///
 /// This represents the message format before padding and encryption:
 /// `msg || S_dh,pk || S_pke,pk || S_kem,pk || S_fetch,pk || J^i_sig,pk || NR`
+///
+/// Updated for 0.3 spec with new key types:
+/// - source_message_pq_pk: MLKEM-768 for message enc PSK (one-time)
+/// - source_message_pk: DH-AKEM for message enc (one-time)
+/// - source_metadata_pk: XWING for metadata enc (one-time)
 #[derive(Clone)]
 pub struct SourceMessage {
     /// The actual message content
     pub message: Vec<u8>,
-    /// Source's DH public key
-    pub source_dh_pk: DHPublicKey,
-    /// Source's PKE public key
-    pub source_pke_pk: PPKPublicKey,
-    /// Source's KEM public key
-    pub source_kem_pk: PPKPublicKey,
+    /// Source's MLKEM-768 public key for message enc PSK (one-time)
+    pub source_message_pq_pk: MLKEM768PublicKey,
+    /// Source's DH-AKEM public key for message enc (one-time)
+    pub source_message_pk: DhAkemPublicKey,
+    /// Source's XWING public key for metadata enc (one-time)
+    pub source_metadata_pk: XWingPublicKey,
     /// Source's fetching public key
     pub source_fetch_pk: DHPublicKey,
     /// Journalist's signing public key
@@ -127,9 +140,9 @@ impl SourceMessage {
     /// Note: Deviated from spec here to put variable length field last
     pub fn into_bytes(self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
-        bytes.extend_from_slice(&self.source_dh_pk.into_bytes()[0..32]);
-        bytes.extend_from_slice(&self.source_pke_pk.into_bytes()[0..32]);
-        bytes.extend_from_slice(&self.source_kem_pk.into_bytes()[0..32]);
+        bytes.extend_from_slice(&self.source_message_pq_pk.as_bytes()[0..1184]);
+        bytes.extend_from_slice(&self.source_message_pk.as_bytes()[0..32]);
+        bytes.extend_from_slice(&self.source_metadata_pk.as_bytes()[0..1216]);
         bytes.extend_from_slice(&self.source_fetch_pk.into_bytes()[0..32]);
         bytes.extend_from_slice(&self.journalist_sig_pk.into_bytes()[0..32]);
         bytes.extend_from_slice(&self.newsroom_sig_pk.into_bytes()[0..32]);

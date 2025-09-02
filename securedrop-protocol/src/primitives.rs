@@ -16,7 +16,10 @@ pub mod pad;
 pub mod x25519;
 pub mod xwing;
 
+pub use crate::primitives::dh_akem::generate_dh_akem_keypair;
+pub use crate::primitives::mlkem::generate_mlkem768_keypair;
 use crate::primitives::x25519::{DHPrivateKey, DHPublicKey};
+pub use crate::primitives::xwing::generate_xwing_keypair;
 
 /// Fixed number of message ID entries to return in privacy-preserving fetch
 ///

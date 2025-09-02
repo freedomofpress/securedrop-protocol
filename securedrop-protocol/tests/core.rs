@@ -6,7 +6,7 @@ use rand::rng;
 use securedrop_protocol::Client;
 use securedrop_protocol::journalist::JournalistClient;
 use securedrop_protocol::keys::{
-    FPFKeyPair, JournalistEphemeralPublicKeys, JournalistSigningKeyPair, NewsroomKeyPair,
+    FPFKeyPair, JournalistOneTimePublicKeys, JournalistSigningKeyPair, NewsroomKeyPair,
     SourceKeyBundle,
 };
 use securedrop_protocol::messages::setup::{
