@@ -4,9 +4,7 @@ use rand::Rng;
 use rand_core::CryptoRng;
 use uuid::Uuid;
 
-use crate::keys::{
-    JournalistEnrollmentKeyBundle, JournalistEnrollmentKeyBundle0_3, JournalistEphemeralKeyBundle,
-};
+use crate::keys::{JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle};
 use crate::messages::core::Message;
 use crate::primitives::x25519::DHPublicKey;
 use crate::sign::{Signature, VerifyingKey};
@@ -109,7 +107,7 @@ impl ServerStorage {
     /// Add a journalist to storage and return the generated UUID
     pub fn add_journalist(
         &mut self,
-        enrollment_bundle: JournalistEnrollmentKeyBundle0_3,
+        enrollment_bundle: JournalistEnrollmentKeyBundle,
         signature: Signature,
     ) -> Uuid {
         let journalist_id = Uuid::new_v4();

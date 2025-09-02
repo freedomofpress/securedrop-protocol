@@ -136,7 +136,6 @@ impl SourceClient {
         let enrollment_bundle = JournalistEnrollmentKeyBundle {
             signing_key: response.journalist_sig_pk,
             fetching_key: response.journalist_fetch_pk.clone(),
-            dh_key: response.journalist_dh_pk.clone(),
         };
 
         // Verify the newsroom signature on the journalist's enrollment bundle

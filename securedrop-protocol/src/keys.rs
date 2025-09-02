@@ -23,10 +23,9 @@ impl FPFKeyPair {
 }
 
 pub use journalist::{
-    JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEnrollmentKeyBundle0_3,
-    JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair, JournalistEphemeralKeyBundle,
-    JournalistEphemeralPKEKeyPair, JournalistEphemeralPublicKeys, JournalistFetchKeyPair,
-    JournalistSigningKeyPair,
+    JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralDHKeyPair,
+    JournalistEphemeralKEMKeyPair, JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair,
+    JournalistEphemeralPublicKeys, JournalistFetchKeyPair, JournalistSigningKeyPair,
 };
 pub use newsroom::NewsroomKeyPair;
 pub use source::{

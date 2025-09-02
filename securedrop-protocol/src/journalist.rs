@@ -7,11 +7,11 @@ use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
 use crate::keys::{
-    JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralDHKeyPair,
-    JournalistEphemeralKEMKeyPair, JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair,
-    JournalistEphemeralPublicKeys, JournalistFetchKeyPair, JournalistSigningKeyPair,
+    JournalistDHKeyPair, JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair,
+    JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair, JournalistEphemeralPublicKeys,
+    JournalistFetchKeyPair, JournalistSigningKeyPair,
 };
-use crate::keys::{JournalistEnrollmentKeyBundle0_3, SourcePublicKeys};
+use crate::keys::{JournalistEnrollmentKeyBundle, SourcePublicKeys};
 use crate::messages::core::{JournalistReplyMessage, Message, MessageChallengeFetchRequest};
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
 use crate::primitives::x25519::DHPublicKey;
@@ -66,7 +66,7 @@ impl JournalistClient {
         self.fetching_key = Some(fetching_key);
 
         // Create enrollment key bundle with public keys
-        let enrollment_key_bundle = JournalistEnrollmentKeyBundle0_3 {
+        let enrollment_key_bundle = JournalistEnrollmentKeyBundle {
             signing_key: signing_vk,
             fetching_key: fetching_pk,
         };

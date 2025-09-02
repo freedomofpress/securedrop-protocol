@@ -223,52 +223,18 @@ pub struct JournalistEphemeralKeyBundle {
     pub signature: Signature,
 }
 
-/// Journalist enrollment key bundle
+/// Journalist enrollment key bundle for 0.3 spec
 ///
 /// This bundle is used to enroll a journalist into the system.
-/// It contains the journalist's signing, fetching, and DH keys.
-#[deprecated]
 #[derive(Clone)]
 pub struct JournalistEnrollmentKeyBundle {
     /// Journalist's signing key
     pub signing_key: VerifyingKey,
     /// Journalist's fetching key
     pub fetching_key: DHPublicKey,
-    /// Journalist's DH key
-    pub dh_key: DHPublicKey,
 }
 
-/// a 96 byte array of the required keys for enrollment
 impl JournalistEnrollmentKeyBundle {
-    pub fn into_bytes(self) -> [u8; 96] {
-        let mut bytes = [0u8; 96];
-
-        // Signing key verification key (32 bytes)
-        bytes[0..32].copy_from_slice(&self.signing_key.into_bytes());
-
-        // Fetching key public key (32 bytes)
-        bytes[32..64].copy_from_slice(&self.fetching_key.into_bytes());
-
-        // DH key public key (32 bytes)
-        bytes[64..96].copy_from_slice(&self.dh_key.into_bytes());
-
-        bytes
-    }
-}
-
-/// Journalist enrollment key bundle for 0.3 spec
-///
-/// This bundle is used to enroll a journalist into the system.
-/// TODO: Rename to JournalistEnrollmentKeyBundle once we delete the old one
-#[derive(Clone)]
-pub struct JournalistEnrollmentKeyBundle0_3 {
-    /// Journalist's signing key
-    pub signing_key: VerifyingKey,
-    /// Journalist's fetching key
-    pub fetching_key: DHPublicKey,
-}
-
-impl JournalistEnrollmentKeyBundle0_3 {
     /// Convert the enrollment key bundle to a byte array for signing
     ///
     /// Returns a byte array containing the concatenated public keys:
