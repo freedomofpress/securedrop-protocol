@@ -201,6 +201,7 @@ impl JournalistOneTimePublicKeys {
     /// - one_time_message_pq_pk (1184 bytes) - MLKEM-768
     /// - one_time_message_pk (32 bytes) - DH-AKEM
     /// - one_time_metadata_pk (1216 bytes) - XWING
+    ///
     /// Total: 2432 bytes
     pub fn into_bytes(self) -> [u8; 2432] {
         let mut bytes = [0u8; 2432];
@@ -219,9 +220,8 @@ impl JournalistOneTimePublicKeys {
 }
 
 /// One-time key set for a journalist
-#[deprecated]
 #[derive(Debug, Clone)]
-pub struct JournalistEphemeralKeyBundle {
+pub struct JournalistOneTimeKeyBundle {
     /// The one-time public keys
     pub public_keys: JournalistOneTimePublicKeys,
     /// Journalist's signature over the one-time keys

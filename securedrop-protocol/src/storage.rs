@@ -4,7 +4,7 @@ use rand::Rng;
 use rand_core::CryptoRng;
 use uuid::Uuid;
 
-use crate::keys::{JournalistEnrollmentKeyBundle, JournalistEphemeralKeyBundle};
+use crate::keys::{JournalistEnrollmentKeyBundle, JournalistOneTimeKeyBundle};
 use crate::messages::core::Message;
 use crate::primitives::x25519::DHPublicKey;
 use crate::sign::{Signature, VerifyingKey};
@@ -16,7 +16,7 @@ pub struct ServerStorage {
     /// Journalists ephemeral keystore
     /// Maps journalist ID to a vector of ephemeral key sets
     /// Each journalist maintains a pool of ephemeral keys that are randomly selected and removed when fetched
-    ephemeral_keys: HashMap<Uuid, Vec<JournalistEphemeralKeyBundle>>,
+    ephemeral_keys: HashMap<Uuid, Vec<JournalistOneTimeKeyBundle>>,
     /// Store of messages
     messages: HashMap<Uuid, Message>,
 }
@@ -31,7 +31,7 @@ impl ServerStorage {
     pub fn add_ephemeral_keys(
         &mut self,
         journalist_id: Uuid,
-        keys: Vec<JournalistEphemeralKeyBundle>,
+        keys: Vec<JournalistOneTimeKeyBundle>,
     ) {
         let journalist_keys = self
             .ephemeral_keys
@@ -49,7 +49,7 @@ impl ServerStorage {
         &mut self,
         journalist_id: Uuid,
         rng: &mut R,
-    ) -> Option<JournalistEphemeralKeyBundle> {
+    ) -> Option<JournalistOneTimeKeyBundle> {
         if let Some(keys) = self.ephemeral_keys.get_mut(&journalist_id) {
             if keys.is_empty() {
                 return None;
@@ -74,7 +74,7 @@ impl ServerStorage {
     pub fn get_all_ephemeral_keys<R: rand::RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,
-    ) -> Vec<(Uuid, JournalistEphemeralKeyBundle)> {
+    ) -> Vec<(Uuid, JournalistOneTimeKeyBundle)> {
         let mut result = Vec::new();
         let journalist_ids: Vec<Uuid> = self.ephemeral_keys.keys().copied().collect();
 

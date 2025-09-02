@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::keys::{
     JournalistDHKeyPair, JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair,
-    JournalistEphemeralKeyBundle, JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair,
+    JournalistOneTimeKeyBundle, JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair,
     JournalistOneTimePublicKeys, JournalistSigningKeyPair,
 };
 use crate::keys::{JournalistEnrollmentKeyBundle, SourcePublicKeys};
@@ -34,7 +34,7 @@ pub struct JournalistClient {
     /// TODO: Remove
     dh_key: Option<JournalistDHKeyPair>,
     /// Generated ephemeral key pairs (for reuse)
-    ephemeral_keys: Vec<JournalistEphemeralKeyBundle>,
+    ephemeral_keys: Vec<JournalistOneTimeKeyBundle>,
     /// Newsroom's verifying key
     newsroom_verifying_key: Option<VerifyingKey>,
 }
@@ -114,7 +114,7 @@ impl JournalistClient {
         };
 
         // Create the one-time key bundle
-        let ephemeral_key_bundle = JournalistEphemeralKeyBundle {
+        let ephemeral_key_bundle = JournalistOneTimeKeyBundle {
             public_keys: one_time_public_keys.clone(),
             signature: signing_key.sign(&one_time_public_keys.into_bytes()),
         };
