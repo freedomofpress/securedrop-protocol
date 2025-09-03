@@ -39,6 +39,10 @@ const LEN_XWING_SHAREDSECRET_ENCAPS: usize = 1120;
 const LEN_XWING_SHAREDSECRET: usize = 32;
 const LEN_XWING_RAND_SEED_SIZE: usize = 96;
 
+// "Metadata" aka sender pubkey and encapsulated secrets
+const METADATA_LENGTH: usize =
+    LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_SHAREDSECRET_ENCAPS + LEN_DHKEM_SHAREDSECRET_ENCAPS;
+
 #[derive(Debug)]
 pub struct Envelope {
     cmessage: Vec<u8>,
@@ -57,8 +61,77 @@ pub struct Plaintext {
     recipient_reply_key_hybrid_md: Option<Vec<u8>>,     // XWING
 }
 
-// TODO
-pub struct Metadata {}
+/// Stored ciphertexts on the server.
+/// For simplicity, ()
+struct ServerMessageStore {
+    message_id: Vec<u8>,
+    mgdh: Vec<u8>,        // secret bytes
+    mgdh_pubkey: Vec<u8>, // public bytes
+    ciphertext: Vec<u8>,
+}
+
+struct FetchResponse {
+    enc_id: Vec<u8>,
+    pmgdh: Vec<u8>,
+}
+
+// Plaintext metadata
+pub struct Metadata {
+    pub sender_pubkey_bytes: [u8; LEN_DHKEM_ENCAPS_KEY],
+    pub pq_psk_ss_encaps: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS],
+    pub dhakem_ss_encaps: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS],
+}
+
+// TODO: NOT FOR PROD, parsing untrusted ct
+impl Metadata {
+    /// Serialize Metadata.
+    /// [0:LEN_DHKEM_ENCAPS_KEY] is sender pubkey
+    /// [LEN_DHKEM_ENCAPS_KEY:LEN_DHKEM_ENCAPS_KEY+LEN_MLKEM_SS_ENCAPS] is PSK encaps
+    /// [LEN_DHKEM_ENCAPS_KEY+LEN_MLKEM_SS_ENCAPS:] is dh-akem enc encaps
+    /// Order may change in final version
+    pub fn to_bytes(&self) -> [u8; METADATA_LENGTH] {
+        let mut bytes = [0u8; METADATA_LENGTH];
+        bytes[0..LEN_DHKEM_ENCAPS_KEY].copy_from_slice(&self.sender_pubkey_bytes);
+        bytes[LEN_DHKEM_ENCAPS_KEY..LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_SHAREDSECRET_ENCAPS]
+            .copy_from_slice(&self.pq_psk_ss_encaps);
+        bytes[LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_SHAREDSECRET_ENCAPS..]
+            .copy_from_slice(&self.dhakem_ss_encaps);
+        bytes
+    }
+}
+
+impl std::convert::TryFrom<&[u8]> for Metadata {
+    type Error = &'static str;
+
+    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+        if bytes.len() != METADATA_LENGTH {
+            return Err("Metadata length error");
+        }
+
+        let sender_pubkey_bytes = bytes[0..LEN_DHKEM_ENCAPS_KEY]
+            .try_into()
+            .expect("Metadata slice -> array error [0:32]");
+        let pq_psk_end = LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_SHAREDSECRET_ENCAPS;
+        let pq_psk_ss_encaps = bytes[LEN_DHKEM_ENCAPS_KEY..pq_psk_end]
+            .try_into()
+            .expect("Metadata slice -> array error [32:32+1088]");
+        let dhakem_ss_encaps = bytes[pq_psk_end..]
+            .try_into()
+            .expect("Metadata slice -> array error [32+1088:]");
+
+        Ok(Metadata {
+            sender_pubkey_bytes,
+            pq_psk_ss_encaps,
+            dhakem_ss_encaps,
+        })
+    }
+}
+
+impl From<[u8; METADATA_LENGTH]> for Metadata {
+    fn from(bytes: [u8; METADATA_LENGTH]) -> Self {
+        Metadata::try_from(&bytes[..]).expect("Need valid array length")
+    }
+}
 
 pub trait User {
     // msg enc classical
@@ -109,28 +182,50 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     let sender_hpke_keypair =
         hpke_keypair_from_bytes(sender.get_dhakem_sk(), sender.get_dhakem_pk());
 
-    // Calculate psk
-    let (psk_enc, psk) =
-        libcrux_kem::MlKem768::encaps(sender.get_hybrid_md_sk(), rand).expect("PSK encaps failed");
+    // Note: Don't need SEED_GEN len randomness (64), just SHARED_SECRET len (32),
+    // according to MLK-KEM source code.
+    let mut randomness: [u8; LEN_MLKEM_SHAREDSECRET] = [0u8; LEN_MLKEM_SHAREDSECRET];
+    rand::rng().fill_bytes(&mut randomness);
 
-    // HPKE AuthPSK message enc - TODO type
-    let (enc, ct) = hpke_authenc.seal(
-        &recipient_hpke_pubkey_msg,
-        b"", // info
-        b"", // aad
-        plaintext,
-        Some(b"PQ_KEM_SS"),                      // PSK TODO PQ KEM
-        Some(b"PSK_INFO_ID_TAG"),                // Fixed PSK ID
-        Some(sender_hpke_keypair.private_key()), // sender private key
-    );
+    // Calculate PQ PSK
+    let (psk, psk_ct) = libcrux_kem::MlKem768::encaps(sender.get_pq_kem_psk_pk(), &randomness)
+        .expect("PSK encaps failed");
 
-    // mgdh
+    // HPKE AuthPSK message encryption
+    let (mesage_dhakem_shared_secret_encaps, message_ciphertext) = hpke_authenc
+        .seal(
+            &recipient_hpke_pubkey_msg,
+            HPKE_INFO,
+            HPKE_AAD,
+            plaintext,
+            Some(&psk),
+            Some(HPKE_PSK_ID),                       // Fixed PSK ID
+            Some(sender_hpke_keypair.private_key()), // sender DH-AKEM private key
+        )
+        .unwrap();
+
+    // Create mgdh (message clue) with a DH agreement between an ephemeral curve25519 keypair
+    // and the recipient's Fetching key
     let eph_sk: [u8; LEN_DH_ITEM] =
         generate_random_scalar(rng).expect("DH keygen (ephemeral fetch) failed!");
     let mut eph_pk: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
-    libcrux_curve25519::secret_to_public(&mut eph_pk, &eph_sk); // todo
+    libcrux_curve25519::secret_to_public(&mut eph_pk, &eph_sk);
     let mut mgdh = [0u8; LEN_DH_ITEM];
     let _ = scalarmult(&mut mgdh, &eph_sk, recipient.get_fetch_pk());
+
+    // Serialize sender Dh-AKEM pubkey for Metadata
+    let mut sender_pubkey_bytes: [u8; LEN_DHKEM_ENCAPS_KEY] = [0u8; LEN_DHKEM_ENCAPS_KEY];
+    sender_pubkey_bytes.copy_from_slice(&mut sender_pubkey_bytes);
+
+    let dhakem_ss_encaps: [u8; LEN_DH_ITEM] = mesage_dhakem_shared_secret_encaps
+        .try_into()
+        .expect(&format!("Need {} bytes", LEN_DH_ITEM));
+
+    let metadata = Metadata {
+        sender_pubkey_bytes: sender_pubkey_bytes,
+        pq_psk_ss_encaps: psk_ct,
+        dhakem_ss_encaps: dhakem_ss_encaps,
+    };
 
     Envelope {
         cmessage: ct,
@@ -149,8 +244,25 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
 
     let hpke_authenc = Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
 
+    let hpke_base = Hpke::new(Mode::Base, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+
     let hpke_keypair_receiver =
         hpke_keypair_from_bytes(receiver.get_dhakem_sk(), receiver.get_dhakem_pk());
+
+    let raw_metadata = hpke_base
+        .open(
+            &envelope.metadata_encap,
+            hpke_keypair_receiver.private_key(),
+            HPKE_INFO,
+            HPKE_AAD,
+            &envelope.cmessage,
+            None,
+            None,
+            None,
+        )
+        .expect("Wanted decrypted metadata");
+
+    let metadata = decrypt_metadata(receiver, &envelope.cmetadata);
 
     // TODO from metadata
     let hpke_pubkey_sender = hpke_pubkey_from_bytes();
