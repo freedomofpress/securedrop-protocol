@@ -172,8 +172,8 @@ impl SourceMessagePQKeyPair {
     pub fn from_bytes(priv_key_bytes: [u8; 64]) -> SourceMessagePQKeyPair {
         let (sk, pk) = mlkem768::generate_key_pair(priv_key_bytes).into_parts();
         // TODO: use hpke-rs types in keys.rs
-        let mlkem_encaps = MLKEM768PublicKey::from_bytes(*pk.as_slice());
-        let mlkem_decaps = MLKEM768PrivateKey::from_bytes(*sk.as_slice());
+        let mlkem_encaps = MLKEM768PublicKey::from_bytes(pk.into());
+        let mlkem_decaps = MLKEM768PrivateKey::from_bytes(sk.into());
 
         SourceMessagePQKeyPair {
             public_key: mlkem_encaps,

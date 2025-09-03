@@ -240,6 +240,7 @@ mod tests {
             assert_eq!(bytes1, bytes2, "{} bytes should be identical", label);
         }
 
+        // TODO: there's a type mismatch here
         let checks = [
             (
                 &keybundle1.long_term_dh.public_key.as_bytes(),
@@ -274,22 +275,8 @@ mod tests {
         ];
 
         // Iterate over each check and call `assert_bytes_eq`
-        for (label, bytes1, bytes2) in checks.iter() {
-            assert_bytes_eq(label, bytes1, bytes2);
+        for (bytes1, bytes2, label) in checks.iter() {
+            assert_bytes_eq(bytes1, bytes2, label);
         }
-
-        // Assert that the key bundles are identical
-        assert_eq!(
-            keybundle1.long_term_dh.public_key.as_bytes(),
-            keybundle2.long_term_dh.public_key.as_bytes(),
-            "KeyBundles should be identical"
-        );
-
-        // Assert that the key bundles are identical
-        assert_eq!(
-            keybundle1.long_term_dh.private_key.as_bytes(),
-            keybundle2.long_term_dh.private_key.as_bytes(),
-            "KeyBundles should be identical"
-        );
     }
 }
