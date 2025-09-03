@@ -18,7 +18,7 @@ pub struct JournalistSigningKeyPair {
 
 impl JournalistSigningKeyPair {
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistSigningKeyPair {
-        let sk = SigningKey::new(&mut rng).unwrap();
+        let sk = SigningKey::new(&mut rng).expect("Signing key generation should succeed");
         let vk = sk.vk;
         JournalistSigningKeyPair { vk, sk }
     }

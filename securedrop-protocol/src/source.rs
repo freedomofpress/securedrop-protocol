@@ -236,47 +236,40 @@ mod tests {
         let keybundle1 = session1.key_bundle.expect("Should be keybundle");
         let keybundle2 = session2.key_bundle.expect("Should be keybundle");
 
-        fn assert_bytes_eq(bytes1: &[u8], bytes2: &[u8], label: &str) {
-            assert_eq!(bytes1, bytes2, "{} bytes should be identical", label);
-        }
+        // DH keys
+        assert_eq!(
+            keybundle1.long_term_dh.public_key.as_bytes(),
+            keybundle2.long_term_dh.public_key.as_bytes(),
+            "DH Pubkey should be identical"
+        );
+        assert_eq!(
+            keybundle1.long_term_dh.private_key.as_bytes(),
+            keybundle2.long_term_dh.private_key.as_bytes(),
+            "DH Private Key should be identical"
+        );
 
-        // TODO: there's a type mismatch here
-        let checks = [
-            (
-                &keybundle1.long_term_dh.public_key.as_bytes(),
-                &keybundle2.long_term_dh.public_key.as_bytes(),
-                "DH Pubkey",
-            ),
-            (
-                &keybundle1.long_term_dh.private_key.as_bytes(),
-                &keybundle2.long_term_dh.private_key.as_bytes(),
-                "DH Private Key",
-            ),
-            (
-                &keybundle1.pq_kem_psk.public_key.as_bytes(),
-                &keybundle2.pq_kem_psk.public_key.as_bytes(),
-                "PQ KEM Public Key",
-            ),
-            (
-                &keybundle1.pq_kem_psk.private_key.as_bytes(),
-                &keybundle2.pq_kem_psk.private_key.as_bytes(),
-                "PQ KEM Private Key",
-            ),
-            (
-                &keybundle1.metadata.public_key.as_bytes(),
-                &keybundle2.metadata.public_key.as_bytes(),
-                "Metadata Public Key",
-            ),
-            (
-                &keybundle1.metadata.private_key.as_bytes(),
-                &keybundle2.metadata.private_key.as_bytes(),
-                "Metadata Private Key",
-            ),
-        ];
+        // PQ KEM keys
+        assert_eq!(
+            keybundle1.pq_kem_psk.public_key.as_bytes(),
+            keybundle2.pq_kem_psk.public_key.as_bytes(),
+            "PQ KEM Public Key should be identical"
+        );
+        assert_eq!(
+            keybundle1.pq_kem_psk.private_key.as_bytes(),
+            keybundle2.pq_kem_psk.private_key.as_bytes(),
+            "PQ KEM Private Key should be identical"
+        );
 
-        // Iterate over each check and call `assert_bytes_eq`
-        for (bytes1, bytes2, label) in checks.iter() {
-            assert_bytes_eq(bytes1, bytes2, label);
-        }
+        // Metadata keys
+        assert_eq!(
+            keybundle1.metadata.public_key.as_bytes(),
+            keybundle2.metadata.public_key.as_bytes(),
+            "Metadata Public Key should be identical"
+        );
+        assert_eq!(
+            keybundle1.metadata.private_key.as_bytes(),
+            keybundle2.metadata.private_key.as_bytes(),
+            "Metadata Private Key should be identical"
+        );
     }
 }

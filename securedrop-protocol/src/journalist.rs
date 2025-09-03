@@ -186,7 +186,7 @@ impl JournalistClient {
     ) -> Result<Message, Error> {
         // Get the journalist's DH private key
         // TODO: not the long-term DH key!
-        let journalist_dhakem_keypair: JournalistEphemeralDHKeyPair = "";
+        let journalist_dhakem_keypair: JournalistEphemeralDHKeyPair = todo!("");
 
         let journalist_dh_private_key = self
             .dh_key
@@ -198,28 +198,30 @@ impl JournalistClient {
         // 1. Create the structured message according to Step 9 format:
         // TODO format needs revising; PQ_KEM_PSK key?
         // msg || S || J_sig,pk || J_fetch,pk || J_dh,pk || σ^NR || NR
-        let journalist_reply_message = JournalistReplyMessage {
-            message,
-            source,
-            journalist_sig_pk: self.signing_key.as_ref().unwrap().vk,
-            journalist_fetch_pk: self.fetching_key.as_ref().unwrap().public_key.clone(),
-            journalist_dh_pk: self.dh_key.as_ref().unwrap().public_key.clone(),
-            newsroom_signature,
-            newsroom_sig_pk: *self.get_newsroom_verifying_key()?,
-        };
+        // Proposed 0.3 format:
+        //
+        // let journalist_reply_message = JournalistReplyMessage {
+        //     message,
+        //     source,
+        //     journalist_sig_pk: self.signing_key.as_ref().unwrap().vk,
+        //     journalist_fetch_pk: self.fetching_key.as_ref().unwrap().public_key.clone(),
+        //     journalist_dh_pk: self.dh_key.as_ref().unwrap().public_key.clone(),
+        //     newsroom_signature,
+        //     newsroom_sig_pk: *self.get_newsroom_verifying_key()?,
+        // };
 
-        // 2. Use the shared method for encryption and message creation
-        self.submit_structured_message(
-            journalist_reply_message,
-            (
-                &source_public_keys.message_dhakem_pk,
-                &source_public_keys.message_pq_psk_pk,
-            ),
-            &source_public_keys.metadata_pk,
-            &source_public_keys.fetch_pk,
-            &journalist_dh_private_key,
-            &self.dh_key.as_ref().unwrap().public_key,
-            rng,
-        )
+        // // 2. Use the shared method for encryption and message creation
+        // self.submit_structured_message(
+        //     journalist_reply_message,
+        //     (
+        //         &source_public_keys.message_dhakem_pk,
+        //         &source_public_keys.message_pq_psk_pk,
+        //     ),
+        //     &source_public_keys.metadata_pk,
+        //     &source_public_keys.fetch_pk,
+        //     &journalist_dh_private_key,
+        //     &self.dh_key.as_ref().unwrap().public_key,
+        //     rng,
+        // )
     }
 }
