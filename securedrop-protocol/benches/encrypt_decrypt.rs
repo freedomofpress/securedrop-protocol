@@ -2,6 +2,7 @@ use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 
 use hpke_rs::{HpkeKeyPair, HpkePrivateKey, HpkePublicKey};
 use libcrux_curve25519::hacl::scalarmult;
+use libcrux_traits::kem::secrets::Kem;
 use rand::RngCore;
 use rand::rngs::StdRng;
 use rand_core::CryptoRng;
@@ -31,9 +32,9 @@ const LEN_MLKEM_SHAREDSECRET_ENCAPS: usize = 1088;
 const LEN_MLKEM_SHAREDSECRET: usize = 32;
 const LEN_MLKEM_RAND_SEED_SIZE: usize = 64;
 
-// https://www.ietf.org/archive/id/draft-connolly-cfrg-xwing-kem-01.html#name-encoding-and-sizes
+// https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/#name-encoding-and-sizes
 const LEN_XWING_ENCAPS_KEY: usize = 1216;
-const LEN_XWING_DECAPS_KEY: usize = 2464;
+const LEN_XWING_DECAPS_KEY: usize = 32;
 const LEN_XWING_SHAREDSECRET_ENCAPS: usize = 1120;
 const LEN_XWING_SHAREDSECRET: usize = 32;
 const LEN_XWING_RAND_SEED_SIZE: usize = 96;
@@ -56,24 +57,25 @@ pub struct Plaintext {
     recipient_reply_key_hybrid_md: Option<Vec<u8>>,     // XWING
 }
 
+// TODO
 pub struct Metadata {}
 
 pub trait User {
     // msg enc classical
-    fn get_dhakem_sk(&self) -> &[u8];
-    fn get_dhakem_pk(&self) -> &[u8];
+    fn get_dhakem_sk(&self) -> &[u8; LEN_DH_ITEM];
+    fn get_dhakem_pk(&self) -> &[u8; LEN_DH_ITEM];
 
     // msg enc pq psk
-    fn get_pq_kem_psk_pk(&self) -> &[u8];
-    fn get_pq_kem_psk_sk(&self) -> &[u8];
+    fn get_pq_kem_psk_pk(&self) -> &[u8; LEN_MLKEM_ENCAPS_KEY];
+    fn get_pq_kem_psk_sk(&self) -> &[u8; LEN_MLKEM_DECAPS_KEY];
 
     // md enc hybrid
-    fn get_hybrid_md_pk(&self) -> &[u8];
-    fn get_hybrid_md_sk(&self) -> &[u8];
+    fn get_hybrid_md_pk(&self) -> &[u8; LEN_XWING_ENCAPS_KEY];
+    fn get_hybrid_md_sk(&self) -> &[u8; LEN_XWING_DECAPS_KEY];
 
     // fetch classical
-    fn get_fetch_sk(&self) -> &[u8];
-    fn get_fetch_pk(&self) -> &[u8];
+    fn get_fetch_sk(&self) -> &[u8; LEN_DH_ITEM];
+    fn get_fetch_pk(&self) -> &[u8; LEN_DH_ITEM];
 }
 
 pub fn hpke_keypair_from_bytes(sk_bytes: &[u8], pk_bytes: &[u8]) -> HpkeKeyPair {
@@ -95,12 +97,21 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     use hpke_rs::hpke_types::KemAlgorithm::{DhKem25519, XWingDraft06};
     use hpke_rs::{Hpke, Mode};
 
+    // TODO: did we discuss chachapoly vs aes? Keeping consistent with what's
+    // in the scaffold for now, but I think it might be aes and we can switch all
+    // in one commit
     let hpke_authenc = Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+
+    let hpke_metadata = Hpke::new(Mode::Base, DhKem25519, HkdfSha256, ChaCha20Poly1305);
 
     let recipient_hpke_pubkey_msg = hpke_pubkey_from_bytes(recipient.get_dhakem_pk());
 
     let sender_hpke_keypair =
         hpke_keypair_from_bytes(sender.get_dhakem_sk(), sender.get_dhakem_pk());
+
+    // Calculate psk
+    let (psk_enc, psk) =
+        libcrux_kem::MlKem768::encaps(sender.get_hybrid_md_sk(), rand).expect("PSK encaps failed");
 
     // HPKE AuthPSK message enc - TODO type
     let (enc, ct) = hpke_authenc.seal(
@@ -117,20 +128,16 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     let eph_sk: [u8; LEN_DH_ITEM] =
         generate_random_scalar(rng).expect("DH keygen (ephemeral fetch) failed!");
     let mut eph_pk: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
-    libcrux_curve25519::secret_to_public(&eph_pk, &eph_sk); // todo
-    let mut out_scalarmult = [0u8; LEN_DH_ITEM];
-    let shared_mgdh = scalarmult(
-        &mut out_scalarmult,
-        &eph_sk.to_bytes(),
-        recipient.get_fetch_pk(),
-    );
+    libcrux_curve25519::secret_to_public(&mut eph_pk, &eph_sk); // todo
+    let mut mgdh = [0u8; LEN_DH_ITEM];
+    let _ = scalarmult(&mut mgdh, &eph_sk, recipient.get_fetch_pk());
 
     Envelope {
         cmessage: ct,
         cmetadata: vec![], // TODO
         metadata_encap: enc,
-        mgdh_pubkey: eph_pk.as_bytes().to_vec(),
-        mgdh: shared_mgdh,
+        mgdh_pubkey: eph_pk.to_vec(),
+        mgdh: mgdh.to_vec(),
     }
 }
 
@@ -183,50 +190,56 @@ pub struct Source {
 }
 
 impl Source {
+    /// This doesn't use keys bootstrapped from a passphrase;
+    /// for now it's the same as journalist setup
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
-        let sk_dh: [u8; LEN_DHKEM_DECAPS_KEY] =
-            generate_random_scalar(rng).expect("DH keygen (ephemeral fetch) failed!");
-        let mut pubkey: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
-        let pk_dh = libcrux_curve25519::secret_to_public(&sk_dh, &mut pubkey);
-        let sk_fetch: [u8; LEN_DHKEM_DECAPS_KEY] =
-            generate_random_scalar(rng).expect("DH keygen (ephemeral fetch) failed!");
-        let pk_fetch = libcrux_curve25519::secret_to_public(&sk_dh, &mut pubkey);
+        let (sk_dh, pk_dh) = generate_dh_akem_keypair(rng).expect("DH keygen (DH-AKEM) failed");
+
+        let mut pk_fetch: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
+        let mut sk_fetch: [u8; LEN_DHKEM_DECAPS_KEY] =
+            generate_random_scalar(rng).expect("DH keygen (Fetching) failed!");
+        let _ = libcrux_curve25519::secret_to_public(&mut sk_fetch, &mut pk_fetch);
+
+        let (sk_pqkem_psk, pk_pqkem_psk) =
+            generate_mlkem768_keypair(rng).expect("Failed to generate ml-kem keys!");
+
+        let (sk_md, pk_md) = generate_xwing_keypair(rng).expect("Failed to generate xwing keys");
         Self {
-            sk_dh,
-            pk_dh,
-            sk_pqkem_psk: sk_msg,
-            pk_pqkem_psk: pk_msg,
-            sk_md,
-            pk_md,
-            sk_fetch,
-            pk_fetch,
+            sk_dh: *sk_dh.as_bytes(),
+            pk_dh: *pk_dh.as_bytes(),
+            sk_pqkem_psk: *sk_pqkem_psk.as_bytes(),
+            pk_pqkem_psk: *pk_pqkem_psk.as_bytes(),
+            sk_md: *sk_md.as_bytes(), // TODO
+            pk_md: *pk_md.as_bytes(),
+            sk_fetch: sk_fetch,
+            pk_fetch: pk_fetch,
         }
     }
 }
 
 impl User for Source {
-    fn get_dhakem_sk(&self) -> &[u8] {
+    fn get_dhakem_sk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.sk_dh
     }
-    fn get_dhakem_pk(&self) -> &[u8] {
+    fn get_dhakem_pk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.pk_dh
     }
-    fn get_fetch_sk(&self) -> &[u8] {
+    fn get_fetch_sk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.sk_fetch
     }
-    fn get_fetch_pk(&self) -> &[u8] {
+    fn get_fetch_pk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.pk_fetch
     }
-    fn get_hybrid_md_pk(&self) -> &[u8] {
+    fn get_hybrid_md_pk(&self) -> &[u8; LEN_XWING_ENCAPS_KEY] {
         &self.pk_md
     }
-    fn get_hybrid_md_sk(&self) -> &[u8] {
+    fn get_hybrid_md_sk(&self) -> &[u8; LEN_XWING_DECAPS_KEY] {
         &self.sk_md
     }
-    fn get_pq_kem_psk_pk(&self) -> &[u8] {
-        &self.sk_pqkem_psk
+    fn get_pq_kem_psk_pk(&self) -> &[u8; LEN_MLKEM_ENCAPS_KEY] {
+        &self.pk_pqkem_psk
     }
-    fn get_pq_kem_psk_sk(&self) -> &[u8] {
+    fn get_pq_kem_psk_sk(&self) -> &[u8; LEN_MLKEM_DECAPS_KEY] {
         &self.sk_pqkem_psk
     }
 }
@@ -244,33 +257,53 @@ pub struct Journalist {
 
 impl Journalist {
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
-        unimplemented!() // TODO!
+        let (sk_dh, pk_dh) = generate_dh_akem_keypair(rng).expect("DH keygen (DH-AKEM) failed");
+
+        let mut pk_fetch: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
+        let mut sk_fetch: [u8; LEN_DHKEM_DECAPS_KEY] =
+            generate_random_scalar(rng).expect("DH keygen (Fetching) failed!");
+        let _ = libcrux_curve25519::secret_to_public(&mut sk_fetch, &mut pk_fetch);
+
+        let (sk_pqkem_psk, pk_pqkem_psk) =
+            generate_mlkem768_keypair(rng).expect("Failed to generate ml-kem keys!");
+
+        let (sk_md, pk_md) = generate_xwing_keypair(rng).expect("Failed to generate xwing keys");
+        Self {
+            sk_dh: *sk_dh.as_bytes(),
+            pk_dh: *pk_dh.as_bytes(),
+            sk_pqkem_psk: *sk_pqkem_psk.as_bytes(),
+            pk_pqkem_psk: *pk_pqkem_psk.as_bytes(),
+            sk_md: *sk_md.as_bytes(), // TODO
+            pk_md: *pk_md.as_bytes(),
+            sk_fetch: sk_fetch,
+            pk_fetch: pk_fetch,
+        }
     }
 }
 
 impl User for Journalist {
-    fn get_dhakem_sk(&self) -> &[u8] {
+    fn get_dhakem_sk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.sk_dh
     }
-    fn get_dhakem_pk(&self) -> &[u8] {
+    fn get_dhakem_pk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.pk_dh
     }
-    fn get_fetch_sk(&self) -> &[u8] {
+    fn get_fetch_sk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.sk_fetch
     }
-    fn get_fetch_pk(&self) -> &[u8] {
+    fn get_fetch_pk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.pk_fetch
     }
-    fn get_hybrid_md_pk(&self) -> &[u8] {
+    fn get_hybrid_md_pk(&self) -> &[u8; LEN_XWING_ENCAPS_KEY] {
         &self.pk_md
     }
-    fn get_hybrid_md_sk(&self) -> &[u8] {
+    fn get_hybrid_md_sk(&self) -> &[u8; LEN_XWING_DECAPS_KEY] {
         &self.sk_md
     }
-    fn get_pq_kem_psk_pk(&self) -> &[u8] {
-        &self.sk_pqkem_psk
+    fn get_pq_kem_psk_pk(&self) -> &[u8; LEN_MLKEM_ENCAPS_KEY] {
+        &self.pk_pqkem_psk
     }
-    fn get_pq_kem_psk_sk(&self) -> &[u8] {
+    fn get_pq_kem_psk_sk(&self) -> &[u8; LEN_MLKEM_DECAPS_KEY] {
         &self.sk_pqkem_psk
     }
 }
@@ -279,7 +312,12 @@ pub fn setup() -> (Source, Journalist, Vec<u8>, Envelope) {
     let source = Source::new(&mut StdRng::seed_from_u64(666));
     let journalist = Journalist::new(&mut StdRng::seed_from_u64(666));
     let plaintext = b"super secret msg".to_vec();
-    let envelope = encrypt(&source, &plaintext, &journalist);
+    let envelope = encrypt(
+        &mut StdRng::seed_from_u64(666),
+        &source,
+        &plaintext,
+        &journalist,
+    );
     (source, journalist, plaintext, envelope)
 }
 
