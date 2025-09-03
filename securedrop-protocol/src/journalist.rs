@@ -6,6 +6,7 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
+use crate::Signature;
 use crate::keys::{
     JournalistDHKeyPair, JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair,
     JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair, JournalistOneTimeKeyBundle,
@@ -15,9 +16,6 @@ use crate::keys::{JournalistEnrollmentKeyBundle, SourcePublicKeys};
 use crate::messages::core::{JournalistReplyMessage, Message, MessageChallengeFetchRequest};
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
 use crate::primitives::x25519::DHPublicKey;
-use crate::primitives::{
-    generate_dh_akem_keypair, generate_mlkem768_keypair, generate_xwing_keypair,
-};
 use crate::sign::VerifyingKey;
 use crate::{Client, client::ClientPrivate};
 
@@ -34,10 +32,8 @@ pub struct JournalistClient {
     /// TODO: Remove? Not for use with encryption, although it
     /// may be needed as "key of last resort" - to discuss
     dh_key: Option<JournalistDHKeyPair>,
-    /// Generated ephemeral key pairs (for reuse)
-    one_time_pubkeys: Vec<JournalistOneTimeKeyBundle>,
-    /// TODO: store complete key bundles (private and pubkey)
     /// and use instead of dh_key for encryption
+    /// Journalist one-time keypairs
     one_time_keystore: Vec<JournalistOneTimeKeypairs>,
     /// Newsroom's verifying key
     newsroom_verifying_key: Option<VerifyingKey>,
@@ -85,6 +81,15 @@ impl JournalistClient {
         })
     }
 
+    /// Sign a message.
+    pub(crate) fn sign(&self, message: &[u8]) -> Result<Signature, Error> {
+        let signing_key = self.signing_key.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("No signing key found in session. Call create_setup_request first.")
+        })?;
+
+        Ok(signing_key.sign(message))
+    }
+
     /// Generate a new ephemeral key refresh request.
     ///
     /// This generates ephemeral key pairs and creates a request containing
@@ -95,43 +100,21 @@ impl JournalistClient {
         &mut self,
         mut rng: R,
     ) -> Result<JournalistRefreshRequest, Error> {
-        use crate::keys::JournalistOneTimeMessageClassicalKeyPair;
-        use crate::keys::JournalistOneTimeMessagePQKeyPair;
-        use crate::keys::JournalistOneTimeMetadataKeyPair;
+        let key_bundle = JournalistOneTimeKeypairs::generate(&mut rng);
 
-        // Get the signing key from the session
-        let signing_key = self.signing_key.as_ref().ok_or_else(|| {
-            anyhow::anyhow!("No signing key found in session. Call create_setup_request first.")
-        })?;
-
-        // Generate one-time key pairs for 0.3 spec
-        let (one_time_epq_sk, one_time_epq_pk) = generate_mlkem768_keypair(&mut rng)?;
-        let (one_time_epke_sk, one_time_epke_pk) = generate_dh_akem_keypair(&mut rng)?;
-        let (one_time_emd_sk, one_time_emd_pk) = generate_xwing_keypair(&mut rng)?;
-
-        // key bundles
-        let msg_key =
-            JournalistOneTimeMessageClassicalKeyPair::new(one_time_epke_pk, one_time_epke_sk);
-        let pq_psk_key = JournalistOneTimeMessagePQKeyPair::new(one_time_epq_pk, one_time_epq_sk);
-        let md_key = JournalistOneTimeMetadataKeyPair::new(one_time_emd_pk, one_time_emd_sk);
-
-        let key_bundle = JournalistOneTimeKeypairs::new(msg_key, pq_psk_key, md_key);
-
-        let one_time_public_keys = key_bundle.pubkeys().clone();
-
-        // Create the one-time key bundle
         let one_time_pubkey_bundle = JournalistOneTimeKeyBundle {
-            public_keys: one_time_public_keys.clone(),
-            signature: signing_key.sign(&one_time_public_keys.into_bytes()),
+            public_keys: key_bundle.pubkeys().clone(),
+            signature: self.sign(&key_bundle.pubkeys().into_bytes())?,
         };
 
         // Store the ephemeral key bundle in the session
-        // TODO: Replace with JournalistOneTimeKeystore (internal) for managing keypairs
         self.one_time_keystore.push(key_bundle.clone());
-        self.one_time_pubkeys.push(one_time_pubkey_bundle.clone());
 
         Ok(JournalistRefreshRequest {
-            journalist_verifying_key: signing_key.vk,
+            journalist_verifying_key: self
+                .verifying_key()
+                .expect("Signing key should be set at this point")
+                .clone(),
             ephemeral_key_bundle: one_time_pubkey_bundle,
         })
     }

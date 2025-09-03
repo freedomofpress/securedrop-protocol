@@ -163,6 +163,17 @@ impl JournalistOneTimeMessagePQKeyPair {
             private_key: (priv_key),
         }
     }
+
+    /// Generate a new one-time message PQ key pair
+    pub fn generate<R: RngCore + CryptoRng>(mut rng: R) -> JournalistOneTimeMessagePQKeyPair {
+        let (private_key, public_key) =
+            crate::primitives::mlkem::generate_mlkem768_keypair(&mut rng)
+                .expect("MLKEM-768 key generation failed");
+        JournalistOneTimeMessagePQKeyPair {
+            private_key,
+            public_key,
+        }
+    }
 }
 
 /// Journalist message encryption keypair
@@ -186,6 +197,19 @@ impl JournalistOneTimeMessageClassicalKeyPair {
             private_key: (priv_key),
         }
     }
+
+    /// Generate a new one-time message classical key pair
+    pub fn generate<R: RngCore + CryptoRng>(
+        mut rng: R,
+    ) -> JournalistOneTimeMessageClassicalKeyPair {
+        let (private_key, public_key) =
+            crate::primitives::dh_akem::generate_dh_akem_keypair(&mut rng)
+                .expect("DH-AKEM key generation failed");
+        JournalistOneTimeMessageClassicalKeyPair {
+            private_key,
+            public_key,
+        }
+    }
 }
 
 /// Journalist metadata keypair
@@ -207,6 +231,16 @@ impl JournalistOneTimeMetadataKeyPair {
         JournalistOneTimeMetadataKeyPair {
             public_key: (pubkey),
             private_key: (priv_key),
+        }
+    }
+
+    /// Generate a new metadata keypair
+    pub fn generate<R: RngCore + CryptoRng>(mut rng: R) -> JournalistOneTimeMetadataKeyPair {
+        let (private_key, public_key) = crate::primitives::xwing::generate_xwing_keypair(&mut rng)
+            .expect("XWING key generation failed");
+        JournalistOneTimeMetadataKeyPair {
+            private_key,
+            public_key,
         }
     }
 }
@@ -287,11 +321,20 @@ impl JournalistOneTimeKeypairs {
             metadata: metadata_key,
         }
     }
-    pub fn pubkeys(self) -> JournalistOneTimePublicKeys {
+
+    /// Generate a key bundle
+    pub fn generate<R: RngCore + CryptoRng>(mut rng: R) -> JournalistOneTimeKeypairs {
+        let dh_key = JournalistOneTimeMessageClassicalKeyPair::generate(&mut rng);
+        let pq_kem_psk_key = JournalistOneTimeMessagePQKeyPair::generate(&mut rng);
+        let metadata_key = JournalistOneTimeMetadataKeyPair::generate(&mut rng);
+        JournalistOneTimeKeypairs::new(dh_key, pq_kem_psk_key, metadata_key)
+    }
+
+    pub fn pubkeys(&self) -> JournalistOneTimePublicKeys {
         JournalistOneTimePublicKeys {
-            one_time_message_pq_pk: self.pq_kem_psk.public_key,
-            one_time_message_pk: self.dh_akem.public_key,
-            one_time_metadata_pk: self.metadata.public_key,
+            one_time_message_pq_pk: self.pq_kem_psk.public_key.clone(),
+            one_time_message_pk: self.dh_akem.public_key.clone(),
+            one_time_metadata_pk: self.metadata.public_key.clone(),
         }
     }
 }
