@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::keys::{
     JournalistDHKeyPair, JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair,
     JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair, JournalistOneTimeKeyBundle,
-    JournalistOneTimePublicKeys, JournalistSigningKeyPair,
+    JournalistOneTimeKeypairs, JournalistOneTimePublicKeys, JournalistSigningKeyPair,
 };
 use crate::keys::{JournalistEnrollmentKeyBundle, SourcePublicKeys};
 use crate::messages::core::{JournalistReplyMessage, Message, MessageChallengeFetchRequest};
@@ -38,7 +38,7 @@ pub struct JournalistClient {
     one_time_pubkeys: Vec<JournalistOneTimeKeyBundle>,
     /// TODO: store complete key bundles (private and pubkey)
     /// and use instead of dh_key for encryption
-    /// one_time_keystore: TODO
+    one_time_keystore: Vec<JournalistOneTimeKeypairs>,
     /// Newsroom's verifying key
     newsroom_verifying_key: Option<VerifyingKey>,
 }
@@ -95,6 +95,10 @@ impl JournalistClient {
         &mut self,
         mut rng: R,
     ) -> Result<JournalistRefreshRequest, Error> {
+        use crate::keys::JournalistOneTimeMessageClassicalKeyPair;
+        use crate::keys::JournalistOneTimeMessagePQKeyPair;
+        use crate::keys::JournalistOneTimeMetadataKeyPair;
+
         // Get the signing key from the session
         let signing_key = self.signing_key.as_ref().ok_or_else(|| {
             anyhow::anyhow!("No signing key found in session. Call create_setup_request first.")
@@ -105,17 +109,15 @@ impl JournalistClient {
         let (one_time_epke_sk, one_time_epke_pk) = generate_dh_akem_keypair(&mut rng)?;
         let (one_time_emd_sk, one_time_emd_pk) = generate_xwing_keypair(&mut rng)?;
 
-        // Extract public keys
-        let one_time_message_pq_pubkey = one_time_epq_pk;
-        let one_time_message_pubkey = one_time_epke_pk;
-        let one_time_metadata_pubkey = one_time_emd_pk;
+        // key bundles
+        let msg_key =
+            JournalistOneTimeMessageClassicalKeyPair::new(one_time_epke_pk, one_time_epke_sk);
+        let pq_psk_key = JournalistOneTimeMessagePQKeyPair::new(one_time_epq_pk, one_time_epq_sk);
+        let md_key = JournalistOneTimeMetadataKeyPair::new(one_time_emd_pk, one_time_emd_sk);
 
-        // Create one-time public keys struct for signing
-        let one_time_public_keys = JournalistOneTimePublicKeys {
-            one_time_message_pq_pk: one_time_message_pq_pubkey,
-            one_time_message_pk: one_time_message_pubkey,
-            one_time_metadata_pk: one_time_metadata_pubkey,
-        };
+        let key_bundle = JournalistOneTimeKeypairs::new(msg_key, pq_psk_key, md_key);
+
+        let one_time_public_keys = key_bundle.pubkeys().clone();
 
         // Create the one-time key bundle
         let one_time_pubkey_bundle = JournalistOneTimeKeyBundle {
@@ -124,7 +126,8 @@ impl JournalistClient {
         };
 
         // Store the ephemeral key bundle in the session
-        // TODO: Add JournalistOneTimeKeystore (internal) for managing keypairs
+        // TODO: Replace with JournalistOneTimeKeystore (internal) for managing keypairs
+        self.one_time_keystore.push(key_bundle.clone());
         self.one_time_pubkeys.push(one_time_pubkey_bundle.clone());
 
         Ok(JournalistRefreshRequest {
@@ -200,6 +203,8 @@ impl JournalistClient {
     ) -> Result<Message, Error> {
         // Get the journalist's DH private key
         // TODO: not the long-term DH key!
+        let journalist_dhakem_keypair: JournalistEphemeralDHKeyPair = "";
+
         let journalist_dh_private_key = self
             .dh_key
             .as_ref()

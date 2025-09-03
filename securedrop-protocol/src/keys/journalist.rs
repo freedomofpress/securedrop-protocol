@@ -147,10 +147,22 @@ impl JournalistEphemeralDHKeyPair {
 /// One-time key
 ///
 /// $J_epq$ in the specification.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct JournalistOneTimeMessagePQKeyPair {
     pub public_key: MLKEM768PublicKey,
     pub(crate) private_key: MLKEM768PrivateKey,
+}
+
+impl JournalistOneTimeMessagePQKeyPair {
+    pub fn new(
+        pubkey: MLKEM768PublicKey,
+        priv_key: MLKEM768PrivateKey,
+    ) -> JournalistOneTimeMessagePQKeyPair {
+        JournalistOneTimeMessagePQKeyPair {
+            public_key: (pubkey),
+            private_key: (priv_key),
+        }
+    }
 }
 
 /// Journalist message encryption keypair
@@ -158,10 +170,22 @@ pub struct JournalistOneTimeMessagePQKeyPair {
 /// One-time key
 ///
 /// $J_epke$ in the specification.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct JournalistOneTimeMessageClassicalKeyPair {
     pub public_key: DhAkemPublicKey,
     pub(crate) private_key: DhAkemPrivateKey,
+}
+
+impl JournalistOneTimeMessageClassicalKeyPair {
+    pub fn new(
+        pubkey: DhAkemPublicKey,
+        priv_key: DhAkemPrivateKey,
+    ) -> JournalistOneTimeMessageClassicalKeyPair {
+        JournalistOneTimeMessageClassicalKeyPair {
+            public_key: (pubkey),
+            private_key: (priv_key),
+        }
+    }
 }
 
 /// Journalist metadata keypair
@@ -169,10 +193,22 @@ pub struct JournalistOneTimeMessageClassicalKeyPair {
 /// One-time key
 ///
 /// $J_emd$ in the specification.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct JournalistOneTimeMetadataKeyPair {
     pub public_key: XWingPublicKey,
     pub(crate) private_key: XWingPrivateKey,
+}
+
+impl JournalistOneTimeMetadataKeyPair {
+    pub fn new(
+        pubkey: XWingPublicKey,
+        priv_key: XWingPrivateKey,
+    ) -> JournalistOneTimeMetadataKeyPair {
+        JournalistOneTimeMetadataKeyPair {
+            public_key: (pubkey),
+            private_key: (priv_key),
+        }
+    }
 }
 
 /// One-time public keys for a journalist (without signature)
@@ -184,6 +220,7 @@ pub struct JournalistOneTimeMetadataKeyPair {
 /// - J_{epq} (MLKEM-768) for message enc PSK (one-time)
 /// - J_{epke} (DH-AKEM) for message enc (one-time)
 /// - J_{emd} (XWING) for metadata enc (one-time)
+/// TODO: Use JournalistOneTimeKeypairs::pubkeys()
 #[derive(Debug, Clone)]
 pub struct JournalistOneTimePublicKeys {
     /// One-time MLKEM-768 public key for message enc PSK (one-time)
@@ -232,20 +269,32 @@ pub struct JournalistOneTimeKeyBundle {
 /// TODO: improve/refactor with OneTimeKeyBundle
 /// TODO: use native hpke-rs types
 #[derive(Debug, Clone)]
-pub struct JournalistOneTimeKeystore {
-    // One-time PQ KEM PSK (message enc)
-    pub(crate) one_time_message_pq_sk: MLKEM768PrivateKey,
-    pubone_time_message_pq_pk: MLKEM768PublicKey,
-    /// One-time DH-AKEM public key (message enc)
-    pub(crate) one_time_message_sk: DhAkemPrivateKey,
-    pub one_time_message_pk: DhAkemPublicKey,
-    /// One-time XWING public key (metadata enc)
-    pub(crate) one_time_metadata_sk: XWingPrivateKey,
-    pub one_time_metadata_pk: XWingPublicKey,
+pub struct JournalistOneTimeKeypairs {
+    pub dh_akem: JournalistOneTimeMessageClassicalKeyPair,
+    pub pq_kem_psk: JournalistOneTimeMessagePQKeyPair,
+    pub metadata: JournalistOneTimeMetadataKeyPair,
 }
 
-// TODO
-impl JournalistOneTimeKeystore {}
+impl JournalistOneTimeKeypairs {
+    pub fn new(
+        dh_key: JournalistOneTimeMessageClassicalKeyPair,
+        pq_kem_psk_key: JournalistOneTimeMessagePQKeyPair,
+        metadata_key: JournalistOneTimeMetadataKeyPair,
+    ) -> JournalistOneTimeKeypairs {
+        JournalistOneTimeKeypairs {
+            dh_akem: dh_key,
+            pq_kem_psk: pq_kem_psk_key,
+            metadata: metadata_key,
+        }
+    }
+    pub fn pubkeys(self) -> JournalistOneTimePublicKeys {
+        JournalistOneTimePublicKeys {
+            one_time_message_pq_pk: self.pq_kem_psk.public_key,
+            one_time_message_pk: self.dh_akem.public_key,
+            one_time_metadata_pk: self.metadata.public_key,
+        }
+    }
+}
 
 /// Journalist enrollment key bundle for 0.3 spec
 ///
@@ -264,6 +313,7 @@ impl JournalistEnrollmentKeyBundle {
     /// Returns a byte array containing the concatenated public keys:
     /// - signing_key (32 bytes)
     /// - fetching_key (32 bytes)
+    /// TODO: Fetching key may be signed by the journalist instead of by the newsroom
     /// Total: 64 bytes
     pub fn into_bytes(self) -> [u8; 64] {
         let mut bytes = [0u8; 64];
