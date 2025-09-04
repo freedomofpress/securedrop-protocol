@@ -189,9 +189,9 @@ pub fn encrypt<R: RngCore + CryptoRng>(
         Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
 
     let mut hpke_metadata: Hpke<HpkeLibcrux> =
-        Hpke::new(Mode::Base, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+        Hpke::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
 
-    let recipient_hpke_pubkey_msg = hpke_pubkey_from_bytes(recipient.get_dhakem_pk());
+    let recipient_dhakem_pubkey = hpke_pubkey_from_bytes(recipient.get_dhakem_pk());
 
     let sender_hpke_keypair =
         hpke_keypair_from_bytes(sender.get_dhakem_sk(), sender.get_dhakem_pk());
@@ -201,14 +201,14 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     let mut randomness: [u8; LEN_MLKEM_SHAREDSECRET] = [0u8; LEN_MLKEM_SHAREDSECRET];
     rand::rng().fill_bytes(&mut randomness);
 
-    // Calculate PQ PSK
+    // Calculate PQ PSK - encapsulate to the recipient's key
     let (psk, psk_ct) =
-        MlKem768::encaps(sender.get_pq_kem_psk_pk(), &randomness).expect("PSK encaps failed");
+        MlKem768::encaps(recipient.get_pq_kem_psk_pk(), &randomness).expect("PSK encaps failed");
 
     // HPKE AuthPSK message encryption
     let (mesage_dhakem_shared_secret_encaps, message_ciphertext) = hpke_authenc
         .seal(
-            &recipient_hpke_pubkey_msg,
+            &recipient_dhakem_pubkey,
             HPKE_INFO,
             HPKE_AAD,
             plaintext,
@@ -283,18 +283,21 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
         Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
 
     let hpke_base: Hpke<HpkeLibcrux> =
-        Hpke::new(Mode::Base, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+        Hpke::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
 
-    let hpke_keypair_receiver =
+    let receiver_metadata_keypair =
+        hpke_keypair_from_bytes(receiver.get_hybrid_md_sk(), receiver.get_hybrid_md_pk());
+
+    let receiver_dhakem_keypair =
         hpke_keypair_from_bytes(receiver.get_dhakem_sk(), receiver.get_dhakem_pk());
 
     let raw_metadata = hpke_base
         .open(
             &envelope.metadata_encap,
-            hpke_keypair_receiver.private_key(),
+            receiver_metadata_keypair.private_key(),
             HPKE_INFO,
             HPKE_AAD,
-            &envelope.cmessage,
+            &envelope.cmetadata,
             None,
             None,
             None,
@@ -312,7 +315,7 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
     let pt = hpke_authenc
         .open(
             &metadata.dhakem_ss_encaps,
-            hpke_keypair_receiver.private_key(),
+            receiver_dhakem_keypair.private_key(),
             HPKE_INFO,
             HPKE_AAD,
             &envelope.cmessage,
@@ -550,6 +553,54 @@ impl User for Journalist {
 }
 
 //////////////////////////////////
+/// add tests ////////////////////
+//////////////////////////////////
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip() {
+        let mut rng = StdRng::seed_from_u64(666); // obvi
+        let sender = Source::new(&mut rng);
+        let recipient = Journalist::new(&mut rng);
+        let plaintext = b"Encrypt-decrypt test".to_vec();
+
+        let envelope = encrypt(&mut rng, &sender, &plaintext, &recipient);
+        let decrypted = decrypt(&recipient, &envelope);
+
+        assert_eq!(decrypted.msg, plaintext);
+        assert_eq!(decrypted.sender_key, sender.get_dhakem_pk().to_vec());
+    }
+
+    #[test]
+    fn test_fetch_challenges_roundtrip() {
+        let mut rng = StdRng::seed_from_u64(12345);
+        let journalist = Journalist::new(&mut rng);
+        let source = Source::new(&mut rng);
+
+        let plaintext = b"Fetch this message".to_vec();
+        let envelope = encrypt(&mut rng, &source, &plaintext, &journalist);
+
+        let message_id: [u8; LEN_MESSAGE_ID] = [42u8; LEN_MESSAGE_ID];
+        let store_entry = ServerMessageStore {
+            message_id,
+            mgdh: envelope.mgdh,
+            mgdh_pubkey: envelope.mgdh_pubkey,
+            ciphertext: envelope.cmessage.clone(),
+        };
+
+        let challenges = compute_fetch_challenges(&mut rng, &[store_entry], 1);
+        let solved_ids = solve_fetch_challenges(&journalist, challenges);
+
+        assert_eq!(solved_ids.len(), 1);
+        assert_eq!(solved_ids[0], message_id);
+    }
+}
+
+//////////////////////////////////
 /// Begin Benchmark functions  ///
 //////////////////////////////////
 
@@ -596,9 +647,41 @@ pub fn bench_decrypt(c: &mut Criterion) {
 }
 
 pub fn bench_fetch(c: &mut Criterion) {
-    unimplemented!()
+    let mut rng = StdRng::seed_from_u64(8888);
+    let journalist = Journalist::new(&mut rng);
+    let source = Source::new(&mut rng);
+
+    // Generate multiple envelopes and populate a server store
+    let mut store = Vec::new();
+    for i in 0..100 {
+        let envelope = encrypt(
+            &mut rng,
+            &source,
+            format!("msg {i}").as_bytes(),
+            &journalist,
+        );
+        let message_id = [i as u8; LEN_MESSAGE_ID]; // Dummy message IDs for benchmarking
+
+        store.push(ServerMessageStore {
+            message_id,
+            mgdh: envelope.mgdh,
+            mgdh_pubkey: envelope.mgdh_pubkey,
+            ciphertext: envelope.cmessage,
+        });
+    }
+
+    let total_responses = 150;
+
+    c.benchmark_group("fetch").bench_function(
+        BenchmarkId::new("compute_and_solve", "100_entries"),
+        |b| {
+            b.iter(|| {
+                let challenges = compute_fetch_challenges(&mut rng, &store, total_responses);
+                let _solved = solve_fetch_challenges(&journalist, challenges);
+            });
+        },
+    );
 }
 
-criterion_group!(benches, bench_encrypt, bench_decrypt);
-// criterion_group!(benches, bench_encrypt, bench_decrypt, bench_fetch);
+criterion_group!(benches, bench_encrypt, bench_decrypt, bench_fetch);
 criterion_main!(benches);
