@@ -27,6 +27,15 @@ blake2 = "0.10"
 proptest = "1.3"
 criterion = { version = "0.5", features = ["html_reports"] }
 
+[features]
+quickbench = []
+
 [[bench]]
 name = "submit"
 harness = false
+
+[[bench]]
+name = "encrypt_decrypt"
+path = "benches/quickbench/encrypt_decrypt.rs"
+harness = false
+required-features = ["quickbench"]

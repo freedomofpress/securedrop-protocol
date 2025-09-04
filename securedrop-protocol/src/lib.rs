@@ -41,3 +41,8 @@ pub use sign::{Signature, SigningKey, VerifyingKey};
 
 /// Server storage
 pub mod storage;
+
+/// Only if compiled
+#[cfg(feature = "quickbench")]
+#[path = "quickbench/sd_protocol_quickbench.rs"]
+pub mod sd_protocol_quickbench;
