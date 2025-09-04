@@ -178,35 +178,31 @@ impl SourceClient {
 
         // Submit a distinct copy of the message to each journalist
         for journalist_response in journalist_responses {
-            // TODO: update for 0.3
+            let source_message = SourceMessage {
+                message: message.clone(),
+                source_message_pq_pk: key_bundle.pq_kem_psk.public_key.clone(),
+                source_message_pk: key_bundle.long_term_dh.public_key.clone(),
+                source_metadata_pk: key_bundle.metadata.public_key.clone(),
+                source_fetch_pk: key_bundle.fetch.public_key.clone(),
+                journalist_sig_pk: journalist_response.journalist_sig_pk,
+                newsroom_sig_pk: self.get_newsroom_verifying_key()?.clone(),
+            };
 
-            // // 1. Create the structured message according to Step 6 format:
-            // // msg || S_dh,pk || S_pke,pk || S_kem,pk || S_fetch,pk || J^i_sig,pk || NR
-            // let source_message = SourceMessage {
-            //     message: message.clone(),
-            //     source_message_pq_pk: key_bundle.long_term_dh.public_key.clone(),
-            //     source_message_pk: key_bundle.pke.public_key.clone(),
-            //     source_metadata_pk: key_bundle.kem.public_key.clone(),
-            //     source_fetch_pk: key_bundle.fetch.public_key.clone(),
-            //     journalist_sig_pk: journalist_response.journalist_sig_pk,
-            //     newsroom_sig_pk: self.get_newsroom_verifying_key()?.clone(),
-            // };
+            // Use the shared method for encryption and message creation
+            let request = self.submit_structured_message(
+                source_message,
+                (
+                    &journalist_response.one_time_message_pk,
+                    &journalist_response.one_time_message_pq_pk,
+                ),
+                &journalist_response.one_time_metadata_pk,
+                &journalist_response.journalist_fetch_pk,
+                &key_bundle.long_term_dh.private_key,
+                &key_bundle.long_term_dh.public_key,
+                rng,
+            )?;
 
-            // // 2. Use the shared method for encryption and message creation
-            // let request = self.submit_structured_message(
-            //     source_message,
-            //     (
-            //         &journalist_response.one_time_message_pq_pk,
-            //         &journalist_response.one_time_message_pk,
-            //     ),
-            //     &journalist_response.one_time_metadata_pk,
-            //     &journalist_response.journalist_fetch_pk,
-            //     &key_bundle.long_term_dh.private_key,
-            //     &key_bundle.long_term_dh.public_key,
-            //     rng,
-            // )?;
-
-            //requests.push(request);
+            requests.push(request);
         }
 
         Ok(requests)

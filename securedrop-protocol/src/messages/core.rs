@@ -110,12 +110,9 @@ pub struct SourceJournalistKeyResponse {
 /// Message structure for Step 6: Source submits a message
 ///
 /// This represents the message format before padding and encryption:
-/// `msg || S_dh,pk || S_pke,pk || S_kem,pk || S_fetch,pk || J^i_sig,pk || NR`
-///
-/// Updated for 0.3 spec with new key types:
-/// - source_message_pq_pk: MLKEM-768 for message enc PSK (one-time)
-/// - source_message_pk: DH-AKEM for message enc (one-time)
-/// - source_metadata_pk: XWING for metadata enc (one-time)
+/// `source_message_pq_pk || source_message_pk || source_metadata_pk || S_fetch,pk || J^i_sig,pk || NR || msg`
+/// TODO: Decide on actual format
+/// TODO: Just include a hash of the DH-AKEM public key, 0.3 description suggests that
 #[derive(Clone)]
 pub struct SourceMessage {
     /// The actual message content
@@ -137,7 +134,7 @@ pub struct SourceMessage {
 impl SourceMessage {
     /// Serialize the message into bytes for padding and encryption
     ///
-    /// Note: Deviated from spec here to put variable length field last
+    /// Note: Deviated from 0.2 spec here to put variable length field last
     pub fn into_bytes(self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
         bytes.extend_from_slice(&self.source_message_pq_pk.as_bytes()[0..1184]);

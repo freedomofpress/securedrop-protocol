@@ -71,14 +71,11 @@ impl PPKPrivateKey {
     }
 }
 
-/// Authenticated encryption according to the SecureDrop protocol using HPKE
-///
 /// This implements HPKE AuthEnc with a PSK mode as specified in the SecureDrop protocol
 /// using the sender's DH-AKEM private key and the recipient's DH-AKEM pubkey
 /// and PQ KEM PSK pubkey.
 ///
 /// TODO: One-shot hpke API
-/// TODO: Exposing randomness for benchmarking purposes only
 /// TODO: Horrible types in return value
 pub fn auth_encrypt<R: RngCore + CryptoRng>(
     rng: &mut R,
@@ -86,18 +83,12 @@ pub fn auth_encrypt<R: RngCore + CryptoRng>(
     recipient_message_keys: (&DhAkemPublicKey, &MLKEM768PublicKey),
     message: &[u8],
 ) -> Result<((Vec<u8>, Vec<u8>), Vec<u8>), Error> {
-    // TODO: Update these based on primitive choices in final spec
-    // Note: We need to specify the crypto backend - using libcrux for consistency
     let mut hpke: Hpke<libcrux::HpkeLibcrux> = Hpke::new(
         HpkeMode::AuthPsk,
         KemAlgorithm::DhKem25519,
         KdfAlgorithm::HkdfSha256,
         AeadAlgorithm::ChaCha20Poly1305,
     );
-
-    // TODO: NOT FOR PROD; benchmarking purposes only
-    let mut rand_seed = [0u8; 32];
-    rand::rng().fill_bytes(&mut rand_seed);
 
     // Convert our key types to HPKE key types
     // TODO: Need to use these HPKE types in the keys module
@@ -113,6 +104,8 @@ pub fn auth_encrypt<R: RngCore + CryptoRng>(
             .expect("Expected mlkem768 pubkey");
 
     // Build PSK
+    let mut rand_seed = [0u8; 32];
+    rng.fill_bytes(&mut rand_seed);
     let (psk_ct, shared_secret) = mlkem768::encapsulate(&recipient_pq_psk_key, rand_seed);
     let fixed_psk_id = b"PSK_ID"; // TODO
 
@@ -129,22 +122,7 @@ pub fn auth_encrypt<R: RngCore + CryptoRng>(
         )
         .map_err(|e| anyhow::anyhow!("HPKE seal failed: {:?}", e))?;
 
-    // Split the encapsulated key into c1 and c2 components
-    // TODO: This is a placeholder
-    // TODO: The psk_ct needs to be returned and included in the metadata
-    let c1 = if encapsulated_key.len() >= 32 {
-        encapsulated_key[..32].to_vec()
-    } else {
-        encapsulated_key.clone()
-    };
-
-    let c2 = if encapsulated_key.len() > 32 {
-        encapsulated_key[32..].to_vec()
-    } else {
-        Vec::new()
-    };
-
-    Ok(((c1, c2), ciphertext))
+    Ok(((psk_ct.as_slice().to_vec(), encapsulated_key), ciphertext))
 }
 
 /// This implements HPKE Base mode (unauthenticated) for metadata encryption
