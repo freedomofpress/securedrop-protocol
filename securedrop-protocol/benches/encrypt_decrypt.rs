@@ -1,7 +1,9 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 
+use hpke_rs::libcrux::HpkeLibcrux;
 use hpke_rs::{HpkeKeyPair, HpkePrivateKey, HpkePublicKey};
 use libcrux_curve25519::hacl::scalarmult;
+use libcrux_kem::MlKem768;
 use libcrux_traits::kem::secrets::Kem;
 use rand::RngCore;
 use rand::rngs::StdRng;
@@ -69,14 +71,14 @@ pub struct Plaintext {
 }
 
 /// Represent stored ciphertexts on the server
-struct ServerMessageStore {
+pub struct ServerMessageStore {
     message_id: [u8; LEN_MESSAGE_ID],
     mgdh: [u8; LEN_DH_ITEM],
     mgdh_pubkey: [u8; LEN_DH_ITEM],
     ciphertext: Vec<u8>,
 }
 
-struct FetchResponse {
+pub struct FetchResponse {
     enc_id: [u8; LEN_KMID],   // aka kmid
     pmgdh: [u8; LEN_DH_ITEM], // aka per-request clue
 }
@@ -183,9 +185,11 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     use hpke_rs::{Hpke, Mode};
 
     // TODO: AESGCM instead
-    let hpke_authenc = Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+    let mut hpke_authenc: Hpke<HpkeLibcrux> =
+        Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
 
-    let hpke_metadata = Hpke::new(Mode::Base, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+    let mut hpke_metadata: Hpke<HpkeLibcrux> =
+        Hpke::new(Mode::Base, DhKem25519, HkdfSha256, ChaCha20Poly1305);
 
     let recipient_hpke_pubkey_msg = hpke_pubkey_from_bytes(recipient.get_dhakem_pk());
 
@@ -275,9 +279,11 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
     use hpke_rs::hpke_types::KemAlgorithm::{DhKem25519, XWingDraft06};
     use hpke_rs::{Hpke, Mode};
 
-    let hpke_authenc = Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+    let hpke_authenc: Hpke<HpkeLibcrux> =
+        Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
 
-    let hpke_base = Hpke::new(Mode::Base, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+    let hpke_base: Hpke<HpkeLibcrux> =
+        Hpke::new(Mode::Base, DhKem25519, HkdfSha256, ChaCha20Poly1305);
 
     let hpke_keypair_receiver =
         hpke_keypair_from_bytes(receiver.get_dhakem_sk(), receiver.get_dhakem_pk());
@@ -319,7 +325,7 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
     // TODO
     Plaintext {
         msg: pt,
-        sender_key: envelope.mgdh_pubkey.clone(), // no, not this key!
+        sender_key: hpke_pubkey_sender.as_slice().to_vec(),
         recipient_reply_key_classical_msg: None,
         recipient_reply_key_pq_psk_msg: None,
         recipient_reply_key_hybrid_md: None,
@@ -339,7 +345,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     let mut responses = Vec::with_capacity(total_responses);
 
     // Generate ephemeral (per request) keypair
-    let (eph_sk, _eph_pk) = generate_dh_keypair(rng).expect("Wanted DH keypair");
+    let (eph_sk, _eph_pk) = generate_dh_keypair(&mut *rng).expect("Wanted DH keypair");
     let eph_sk_bytes = eph_sk.clone().into_bytes();
 
     for entry in store.iter() {
@@ -542,6 +548,10 @@ impl User for Journalist {
         &self.sk_pqkem_psk
     }
 }
+
+//////////////////////////////////
+/// Begin Benchmark functions  ///
+//////////////////////////////////
 
 pub fn setup() -> (Source, Journalist, Vec<u8>, Envelope) {
     let source = Source::new(&mut StdRng::seed_from_u64(666));
