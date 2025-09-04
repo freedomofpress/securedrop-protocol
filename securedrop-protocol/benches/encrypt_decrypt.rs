@@ -552,9 +552,9 @@ impl User for Journalist {
     }
 }
 
-//////////////////////////////////
-/// add tests ////////////////////
-//////////////////////////////////
+
+// Begin unit tests
+ 
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -600,9 +600,7 @@ mod tests {
     }
 }
 
-//////////////////////////////////
-/// Begin Benchmark functions  ///
-//////////////////////////////////
+// Begin benchmark functions
 
 pub fn setup() -> (Source, Journalist, Vec<u8>, Envelope) {
     let source = Source::new(&mut StdRng::seed_from_u64(666));
