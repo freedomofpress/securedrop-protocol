@@ -9,8 +9,10 @@ use rand_core::CryptoRng;
 use rand_core::SeedableRng;
 use securedrop_protocol::primitives::dh_akem::generate_dh_akem_keypair;
 use securedrop_protocol::primitives::mlkem::generate_mlkem768_keypair;
+use securedrop_protocol::primitives::x25519::generate_dh_keypair;
 use securedrop_protocol::primitives::x25519::generate_random_scalar;
 use securedrop_protocol::primitives::xwing::generate_xwing_keypair;
+use securedrop_protocol::primitives::{decrypt_message_id, encrypt_message_id};
 use std::vec::Vec;
 
 const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // Spec requires a tag
@@ -61,18 +63,17 @@ pub struct Plaintext {
     recipient_reply_key_hybrid_md: Option<Vec<u8>>,     // XWING
 }
 
-/// Stored ciphertexts on the server.
-/// For simplicity, ()
+/// Represent stored ciphertexts on the server
 struct ServerMessageStore {
     message_id: Vec<u8>,
-    mgdh: Vec<u8>,        // secret bytes
-    mgdh_pubkey: Vec<u8>, // public bytes
+    mgdh: [u8; LEN_DH_ITEM],
+    mgdh_pubkey: [u8; LEN_DH_ITEM],
     ciphertext: Vec<u8>,
 }
 
 struct FetchResponse {
-    enc_id: Vec<u8>,
-    pmgdh: Vec<u8>,
+    enc_id: Vec<u8>,          // aka kmid
+    pmgdh: [u8; LEN_DH_ITEM], // aka per-request clue
 }
 
 // Plaintext metadata
@@ -288,6 +289,90 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
         recipient_reply_key_pq_psk_msg: None,
         recipient_reply_key_hybrid_md: None,
     }
+}
+
+/// Given a set of ciphertext bundles (C, X, Z) and their associated uuid (ServerMessageStore),
+/// compute a fixed-length set of "challenges" >= the number of SeverMessageStore entries.
+/// A challenge is returned as a tuple of DH agreement outputs (or random data tuples of the same length).
+/// For benchmarking purposes, supply the rng as a separable parameter, and allow the total number of expected responses to be specified as a paremeter (worst case performance
+/// when the number of items in the server store approaches num total_responses.)
+pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    store: &[ServerMessageStore],
+    total_responses: usize,
+) -> Vec<FetchResponse> {
+    let mut responses = Vec::with_capacity(total_responses);
+
+    // Generate ephemeral (per request) keypair
+    let (eph_sk, _eph_pk) = generate_dh_keypair(rng).expect("Wanted DH keypair");
+    let eph_sk_bytes = eph_sk.clone().into_bytes();
+
+    for entry in store.iter() {
+        let message_id = &entry.message_id;
+
+        // 3-party DH yields shared_secret used to encrypt message_id
+        let mut shared_secret: [u8; LEN_DHKEM_SHARED_SECRET] = [0u8; LEN_DHKEM_SHARED_SECRET];
+        let _ = scalarmult(&mut shared_secret, &eph_sk_bytes, &entry.mgdh_pubkey);
+        let kmid = encrypt_message_id(&shared_secret, message_id).unwrap();
+
+        // 2-party DH yields per-request clue (pmgdh) used by intended recipient
+        // to compute shared_secret
+        let mut pmgdh: [u8; LEN_DHKEM_SHARED_SECRET] = [0u8; LEN_DHKEM_SHARED_SECRET];
+        let _ = scalarmult(&mut pmgdh, &eph_sk_bytes, &entry.mgdh_pubkey);
+
+        responses.push(FetchResponse {
+            enc_id: kmid,
+            pmgdh,
+        });
+
+        // Are we done?
+        if responses.len() == total_responses {
+            break;
+        }
+    }
+
+    // Pad to return fixed length of responses
+    while responses.len() < total_responses {
+        let mut pad_kmid: Vec<u8> = Vec::new();
+        rng.fill_bytes(&mut pad_kmid);
+
+        let mut pad_pmgdh: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
+        rng.fill_bytes(&mut pad_pmgdh);
+
+        responses.push(FetchResponse {
+            enc_id: pad_kmid,
+            pmgdh: pad_pmgdh,
+        });
+    }
+    responses
+}
+
+/// Solve fetch challenges (encrypted message IDs) and return array of valid message_ids.
+/// TODO: For simplicity, serialize/deserialize is skipped
+pub fn solve_fetch_challenges(
+    recipient: &dyn User,
+    challenges: Vec<FetchResponse>,
+) -> Vec<Vec<u8>> {
+    // TODO: Message IDs are probably uuids of type [u8; 16]
+    let mut message_ids: Vec<Vec<u8>> = Vec::new();
+
+    for chall in challenges.iter() {
+        // Compute 3-party DH on the pmgdh
+        let mut maybe_kmid_secret: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
+        let _ = scalarmult(
+            &mut maybe_kmid_secret,
+            recipient.get_fetch_sk(),
+            &chall.pmgdh,
+        );
+
+        // Try using the output for decryption
+        let maybe_message_id = decrypt_message_id(&maybe_kmid_secret, &chall.enc_id);
+
+        if let Ok(message_id) = maybe_message_id {
+            message_ids.push(message_id);
+        }
+    }
+    message_ids
 }
 
 pub struct Source {
