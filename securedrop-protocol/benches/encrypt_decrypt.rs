@@ -50,7 +50,10 @@ const METADATA_LENGTH: usize =
 // Message ID (uuid) and KMID
 const LEN_MESSAGE_ID: usize = 16;
 // TODO: this will be aes-gcm and use AES GCM TagSize
-const LEN_KMID: usize = libcrux_chacha20poly1305::TAG_LEN + LEN_MESSAGE_ID;
+// TODO: current implementation prepends the nonce to the encrypted message.
+// Recheck this when switching implementations.
+const LEN_KMID: usize =
+    libcrux_chacha20poly1305::TAG_LEN + libcrux_chacha20poly1305::NONCE_LEN + LEN_MESSAGE_ID;
 
 #[derive(Debug)]
 pub struct Envelope {
@@ -61,21 +64,20 @@ pub struct Envelope {
     mgdh: [u8; LEN_DH_ITEM],
 }
 
+// TODO: plaintext structure/types
 #[derive(Debug)]
 pub struct Plaintext {
     msg: Vec<u8>,
-    sender_key: Vec<u8>,
-    recipient_reply_key_classical_msg: Option<Vec<u8>>, // DH-AKEM
-    recipient_reply_key_pq_psk_msg: Option<Vec<u8>>,    // ML-KEM768
-    recipient_reply_key_hybrid_md: Option<Vec<u8>>,     // XWING
+    recipient_pubkey_dhakem: Option<Vec<u8>>,
+    sender_reply_pubkey_dhakem: Option<Vec<u8>>,
+    sender_reply_pubkey_pq_psk: Option<Vec<u8>>,
+    sender_reply_pubkey_hybrid: Option<Vec<u8>>,
 }
 
 /// Represent stored ciphertexts on the server
 pub struct ServerMessageStore {
     message_id: [u8; LEN_MESSAGE_ID],
-    mgdh: [u8; LEN_DH_ITEM],
-    mgdh_pubkey: [u8; LEN_DH_ITEM],
-    ciphertext: Vec<u8>,
+    envelope: Envelope,
 }
 
 pub struct FetchResponse {
@@ -85,7 +87,10 @@ pub struct FetchResponse {
 
 impl FetchResponse {
     pub fn new(enc_id: [u8; LEN_KMID], pmgdh: [u8; LEN_DH_ITEM]) -> Self {
-        Self { enc_id, pmgdh }
+        Self {
+            enc_id: enc_id,
+            pmgdh: pmgdh,
+        }
     }
 }
 
@@ -325,13 +330,13 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
         )
         .expect("Decryption failed");
 
-    // TODO
+    // TODO parse
     Plaintext {
         msg: pt,
-        sender_key: hpke_pubkey_sender.as_slice().to_vec(),
-        recipient_reply_key_classical_msg: None,
-        recipient_reply_key_pq_psk_msg: None,
-        recipient_reply_key_hybrid_md: None,
+        recipient_pubkey_dhakem: None,
+        sender_reply_pubkey_dhakem: None,
+        sender_reply_pubkey_pq_psk: None,
+        sender_reply_pubkey_hybrid: None,
     }
 }
 
@@ -356,16 +361,17 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 
         // 3-party DH yields shared_secret used to encrypt message_id
         let mut shared_secret: [u8; LEN_DHKEM_SHARED_SECRET] = [0u8; LEN_DHKEM_SHARED_SECRET];
-        let _ = scalarmult(&mut shared_secret, &eph_sk_bytes, &entry.mgdh_pubkey);
-        let kmid: [u8; LEN_KMID] = encrypt_message_id(&shared_secret, message_id)
-            .unwrap()
+        let _ = scalarmult(&mut shared_secret, &eph_sk_bytes, &entry.envelope.mgdh);
+        let enc_mid = encrypt_message_id(&shared_secret, message_id).unwrap();
+
+        let kmid = enc_mid
             .try_into()
             .expect(&format!("Need {} bytes", LEN_KMID));
 
         // 2-party DH yields per-request clue (pmgdh) used by intended recipient
         // to compute shared_secret
         let mut pmgdh: [u8; LEN_DHKEM_SHARED_SECRET] = [0u8; LEN_DHKEM_SHARED_SECRET];
-        let _ = scalarmult(&mut pmgdh, &eph_sk_bytes, &entry.mgdh_pubkey);
+        let _ = scalarmult(&mut pmgdh, &eph_sk_bytes, &entry.envelope.mgdh_pubkey);
 
         responses.push(FetchResponse {
             enc_id: kmid,
@@ -453,7 +459,7 @@ impl Source {
             pk_dh: *pk_dh.as_bytes(),
             sk_pqkem_psk: *sk_pqkem_psk.as_bytes(),
             pk_pqkem_psk: *pk_pqkem_psk.as_bytes(),
-            sk_md: *sk_md.as_bytes(), // TODO
+            sk_md: *sk_md.as_bytes(),
             pk_md: *pk_md.as_bytes(),
             sk_fetch: sk_fetch,
             pk_fetch: pk_fetch,
@@ -517,7 +523,7 @@ impl Journalist {
             pk_dh: *pk_dh.as_bytes(),
             sk_pqkem_psk: *sk_pqkem_psk.as_bytes(),
             pk_pqkem_psk: *pk_pqkem_psk.as_bytes(),
-            sk_md: *sk_md.as_bytes(), // TODO
+            sk_md: *sk_md.as_bytes(),
             pk_md: *pk_md.as_bytes(),
             sk_fetch: sk_fetch,
             pk_fetch: pk_fetch,
@@ -552,9 +558,8 @@ impl User for Journalist {
     }
 }
 
-
 // Begin unit tests
- 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -572,7 +577,7 @@ mod tests {
         let decrypted = decrypt(&recipient, &envelope);
 
         assert_eq!(decrypted.msg, plaintext);
-        assert_eq!(decrypted.sender_key, sender.get_dhakem_pk().to_vec());
+        // TODO: Add more fields to plaintext, and add assertions
     }
 
     #[test]
@@ -584,15 +589,23 @@ mod tests {
         let plaintext = b"Fetch this message".to_vec();
         let envelope = encrypt(&mut rng, &source, &plaintext, &journalist);
 
-        let message_id: [u8; LEN_MESSAGE_ID] = [42u8; LEN_MESSAGE_ID];
-        let store_entry = ServerMessageStore {
-            message_id,
-            mgdh: envelope.mgdh,
-            mgdh_pubkey: envelope.mgdh_pubkey,
-            ciphertext: envelope.cmessage.clone(),
+        // On server. TODO: in helper function
+        let message_id: [u8; LEN_MESSAGE_ID] = {
+            let mut message_id: [u8; LEN_MESSAGE_ID] = [0u8; LEN_MESSAGE_ID];
+            rng.fill_bytes(&mut message_id);
+            message_id
         };
 
-        let challenges = compute_fetch_challenges(&mut rng, &[store_entry], 1);
+        let store_entry = ServerMessageStore {
+            message_id,
+            envelope: envelope,
+        };
+
+        let challenges = compute_fetch_challenges(&mut rng, &[store_entry], 2);
+
+        let enc_mid = challenges.first().unwrap();
+        debug_assert!(enc_mid.enc_id.len() == LEN_KMID);
+
         let solved_ids = solve_fetch_challenges(&journalist, challenges);
 
         assert_eq!(solved_ids.len(), 1);
@@ -662,9 +675,7 @@ pub fn bench_fetch(c: &mut Criterion) {
 
         store.push(ServerMessageStore {
             message_id,
-            mgdh: envelope.mgdh,
-            mgdh_pubkey: envelope.mgdh_pubkey,
-            ciphertext: envelope.cmessage,
+            envelope: envelope,
         });
     }
 
