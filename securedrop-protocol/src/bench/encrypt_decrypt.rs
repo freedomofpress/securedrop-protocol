@@ -1,5 +1,3 @@
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-
 use hpke_rs::libcrux::HpkeLibcrux;
 use hpke_rs::{HpkeKeyPair, HpkePrivateKey, HpkePublicKey};
 use libcrux_curve25519::hacl::scalarmult;
@@ -9,13 +7,13 @@ use rand::RngCore;
 use rand::rngs::StdRng;
 use rand_core::CryptoRng;
 use rand_core::SeedableRng;
-use securedrop_protocol::primitives::dh_akem::generate_dh_akem_keypair;
-use securedrop_protocol::primitives::mlkem::generate_mlkem768_keypair;
-use securedrop_protocol::primitives::x25519::generate_dh_keypair;
-use securedrop_protocol::primitives::x25519::generate_random_scalar;
-use securedrop_protocol::primitives::xwing::generate_xwing_keypair;
-use securedrop_protocol::primitives::{decrypt_message_id, encrypt_message_id};
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
+use crate::primitives::dh_akem::generate_dh_akem_keypair;
+use crate::primitives::mlkem::generate_mlkem768_keypair;
+use crate::primitives::x25519::generate_dh_keypair;
+use crate::primitives::x25519::generate_random_scalar;
+use crate::primitives::xwing::generate_xwing_keypair;
+use crate::primitives::{decrypt_message_id, encrypt_message_id};
 
 const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // Spec requires a tag
 const HPKE_INFO: &[u8] = b"";
@@ -119,7 +117,7 @@ impl Metadata {
     }
 }
 
-impl std::convert::TryFrom<&[u8]> for Metadata {
+impl core::convert::TryFrom<&[u8]> for Metadata {
     type Error = &'static str;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -628,36 +626,25 @@ pub fn setup() -> (Source, Journalist, Vec<u8>, Envelope) {
     (source, journalist, plaintext, envelope)
 }
 
-pub fn bench_encrypt(c: &mut Criterion) {
+
+pub fn bench_encrypt(iterations: usize) {
     let (source, journalist, plaintext, _) = setup();
 
-    c.benchmark_group("encrypt").bench_function(
-        BenchmarkId::new("source_to_journalist", ""),
-        |b| {
-            b.iter(|| {
-                encrypt(
-                    &mut StdRng::seed_from_u64(666),
-                    &source,
-                    &plaintext,
-                    &journalist,
-                )
-            });
-        },
-    );
+    for _ in 0..iterations {
+        let mut rng = StdRng::seed_from_u64(666);
+        let _envelope = encrypt(&mut rng, &source, &plaintext, &journalist);
+    }
 }
 
-pub fn bench_decrypt(c: &mut Criterion) {
-    let (source, journalist, _, envelope) = setup();
+pub fn bench_decrypt(iterations: usize) {
+    let (source, journalist, _plaintext, envelope) = setup();
 
-    c.benchmark_group("decrypt").bench_function(
-        BenchmarkId::new("journalist_from_source", ""),
-        |b| {
-            b.iter(|| decrypt(&journalist, &envelope));
-        },
-    );
+    for _ in 0..iterations {
+        let _pt = decrypt(&journalist, &envelope);
+    }
 }
 
-pub fn bench_fetch(c: &mut Criterion) {
+pub fn bench_fetch(iterations: usize) {
     let mut rng = StdRng::seed_from_u64(8888);
     let journalist = Journalist::new(&mut rng);
     let source = Source::new(&mut rng);
@@ -665,32 +652,23 @@ pub fn bench_fetch(c: &mut Criterion) {
     // Generate multiple envelopes and populate a server store
     let mut store = Vec::new();
     for i in 0..100 {
-        let envelope = encrypt(
-            &mut rng,
-            &source,
-            format!("msg {i}").as_bytes(),
-            &journalist,
-        );
-        let message_id = [i as u8; LEN_MESSAGE_ID]; // Dummy message IDs for benchmarking
+        let envelope = encrypt(&mut rng, &source, format!("msg {i}").as_bytes(), &journalist);
+        let message_id: [u8; 16] = [i as u8; LEN_MESSAGE_ID]; // Dummy message IDs for benchmarking
 
         store.push(ServerMessageStore {
             message_id,
-            envelope: envelope,
+            envelope,
         });
     }
 
     let total_responses = 150;
 
-    c.benchmark_group("fetch").bench_function(
-        BenchmarkId::new("compute_and_solve", "100_entries"),
-        |b| {
-            b.iter(|| {
-                let challenges = compute_fetch_challenges(&mut rng, &store, total_responses);
-                let _solved = solve_fetch_challenges(&journalist, challenges);
-            });
-        },
-    );
+    for i in 0..iterations {
+        let challenges = compute_fetch_challenges(&mut rng, &store, total_responses);
+        let _solved = solve_fetch_challenges(&journalist, challenges);
+        // Add assertion if you want to check something about `_solved`
+        if i == iterations + 1 {
+            unreachable!(); 
+        }
+    }
 }
-
-criterion_group!(benches, bench_encrypt, bench_decrypt, bench_fetch);
-criterion_main!(benches);

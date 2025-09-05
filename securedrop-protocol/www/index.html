@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>securedrop-protocol wasm harness</title>
+</head>
+<body>
+<script type="module">
+  import init, {
+    bench_decrypt,
+    bench_encrypt,
+    bench_fetch,
+    bench_submit_message,
+  } from '../pkg/securedrop_protocol.js';
+
+  async function run() {
+    try {
+      const wasmUrl = new URL('../pkg/securedrop_protocol_bg.wasm', import.meta.url);
+      await init(wasmUrl);
+
+      window.decrypt_bench = bench_decrypt;
+      window.encrypt_bench = bench_encrypt;
+      window.fetch_bench   = bench_fetch;
+      window.submit_bench  = bench_submit_message;
+
+      console.log('WASM benches ready');
+    } catch (e) {
+      console.error('Failed to init wasm:', e);
+    }
+  }
+  run();
+</script>
+</body>
+</html>

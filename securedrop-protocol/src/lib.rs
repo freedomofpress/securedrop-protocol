@@ -41,3 +41,27 @@ pub use sign::{SelfSignature, Signature, SigningKey, VerifyingKey};
 
 /// Server storage
 pub mod storage;
+
+pub mod bench;
+
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+pub fn bench_submit_message(iterations: u32) {
+    bench::bench_submit_message(iterations as usize);
+}
+
+#[wasm_bindgen]
+pub fn bench_encrypt(iterations: u32) {
+    bench::bench_encrypt(iterations as usize);
+}
+
+#[wasm_bindgen]
+pub fn bench_decrypt(iterations: u32) {
+    bench::bench_decrypt(iterations as usize);
+}
+
+#[wasm_bindgen]
+pub fn bench_fetch(iterations: u32) {
+    bench::bench_fetch(iterations as usize);
+}

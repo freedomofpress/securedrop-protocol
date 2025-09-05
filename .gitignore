@@ -6,3 +6,4 @@ downloads/
 docs/html/
 node_modules/
 securedrop-protocol/target/*
+securedrop-protocol/pkg/*
