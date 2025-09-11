@@ -103,25 +103,23 @@ In the table below:
 > $A$ represents the key's usage ($`A \in \{sig,fetch,pke,pq,md\}`$), and is prefixed
 > with an "e" if the key is a one-time key. $B$ indicates whether the component is
 > private or public. For Diffie-Hellman keys $x$, the public component is
-> represented by the exponentiation $DH(g, x)$.
+> represented by the exponentiation $DH(g, x)$.[^3]
 
-| Owner      | Private/Decaps   | Public/Encaps    | Usage                   | Alg         | Signed by         |
-| ---------- | ---------------- | ---------------- | ----------------------- | ----------- | ----------------- |
-| FPF        | $`FPF_{sig,sk}`$ | $`FPF_{sig,pk}`$ | Signing                 | ?           |                   |
-| Newsroom   | $`NR_{sig,sk}`$  | $`NR_{sig,pk}`$  | Signing                 | ?           | $`FPF_{sig,sk}`$  |
-| Journalist | $`J_{sig,sk}`$   | $`J_{sig,pk}`$   | Signing (long-term)     | ?           | $`NR_{sig,sk}`$   |
-| Journalist | $`J_{fetch,sk}`$ | $`J_{fetch,pk}`$ | Fetching (med-term)     | 25519       | $`NR_{sig,sk}`$\* |
-| Journalist | $`J_{epq,sk}`$   | $`J_{epq,pk}`$   | Msg enc PSK (one-time)  | MLKEM-768   | $`J_{sig,sk}`$    |
-| Journalist | $`J_{epke,sk}`$  | $`J_{epke,pk}`$  | Msg enc (one-time)      | DH-AKEM\*\* | $`J_{sig,sk}`$    |
-| Journalist | $`J_{emd,sk}`$   | $`J_{emd,pk}`$   | Metatada enc (one-time) | XWING       | $`J_{sig,sk}`$    |
-| Source     | $`S_{fetch,sk}`$ | $`S_{fetch,pk}`$ | Fetching                | 25519       |                   |
-| Source     | $`S_{pq,sk}`$    | $`S_{pq,pk}`$    | Msg enc PSK             | MLKEM-768   |                   |
-| Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | Msg enc                 | DH-AKEM\*\* |                   |
-| Source     | $`S_{md,sk}`$    | $`S_{md,pk}`$    | Metadata enc            | XWING       |                   |
+| Owner      | Private/Decaps   | Public/Encaps    | Usage                   | Alg         | Signed by           |
+| ---------- | ---------------- | ---------------- | ----------------------- | ----------- | ------------------- |
+| FPF        | $`FPF_{sig,sk}`$ | $`FPF_{sig,pk}`$ | Signing                 | ?           |                     |
+| Newsroom   | $`NR_{sig,sk}`$  | $`NR_{sig,pk}`$  | Signing                 | ?           | $`FPF_{sig,sk}`$    |
+| Journalist | $`J_{sig,sk}`$   | $`J_{sig,pk}`$   | Signing (long-term)     | ?           | $`NR_{sig,sk}`$     |
+| Journalist | $`J_{fetch,sk}`$ | $`J_{fetch,pk}`$ | Fetching (med-term)     | 25519       | $`NR_{sig,sk}`$[^4] |
+| Journalist | $`J_{epq,sk}`$   | $`J_{epq,pk}`$   | Msg enc PSK (one-time)  | MLKEM-768   | $`J_{sig,sk}`$      |
+| Journalist | $`J_{epke,sk}`$  | $`J_{epke,pk}`$  | Msg enc (one-time)      | DH-AKEM[^5] | $`J_{sig,sk}`$      |
+| Journalist | $`J_{emd,sk}`$   | $`J_{emd,pk}`$   | Metatada enc (one-time) | XWING       | $`J_{sig,sk}`$      |
+| Source     | $`S_{fetch,sk}`$ | $`S_{fetch,pk}`$ | Fetching                | 25519       |                     |
+| Source     | $`S_{pq,sk}`$    | $`S_{pq,pk}`$    | Msg enc PSK             | MLKEM-768   |                     |
+| Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | Msg enc                 | DH-AKEM[^5] |                     |
+| Source     | $`S_{md,sk}`$    | $`S_{md,pk}`$    | Metadata enc            | XWING       |                     |
 
-\*: Discussion of whether NR or Journalist signing key signs fetch key.
-
-\*\*: HPKE ciphersuites are specified as (KEM, KDF, AEAD). DHKEM/DH-AKEM is a Diffie-Hellman based KEM specified (Group, KDF), where the KDFs are permitted to be different. We plan (DH-AKEM, HKDF, AES-GCM) where DH-AKEM is a DH-KEM(X25519, HKDF-SHA256) which is DHKEM 0x0020 in http://rfc-editor.org/rfc/rfc9180.html#name-dh-based-kem-dhkem
+[^4]: **TODO:** Discussion of whether the newsroom's or the journalist's signing key signs the journalist's fetching key.
 
 ## Functions and notation
 
@@ -363,6 +361,14 @@ See ["Source Submits a Message"](#source-submits-a-message).
 [^1]: Currently configured as [`CHUNK`][chunk].
 
 [^2]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
+
+[^3]: Adapted from Maier §5.4.1.
+
+<!--
+[^4]: TODO kept inline above.
+-->
+
+[^5]: HPKE ciphersuites are specified as (KEM, KDF, AEAD). DHKEM/DH-AKEM is a Diffie-Hellman based KEM specified (Group, KDF), where the KDFs are permitted to be different. We plan (DH-AKEM, HKDF, AES-GCM) where DH-AKEM is a DH-KEM(X25519, HKDF-SHA256) which is DHKEM 0x0020 in http://rfc-editor.org/rfc/rfc9180.html#name-dh-based-kem-dhkem
 
 [chunk]: https://github.com/freedomofpress/securedrop-protocol/blob/664f8c66312b45e00d1e2b4a26bc466ff105c3ca/README.md?plain=1#L105
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
