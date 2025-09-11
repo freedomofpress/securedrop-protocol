@@ -2,12 +2,7 @@
 
 | Version |
 | ------- |
-| 0.2     |
-
-> [!NOTE]
-> Except where otherwise indicated, this document follows the notation and other
-> conventions used in Luca Maier's ["Formal Analysis of the SecureDrop
-> Protocol"][maier].
+| 0.3     |
 
 > [!NOTE]
 > The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT,
@@ -105,25 +100,28 @@ In the table below:
 
 > For keys, we use the notation $X_{A,B}$, where $X$ represents the key owner
 > ($`X \in \{NR, J, S\}`$ [for newsroom, journalist, and source, respectively]),
-> $A$ represents the key's usage ($`A \in \{pke,sig,fetch,dh\}`$), and is prefixed
-> with an "e" if the key is ephemeral. $B$ indicates whether the component is
+> $A$ represents the key's usage ($`A \in \{sig,fetch,pke,pq,md\}`$), and is prefixed
+> with an "e" if the key is a one-time key. $B$ indicates whether the component is
 > private or public. For Diffie-Hellman keys $x$, the public component is
-> represented by the exponentiation $DH(g, x)$. (Maier §5.4.1)
+> represented by the exponentiation $DH(g, x)$.
 
-| Owner      | Private Key      | Public Key       | Type          | Usage            | Signed by        |
-| ---------- | ---------------- | ---------------- | ------------- | ---------------- | ---------------- |
-| FPF        | $`FPF_{sig,sk}`$ | $`FPF_{sig,pk}`$ | PPK           | Signing          |                  |
-| Newsroom   | $`NR_{sig,sk}`$  | $`NR_{sig,pk}`$  | PPK           | Signing          | $`FPF_{sig,sk}`$ |
-| Journalist | $`J_{sig,sk}`$   | $`J_{sig,pk}`$   | PPK           | Signing          | $`NR_{sig,sk}`$  |
-| Journalist | $`J_{fetch,sk}`$ | $`J_{fetch,pk}`$ | DH            | Fetching         | $`NR_{sig,sk}`$  |
-| Journalist | $`J_{dh,sk}`$    | $`J_{dh,pk}`$    | DH            | DH-AKEM          | $`NR_{sig,sk}`$  |
-| Journalist | $`J_{ekem,sk}`$  | $`J_{ekem,pk}`$  | Ephemeral PPK | KEM<sub>pq</sub> | $`J_{sig,sk}`$   |
-| Journalist | $`J_{epke,sk}`$  | $`J_{epke,pk}`$  | Ephemeral PPK | PKE              | $`J_{sig,sk}`$   |
-| Journalist | $`J_{edh,sk}`$   | $`J_{edh,pk}`$   | Ephemeral DH  | DH-AKEM          | $`J_{sig,sk}`$   |
-| Source     | $`S_{fetch,sk}`$ | $`S_{fetch,pk}`$ | DH            | Fetching         |                  |
-| Source     | $`S_{dh,sk}`$    | $`S_{dh,pk}`$    | DH            | DH-AKEM          |                  |
-| Source     | $`S_{kem,sk}`$   | $`S_{kem,pk}`$   | PPK           | KEM<sub>pq</sub> |                  |
-| Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | PPK           | PKE              |                  |
+| Owner      | Private/Decaps   | Public/Encaps    | Usage                   | Alg         | Signed by         |
+| ---------- | ---------------- | ---------------- | ----------------------- | ----------- | ----------------- |
+| FPF        | $`FPF_{sig,sk}`$ | $`FPF_{sig,pk}`$ | Signing                 | ?           |                   |
+| Newsroom   | $`NR_{sig,sk}`$  | $`NR_{sig,pk}`$  | Signing                 | ?           | $`FPF_{sig,sk}`$  |
+| Journalist | $`J_{sig,sk}`$   | $`J_{sig,pk}`$   | Signing (long-term)     | ?           | $`NR_{sig,sk}`$   |
+| Journalist | $`J_{fetch,sk}`$ | $`J_{fetch,pk}`$ | Fetching (med-term)     | 25519       | $`NR_{sig,sk}`$\* |
+| Journalist | $`J_{epq,sk}`$   | $`J_{epq,pk}`$   | Msg enc PSK (one-time)  | MLKEM-768   | $`J_{sig,sk}`$    |
+| Journalist | $`J_{epke,sk}`$  | $`J_{epke,pk}`$  | Msg enc (one-time)      | DH-AKEM\*\* | $`J_{sig,sk}`$    |
+| Journalist | $`J_{emd,sk}`$   | $`J_{emd,pk}`$   | Metatada enc (one-time) | XWING       | $`J_{sig,sk}`$    |
+| Source     | $`S_{fetch,sk}`$ | $`S_{fetch,pk}`$ | Fetching                | 25519       |                   |
+| Source     | $`S_{pq,sk}`$    | $`S_{pq,pk}`$    | Msg enc PSK             | MLKEM-768   |                   |
+| Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | Msg enc                 | DH-AKEM\*\* |                   |
+| Source     | $`S_{md,sk}`$    | $`S_{md,pk}`$    | Metadata enc            | XWING       |                   |
+
+\*: Discussion of whether NR or Journalist signing key signs fetch key.
+
+\*\*: HPKE ciphersuites are specified as (KEM, KDF, AEAD). DHKEM/DH-AKEM is a Diffie-Hellman based KEM specified (Group, KDF), where the KDFs are permitted to be different. We plan (DH-AKEM, HKDF, AES-GCM) where DH-AKEM is a DH-KEM(X25519, HKDF-SHA256) which is DHKEM 0x0020 in http://rfc-editor.org/rfc/rfc9180.html#name-dh-based-kem-dhkem
 
 ## Functions and notation
 
@@ -367,5 +365,4 @@ See ["Source Submits a Message"](#source-submits-a-message).
 [^2]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
 
 [chunk]: https://github.com/freedomofpress/securedrop-protocol/blob/664f8c66312b45e00d1e2b4a26bc466ff105c3ca/README.md?plain=1#L105
-[maier]: https://datatracker.ietf.org/doc/html/rfc2119
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
