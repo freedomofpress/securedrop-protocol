@@ -1,28 +1,3 @@
-## Keys
-
-In the table below:
-
-> For keys, we use the notation $X_{A,B}$, where $X$ represents the key owner
-> ($`X \in \{NR, J, S\}`$ [for newsroom, journalist, and source, respectively]),
-> $A$ represents the key's usage ($`A \in \{sig,fetch,pke,pq,md\}`$), and is prefixed
-> with an "e" if the key is a one-time key. $B$ indicates whether the component is
-> private or public. For Diffie-Hellman keys $x$, the public component is
-> represented by the exponentiation $DH(g, x)$.
-
-| Owner      | Private/Decaps   | Public/Encaps    | Usage                   | Alg         | Signed by         |
-| ---------- | ---------------- | ---------------- | ----------------------- | ----------- | ----------------- |
-| FPF        | $`FPF_{sig,sk}`$ | $`FPF_{sig,pk}`$ | Signing                 | ?           |                   |
-| Newsroom   | $`NR_{sig,sk}`$  | $`NR_{sig,pk}`$  | Signing                 | ?           | $`FPF_{sig,sk}`$  |
-| Journalist | $`J_{sig,sk}`$   | $`J_{sig,pk}`$   | Signing (long-term)     | ?           | $`NR_{sig,sk}`$   |
-| Journalist | $`J_{fetch,sk}`$ | $`J_{fetch,pk}`$ | Fetching (med-term)     | 25519       | $`NR_{sig,sk}`$\* |
-| Journalist | $`J_{epq,sk}`$   | $`J_{epq,pk}`$   | Msg enc PSK (one-time)  | MLKEM-768   | $`J_{sig,sk}`$    |
-| Journalist | $`J_{epke,sk}`$  | $`J_{epke,pk}`$  | Msg enc (one-time)      | DH-AKEM\*\* | $`J_{sig,sk}`$    |
-| Journalist | $`J_{emd,sk}`$   | $`J_{emd,pk}`$   | Metatada enc (one-time) | XWING       | $`J_{sig,sk}`$    |
-| Source     | $`S_{fetch,sk}`$ | $`S_{fetch,pk}`$ | Fetching                | 25519       |                   |
-| Source     | $`S_{pq,sk}`$    | $`S_{pq,pk}`$    | Msg enc PSK             | MLKEM-768   |                   |
-| Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | Msg enc                 | DH-AKEM\*\* |                   |
-| Source     | $`S_{md,sk}`$    | $`S_{md,pk}`$    | Metadata enc            | XWING       |                   |
-
 ## Message flow overview
 
 ### Send
@@ -98,9 +73,5 @@ In the table below:
 - Fuzzy message expiry planned for messages on server (vs one-time delivery, sending a message to the server upon read, or any other mechanisms). This contrasts with the Tamarin model in progres where one-time message delivery is modeled.
 - Some discussion about issuing one fetch request (one ID per request) vs fetching multiple IDs at once. For now assume one fetch request is one message ID.
 - The ephemeral key used by the sender to generate the Clue isn't included anywhere or bound to the ciphertext at all; in previous designs it was the message ephemeral pubkey. EthZ says it is by design that nothing can link the key to the message; however, is it worth considering identifying the key _inside_ the message ciphertext (eg a key hash)?
-
-\*: Discussion of whether NR or Journalist signing key signs fetch key.
-
-\*\*: HPKE ciphersuites are specified as (KEM, KDF, AEAD). DHKEM/DH-AKEM is a Diffie-Hellman based KEM specified (Group, KDF), where the KDFs are permitted to be different. We plan (DH-AKEM, HKDF, AES-GCM) where DH-AKEM is a DH-KEM(X25519, HKDF-SHA256) which is DHKEM 0x0020 in http://rfc-editor.org/rfc/rfc9180.html#name-dh-based-kem-dhkem
 
 \*\*\*: In a unidirectional dead-drop mode, attaching these PQ keys could be avoided, since they are only used for replies.
