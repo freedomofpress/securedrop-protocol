@@ -105,21 +105,23 @@ In the table below:
 > private or public. For Diffie-Hellman keys $x$, the public component is
 > represented by the exponentiation $DH(g, x)$.[^3]
 
-| Owner      | Private key or decapsulation | Public key or encapsulation | Usage          | Scope    | Lifetime  | Algorithm                         | Signed by           |
-| ---------- | ---------------------------- | --------------------------- | -------------- | -------- | --------- | --------------------------------- | ------------------- |
-| FPF        | $`FPF_{sig,sk}`$             | $`FPF_{sig,pk}`$            | Signing        |          | Long-term | ?                                 |                     |
-| Newsroom   | $`NR_{sig,sk}`$              | $`NR_{sig,pk}`$             | Signing        |          | Long-term | ?                                 | $`FPF_{sig,sk}`$    |
-| Journalist | $`J_{sig,sk}`$               | $`J_{sig,pk}`$              | Signing        |          | Long-term | ?                                 | $`NR_{sig,sk}`$     |
-| Journalist | $`J_{fetch,sk}`$             | $`J_{fetch,pk}`$            | Fetching       |          | **TBD**   | X25519                            | $`NR_{sig,sk}`$[^4] |
-| Journalist | $`J_{epq,sk}`$               | $`J_{epq,pk}`$              | Encryption PSK | Message  | One-time  | ML-KEM-768                        | $`J_{sig,sk}`$      |
-| Journalist | $`J_{epke,sk}`$              | $`J_{epke,pk}`$             | Encryption     | Message  | One-time  | HPKE (DH-AKEM, HKDF, AES-GCM)[^5] | $`J_{sig,sk}`$      |
-| Journalist | $`J_{emd,sk}`$               | $`J_{emd,pk}`$              | Encryption     | Metadata | One-time  | X-Wing                            | $`J_{sig,sk}`$      |
-| Source     | $`S_{fetch,sk}`$             | $`S_{fetch,pk}`$            | Fetching       |          |           | X25519                            |                     |
-| Source     | $`S_{pq,sk}`$                | $`S_{pq,pk}`$               | Encryption PSK | Message  |           | ML-KEM-768                        |                     |
-| Source     | $`S_{pke,sk}`$               | $`S_{pke,pk}`$              | Encryption     | Message  |           | HPKE (DH-AKEM, HKDF, AES-GCM)[^5] |                     |
-| Source     | $`S_{md,sk}`$                | $`S_{md,pk}`$               | Encryption     | Metadata |           | X-Wing                            |                     |
+| Owner      | Private key or decapsulation | Public key or encapsulation | Usage          | Scope    | Lifetime      | Algorithm                         | Signed by           |
+| ---------- | ---------------------------- | --------------------------- | -------------- | -------- | ------------- | --------------------------------- | ------------------- |
+| FPF        | $`FPF_{sig,sk}`$             | $`FPF_{sig,pk}`$            | Signing        |          | Long-term     | ?                                 |                     |
+| Newsroom   | $`NR_{sig,sk}`$              | $`NR_{sig,pk}`$             | Signing        |          | Long-term     | ?                                 | $`FPF_{sig,sk}`$    |
+| Journalist | $`J_{sig,sk}`$               | $`J_{sig,pk}`$              | Signing        |          | Long-term     | ?                                 | $`NR_{sig,sk}`$     |
+| Journalist | $`J_{fetch,sk}`$             | $`J_{fetch,pk}`$            | Fetching       |          | **TBD**[^6]   | X25519                            | $`NR_{sig,sk}`$[^4] |
+| Journalist | $`J_{epq,sk}`$               | $`J_{epq,pk}`$              | Encryption PSK | Message  | One-time      | ML-KEM-768                        | $`J_{sig,sk}`$      |
+| Journalist | $`J_{epke,sk}`$              | $`J_{epke,pk}`$             | Encryption     | Message  | One-time      | HPKE (DH-AKEM, HKDF, AES-GCM)[^5] | $`J_{sig,sk}`$      |
+| Journalist | $`J_{emd,sk}`$               | $`J_{emd,pk}`$              | Encryption     | Metadata | One-time      | X-Wing                            | $`J_{sig,sk}`$      |
+| Source     | $`S_{fetch,sk}`$             | $`S_{fetch,pk}`$            | Fetching       |          | Permanent[^7] | X25519                            |                     |
+| Source     | $`S_{pq,sk}`$                | $`S_{pq,pk}`$               | Encryption PSK | Message  | Permanent[^7] | ML-KEM-768                        |                     |
+| Source     | $`S_{pke,sk}`$               | $`S_{pke,pk}`$              | Encryption     | Message  | Permanent[^7] | HPKE (DH-AKEM, HKDF, AES-GCM)[^5] |                     |
+| Source     | $`S_{md,sk}`$                | $`S_{md,pk}`$               | Encryption     | Metadata | Permanent[^7] | X-Wing                            |                     |
 
 [^4]: **TODO:** Discussion of whether the newsroom's or the journalist's signing key signs the journalist's fetching key.
+
+[^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
 ## Functions and notation
 
@@ -371,6 +373,14 @@ See ["Source Submits a Message"](#source-submits-a-message).
 [^5]:
     DH-AKEM per [RFC 9180 §4.1] using DH-KEM(X25519, HKDF-SHA256) with KEM ID
     `0x0020` ([§7.1][RFC 9180 §7.1]).
+
+<!--
+[^6]: TODO kept inline above.
+-->
+
+[^7]:
+    The source's keys are considered "permanent" because they are derived
+    deterministically from the source's passphrase, which cannot be changed.
 
 [chunk]: https://github.com/freedomofpress/securedrop-protocol/blob/664f8c66312b45e00d1e2b4a26bc466ff105c3ca/README.md?plain=1#L105
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
