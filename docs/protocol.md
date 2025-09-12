@@ -149,6 +149,19 @@ For $\text{AKEM} = \text{DHKEM}(\text{Group}, \text{KDF})$ with:
 | $`(c, K) \gets^{\$} \text{AuthEncap}(sk, pk)`$ | Encapsulate a ciphertext $c$ and a shared secret $K$ using a (sender's) private key $sk$ and a (receiver's) public key $pk$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
 | $`K \gets \text{AuthDecap}(sk, pk, c)`$        | Decapsulate a shared secret $K$ using a (receiver's) private key $sk$, a (sender's) public key $pk$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                                  |
 
+### `pskAPKE`: Pre-shared-key authenticated PKE
+
+For $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ with:
+
+- $\text{AKEM}$ as above
+- $\text{KS} =$ HPKE's `KeySchedule()` ([RFC 9180 §5.1]) with HKDF
+- $\text{AEAD} =$ AES-GCM
+
+| Syntax                                                             | Description                                                |
+| ------------------------------------------------------------------ | ---------------------------------------------------------- |
+| $`(c_1, c_2) \gets^{\$} \text{pskAEnc}(sk, pk, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
+| $`m \gets \text{pskADec}(pk, sk, psk, (c_1, c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
+
 ## Setup
 
 ### 1. FPF
@@ -371,4 +384,5 @@ See ["Source Submits a Message"](#source-submits-a-message).
 [chunk]: https://github.com/freedomofpress/securedrop-protocol/blob/664f8c66312b45e00d1e2b4a26bc466ff105c3ca/README.md?plain=1#L105
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
 [RFC 9180 §4.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-dh-based-kem-dhkem
+[RFC 9180 §5.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-creating-the-encryption-con
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
