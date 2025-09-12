@@ -125,43 +125,29 @@ In the table below:
 
 ## Functions and notation
 
-| Syntax                                                    | Description                                                                                                                                                                      |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| $`h \gets \text{Hash}(m)`$                                | Hash message $m$ to digest $h$                                                                                                                                                   |
-| $`k \Vert k_1 \Vert \dots \Vert k_n \gets \text{KDF}(m)`$ | Derive one or more keys $k$ from a message $m$                                                                                                                                   |
-| $`\sigma \gets^{\$} \text{Sign}(sk, m)`$                  | Sign a message $m$ with the private key $sk$                                                                                                                                     |
-| $`b \in \{0,1\} \gets \text{Vfy}(pk, m, \sigma)`$         | Verify a message $m$ and a signature $\sigma$ with a public key $pk$                                                                                                             |
-| $` g^x \gets \text{DH(g, x)}`$                            | Diffie-Hellman exponentiation of private component $x$                                                                                                                           |
-| $`(sk, pk) \gets^{\$} \text{Gen}()`$                      | Generate keys; for DH-AKEM, $(sk, pk) = (x, \text{DH}(g, x)) = (x, g^x)$                                                                                                         |
-| $`(c, K) \gets^{\$} \text{AuthEncap}(skS, pkR)`$          | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $skS$ and a receiver's public key $pkR$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
-| $`K \gets \text{AuthDecap}(skR, pkS, c)`$                 | Decapsulate a shared secret $K$ using a receiver's private key $skR$, a sender's public key $pkS$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                                  |
-| $`r \gets^{\$} \text{Rand}()`$                            | Generate a random value                                                                                                                                                          |
-| $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$ to a constant size[^1]                                                                                                                                         |
-| $`\varepsilon`$                                           | The empty string                                                                                                                                                                 |
+| Syntax                                                    | Description                                                          |
+| --------------------------------------------------------- | -------------------------------------------------------------------- |
+| $`h \gets \text{Hash}(m)`$                                | Hash message $m$ to digest $h$                                       |
+| $`k \Vert k_1 \Vert \dots \Vert k_n \gets \text{KDF}(m)`$ | Derive one or more keys $k$ from a message $m$                       |
+| $`\sigma \gets^{\$} \text{Sign}(sk, m)`$                  | Sign a message $m$ with the private key $sk$                         |
+| $`b \in \{0,1\} \gets \text{Vfy}(pk, m, \sigma)`$         | Verify a message $m$ and a signature $\sigma$ with a public key $pk$ |
+| $` g^x \gets \text{DH(g, x)}`$                            | Diffie-Hellman exponentiation of private component $x$               |
+| $`r \gets^{\$} \text{Rand}()`$                            | Generate a random value                                              |
+| $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$ to a constant size[^1]                             |
+| $`\varepsilon`$                                           | The empty string                                                     |
 
-### HPKE<sup>pq</sup><sub>auth</sub>
+### `AKEM`: Authenticated KEM
 
-| Syntax                                                                                       | Description                                                                   |
-| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| $`(skS_{dh}, pkS_{dh}) \gets^{\$} \text{Gen}_S()`$                                           | Generate keys for a sender $S$                                                |
-| $`((skR_{dh}, skR_{kem}), (pkR_{dh}, pkR_{kem})) \gets^{\$} \text{Gen}_R()`$                 | Generate keys for a receiver $R$                                              |
-| $`((c_1, c_2), c) \gets^{\$} \text{AuthEnc}(skS_{dh}, (pkR_{dh}, pkR_{kem}), m, aad, info)`$ | Encrypt to a receiver $R$ a message $m$ with associated data $aad$ and $info$ |
-| $`m \gets \text{AuthDec}((skR_{dh}, skR_{kem}), pkS_dh, ((c_1, c_2), c), aad, info)`$        | Decrypt from a sender $S$ a message $m$ with associated data $aad$ and $info$ |
+For $\text{AKEM} = \text{DHKEM}(\text{Group}, \text{KDF})$ with:
 
-### Usage
+- $\text{Group} =$ [X25519][RFC 9180 §7.1]
+- $\text{KDF} =$ [HKDF-SHA256][RFC 9180 §7.1]
 
-| Keys                       | Source → Journalist                              | Journalist → Source          |
-| -------------------------- | ------------------------------------------------ | ---------------------------- |
-| $`(skS_{dh}, pkS_{dh})`$   | $`(S_{dh,sk}, S_{dh,pk})`$                       | $`(J_{dh,sk}, J_{dh,pk})`$   |
-| $`(skR_{dh}, pkR_{dh})`$   | $`(J_{\textbf{edh},sk}, J_{\textbf{edh},pk})`$   | $`(S_{dh,sk}, S_{dh,pk})`$   |
-| $`(skR_{kem}, pkR_{kem})`$ | $`(J_{\textbf{ekem},sk}, J_{\textbf{ekem},pk})`$ | $`(S_{kem,sk}, S_{kem,pk})`$ |
-
-> For messages sent from a source to a journalist, the source is identified by
-> $`S_{dh,pk}`$ and utilizes the [bolded] ephemeral keys $`J_{edh,pk}`$ and
-> $`J_{ekem,pk}`$ to encrypt its message. The journalist, in turn, authenticates
-> itself using the new long-term key $`J_{dh,pk}`$ and relies on the source's
-> long-term keys $`S_{dh,pk}`$ and $`S_{kem,pk}`$ to encrypt messages back to the
-> source securely. (Maier §5.2)
+| Syntax                                         | Description                                                                                                                                                                        |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| $`(sk, pk) \gets^{\$} \text{KGen}()`$          | Generate keys; for DH-AKEM, $(sk, pk) = (x, \text{DH}(g, x)) = (x, g^x)$                                                                                                           |
+| $`(c, K) \gets^{\$} \text{AuthEncap}(sk, pk)`$ | Encapsulate a ciphertext $c$ and a shared secret $K$ using a (sender's) private key $sk$ and a (receiver's) public key $pk$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
+| $`K \gets \text{AuthDecap}(sk, pk, c)`$        | Decapsulate a shared secret $K$ using a (receiver's) private key $sk$, a (sender's) public key $pk$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                                  |
 
 ## Setup
 
