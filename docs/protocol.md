@@ -105,19 +105,19 @@ In the table below:
 > private or public. For Diffie-Hellman keys $x$, the public component is
 > represented by the exponentiation $DH(g, x)$.[^3]
 
-| Owner      | Private key or decapsulation | Public key or encapsulation | Usage          | Scope    | Lifetime      | Algorithm                         | Signed by           |
-| ---------- | ---------------------------- | --------------------------- | -------------- | -------- | ------------- | --------------------------------- | ------------------- |
-| FPF        | $`FPF_{sig,sk}`$             | $`FPF_{sig,pk}`$            | Signing        |          | Long-term     | ?                                 |                     |
-| Newsroom   | $`NR_{sig,sk}`$              | $`NR_{sig,pk}`$             | Signing        |          | Long-term     | ?                                 | $`FPF_{sig,sk}`$    |
-| Journalist | $`J_{sig,sk}`$               | $`J_{sig,pk}`$              | Signing        |          | Long-term     | ?                                 | $`NR_{sig,sk}`$     |
-| Journalist | $`J_{fetch,sk}`$             | $`J_{fetch,pk}`$            | Fetching       |          | **TBD**[^6]   | X25519                            | $`NR_{sig,sk}`$[^4] |
-| Journalist | $`J_{epq,sk}`$               | $`J_{epq,pk}`$              | Encryption PSK | Message  | One-time      | ML-KEM-768                        | $`J_{sig,sk}`$      |
-| Journalist | $`J_{epke,sk}`$              | $`J_{epke,pk}`$             | Encryption     | Message  | One-time      | HPKE (DH-AKEM, HKDF, AES-GCM)[^5] | $`J_{sig,sk}`$      |
-| Journalist | $`J_{emd,sk}`$               | $`J_{emd,pk}`$              | Encryption     | Metadata | One-time      | X-Wing                            | $`J_{sig,sk}`$      |
-| Source     | $`S_{fetch,sk}`$             | $`S_{fetch,pk}`$            | Fetching       |          | Permanent[^7] | X25519                            |                     |
-| Source     | $`S_{pq,sk}`$                | $`S_{pq,pk}`$               | Encryption PSK | Message  | Permanent[^7] | ML-KEM-768                        |                     |
-| Source     | $`S_{pke,sk}`$               | $`S_{pke,pk}`$              | Encryption     | Message  | Permanent[^7] | HPKE (DH-AKEM, HKDF, AES-GCM)[^5] |                     |
-| Source     | $`S_{md,sk}`$                | $`S_{md,pk}`$               | Encryption     | Metadata | Permanent[^7] | X-Wing                            |                     |
+| Owner      | Private key or decapsulation | Public key or encapsulation | Usage          | Scope    | Lifetime      | Algorithm              | Signed by           |
+| ---------- | ---------------------------- | --------------------------- | -------------- | -------- | ------------- | ---------------------- | ------------------- |
+| FPF        | $`FPF_{sig,sk}`$             | $`FPF_{sig,pk}`$            | Signing        |          | Long-term     | ?                      |                     |
+| Newsroom   | $`NR_{sig,sk}`$              | $`NR_{sig,pk}`$             | Signing        |          | Long-term     | ?                      | $`FPF_{sig,sk}`$    |
+| Journalist | $`J_{sig,sk}`$               | $`J_{sig,pk}`$              | Signing        |          | Long-term     | ?                      | $`NR_{sig,sk}`$     |
+| Journalist | $`J_{fetch,sk}`$             | $`J_{fetch,pk}`$            | Fetching       |          | **TBD**[^6]   | X25519                 | $`NR_{sig,sk}`$[^4] |
+| Journalist | $`J_{epq,sk}`$               | $`J_{epq,pk}`$              | Encryption PSK | Message  | One-time      | ML-KEM-768             | $`J_{sig,sk}`$      |
+| Journalist | $`J_{epke,sk}`$              | $`J_{epke,pk}`$             | Encryption     | Message  | One-time      | SD-PKE (defined below) | $`J_{sig,sk}`$      |
+| Journalist | $`J_{emd,sk}`$               | $`J_{emd,pk}`$              | Encryption     | Metadata | One-time      | X-Wing                 | $`J_{sig,sk}`$      |
+| Source     | $`S_{fetch,sk}`$             | $`S_{fetch,pk}`$            | Fetching       |          | Permanent[^7] | X25519                 |                     |
+| Source     | $`S_{pq,sk}`$                | $`S_{pq,pk}`$               | Encryption PSK | Message  | Permanent[^7] | ML-KEM-768             |                     |
+| Source     | $`S_{pke,sk}`$               | $`S_{pke,pk}`$              | Encryption     | Message  | Permanent[^7] | SD-PKE (defined below) |                     |
+| Source     | $`S_{md,sk}`$                | $`S_{md,pk}`$               | Encryption     | Metadata | Permanent[^7] | X-Wing                 |                     |
 
 [^4]: **TODO:** Discussion of whether the newsroom's or the journalist's signing key signs the journalist's fetching key.
 
@@ -154,13 +154,29 @@ For $\text{AKEM} = \text{DHKEM}(\text{Group}, \text{KDF})$ with:
 For $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ with:
 
 - $\text{AKEM}$ as above
-- $\text{KS} =$ HPKE's `KeySchedule()` ([RFC 9180 §5.1]) with HKDF
+- $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
 - $\text{AEAD} =$ AES-GCM
 
 | Syntax                                                             | Description                                                |
 | ------------------------------------------------------------------ | ---------------------------------------------------------- |
 | $`(c_1, c_2) \gets^{\$} \text{pskAEnc}(sk, pk, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
 | $`m \gets \text{pskADec}(pk, sk, psk, (c_1, c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
+
+### `SD-PKE`: SecureDrop PKE
+
+For $\text{SD-PKE}[\text{KEM}_1, \text{pskAPKE}, \text{KEM}_3]$ with:
+
+- $\text{KEM}_1 =$ ML-KEM-768
+- $\text{pskAPKE}$ as above
+- $\text{KEM}_3 =$ X-Wing
+
+| Syntax                                                                                              | Description                                                                                           |
+| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| $`(sk, pk) \gets^{\$} \text{KGen}()`$                                                               | Generate keys                                                                                         |
+| $`((c_1, c_2), c') \gets^{\$} \text{AuthEnc}((sk_{PQ}, sk_{DH}), (pk_{PQ}, pk_{DH}), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
+| $`m \gets \text{AuthDec}((sk_{PQ}, sk_{DH}), (pk_{PQ}, pk_{DH}), ((c_1, c_2), c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
+| $`(c_3, c_4) \gets^{\$} \text{Enc}(pk_3, m, ad, info)`$                                             | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_base`][RFC 9180 §5]     |
+| $`m \gets \text{Dec}(sk_3, (c_3, c_4), ad, info)`$                                                  | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_base`][RFC 9180 §5]     |
 
 ## Setup
 
@@ -369,10 +385,6 @@ See ["Source Submits a Message"](#source-submits-a-message).
 [^4]: TODO kept inline above.
 -->
 
-[^5]:
-    DH-AKEM per [RFC 9180 §4.1] using DH-KEM(X25519, HKDF-SHA256) with KEM ID
-    `0x0020` ([§7.1][RFC 9180 §7.1]).
-
 <!--
 [^6]: TODO kept inline above.
 -->
@@ -384,5 +396,7 @@ See ["Source Submits a Message"](#source-submits-a-message).
 [chunk]: https://github.com/freedomofpress/securedrop-protocol/blob/664f8c66312b45e00d1e2b4a26bc466ff105c3ca/README.md?plain=1#L105
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
 [RFC 9180 §4.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-dh-based-kem-dhkem
+[RFC 9180 §5]: https://datatracker.ietf.org/doc/html/rfc9180#name-hybrid-public-key-encryptio
 [RFC 9180 §5.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-creating-the-encryption-con
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
+[RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
