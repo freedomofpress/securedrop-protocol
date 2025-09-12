@@ -105,19 +105,19 @@ In the table below:
 > private or public. For Diffie-Hellman keys $x$, the public component is
 > represented by the exponentiation $DH(g, x)$.[^3]
 
-| Owner      | Private/Decaps   | Public/Encaps    | Usage                   | Alg         | Signed by           |
-| ---------- | ---------------- | ---------------- | ----------------------- | ----------- | ------------------- |
-| FPF        | $`FPF_{sig,sk}`$ | $`FPF_{sig,pk}`$ | Signing                 | ?           |                     |
-| Newsroom   | $`NR_{sig,sk}`$  | $`NR_{sig,pk}`$  | Signing                 | ?           | $`FPF_{sig,sk}`$    |
-| Journalist | $`J_{sig,sk}`$   | $`J_{sig,pk}`$   | Signing (long-term)     | ?           | $`NR_{sig,sk}`$     |
-| Journalist | $`J_{fetch,sk}`$ | $`J_{fetch,pk}`$ | Fetching (med-term)     | 25519       | $`NR_{sig,sk}`$[^4] |
-| Journalist | $`J_{epq,sk}`$   | $`J_{epq,pk}`$   | Msg enc PSK (one-time)  | MLKEM-768   | $`J_{sig,sk}`$      |
-| Journalist | $`J_{epke,sk}`$  | $`J_{epke,pk}`$  | Msg enc (one-time)      | DH-AKEM[^5] | $`J_{sig,sk}`$      |
-| Journalist | $`J_{emd,sk}`$   | $`J_{emd,pk}`$   | Metatada enc (one-time) | XWING       | $`J_{sig,sk}`$      |
-| Source     | $`S_{fetch,sk}`$ | $`S_{fetch,pk}`$ | Fetching                | 25519       |                     |
-| Source     | $`S_{pq,sk}`$    | $`S_{pq,pk}`$    | Msg enc PSK             | MLKEM-768   |                     |
-| Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | Msg enc                 | DH-AKEM[^5] |                     |
-| Source     | $`S_{md,sk}`$    | $`S_{md,pk}`$    | Metadata enc            | XWING       |                     |
+| Owner      | Private key or decapsulation | Public key or encapsulation | Usage                   | Algorithm                         | Signed by           |
+| ---------- | ---------------------------- | --------------------------- | ----------------------- | --------------------------------- | ------------------- |
+| FPF        | $`FPF_{sig,sk}`$             | $`FPF_{sig,pk}`$            | Signing                 | ?                                 |                     |
+| Newsroom   | $`NR_{sig,sk}`$              | $`NR_{sig,pk}`$             | Signing                 | ?                                 | $`FPF_{sig,sk}`$    |
+| Journalist | $`J_{sig,sk}`$               | $`J_{sig,pk}`$              | Signing (long-term)     | ?                                 | $`NR_{sig,sk}`$     |
+| Journalist | $`J_{fetch,sk}`$             | $`J_{fetch,pk}`$            | Fetching (med-term)     | X25519                            | $`NR_{sig,sk}`$[^4] |
+| Journalist | $`J_{epq,sk}`$               | $`J_{epq,pk}`$              | Msg enc PSK (one-time)  | ML-KEM-768                        | $`J_{sig,sk}`$      |
+| Journalist | $`J_{epke,sk}`$              | $`J_{epke,pk}`$             | Msg enc (one-time)      | HPKE (DH-AKEM, HKDF, AES-GCM)[^5] | $`J_{sig,sk}`$      |
+| Journalist | $`J_{emd,sk}`$               | $`J_{emd,pk}`$              | Metatada enc (one-time) | X-Wing                            | $`J_{sig,sk}`$      |
+| Source     | $`S_{fetch,sk}`$             | $`S_{fetch,pk}`$            | Fetching                | X25519                            |                     |
+| Source     | $`S_{pq,sk}`$                | $`S_{pq,pk}`$               | Msg enc PSK             | ML-KEM-768                        |                     |
+| Source     | $`S_{pke,sk}`$               | $`S_{pke,pk}`$              | Msg enc                 | HPKE (DH-AKEM, HKDF, AES-GCM)[^5] |                     |
+| Source     | $`S_{md,sk}`$                | $`S_{md,pk}`$               | Metadata enc            | X-Wing                            |                     |
 
 [^4]: **TODO:** Discussion of whether the newsroom's or the journalist's signing key signs the journalist's fetching key.
 
@@ -368,7 +368,11 @@ See ["Source Submits a Message"](#source-submits-a-message).
 [^4]: TODO kept inline above.
 -->
 
-[^5]: HPKE ciphersuites are specified as (KEM, KDF, AEAD). DHKEM/DH-AKEM is a Diffie-Hellman based KEM specified (Group, KDF), where the KDFs are permitted to be different. We plan (DH-AKEM, HKDF, AES-GCM) where DH-AKEM is a DH-KEM(X25519, HKDF-SHA256) which is DHKEM 0x0020 in http://rfc-editor.org/rfc/rfc9180.html#name-dh-based-kem-dhkem
+[^5]:
+    DH-AKEM per [RFC 9180 §4.1] using DH-KEM(X25519, HKDF-SHA256) with KEM ID
+    `0x0020` ([§7.1][RFC 9180 §7.1]).
 
 [chunk]: https://github.com/freedomofpress/securedrop-protocol/blob/664f8c66312b45e00d1e2b4a26bc466ff105c3ca/README.md?plain=1#L105
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
+[RFC 9180 §4.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-dh-based-kem-dhkem
+[RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
