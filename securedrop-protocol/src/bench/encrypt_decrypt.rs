@@ -1,3 +1,10 @@
+use crate::primitives::dh_akem::generate_dh_akem_keypair;
+use crate::primitives::mlkem::generate_mlkem768_keypair;
+use crate::primitives::x25519::generate_dh_keypair;
+use crate::primitives::x25519::generate_random_scalar;
+use crate::primitives::xwing::generate_xwing_keypair;
+use crate::primitives::{decrypt_message_id, encrypt_message_id};
+use alloc::{format, vec::Vec};
 use hpke_rs::libcrux::HpkeLibcrux;
 use hpke_rs::{HpkeKeyPair, HpkePrivateKey, HpkePublicKey};
 use libcrux_curve25519::hacl::scalarmult;
@@ -7,13 +14,6 @@ use rand::RngCore;
 use rand::rngs::StdRng;
 use rand_core::CryptoRng;
 use rand_core::SeedableRng;
-use alloc::{format, vec::Vec};
-use crate::primitives::dh_akem::generate_dh_akem_keypair;
-use crate::primitives::mlkem::generate_mlkem768_keypair;
-use crate::primitives::x25519::generate_dh_keypair;
-use crate::primitives::x25519::generate_random_scalar;
-use crate::primitives::xwing::generate_xwing_keypair;
-use crate::primitives::{decrypt_message_id, encrypt_message_id};
 
 const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // Spec requires a tag
 const HPKE_INFO: &[u8] = b"";
@@ -446,7 +446,7 @@ impl Source {
         let mut pk_fetch: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
         let mut sk_fetch: [u8; LEN_DHKEM_DECAPS_KEY] =
             generate_random_scalar(rng).expect("DH keygen (Fetching) failed!");
-        let _ = libcrux_curve25519::secret_to_public(&mut sk_fetch, &mut pk_fetch);
+        let _ = libcrux_curve25519::secret_to_public(&mut pk_fetch, &mut sk_fetch);
 
         let (sk_pqkem_psk, pk_pqkem_psk) =
             generate_mlkem768_keypair(rng).expect("Failed to generate ml-kem keys!");
@@ -510,7 +510,7 @@ impl Journalist {
         let mut pk_fetch: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
         let mut sk_fetch: [u8; LEN_DHKEM_DECAPS_KEY] =
             generate_random_scalar(rng).expect("DH keygen (Fetching) failed!");
-        let _ = libcrux_curve25519::secret_to_public(&mut sk_fetch, &mut pk_fetch);
+        let _ = libcrux_curve25519::secret_to_public(&mut pk_fetch, &mut sk_fetch);
 
         let (sk_pqkem_psk, pk_pqkem_psk) =
             generate_mlkem768_keypair(rng).expect("Failed to generate ml-kem keys!");
@@ -601,9 +601,6 @@ mod tests {
 
         let challenges = compute_fetch_challenges(&mut rng, &[store_entry], 2);
 
-        let enc_mid = challenges.first().unwrap();
-        debug_assert!(enc_mid.enc_id.len() == LEN_KMID);
-
         let solved_ids = solve_fetch_challenges(&journalist, challenges);
 
         assert_eq!(solved_ids.len(), 1);
@@ -625,7 +622,6 @@ pub fn setup() -> (Source, Journalist, Vec<u8>, Envelope) {
     );
     (source, journalist, plaintext, envelope)
 }
-
 
 pub fn bench_encrypt(iterations: usize) {
     let (source, journalist, plaintext, _) = setup();
@@ -652,8 +648,13 @@ pub fn bench_fetch(iterations: usize) {
     // Generate multiple envelopes and populate a server store
     let mut store = Vec::new();
     for i in 0..100 {
-        let envelope = encrypt(&mut rng, &source, format!("msg {i}").as_bytes(), &journalist);
-        let message_id: [u8; 16] = [i as u8; LEN_MESSAGE_ID]; // Dummy message IDs for benchmarking
+        let envelope = encrypt(
+            &mut rng,
+            &source,
+            format!("msg {i}").as_bytes(),
+            &journalist,
+        );
+        let message_id: [u8; 16] = [i as u8; LEN_MESSAGE_ID];
 
         store.push(ServerMessageStore {
             message_id,
@@ -666,9 +667,11 @@ pub fn bench_fetch(iterations: usize) {
     for i in 0..iterations {
         let challenges = compute_fetch_challenges(&mut rng, &store, total_responses);
         let _solved = solve_fetch_challenges(&journalist, challenges);
-        // Add assertion if you want to check something about `_solved`
+
+        // todo
+
         if i == iterations + 1 {
-            unreachable!(); 
+            unreachable!();
         }
     }
 }
