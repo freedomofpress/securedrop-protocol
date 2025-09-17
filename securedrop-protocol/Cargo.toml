@@ -2,7 +2,7 @@
 name = "securedrop-protocol"
 version = "0.1.0"
 edition = "2024"
-authors = ["redshiftzero <jen@freedom.press>"]
+authors = ["SecureDrop Team <securedrop@freedom.press>"]
 description = "A wip impl of the securedrop protocol"
 license = "GPL-3.0"
 
@@ -26,7 +26,9 @@ hashbrown = { version = "0.14", features = ["raw"] }
 # In theory, it should be possible to use v4 uuids with getrandom per https://docs.rs/uuid/1.18.1/uuid/#building-for-other-targets, but cargo nono complains vigorously
 uuid = { version = "1.0", default-features = false, features = ["v4", "rng-getrandom", "js"] }
 blake2 = "0.10"
-wasm-bindgen = "0.2"
+
+# pin an exact version to resolve wasm-bindgen schema compatibility issue
+wasm-bindgen = "0.2.103"
 rand_chacha = "0.9.0"
 
 [dev-dependencies]
