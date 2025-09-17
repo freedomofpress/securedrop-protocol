@@ -91,6 +91,7 @@ fn main() {
     let avg = div_duration(total, iterations as u32);
     println!("bench: {which}");
     println!("iterations: {iterations}");
+    println!("keybundles/journo (trial decrypt): {num_keybundles}");
     println!("total: {} ms", to_millis(total));
     println!("avg:   {} µs/iter", to_micros(avg));
 }
