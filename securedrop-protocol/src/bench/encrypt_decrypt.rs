@@ -149,22 +149,54 @@ impl From<[u8; METADATA_LENGTH]> for Metadata {
     }
 }
 
-pub trait User {
+// Keys used for individual messages
+pub struct KeyBundle {
+    dhakem_sk: [u8; LEN_DH_ITEM],
+    pub dhakem_pk: [u8; LEN_DH_ITEM],
+
+    pq_kem_psk_sk: [u8; LEN_MLKEM_DECAPS_KEY],
+    pub pq_kem_psk_pk: [u8; LEN_MLKEM_ENCAPS_KEY],
+
+    hybrid_md_sk: [u8; LEN_XWING_DECAPS_KEY],
+    pub hybrid_md_pk: [u8; LEN_XWING_ENCAPS_KEY],
+}
+
+impl KeyBundle {
     // msg enc classical
-    fn get_dhakem_sk(&self) -> &[u8; LEN_DH_ITEM];
-    fn get_dhakem_pk(&self) -> &[u8; LEN_DH_ITEM];
+    fn get_dhakem_sk(&self) -> &[u8; LEN_DH_ITEM] {
+        &self.dhakem_sk
+    }
+    fn get_dhakem_pk(&self) -> &[u8; LEN_DH_ITEM] {
+        &self.dhakem_pk
+    }
 
     // msg enc pq psk
-    fn get_pq_kem_psk_pk(&self) -> &[u8; LEN_MLKEM_ENCAPS_KEY];
-    fn get_pq_kem_psk_sk(&self) -> &[u8; LEN_MLKEM_DECAPS_KEY];
+    fn get_pq_kem_psk_pk(&self) -> &[u8; LEN_MLKEM_ENCAPS_KEY] {
+        &self.pq_kem_psk_pk
+    }
+
+    fn get_pq_kem_psk_sk(&self) -> &[u8; LEN_MLKEM_DECAPS_KEY] {
+        &self.pq_kem_psk_sk
+    }
 
     // md enc hybrid
-    fn get_hybrid_md_pk(&self) -> &[u8; LEN_XWING_ENCAPS_KEY];
-    fn get_hybrid_md_sk(&self) -> &[u8; LEN_XWING_DECAPS_KEY];
+    fn get_hybrid_md_pk(&self) -> &[u8; LEN_XWING_ENCAPS_KEY] {
+        &self.hybrid_md_pk
+    }
 
+    fn get_hybrid_md_sk(&self) -> &[u8; LEN_XWING_DECAPS_KEY] {
+        &self.hybrid_md_sk
+    }
+}
+
+pub trait User {
+    fn keybundle(&self, index: Option<usize>) -> &KeyBundle;
     // fetch classical
     fn get_fetch_sk(&self) -> &[u8; LEN_DH_ITEM];
     fn get_fetch_pk(&self) -> &[u8; LEN_DH_ITEM];
+
+    // ~only for journalists, here for simplicity
+    fn get_all_keys(&self) -> &[KeyBundle];
 }
 
 pub fn hpke_keypair_from_bytes(sk_bytes: &[u8], pk_bytes: &[u8]) -> HpkeKeyPair {
@@ -193,10 +225,14 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     let mut hpke_metadata: Hpke<HpkeLibcrux> =
         Hpke::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
 
-    let recipient_dhakem_pubkey = hpke_pubkey_from_bytes(recipient.get_dhakem_pk());
+    // In reality, sender will pull a keybundle from the server and verify its signature against the journalist long-term signing key
+    let recipient_keybundle = recipient.keybundle(None);
+    let sender_keys = sender.keybundle(None);
+
+    let recipient_dhakem_pubkey = hpke_pubkey_from_bytes(recipient_keybundle.get_dhakem_pk());
 
     let sender_hpke_keypair =
-        hpke_keypair_from_bytes(sender.get_dhakem_sk(), sender.get_dhakem_pk());
+        hpke_keypair_from_bytes(sender_keys.get_dhakem_sk(), sender_keys.get_dhakem_pk());
 
     // Note: Don't need SEED_GEN len randomness (64), just SHARED_SECRET len (32),
     // according to MLK-KEM source code.
@@ -204,8 +240,13 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     rng.fill_bytes(&mut randomness);
 
     // Calculate PQ PSK - encapsulate to the recipient's key
-    let (psk, psk_ct) =
-        MlKem768::encaps(recipient.get_pq_kem_psk_pk(), &randomness).expect("PSK encaps failed");
+    let (psk, psk_ct) = MlKem768::encaps(recipient_keybundle.get_pq_kem_psk_pk(), &randomness)
+        .expect("PSK encaps failed");
+
+    // TODO: message serialization and format
+    // (include any message metadata, the sender serialized XWING pubkey
+    // for sending replies, key identifiers, newsroom key/identifier, etc.)
+    // At the moment the message being passed here is just the plaintext, but it will have a message structure.
 
     // HPKE AuthPSK message encryption
     let (mesage_dhakem_shared_secret_encaps, message_ciphertext) = hpke_authenc
@@ -246,7 +287,7 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     .to_bytes();
 
     // Serialize then encrypt metadata with metadata key (xwing) and Hpke Base mode
-    let recipient_md_pubkey = hpke_pubkey_from_bytes(recipient.get_hybrid_md_pk());
+    let recipient_md_pubkey = hpke_pubkey_from_bytes(recipient_keybundle.get_hybrid_md_pk());
 
     let (md_ss_encaps_vec, metadata_ciphertext) = hpke_metadata
         .seal(
@@ -287,37 +328,74 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
     let hpke_base: Hpke<HpkeLibcrux> =
         Hpke::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
 
-    let receiver_metadata_keypair =
-        hpke_keypair_from_bytes(receiver.get_hybrid_md_sk(), receiver.get_hybrid_md_pk());
+    // Receiver needs to know which keybundle to use, so they have to trial decrypt
+    // metadata.
+    // Explanation of what's happening:
+    // - iterate through the user's keybundles, keeping track of the current index
+    // - for each keybundle, trial-decrypt the metadata using hpke_base::open
+    // - hpke_base::open yields a Result<Plaintext, HpkeError>; filter only the successful ones (Ok), and
+    // - collect them and their index, which corresponds to the right keybundle
+    // - return the results of that collection.
+    // There should be exactly 1 result.
+    let results: Vec<(usize, Vec<u8>)> = receiver
+        .get_all_keys()
+        .iter()
+        .enumerate()
+        .filter_map(|(i, bundle)| {
+            {
+                let receiver_metadata_keypair =
+                    hpke_keypair_from_bytes(bundle.get_hybrid_md_sk(), bundle.get_hybrid_md_pk());
 
-    let receiver_dhakem_keypair =
-        hpke_keypair_from_bytes(receiver.get_dhakem_sk(), receiver.get_dhakem_pk());
+                let receiver_dhakem_keypair =
+                    hpke_keypair_from_bytes(bundle.get_dhakem_sk(), bundle.get_dhakem_pk());
 
-    let raw_metadata = hpke_base
-        .open(
-            &envelope.metadata_encap,
-            receiver_metadata_keypair.private_key(),
-            HPKE_INFO,
-            HPKE_AAD,
-            &envelope.cmetadata,
-            None,
-            None,
-            None,
-        )
-        .expect("Wanted decrypted metadata");
+                hpke_base.open(
+                    &envelope.metadata_encap,
+                    receiver_metadata_keypair.private_key(),
+                    HPKE_INFO,
+                    HPKE_AAD,
+                    &envelope.cmetadata,
+                    None,
+                    None,
+                    None,
+                )
+            }
+            .ok()
+            .map(|decrypted_metadata| (i, decrypted_metadata))
+        })
+        .collect();
 
-    let raw_md_bytes: [u8; METADATA_LENGTH] =
-        raw_metadata.try_into().expect("Need METADATA_LENGTH array");
+    // Sanity
+    assert_eq!(results.len(), 1);
+
+    let (index, raw_metadata) = results.first().unwrap();
+
+    // Now we know which keybundle to use
+    let receiver_keys = receiver.keybundle(Some(*index));
+
+    // kind of silly, but just enforcing length
+    let raw_md_bytes: [u8; METADATA_LENGTH] = raw_metadata
+        .as_slice()
+        .try_into()
+        .expect("Need METADATA_LENGTH array");
     let metadata = Metadata::try_from(raw_md_bytes).unwrap();
 
+    // hpke keytypes
     let hpke_pubkey_sender = hpke_pubkey_from_bytes(&metadata.sender_pubkey_bytes);
 
-    let psk = MlKem768::decaps(&metadata.pq_psk_ss_encaps, receiver.get_pq_kem_psk_sk()).unwrap();
+    let hpke_receiver_keys =
+        hpke_keypair_from_bytes(receiver_keys.get_dhakem_sk(), receiver_keys.get_dhakem_pk());
+
+    let psk = MlKem768::decaps(
+        &metadata.pq_psk_ss_encaps,
+        receiver_keys.get_pq_kem_psk_sk(),
+    )
+    .unwrap();
 
     let pt = hpke_authenc
         .open(
             &metadata.dhakem_ss_encaps,
-            receiver_dhakem_keypair.private_key(),
+            hpke_receiver_keys.private_key(),
             HPKE_INFO,
             HPKE_AAD,
             &envelope.cmessage,
@@ -426,12 +504,7 @@ pub fn solve_fetch_challenges(
 }
 
 pub struct Source {
-    sk_dh: [u8; LEN_DHKEM_DECAPS_KEY],
-    pk_dh: [u8; LEN_DHKEM_ENCAPS_KEY],
-    sk_pqkem_psk: [u8; LEN_MLKEM_DECAPS_KEY],
-    pk_pqkem_psk: [u8; LEN_MLKEM_ENCAPS_KEY],
-    sk_md: [u8; LEN_XWING_DECAPS_KEY],
-    pk_md: [u8; LEN_XWING_ENCAPS_KEY],
+    keys: KeyBundle,
     sk_fetch: [u8; LEN_DH_ITEM],
     pk_fetch: [u8; LEN_DH_ITEM],
 }
@@ -451,13 +524,18 @@ impl Source {
             generate_mlkem768_keypair(rng).expect("Failed to generate ml-kem keys!");
 
         let (sk_md, pk_md) = generate_xwing_keypair(rng).expect("Failed to generate xwing keys");
+
+        let keybundle = KeyBundle {
+            dhakem_sk: *sk_dh.as_bytes(),
+            dhakem_pk: *pk_dh.as_bytes(),
+            pq_kem_psk_sk: *sk_pqkem_psk.as_bytes(),
+            pq_kem_psk_pk: *pk_pqkem_psk.as_bytes(),
+            hybrid_md_sk: *sk_md.as_bytes(),
+            hybrid_md_pk: *pk_md.as_bytes(),
+        };
+
         Self {
-            sk_dh: *sk_dh.as_bytes(),
-            pk_dh: *pk_dh.as_bytes(),
-            sk_pqkem_psk: *sk_pqkem_psk.as_bytes(),
-            pk_pqkem_psk: *pk_pqkem_psk.as_bytes(),
-            sk_md: *sk_md.as_bytes(),
-            pk_md: *pk_md.as_bytes(),
+            keys: keybundle,
             sk_fetch: sk_fetch,
             pk_fetch: pk_fetch,
         }
@@ -465,11 +543,8 @@ impl Source {
 }
 
 impl User for Source {
-    fn get_dhakem_sk(&self) -> &[u8; LEN_DH_ITEM] {
-        &self.sk_dh
-    }
-    fn get_dhakem_pk(&self) -> &[u8; LEN_DH_ITEM] {
-        &self.pk_dh
+    fn keybundle(&self, _: Option<usize>) -> &KeyBundle {
+        &self.keys
     }
     fn get_fetch_sk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.sk_fetch
@@ -477,51 +552,58 @@ impl User for Source {
     fn get_fetch_pk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.pk_fetch
     }
-    fn get_hybrid_md_pk(&self) -> &[u8; LEN_XWING_ENCAPS_KEY] {
-        &self.pk_md
-    }
-    fn get_hybrid_md_sk(&self) -> &[u8; LEN_XWING_DECAPS_KEY] {
-        &self.sk_md
-    }
-    fn get_pq_kem_psk_pk(&self) -> &[u8; LEN_MLKEM_ENCAPS_KEY] {
-        &self.pk_pqkem_psk
-    }
-    fn get_pq_kem_psk_sk(&self) -> &[u8; LEN_MLKEM_DECAPS_KEY] {
-        &self.sk_pqkem_psk
+
+    // this is silly, and is just for benchmarking simplicity to have one
+    // send/receive method that works for all sender and recipient types
+    fn get_all_keys(&self) -> &[KeyBundle] {
+        use core::slice;
+        slice::from_ref(&self.keys)
     }
 }
 
 pub struct Journalist {
-    sk_dh: [u8; LEN_DHKEM_DECAPS_KEY],
-    pk_dh: [u8; LEN_DHKEM_ENCAPS_KEY],
-    sk_pqkem_psk: [u8; LEN_MLKEM_DECAPS_KEY],
-    pk_pqkem_psk: [u8; LEN_MLKEM_ENCAPS_KEY],
-    sk_md: [u8; LEN_XWING_DECAPS_KEY],
-    pk_md: [u8; LEN_XWING_ENCAPS_KEY],
+    keybundle: Vec<KeyBundle>,
+
     sk_fetch: [u8; LEN_DH_ITEM],
     pk_fetch: [u8; LEN_DH_ITEM],
 }
 
 impl Journalist {
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
-        let (sk_dh, pk_dh) = generate_dh_akem_keypair(rng).expect("DH keygen (DH-AKEM) failed");
+    /// Set up Journalist, creating key_bundle_size short-term key bundles.
+    pub fn new<R: RngCore + CryptoRng>(rng: &mut R, num_keybundles: usize) -> Self {
+        let mut key_bundle: Vec<KeyBundle> = Vec::with_capacity(num_keybundles);
 
         let mut pk_fetch: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
         let mut sk_fetch: [u8; LEN_DHKEM_DECAPS_KEY] =
             generate_random_scalar(rng).expect("DH keygen (Fetching) failed!");
         let _ = libcrux_curve25519::secret_to_public(&mut pk_fetch, &mut sk_fetch);
 
-        let (sk_pqkem_psk, pk_pqkem_psk) =
-            generate_mlkem768_keypair(rng).expect("Failed to generate ml-kem keys!");
+        // Generate one-time/short-lived keybundles
+        for _ in 0..num_keybundles {
+            let (sk_dh, pk_dh) = generate_dh_akem_keypair(rng).expect("DH keygen (DH-AKEM) failed");
 
-        let (sk_md, pk_md) = generate_xwing_keypair(rng).expect("Failed to generate xwing keys");
+            let (sk_pqkem_psk, pk_pqkem_psk) =
+                generate_mlkem768_keypair(rng).expect("Failed to generate ml-kem keys!");
+
+            let (sk_md, pk_md) =
+                generate_xwing_keypair(rng).expect("Failed to generate xwing keys");
+
+            let bundle = KeyBundle {
+                dhakem_sk: *sk_dh.as_bytes(),
+                dhakem_pk: *pk_dh.as_bytes(),
+                pq_kem_psk_sk: *sk_pqkem_psk.as_bytes(),
+                pq_kem_psk_pk: *pk_pqkem_psk.as_bytes(),
+                hybrid_md_sk: *sk_md.as_bytes(),
+                hybrid_md_pk: *pk_md.as_bytes(),
+            };
+
+            key_bundle.push(bundle);
+        }
+        // (sanity)
+        assert_eq!(key_bundle.len(), num_keybundles);
+
         Self {
-            sk_dh: *sk_dh.as_bytes(),
-            pk_dh: *pk_dh.as_bytes(),
-            sk_pqkem_psk: *sk_pqkem_psk.as_bytes(),
-            pk_pqkem_psk: *pk_pqkem_psk.as_bytes(),
-            sk_md: *sk_md.as_bytes(),
-            pk_md: *pk_md.as_bytes(),
+            keybundle: key_bundle,
             sk_fetch: sk_fetch,
             pk_fetch: pk_fetch,
         }
@@ -529,29 +611,34 @@ impl Journalist {
 }
 
 impl User for Journalist {
-    fn get_dhakem_sk(&self) -> &[u8; LEN_DH_ITEM] {
-        &self.sk_dh
+    // Get a specific index, or a random bundle.
+    // In reality, the server will publish pubkey bundles
+    fn keybundle(&self, index: Option<usize>) -> &KeyBundle {
+        match index {
+            Some(i) => self
+                .keybundle
+                .get(i)
+                .unwrap_or_else(|| panic!("Bad index: {}", i)),
+            None => {
+                let mut rng = setup_rng();
+                let choice = rng.next_u32() as usize % &self.keybundle.len();
+
+                self.keybundle
+                    .get(choice)
+                    .expect("Need at least one keybundle")
+            }
+        }
     }
-    fn get_dhakem_pk(&self) -> &[u8; LEN_DH_ITEM] {
-        &self.pk_dh
+
+    fn get_all_keys(&self) -> &[KeyBundle] {
+        &self.keybundle
     }
+
     fn get_fetch_sk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.sk_fetch
     }
     fn get_fetch_pk(&self) -> &[u8; LEN_DH_ITEM] {
         &self.pk_fetch
-    }
-    fn get_hybrid_md_pk(&self) -> &[u8; LEN_XWING_ENCAPS_KEY] {
-        &self.pk_md
-    }
-    fn get_hybrid_md_sk(&self) -> &[u8; LEN_XWING_DECAPS_KEY] {
-        &self.sk_md
-    }
-    fn get_pq_kem_psk_pk(&self) -> &[u8; LEN_MLKEM_ENCAPS_KEY] {
-        &self.pk_pqkem_psk
-    }
-    fn get_pq_kem_psk_sk(&self) -> &[u8; LEN_MLKEM_DECAPS_KEY] {
-        &self.sk_pqkem_psk
     }
 }
 
@@ -576,7 +663,7 @@ mod tests {
         let mut rng = setup_rng();
 
         let sender = Source::new(&mut rng);
-        let recipient = Journalist::new(&mut rng);
+        let recipient = Journalist::new(&mut rng, 2);
         let plaintext = b"Encrypt-decrypt test".to_vec();
 
         let envelope = encrypt(&mut rng, &sender, &plaintext, &recipient);
@@ -590,7 +677,7 @@ mod tests {
     fn test_fetch_challenges_roundtrip() {
         let mut rng = setup_rng();
 
-        let journalist = Journalist::new(&mut rng);
+        let journalist = Journalist::new(&mut rng, 2);
         let source = Source::new(&mut rng);
 
         let plaintext = b"Fetch this message".to_vec();
@@ -619,18 +706,20 @@ mod tests {
 
 // Begin benchmark functions
 
-pub fn setup() -> (Source, Journalist, Vec<u8>, Envelope) {
+/// Set up source and journalist (sender and recipient).
+/// Give journalists keybundles_size sets of message keys.
+pub fn setup(keybundles_size: usize) -> (Source, Journalist, Vec<u8>, Envelope) {
     let mut rng = setup_rng();
 
     let source = Source::new(&mut rng);
-    let journalist = Journalist::new(&mut rng);
+    let journalist = Journalist::new(&mut rng, keybundles_size);
     let plaintext = b"super secret msg".to_vec();
     let envelope = encrypt(&mut rng, &source, &plaintext, &journalist);
     (source, journalist, plaintext, envelope)
 }
 
-pub fn bench_encrypt(iterations: usize) {
-    let (source, journalist, plaintext, _) = setup();
+pub fn bench_encrypt(iterations: usize, num_keybundles: usize) {
+    let (source, journalist, plaintext, _) = setup(num_keybundles);
 
     for _ in 0..iterations {
         let mut rng = setup_rng();
@@ -638,17 +727,20 @@ pub fn bench_encrypt(iterations: usize) {
     }
 }
 
-pub fn bench_decrypt(iterations: usize) {
-    let (source, journalist, _plaintext, envelope) = setup();
+/// Benchmark the decryption operation, which requires
+/// journalists to trial-decrypt metadata using their one-time keys.
+
+pub fn bench_decrypt(iterations: usize, num_keybundles: usize) {
+    let (source, journalist, _plaintext, envelope) = setup(num_keybundles);
 
     for _ in 0..iterations {
         let _pt = decrypt(&journalist, &envelope);
     }
 }
 
-pub fn bench_fetch(iterations: usize) {
+pub fn bench_fetch(iterations: usize, num_keybundles: usize) {
     let mut rng = setup_rng();
-    let journalist = Journalist::new(&mut rng);
+    let journalist = Journalist::new(&mut rng, num_keybundles);
     let source = Source::new(&mut rng);
 
     // Generate multiple envelopes and populate a server store

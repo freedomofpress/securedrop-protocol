@@ -1,7 +1,5 @@
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
-use rand::{SeedableRng, rngs::StdRng};
 use alloc::{format, vec, vec::Vec};
 
 use crate::{
@@ -75,7 +73,9 @@ fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) 
     (source, journalist_key_responses)
 }
 
-pub fn bench_submit_message(iterations: usize) {
+// For now the usize param is unused, but eventually it can specify
+// num keybundles, as it does in the other benchmarks
+pub fn bench_submit_message(iterations: usize, _: usize) {
     for index in 0..iterations {
         let (source, journalist_key_responses) = setup_test_environment();
         let test_message = vec![0u8; 512]; // Test message content
@@ -99,8 +99,10 @@ pub fn bench_submit_message(iterations: usize) {
         );
         source
             .submit_message(test_message, &journalist_key_responses, &mut rng)
-            .expect(&format!("Message submission should succeed at iteration {}", index));
+            .expect(&format!(
+                "Message submission should succeed at iteration {}",
+                index
+            ));
     }
 }
 }
-

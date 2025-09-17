@@ -46,22 +46,25 @@ pub mod bench;
 
 use wasm_bindgen::prelude::*;
 
+// For now we don't use the u32 param here, but when we update
+// the submit benchmark we can add parameterized keybundle size
+// as we have in the other benches.
 #[wasm_bindgen]
-pub fn bench_submit_message(iterations: u32) {
-    bench::bench_submit_message(iterations as usize);
+pub fn bench_submit_message(iterations: u32, unused: u32) {
+    bench::bench_submit_message(iterations as usize, unused as usize);
 }
 
 #[wasm_bindgen]
-pub fn bench_encrypt(iterations: u32) {
-    bench::bench_encrypt(iterations as usize);
+pub fn bench_encrypt(iterations: u32, num_keybundles: u32) {
+    bench::bench_encrypt(iterations as usize, num_keybundles as usize);
 }
 
 #[wasm_bindgen]
-pub fn bench_decrypt(iterations: u32) {
-    bench::bench_decrypt(iterations as usize);
+pub fn bench_decrypt(iterations: u32, num_keybundles: u32) {
+    bench::bench_decrypt(iterations as usize, num_keybundles as usize);
 }
 
 #[wasm_bindgen]
-pub fn bench_fetch(iterations: u32) {
-    bench::bench_fetch(iterations as usize);
+pub fn bench_fetch(iterations: u32, num_keybundles: u32) {
+    bench::bench_fetch(iterations as usize, num_keybundles as usize);
 }
