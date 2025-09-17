@@ -27,6 +27,7 @@ hashbrown = { version = "0.14", features = ["raw"] }
 uuid = { version = "1.0", default-features = false, features = ["v4", "rng-getrandom", "js"] }
 blake2 = "0.10"
 wasm-bindgen = "0.2"
+rand_chacha = "0.9.0"
 
 [dev-dependencies]
 proptest = "1.3"

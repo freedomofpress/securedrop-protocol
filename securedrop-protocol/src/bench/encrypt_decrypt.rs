@@ -5,15 +5,14 @@ use crate::primitives::x25519::generate_random_scalar;
 use crate::primitives::xwing::generate_xwing_keypair;
 use crate::primitives::{decrypt_message_id, encrypt_message_id};
 use alloc::{format, vec::Vec};
+use getrandom;
 use hpke_rs::libcrux::HpkeLibcrux;
 use hpke_rs::{HpkeKeyPair, HpkePrivateKey, HpkePublicKey};
 use libcrux_curve25519::hacl::scalarmult;
 use libcrux_kem::MlKem768;
 use libcrux_traits::kem::secrets::Kem;
-use rand::RngCore;
-use rand::rngs::StdRng;
-use rand_core::CryptoRng;
-use rand_core::SeedableRng;
+use rand_chacha::ChaCha20Rng;
+use rand_core::{CryptoRng, RngCore, SeedableRng};
 
 const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // Spec requires a tag
 const HPKE_INFO: &[u8] = b"";
@@ -202,7 +201,7 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     // Note: Don't need SEED_GEN len randomness (64), just SHARED_SECRET len (32),
     // according to MLK-KEM source code.
     let mut randomness: [u8; LEN_MLKEM_SHAREDSECRET] = [0u8; LEN_MLKEM_SHAREDSECRET];
-    rand::rng().fill_bytes(&mut randomness);
+    rng.fill_bytes(&mut randomness);
 
     // Calculate PQ PSK - encapsulate to the recipient's key
     let (psk, psk_ct) =
@@ -556,17 +555,26 @@ impl User for Journalist {
     }
 }
 
-// Begin unit tests
+// Test purposes only!
+fn setup_rng() -> (impl rand_core::CryptoRng + rand_core::RngCore) {
+    let mut seed = [0u8; 32];
+    getrandom::fill(&mut seed).expect("getrandom failed- is platform supported?");
+    ChaCha20Rng::from_seed(seed)
+}
 
+fn setup_rng_deterministic(seed: [u8; 32]) -> (impl rand_core::CryptoRng + rand_core::RngCore) {
+    ChaCha20Rng::from_seed(seed)
+}
+
+// Begin unit tests
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
-    use rand::rngs::StdRng;
 
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
-        let mut rng = StdRng::seed_from_u64(666); // obvi
+        let mut rng = setup_rng();
+
         let sender = Source::new(&mut rng);
         let recipient = Journalist::new(&mut rng);
         let plaintext = b"Encrypt-decrypt test".to_vec();
@@ -580,7 +588,8 @@ mod tests {
 
     #[test]
     fn test_fetch_challenges_roundtrip() {
-        let mut rng = StdRng::seed_from_u64(12345);
+        let mut rng = setup_rng();
+
         let journalist = Journalist::new(&mut rng);
         let source = Source::new(&mut rng);
 
@@ -611,15 +620,12 @@ mod tests {
 // Begin benchmark functions
 
 pub fn setup() -> (Source, Journalist, Vec<u8>, Envelope) {
-    let source = Source::new(&mut StdRng::seed_from_u64(666));
-    let journalist = Journalist::new(&mut StdRng::seed_from_u64(666));
+    let mut rng = setup_rng();
+
+    let source = Source::new(&mut rng);
+    let journalist = Journalist::new(&mut rng);
     let plaintext = b"super secret msg".to_vec();
-    let envelope = encrypt(
-        &mut StdRng::seed_from_u64(666),
-        &source,
-        &plaintext,
-        &journalist,
-    );
+    let envelope = encrypt(&mut rng, &source, &plaintext, &journalist);
     (source, journalist, plaintext, envelope)
 }
 
@@ -627,7 +633,7 @@ pub fn bench_encrypt(iterations: usize) {
     let (source, journalist, plaintext, _) = setup();
 
     for _ in 0..iterations {
-        let mut rng = StdRng::seed_from_u64(666);
+        let mut rng = setup_rng();
         let _envelope = encrypt(&mut rng, &source, &plaintext, &journalist);
     }
 }
@@ -641,7 +647,7 @@ pub fn bench_decrypt(iterations: usize) {
 }
 
 pub fn bench_fetch(iterations: usize) {
-    let mut rng = StdRng::seed_from_u64(8888);
+    let mut rng = setup_rng();
     let journalist = Journalist::new(&mut rng);
     let source = Source::new(&mut rng);
 
