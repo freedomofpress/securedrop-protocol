@@ -82,17 +82,17 @@ jobs:
    steps:
      # actions/checkout@4.1.1
       - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
-       with:
+        with:
          persist-credentials: false
      # actions-rs/toolchain@v1.0.6
       - uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
-       with:
+        with:
          profile: minimal
          toolchain: stable
          override: true
-     - run: cargo install --locked cargo-nono
-     - run: cargo nono check --no-default-features
-       working-directory: securedrop-protocol
+      - run: cargo install --locked cargo-nono
+      - run: cargo nono check --no-default-features
+        working-directory: securedrop-protocol
 
   build_wasm:
     name: wasm build
