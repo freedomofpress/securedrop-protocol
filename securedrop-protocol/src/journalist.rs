@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::keys::{
     JournalistDHKeyPair, JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair,
-    JournalistOneTimeKeyBundle, JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair,
+    JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair, JournalistOneTimeKeyBundle,
     JournalistOneTimePublicKeys, JournalistSigningKeyPair,
 };
 use crate::keys::{JournalistEnrollmentKeyBundle, SourcePublicKeys};
