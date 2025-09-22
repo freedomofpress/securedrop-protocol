@@ -52,7 +52,7 @@ const LEN_MESSAGE_ID: usize = 16;
 const LEN_KMID: usize =
     libcrux_chacha20poly1305::TAG_LEN + libcrux_chacha20poly1305::NONCE_LEN + LEN_MESSAGE_ID;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Envelope {
     cmessage: Vec<u8>,
     cmetadata: Vec<u8>,
@@ -90,6 +90,41 @@ impl FetchResponse {
         }
     }
 }
+
+impl Plaintext {
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.msg
+    }
+
+    pub fn len(&self) -> usize {
+        self.msg.len()
+    }
+
+    pub fn into_bytes(self) -> alloc::vec::Vec<u8> {
+        self.msg
+    }
+}
+
+impl Envelope {
+    pub fn size_hint(&self) -> usize {
+        self.cmessage.len() + self.cmetadata.len()
+    }
+    pub fn cmessage_len(&self)->usize { self.cmessage.len() }
+    pub fn cmetadata_len(&self)->usize { self.cmetadata.len() }
+}
+
+impl ServerMessageStore {
+    pub fn new(message_id: [u8; 16], envelope: Envelope) -> Self {
+        Self { message_id, envelope }
+    }
+
+    pub fn message_id(&self) -> [u8; 16] {
+        self.message_id
+    }
+
+    pub fn envelope(&self) -> &Envelope { &self.envelope }
+}
+
 
 // Plaintext metadata
 pub struct Metadata {
@@ -212,6 +247,7 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     sender: &dyn User,
     plaintext: &[u8],
     recipient: &dyn User,
+    recipient_bundle_index: Option<usize>
 ) -> Envelope {
     use hpke_rs::hpke_types::AeadAlgorithm::ChaCha20Poly1305;
     use hpke_rs::hpke_types::KdfAlgorithm::HkdfSha256;
@@ -226,7 +262,7 @@ pub fn encrypt<R: RngCore + CryptoRng>(
         Hpke::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
 
     // In reality, sender will pull a keybundle from the server and verify its signature against the journalist long-term signing key
-    let recipient_keybundle = recipient.keybundle(None);
+    let recipient_keybundle = recipient.keybundle(recipient_bundle_index);
     let sender_keys = sender.keybundle(None);
 
     let recipient_dhakem_pubkey = hpke_pubkey_from_bytes(recipient_keybundle.get_dhakem_pk());
@@ -666,7 +702,7 @@ mod tests {
         let recipient = Journalist::new(&mut rng, 2);
         let plaintext = b"Encrypt-decrypt test".to_vec();
 
-        let envelope = encrypt(&mut rng, &sender, &plaintext, &recipient);
+        let envelope = encrypt(&mut rng, &sender, &plaintext, &recipient, None);
         let decrypted = decrypt(&recipient, &envelope);
 
         assert_eq!(decrypted.msg, plaintext);
@@ -681,7 +717,7 @@ mod tests {
         let source = Source::new(&mut rng);
 
         let plaintext = b"Fetch this message".to_vec();
-        let envelope = encrypt(&mut rng, &source, &plaintext, &journalist);
+        let envelope = encrypt(&mut rng, &source, &plaintext, &journalist, None);
 
         // On server. TODO: in helper function
         let message_id: [u8; LEN_MESSAGE_ID] = {
@@ -705,71 +741,21 @@ mod tests {
 }
 
 // Begin benchmark functions
-
-/// Set up source and journalist (sender and recipient).
-/// Give journalists keybundles_size sets of message keys.
-pub fn setup(keybundles_size: usize) -> (Source, Journalist, Vec<u8>, Envelope) {
-    let mut rng = setup_rng();
-
-    let source = Source::new(&mut rng);
-    let journalist = Journalist::new(&mut rng, keybundles_size);
-    let plaintext = b"super secret msg".to_vec();
-    let envelope = encrypt(&mut rng, &source, &plaintext, &journalist);
-    (source, journalist, plaintext, envelope)
+pub fn bench_encrypt(
+    seed32: [u8; 32],
+    sender: &dyn User,
+    recipient: &dyn User,
+    recipient_bundle_index: usize,
+    plaintext: &[u8],
+) -> Envelope {
+    let mut rng = ChaCha20Rng::from_seed(seed32);
+    encrypt(&mut rng, sender, plaintext, recipient, Some(recipient_bundle_index))
 }
 
-pub fn bench_encrypt(iterations: usize, num_keybundles: usize) {
-    let (source, journalist, plaintext, _) = setup(num_keybundles);
-
-    for _ in 0..iterations {
-        let mut rng = setup_rng();
-        let _envelope = encrypt(&mut rng, &source, &plaintext, &journalist);
-    }
+pub fn bench_decrypt(recipient: &dyn User, envelope: &Envelope) -> Plaintext {
+    decrypt(recipient, envelope)
 }
 
-/// Benchmark the decryption operation, which requires
-/// journalists to trial-decrypt metadata using their one-time keys.
-
-pub fn bench_decrypt(iterations: usize, num_keybundles: usize) {
-    let (source, journalist, _plaintext, envelope) = setup(num_keybundles);
-
-    for _ in 0..iterations {
-        let _pt = decrypt(&journalist, &envelope);
-    }
-}
-
-pub fn bench_fetch(iterations: usize, num_keybundles: usize) {
-    let mut rng = setup_rng();
-    let journalist = Journalist::new(&mut rng, num_keybundles);
-    let source = Source::new(&mut rng);
-
-    // Generate multiple envelopes and populate a server store
-    let mut store = Vec::new();
-    for i in 0..100 {
-        let envelope = encrypt(
-            &mut rng,
-            &source,
-            format!("msg {i}").as_bytes(),
-            &journalist,
-        );
-        let message_id: [u8; 16] = [i as u8; LEN_MESSAGE_ID];
-
-        store.push(ServerMessageStore {
-            message_id,
-            envelope,
-        });
-    }
-
-    let total_responses = 150;
-
-    for i in 0..iterations {
-        let challenges = compute_fetch_challenges(&mut rng, &store, total_responses);
-        let _solved = solve_fetch_challenges(&journalist, challenges);
-
-        // todo
-
-        if i == iterations + 1 {
-            unreachable!();
-        }
-    }
+pub fn bench_fetch(recipient: &dyn User, challenges: Vec<FetchResponse>) -> Vec<Vec<u8>> {
+    solve_fetch_challenges(recipient, challenges)
 }

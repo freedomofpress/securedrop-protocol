@@ -1,131 +1,367 @@
 use std::env;
 use std::time::{Duration, Instant};
 
-// Pull in your wasm-bindgen wrappers' backing functions via the module.
-use securedrop_protocol::bench::{bench_decrypt, bench_encrypt, bench_fetch, bench_submit_message};
+use rand_chacha::ChaCha20Rng;
+use rand_core::{RngCore, SeedableRng};
+use serde::Serialize;
+
+use securedrop_protocol::bench::{bench_decrypt, bench_encrypt, bench_fetch};
+use securedrop_protocol::bench::encrypt_decrypt::{Journalist, Source};
+use securedrop_protocol::bench::encrypt_decrypt::{
+    compute_fetch_challenges, Envelope, FetchResponse, ServerMessageStore, User,
+};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RawFmt {
+    None,
+    Json,
+    Csv,
+}
+
+#[derive(Serialize)]
+struct JsonReport<'a> {
+    bench: &'a str,
+    iterations: usize,
+    keybundles: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    challenges: Option<usize>,
+
+    total_ms: f64,
+    avg_ms: f64,
+    min_ms: f64,
+    p50_ms: f64,
+    p90_ms: f64,
+    p99_ms: f64,
+    max_ms: f64,
+
+    samples_ms: Vec<f64>,
+}
 
 fn main() {
-    // Usage: cargo bench --bench manual -- <which> -n <iterations> [-k num_keybundles]
-    // Examples:
-    //   cargo bench --bench manual -- submit -n 1000
-    //   cargo bench --bench manual -- encrypt -n 500
-    //   cargo bench --bench manual -- decrypt -n 200 [-k 15]
-    //   cargo bench --bench manual -- fetch -n 50
+    // Usage:
+    //   cargo bench --bench manual -- all     -n 10  -k 500 -j 3000 [--raw json|csv] [--quiet]
+    //   cargo bench --bench manual -- encrypt -n 500 [--include-rng] [--raw json|csv] [--quiet]
+    //   cargo bench --bench manual -- decrypt -n 500 -k 20 [--raw json|csv] [--quiet]
+    //   cargo bench --bench manual -- fetch   -n 200 -k 20 -j 150 [--raw json|csv] [--quiet]
 
     let mut which: Option<String> = None;
-    let mut iterations: usize = 1000; // default
-    let mut num_keybundles: usize = 1; // default number keybundles per journalist
+    let mut iterations: usize = 10;
+    let mut num_keybundles: usize = 1000;
+    let mut challenges_per_iter: usize = 10000;
+    let mut raw_fmt = RawFmt::None;
+    let mut quiet = false;
+    let mut include_rng_in_encrypt = false;
 
-    let mut args = env::args().skip(1); // skip program name
+    let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            // Cargo may pass this even with harness=false; ignore it.
             "--bench" => continue,
-
-            // Your bench options:
-            "-n" | "--iterations" => {
-                let v = args.next().unwrap_or_else(|| {
-                    eprintln!("Missing value for {arg}");
-                    help_and_exit()
-                });
-                iterations = v.parse().unwrap_or_else(|_| {
-                    eprintln!("Invalid number for iterations: {v}");
-                    help_and_exit()
-                });
-            }
-
-            // number of one-time keys per Journalist (affects bench_decrypt)
-            "-k" | "--num-onetimekeys" => {
-                let v = args.next().unwrap_or_else(|| {
-                    eprintln!("If passing {arg}, specify a number");
-                    help_and_exit()
-                });
-                num_keybundles = v.parse().unwrap_or_else(|_| {
-                    eprintln!("Invalid number for num-onetimekeys: {v}");
-                    help_and_exit()
-                });
-            }
-
-            // Subcommand (the actual benchmark to run)
-            "submit" | "encrypt" | "decrypt" | "fetch" => {
-                if which.is_none() {
-                    which = Some(arg);
-                } else {
-                    // If more than one non-flag is supplied, that's ambiguous.
-                    eprintln!("Unexpected extra argument: {arg}");
-                    help_and_exit();
+            "-n" | "--iterations" => iterations = parse_usize(&next_val(&mut args, &arg), "iterations"),
+            "-k" | "--num-onetimekeys" => num_keybundles = parse_usize(&next_val(&mut args, &arg), "num-onetimekeys"),
+            "-j" | "--challenges" => challenges_per_iter = parse_usize(&next_val(&mut args, &arg), "challenges"),
+            "--raw" => {
+                let v = next_val(&mut args, &arg);
+                raw_fmt = match v.as_str() {
+                    "json" => RawFmt::Json,
+                    "csv" => RawFmt::Csv,
+                    _ => die(&format!("--raw expects 'json' or 'csv', got {v}")),
                 }
             }
-
-            // Silently ignore any other cargo-injected or unknown flags (e.g., -Zfoo)
-            _ if arg.starts_with('-') => continue,
-
-            // Anything else is not recognized
-            _ => {
-                eprintln!("Unknown argument: {arg}");
-                help_and_exit();
+            "--quiet" => quiet = true,
+            "--include-rng" => include_rng_in_encrypt = true,
+            "encrypt" | "decrypt" | "fetch" | "all" => {
+                if which.is_none() { which = Some(arg); } else { die(&format!("Unexpected extra argument: {arg}")); }
             }
+            _ if arg.starts_with('-') => continue,
+            _ => die(&format!("Unknown argument: {arg}")),
         }
     }
 
     let which = which.unwrap_or_else(|| help_and_exit());
 
-    // pick the function
-    let run = match which.as_str() {
-        "submit" => bench_submit_message as fn(usize, usize),
-        "encrypt" => bench_encrypt as fn(usize, usize),
-        "decrypt" => bench_decrypt as fn(usize, usize),
-        "fetch" => bench_fetch as fn(usize, usize),
-        _ => {
-            eprintln!("Unknown bench: {which}");
-            help_and_exit();
+    match which.as_str() {
+        "encrypt" => {
+            let samples = bench_encrypt_loop(iterations, num_keybundles, include_rng_in_encrypt);
+            output("encrypt", iterations, num_keybundles, None, &samples, raw_fmt, quiet);
         }
-    };
+        "decrypt" => {
+            let samples = bench_decrypt_loop(iterations, num_keybundles);
+            output("decrypt", iterations, num_keybundles, None, &samples, raw_fmt, quiet);
+        }
+        "fetch" => {
+            let samples = bench_fetch_loop(iterations, num_keybundles, challenges_per_iter);
+            output(
+                "fetch",
+                iterations,
+                num_keybundles,
+                Some(challenges_per_iter),
+                &samples,
+                raw_fmt,
+                quiet,
+            );
+        }
+        "all" => {
+            let e = bench_encrypt_loop(iterations, num_keybundles, include_rng_in_encrypt);
+            output("encrypt", iterations, num_keybundles, None, &e, raw_fmt, quiet);
+            let d = bench_decrypt_loop(iterations, num_keybundles);
+            output("decrypt", iterations, num_keybundles, None, &d, raw_fmt, quiet);
+            let f = bench_fetch_loop(iterations, num_keybundles, challenges_per_iter);
+            output(
+                "fetch",
+                iterations,
+                num_keybundles,
+                Some(challenges_per_iter),
+                &f,
+                raw_fmt,
+                quiet,
+            );
+        }
+        _ => die(&format!("Unknown bench: {which}")),
+    }
+}
 
-    // time it
-    let start = Instant::now();
-    run(iterations, num_keybundles);
-    let total = start.elapsed();
+// -------------------- encrypt --------------------
 
-    // print total + average
-    let avg = div_duration(total, iterations as u32);
+fn bench_encrypt_loop(iterations: usize, num_keybundles: usize, include_rng_in_encrypt: bool) -> Vec<Duration> {
+    let mut durations = Vec::with_capacity(iterations);
+    let mut sink = 0usize;
+
+    for _ in 0..iterations {
+        let mut prep_rng = mk_rng();
+        let sender = Source::new(&mut prep_rng);
+        let recipient = Journalist::new(&mut prep_rng, num_keybundles);
+        let msg = b"super secret msg".to_vec();
+
+        // Bundle index chosen outside the timed section
+        let bundle_ix = if num_keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % num_keybundles };
+
+        if include_rng_in_encrypt {
+            // Time the seed fill + encrypt together
+            let t0 = Instant::now();
+            let mut seed = [0u8; 32];
+            prep_rng.fill_bytes(&mut seed);
+            let env: Envelope = bench_encrypt(seed, &sender as &dyn User, &recipient as &dyn User, bundle_ix, &msg);
+            let dt = t0.elapsed();
+            durations.push(dt);
+            sink ^= env.size_hint();
+        } else {
+            // Seed fill happens outside the timed section (default)
+            let mut seed = [0u8; 32];
+            prep_rng.fill_bytes(&mut seed);
+
+            let t0 = Instant::now();
+            let env: Envelope = bench_encrypt(seed, &sender as &dyn User, &recipient as &dyn User, bundle_ix, &msg);
+            let dt = t0.elapsed();
+            durations.push(dt);
+            sink ^= env.size_hint();
+        }
+    }
+
+    std::hint::black_box(sink);
+    durations
+}
+
+// -------------------- decrypt --------------------
+
+fn bench_decrypt_loop(iterations: usize, num_keybundles: usize) -> Vec<Duration> {
+    let mut durations = Vec::with_capacity(iterations);
+    let mut sink = 0usize;
+
+    for _ in 0..iterations {
+        let mut prep_rng = mk_rng();
+        let sender = Source::new(&mut prep_rng);
+        let recipient = Journalist::new(&mut prep_rng, num_keybundles);
+        let msg = b"super secret msg".to_vec();
+
+        // Prepare envelope (not timed)
+        let mut seed = [0u8; 32];
+        prep_rng.fill_bytes(&mut seed);
+        let bundle_ix = if num_keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % num_keybundles };
+        let env: Envelope =
+            bench_encrypt(seed, &sender as &dyn User, &recipient as &dyn User, bundle_ix, &msg);
+
+        // Time ONLY decrypt
+        let t0 = Instant::now();
+        let pt = bench_decrypt(&recipient, &env);
+        let dt = t0.elapsed();
+        durations.push(dt);
+
+        sink ^= pt.len();
+    }
+    std::hint::black_box(sink);
+    durations
+}
+
+// -------------------- fetch (solver only) --------------------
+
+fn bench_fetch_loop(iterations: usize, num_keybundles: usize, challenges_per_iter: usize) -> Vec<Duration> {
+    let mut durations = Vec::with_capacity(iterations);
+    let mut sink = 0usize;
+
+    for i in 0..iterations {
+        let mut prep_rng = mk_rng();
+        let journalist = Journalist::new(&mut prep_rng, num_keybundles);
+        let source = Source::new(&mut prep_rng);
+
+        // Build store (prep)
+        let store_size = challenges_per_iter.min(100);
+        let mut store: Vec<ServerMessageStore> = Vec::with_capacity(store_size);
+        for j in 0..store_size {
+            let mut seed = [0u8; 32];
+            prep_rng.fill_bytes(&mut seed);
+            let bundle_ix = if num_keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % num_keybundles };
+            let env = bench_encrypt(
+                seed,
+                &source as &dyn User,
+                &journalist as &dyn User,
+                bundle_ix,
+                format!("iter{i}-msg{j}").as_bytes(),
+            );
+            let mut message_id = [0u8; 16];
+            message_id.fill((j & 0xff) as u8);
+            store.push(ServerMessageStore::new(message_id, env));
+        }
+
+        // Generate challenges (not timed)
+        let challenges: Vec<FetchResponse> = compute_fetch_challenges(&mut prep_rng, &store, challenges_per_iter);
+
+        // Time ONLY the solver
+        let t0 = Instant::now();
+        let ids = bench_fetch(&journalist, challenges);
+        let dt = t0.elapsed();
+        durations.push(dt);
+
+        sink ^= ids.len();
+    }
+    std::hint::black_box(sink);
+    durations
+}
+
+// -------------------- output & stats --------------------
+
+fn output(
+    which: &str,
+    iterations: usize,
+    num_keybundles: usize,
+    challenges: Option<usize>,
+    samples: &[Duration],
+    raw_fmt: RawFmt,
+    quiet: bool,
+) {
+    match raw_fmt {
+        RawFmt::None => {
+            if !quiet {
+                print_series_report(which, iterations, num_keybundles, challenges, samples);
+            }
+        }
+        RawFmt::Json => {
+            let (total_ms, avg_ms, min_ms, p50, p90, p99, max_ms) = stats_ms(samples);
+            let report = JsonReport {
+                bench: which,
+                iterations,
+                keybundles: num_keybundles,
+                challenges,
+                total_ms,
+                avg_ms,
+                min_ms,
+                p50_ms: p50,
+                p90_ms: p90,
+                p99_ms: p99,
+                max_ms,
+                samples_ms: to_ms(samples),
+            };
+            println!("{}", serde_json::to_string(&report).unwrap());
+        }
+        RawFmt::Csv => {
+            let ms = to_ms(samples);
+            for v in ms {
+                println!("{v}");
+            }
+            if !quiet {
+                let (total_ms, avg_ms, min_ms, p50, p90, p99, max_ms) = stats_ms(samples);
+                eprintln!(
+                    "# bench={which} iterations={iterations} keybundles={num_keybundles} challenges={:?} total_ms={:.3} avg_ms={:.3} min_ms={:.3} p50_ms={:.3} p90_ms={:.3} p99_ms={:.3} max_ms={:.3}",
+                    challenges, total_ms, avg_ms, min_ms, p50, p90, p99, max_ms
+                );
+            }
+        }
+    }
+}
+
+fn print_series_report(
+    which: &str,
+    iterations: usize,
+    num_keybundles: usize,
+    challenges: Option<usize>,
+    samples: &[Duration],
+) {
+    let (total_ms, avg_ms, min_ms, p50, p90, p99, max_ms) = stats_ms(samples);
+
     println!("bench: {which}");
     println!("iterations: {iterations}");
-    println!("keybundles/journo (trial decrypt): {num_keybundles}");
-    println!("total: {} ms", to_millis(total));
-    println!("avg:   {} µs/iter", to_micros(avg));
+    println!("keybundles/journo: {num_keybundles}");
+    if let Some(c) = challenges {
+        println!("challenges/iter: {c}");
+    }
+    println!("total: {:.3} ms", total_ms);
+    println!("avg:   {:.3} ms/iter", avg_ms);
+    println!(
+        "min:   {:.3} ms  p50: {:.3}  p90: {:.3}  p99: {:.3}  max: {:.3} ms",
+        min_ms, p50, p90, p99, max_ms
+    );
+}
+
+fn stats_ms(samples: &[Duration]) -> (f64, f64, f64, f64, f64, f64, f64) {
+    let ms = to_ms(samples);
+    let total_ms: f64 = ms.iter().sum();
+    let avg_ms = if ms.is_empty() { 0.0 } else { total_ms / ms.len() as f64 };
+    let mut sorted = ms.clone();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let pick = |q: f64| -> f64 {
+        if sorted.is_empty() { return 0.0; }
+        let idx = ((q * (sorted.len() as f64 - 1.0)).round() as usize).min(sorted.len() - 1);
+        sorted[idx]
+    };
+    let min = *sorted.first().unwrap_or(&0.0);
+    let max = *sorted.last().unwrap_or(&0.0);
+    (total_ms, avg_ms, min, pick(0.50), pick(0.90), pick(0.99), max)
+}
+
+fn to_ms(samples: &[Duration]) -> Vec<f64> {
+    samples.iter().map(|d| d.as_secs_f64() * 1_000.0).collect()
+}
+
+// -------------------- helpers --------------------
+
+fn mk_rng() -> ChaCha20Rng {
+    let mut seed = [0u8; 32];
+    getrandom::fill(&mut seed).expect("getrandom failed");
+    ChaCha20Rng::from_seed(seed)
+}
+
+fn next_val(args: &mut impl Iterator<Item = String>, flag: &str) -> String {
+    args.next().unwrap_or_else(|| die(&format!("Missing value for {flag}")))
+}
+
+fn parse_usize(s: &str, name: &str) -> usize {
+    s.parse::<usize>().unwrap_or_else(|_| die(&format!("Invalid number for {name}: {s}")))
+}
+
+fn die(msg: &str) -> ! {
+    eprintln!("{msg}");
+    help_and_exit();
 }
 
 fn help_and_exit() -> ! {
     eprintln!(
-        "Usage: cargo bench --bench manual -- <submit|encrypt|decrypt|fetch> [-n <iterations>] [-k <num one-time journalist keybundles> ]\n\
-         Default iterations: 1000\n\
+        "Usage: cargo bench --bench manual -- <encrypt|decrypt|fetch|all> \
+         [-n <iterations>] [-k <num one-time journalist keybundles>] [-j <challenges>] \
+         [--include-rng] [--raw json|csv] [--quiet]\n\
+         Defaults: -n 10, -k 500, -j 3000\n\
          Examples:\n  \
-         cargo bench --bench manual -- submit -n 1000\n  \
-         cargo bench --bench manual -- encrypt -n 500\n  \
-         cargo bench --bench manual -- decrypt -n 200 -k 20 \n  \
-         cargo bench --bench manual -- fetch -n 50\n   \
-         \n    \
-         Note: -k only affects decrypt function"
+         cargo bench --bench manual -- all -n 50 -k 500 -j 3000\n  \
+         cargo bench --bench manual -- encrypt -n 200 --include-rng --raw json --quiet\n  \
+         cargo bench --bench manual -- fetch -n 100 -k 50 -j 1000 --raw csv --quiet\n"
     );
     std::process::exit(1);
-}
-
-fn div_duration(d: Duration, by: u32) -> Duration {
-    if by == 0 {
-        return Duration::from_nanos(0);
-    }
-    // Convert to nanoseconds as f64 for precise division, then back.
-    let nanos = d.as_secs_f64() * 1e9;
-    let each = nanos / (by as f64);
-    Duration::from_nanos(each.max(0.0) as u64)
-}
-
-fn to_millis(d: Duration) -> String {
-    // Keep a few decimals for readability
-    format!("{:.3}", d.as_secs_f64() * 1_000.0)
-}
-
-fn to_micros(d: Duration) -> String {
-    format!("{:.3}", d.as_secs_f64() * 1_000_000.0)
 }
