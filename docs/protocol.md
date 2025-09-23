@@ -157,10 +157,10 @@ For $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ with:
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
 - $\text{AEAD} =$ AES-GCM
 
-| Syntax                                                             | Description                                                |
-| ------------------------------------------------------------------ | ---------------------------------------------------------- |
-| $`(c_1, c_2) \gets^{\$} \text{pskAEnc}(sk, pk, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
-| $`m \gets \text{pskADec}(pk, sk, psk, (c_1, c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
+| Syntax                                                            | Description                                                |
+| ----------------------------------------------------------------- | ---------------------------------------------------------- |
+| $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk, pk, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
+| $`m \gets \text{pskADec}(pk, sk, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
 
 ### `SD-PKE`: SecureDrop PKE
 
@@ -170,13 +170,13 @@ For $\text{SD-PKE}[\text{KEM}_1, \text{pskAPKE}, \text{KEM}_3]$ with:
 - $\text{pskAPKE}$ as above
 - $\text{KEM}_3 =$ X-Wing
 
-| Syntax                                                                                              | Description                                                                                           |
-| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| $`(sk, pk) \gets^{\$} \text{KGen}()`$                                                               | Generate keys                                                                                         |
-| $`((c_1, c_2), c') \gets^{\$} \text{AuthEnc}((sk_{PQ}, sk_{DH}), (pk_{PQ}, pk_{DH}), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
-| $`m \gets \text{AuthDec}((sk_{PQ}, sk_{DH}), (pk_{PQ}, pk_{DH}), ((c_1, c_2), c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
-| $`(c_3, c_4) \gets^{\$} \text{Enc}(pk_3, m, ad, info)`$                                             | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_base`][RFC 9180 §5]     |
-| $`m \gets \text{Dec}(sk_3, (c_3, c_4), ad, info)`$                                                  | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_base`][RFC 9180 §5]     |
+| Syntax                                                                                  | Description                                                                                           |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| $`(sk, pk) \gets^{\$} \text{KGen}()`$                                                   | Generate keys                                                                                         |
+| $`((c_1, c'), c_2) \gets^{\$} \text{AuthEnc}((sk_1, sk_2), (pk_1, pk_2), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
+| $`m \gets \text{AuthDec}((sk_1, sk_2), (pk_1, pk_2), ((c_1, c'), c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
+| $`(c_3, c'') \gets^{\$} \text{Enc}(pk_3, m, ad, info)`$                                 | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_base`][RFC 9180 §5]     |
+| $`m \gets \text{Dec}(sk_3, (c_3, c''), ad, info)`$                                      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_base`][RFC 9180 §5]     |
 
 ## Setup
 
