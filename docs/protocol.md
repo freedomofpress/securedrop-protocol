@@ -138,11 +138,12 @@ In the table below:
 
 The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC 9180]:
 
-- `SD-PKE` is an instantiation of [HPKE `Base` mode][RFC 9180 §5.1.1].
-- `SD-APKE` wraps HPKE `AuthPSK` mode, following listing 17 of Alwen et al.
-  (2023), ["The Pre-Shared Key Modes of HPKE"][alwen].
+- For metadata protection, `SD-PKE` is an instantiation of [HPKE `Base`
+  mode][RFC 9180 §5.1.1].
+- For message encryption, `SD-APKE` wraps HPKE `AuthPSK` mode, following listing
+  17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen].
 
-### `SD-PKE`: SecureDrop PKE <!-- Figure 4 as of 7703a58 -->
+### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 4 as of 7703a58 -->
 
 $\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
 mode][RFC 9180 §5.1.1] with:
@@ -157,7 +158,9 @@ mode][RFC 9180 §5.1.1] with:
 | $`(c, c'') \gets^{\$} \text{Enc}(pk, m)`$ | Encrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
 | $`m \gets \text{Dec}(sk, (c, c''))`$      | Decrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
 
-### `AKEM`: Authenticated KEM <!-- Definition 4.1 as of 7703a58 -->
+### Message encryption
+
+#### `AKEM`: Authenticated KEM <!-- Definition 4.1 as of 7703a58 -->
 
 $\text{AKEM}$ instantiates the [DH-based KEM][RFC 9180 §4.1]
 $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
@@ -171,7 +174,7 @@ $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
 | $`(c, K) \gets^{\$} \text{AuthEncap}(sk, pk)`$ | Encapsulate a ciphertext $c$ and a shared secret $K$ using a (sender's) private key $sk$ and a (receiver's) public key $pk$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
 | $`K \gets \text{AuthDecap}(sk, pk, c)`$        | Decapsulate a shared secret $K$ using a (receiver's) private key $sk$, a (sender's) public key $pk$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                                  |
 
-### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 5 as of 7703a58 -->
+#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 5 as of 7703a58 -->
 
 $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 `AuthPSK` mode][RFC 9180 §5.1.4] with:
@@ -185,7 +188,7 @@ $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 | $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk, pk, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
 | $`m \gets \text{pskADec}(pk, sk, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
 
-### `SD-APKE`: SecureDrop APKE <!-- Figure 3 as of 7703a58 -->
+#### `SD-APKE`: SecureDrop APKE <!-- Figure 3 as of 7703a58 -->
 
 $\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
 
