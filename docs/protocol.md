@@ -136,6 +136,11 @@ In the table below:
 | $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$ to a constant size[^1]                             |
 | $`\varepsilon`$                                           | The empty string                                                     |
 
+The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC 9180]:
+
+- `SD-PKE` is an instantiation of [HPKE `Base` mode][RFC 9180 §5.1.1].
+- `SD-APKE` wraps HPKE `AuthPSK` mode, following listing 17 of Alwen et al.
+  (2023), ["The Pre-Shared Key Modes of HPKE"][alwen].
 
 ### `SD-PKE`: SecureDrop PKE <!-- Figure 4 as of 7703a58 -->
 
@@ -409,8 +414,10 @@ See ["Source Submits a Message"](#source-submits-a-message).
     The source's keys are considered "permanent" because they are derived
     deterministically from the source's passphrase, which cannot be changed.
 
+[alwen]: https://eprint.iacr.org/2023/1480
 [chunk]: https://github.com/freedomofpress/securedrop-protocol/blob/664f8c66312b45e00d1e2b4a26bc466ff105c3ca/README.md?plain=1#L105
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
+[RFC 9180]: https://datatracker.ietf.org/doc/html/rfc9180
 [RFC 9180 §4.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-dh-based-kem-dhkem
 [RFC 9180 §5]: https://datatracker.ietf.org/doc/html/rfc9180#name-hybrid-public-key-encryptio
 [RFC 9180 §5.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-creating-the-encryption-con
