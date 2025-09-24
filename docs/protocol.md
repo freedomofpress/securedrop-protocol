@@ -125,6 +125,9 @@ In the table below:
 
 ## Functions and notation
 
+**TODO:** Reevaluate this table after revising the "Setup" and "Message
+Protocol" sections from the manuscript.
+
 | Syntax                                                    | Description                                                                       |
 | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | $`h \gets \text{Hash}(m)`$                                | Hash message $m$ to digest $h$                                                    |
@@ -135,6 +138,8 @@ In the table below:
 | $`r \gets^{\$} \text{Rand}()`$                            | Generate a random value                                                           |
 | $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$ to a constant size[^1]                                          |
 | $`\varepsilon`$                                           | The empty string                                                                  |
+
+## Cryptographic APIs
 
 The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC 9180]:
 
@@ -152,11 +157,31 @@ mode][RFC 9180 §5.1.1] with:
 - $\text{AEAD} =$ AES-GCM
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
 
-| Syntax                                      | Description                                                  |
-| ------------------------------------------- | ------------------------------------------------------------ |
-| $`(sk, pk) \gets^{\$} \text{KGen}()`$       | Generate keys                                                |
-| $`(c, c'') \gets^{\$} \text{Enc}(pk_R, m)`$ | Encrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
-| $`m \gets \text{Dec}(sk_R, (c, c''))`$      | Decrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
+| Syntax                                     | Description                                                  |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| $`(sk, pk) \gets^{\$} \text{KGen}()`$      | Generate keys                                                |
+| $`(c, c') \gets^{\$} \text{Enc}(pk_R, m)`$ | Encrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
+| $`m \gets \text{Dec}(sk_R, (c, c'))`$      | Decrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
+
+Concretely:
+
+```python
+def KGen():
+    (sk, pk) = KEM_H.KGen()
+    return (sk, pk)
+
+def Enc(pkR, m):
+    (c, K3) = KEM_H.Encap(pkR)
+    (k, nonce) = KS(K3, None, None)
+    cp = AEAD.Enc(k, nonce, None, m)  # cp = c'
+    return (c, cp)
+
+def Dec(skR, (c, cp)):  # cp = c'
+    K3 = KEM_H.Decap(skR, c)
+    (k, nonce) = KS(K3, None, None)
+    m = AEAD.Dec(k, nonce, None, cp)
+    return m
+```
 
 ### Message encryption
 
@@ -168,11 +193,13 @@ $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
 - $\text{Group} =$ [X25519][RFC 9180 §7.1]
 - $\text{KDF} =$ [HKDF-SHA256][RFC 9180 §7.1]
 
-| Syntax                                             | Description                                                                                                                                                                        |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| $`(sk_S, pk_S) \gets^{\$} \text{KGen}()`$          | Generate keys; for DH-AKEM, $(sk, pk) = (x, \text{DH}(g, x)) = (x, g^x)$                                                                                                           |
-| $`(c, K) \gets^{\$} \text{AuthEncap}(sk_S, pk_R)`$ | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $sk_S$ and a receiver's public key $pk_R$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
-| $`K \gets \text{AuthDecap}(sk_R, pk_S, c)`$        | Decapsulate a shared secret $K$ using a receiver's private key $sk_R$, a sender's public key $pk_S$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                                  |
+| Syntax                                             | Description                                                                                                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| $`(sk_S, pk_S) \gets^{\$} \text{KGen}()`$          | Generate keys; for DH-AKEM, $(sk, pk) = (x, \text{DH}(g, x)) = (x, g^x)$                                                                                                 |
+| $`(c, K) \gets^{\$} \text{AuthEncap}(sk_S, pk_R)`$ | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $sk_S$ and a receiver's public key $pk_R$; for DH-AKEM, $(c, K) = (pkE, K) = (g^x, K)$ |
+| $`K \gets \text{AuthDecap}(sk_R, pk_S, c)`$        | Decapsulate a shared secret $K$ using a receiver's private key $sk_R$, a sender's public key $pk_S$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                        |
+
+Concretely, these functions are used as specified in [RFC 9180 §4.1].
 
 #### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 5 as of 7703a58 -->
 
@@ -188,6 +215,22 @@ $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 | $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk_S, pk_R, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
 | $`m \gets \text{pskADec}(pk_S, sk_R, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
 
+Concretely:
+
+```python
+def pskAEnc(skS, pkR, psk, m, ad, info):
+    (c1, K1) = AKEM.AuthEncap(skS, pkR)
+    (k, nonce) = KS(K1, psk, info)
+    cp = AEAD.Enc(k, nonce, ad, m)  # cp = c'
+    return (c1, cp)
+
+def pskADec(pkS, skR, psk, (c1, cp), ad, info):  # cp = c'
+    K1 = AKEM.AuthDecap(pkS, skR, c1)
+    (k, nonce) = KS(K1, psk, info)
+    m = AEAD.Dec(k, nonce, ad, cp)
+    return m
+```
+
 #### `SD-APKE`: SecureDrop APKE <!-- Figure 3 as of 7703a58 -->
 
 $\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
@@ -201,6 +244,27 @@ $\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
 | $`(sk, pk) \gets^{\$} \text{KGen}()`$                                                           | Generate keys                                              |
 | $`((c_1, c'), c_2) \gets^{\$} \text{AuthEnc}((sk_S^1, sk_S^2), (pk_R^1, pk_R^2), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
 | $`m \gets \text{AuthDec}((sk_R^1, sk_R^2), (pk_S^1, pk_S^2), ((c_1, c'), c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
+
+Concretely:
+
+```python
+def KGen():
+    (sk1, pk1) = AKEM.KGen()
+    (sk2, pk2) = KEM_PQ.KGen()
+    sk = (sk1, sk2)
+    pk = (pk1, pk2)
+    return (sk, pk)
+
+def AuthEnc((skS1, skS2), (pkR1, pkR2), m, ad, info):
+    (c2, K2) = KEM_PQ.Encap(pkR2)
+    (c1, cp) = pskAEnc(skS1, pkR1, K2, m, ad, c2)  # cp = c'
+    return ((c1, cp), c2)
+
+def AuthDec((skR1, skR2), (pkS1, pkS2), ((c1, cp), c2), ad, info):  # cp = c'
+    K2 = KEM_PQ.Decap(skR2, c2)
+    m = pskADec(pkS1, skR1, K2, (c1, cp), ad, c2)
+    return m
+```
 
 ## Setup
 
