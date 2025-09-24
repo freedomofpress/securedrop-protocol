@@ -136,9 +136,26 @@ In the table below:
 | $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$ to a constant size[^1]                             |
 | $`\varepsilon`$                                           | The empty string                                                     |
 
-### `AKEM`: Authenticated KEM
 
-For $\text{AKEM} = \text{DHKEM}(\text{Group}, \text{KDF})$ with:
+### `SD-PKE`: SecureDrop PKE <!-- Figure 4 as of 7703a58 -->
+
+$\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
+mode][RFC 9180 §5.1.1] with:
+
+- $\text{KEM}_H =$ X-Wing
+- $\text{AEAD} =$ AES-GCM
+- $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
+
+| Syntax                                    | Description                                                  |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| $`(sk, pk) \gets^{\$} \text{KGen}()`$     | Generate keys                                                |
+| $`(c, c'') \gets^{\$} \text{Enc}(pk, m)`$ | Encrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
+| $`m \gets \text{Dec}(sk, (c, c''))`$      | Decrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
+
+### `AKEM`: Authenticated KEM <!-- Definition 4.1 as of 7703a58 -->
+
+$\text{AKEM}$ instantiates the [DH-based KEM][RFC 9180 §4.1]
+$\text{DHKEM}(\text{Group}, \text{KDF})$ with:
 
 - $\text{Group} =$ [X25519][RFC 9180 §7.1]
 - $\text{KDF} =$ [HKDF-SHA256][RFC 9180 §7.1]
@@ -149,34 +166,33 @@ For $\text{AKEM} = \text{DHKEM}(\text{Group}, \text{KDF})$ with:
 | $`(c, K) \gets^{\$} \text{AuthEncap}(sk, pk)`$ | Encapsulate a ciphertext $c$ and a shared secret $K$ using a (sender's) private key $sk$ and a (receiver's) public key $pk$; for DH-AKEM, $(c, K) = (pkE, K) = (pk, K) = (g^x, K)$ |
 | $`K \gets \text{AuthDecap}(sk, pk, c)`$        | Decapsulate a shared secret $K$ using a (receiver's) private key $sk$, a (sender's) public key $pk$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                                  |
 
-### `pskAPKE`: Pre-shared-key authenticated PKE
+### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 5 as of 7703a58 -->
 
-For $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ with:
+$\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
+`AuthPSK` mode][RFC 9180 §5.1.4] with:
 
 - $\text{AKEM}$ as above
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
 - $\text{AEAD} =$ AES-GCM
 
-| Syntax                                                            | Description                                                |
-| ----------------------------------------------------------------- | ---------------------------------------------------------- |
-| $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk, pk, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
-| $`m \gets \text{pskADec}(pk, sk, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
+| Syntax                                                            | Description                                                                                           |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk, pk, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
+| $`m \gets \text{pskADec}(pk, sk, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
 
-### `SD-PKE`: SecureDrop PKE
+### `SD-APKE`: SecureDrop APKE <!-- Figure 3 as of 7703a58 -->
 
-For $\text{SD-PKE}[\text{KEM}_1, \text{pskAPKE}, \text{KEM}_3]$ with:
+$\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
 
-- $\text{KEM}_1 =$ ML-KEM-768
+- $\text{AKEM}$ as above
+- $\text{KEM}_{PQ} =$ ML-KEM-768
 - $\text{pskAPKE}$ as above
-- $\text{KEM}_3 =$ X-Wing
 
-| Syntax                                                                                  | Description                                                                                           |
-| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| $`(sk, pk) \gets^{\$} \text{KGen}()`$                                                   | Generate keys                                                                                         |
-| $`((c_1, c'), c_2) \gets^{\$} \text{AuthEnc}((sk_1, sk_2), (pk_1, pk_2), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
-| $`m \gets \text{AuthDec}((sk_1, sk_2), (pk_1, pk_2), ((c_1, c'), c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
-| $`(c_3, c'') \gets^{\$} \text{Enc}(pk_3, m, ad, info)`$                                 | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_base`][RFC 9180 §5]     |
-| $`m \gets \text{Dec}(sk_3, (c_3, c''), ad, info)`$                                      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_base`][RFC 9180 §5]     |
+| Syntax                                                                                  | Description                                                |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| $`(sk, pk) \gets^{\$} \text{KGen}()`$                                                   | Generate keys                                              |
+| $`((c_1, c'), c_2) \gets^{\$} \text{AuthEnc}((sk_1, sk_2), (pk_1, pk_2), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
+| $`m \gets \text{AuthDec}((sk_1, sk_2), (pk_1, pk_2), ((c_1, c'), c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
 
 ## Setup
 
@@ -398,5 +414,7 @@ See ["Source Submits a Message"](#source-submits-a-message).
 [RFC 9180 §4.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-dh-based-kem-dhkem
 [RFC 9180 §5]: https://datatracker.ietf.org/doc/html/rfc9180#name-hybrid-public-key-encryptio
 [RFC 9180 §5.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-creating-the-encryption-con
+[RFC 9180 §5.1.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-encryption-to-a-public-key
+[RFC 9180 §5.1.4]: https://datatracker.ietf.org/doc/html/rfc9180#name-authentication-using-both-a
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
 [RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
