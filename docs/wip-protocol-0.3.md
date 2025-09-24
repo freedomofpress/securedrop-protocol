@@ -42,7 +42,7 @@
   - Symmetrically encrypts the `message_id` UUID with this `kmid`.
   - Performs an DH agreement between the Clue Pubkey and its ephemeral key (2 party DH), called the per-request clue, per-message [per-request] group Diffie Hellman, or `pmgdh`
   - Returns the encrypted message id and the per-request clue
-  - Returns an additional fixed number of (dummy) encrypted challenges, so that the number of challenges returned is always constant.
+  - Returns additional (dummy) encrypted challenges, so that the number of challenges returned is always constant.
 
 #### Receipient
 
