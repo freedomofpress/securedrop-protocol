@@ -1,3 +1,18 @@
+## Journalist Enrollemnt
+
+- see protocol.md (TODO)
+
+## Initial keys fetch (`/journalists`)
+
+- Clients visit an endpoint that provides the pubkeys and signatures associated with a given SecureDrop instance:
+  - Newsroom pubkey
+  - List of journalist signing keys, each signed by the newsroom pubkey
+  - For each journalist key:
+    - (List of) DH-AKEM long-term reply key(s), each signed by the journalist signing key. (There should be one DH-AKEM long term reply key, but there is a possibility this key could be rotated, and two signed keys would need to be visible until the message expiry period of any messages that could have been sent with the old key had elapsed)
+
+- This material is fetched before a send or a read operation, and allows clients to verify the trust chain of any journalist keys.
+  - Additionally, each journalist has a pool of signed one-time key bundles, of the form (DH-AKEM pubkey, ML-KEM pubkey, X-WING pubkey) that are signed with the journalist signing key, and are fetched by a sender in order to address a message to that journalist.
+
 ## Message flow overview
 
 ### Send
@@ -30,6 +45,16 @@
 - Recipient decapsulates message PSK secret using $`R_{pq,sk}`$
 - Recipient opens authenticated-sealed ciphertext using HPKE.OpenAuth: `HPKE_MESSAGE.OpenAuth(shared_dhakem_secret_encaps, self.dhakem_decaps_key, HPKE_INFO, HPKE_AAD, ct=cmessage, psk=psk_untrusted, psk_id=HPKE_PSK_ID, pk_s=sender_pkey_bytes_untrusted)`
 - Recipient performs all needed checks (i.e., ensure keys provided in unauthenticated-sealed metadata match keys/key identifiers in plaintext, etc)
+
+### Reply (journalist -> source)
+
+- Journalist uses long-term DH-AKEM key to auth-encrypt a message to source and then (unanthenticated) encrypt the message metadata, as above, using the keys (DH-AKEM messgage key, PQ KEM PSK key, XWing metadata key) that the source provided in their message.
+- Unlike source, the journalist does not need to attach their keys aside from the DH-AKEM reply key. The source will select a new one-time key bundle if they wish to reply.
+
+### Read a reply (source)
+
+- As the journalist does above, the source fetches their message(s) using the fetching protocol.
+- After opening the metadata, the source additionally verifies that the pubkey provided in the metadata matches a DH-AKEM pubkey (see "initial keys fetch (`/journalists`)" above.)
 
 ### Message fetch overview
 

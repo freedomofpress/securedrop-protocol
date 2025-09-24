@@ -12,7 +12,6 @@ Nonetheless, the server must not reveal information about its internal state to 
   In this proof-of-concept implementation, the server exposes a REST API; all
   parties communicate with the server via HTTP over Tor. A production
   implementation may use HTTP and/or WebSockets over Tor.
-
   - The protocol is amenable to mitigations against traffic analysis beyond
     the use of Tor, but they are out of the scope of this document.
 
