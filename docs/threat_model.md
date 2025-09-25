@@ -10,6 +10,7 @@
 ## Threat model summary
 
 - _FPF_
+
   - Is generally trusted
   - Is based in the US
   - Might get compromised technically
@@ -18,6 +19,7 @@
   - Enrolls newsrooms
 
 - _Newsroom_
+
   - Is generally trusted
   - Can be based anywhere
   - Might get compromised legally
@@ -26,6 +28,7 @@
   - Enrolls journalists
 
 - _Server_
+
   - Is generally untrusted
   - Compromise requires effort
   - There may be backups or snapshots from any given point in time
@@ -33,6 +36,7 @@
   - Managed and paid for by _Newsroom_ or by a third party on their behalf
 
 - _Journalist_
+
   - Number can vary per _Newsroom_
   - Is generally trusted
   - Can travel
@@ -43,6 +47,7 @@
   - Identity is generally known
 
 - _Source_:
+
   - Is completely untrusted
   - Anyone can be a source at any time
   - Requires ability to preserve anonymity if desired

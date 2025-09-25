@@ -5,6 +5,7 @@
 ## Initial keys fetch (`/journalists`)
 
 - Clients visit an endpoint that provides the pubkeys and signatures associated with a given SecureDrop instance:
+
   - Newsroom pubkey
   - List of journalist signing keys, each signed by the newsroom pubkey
   - For each journalist key:
