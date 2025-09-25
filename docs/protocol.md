@@ -201,7 +201,7 @@ $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
 
 Concretely, these functions are used as specified in [RFC 9180 §4.1].
 
-#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 5 as of 7703a58 -->
+#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 5 as of 9f4d2ab -->
 
 $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 `AuthPSK` mode][RFC 9180 §5.1.4] with:
@@ -225,7 +225,7 @@ def pskAEnc(skS, pkR, psk, m, ad, info):
     return (c1, cp)
 
 def pskADec(pkS, skR, psk, (c1, cp), ad, info):  # cp = c'
-    K1 = AKEM.AuthDecap(pkS, skR, c1)
+    K1 = AKEM.AuthDecap(skR, pkS, c1)
     (k, nonce) = KS(K1, psk, info)
     m = AEAD.Dec(k, nonce, ad, cp)
     return m
