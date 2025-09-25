@@ -146,7 +146,7 @@ The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC
 - For metadata protection, `SD-PKE` is an instantiation of [HPKE `Base`
   mode][RFC 9180 §5.1.1].
 - For message encryption, `SD-APKE` wraps HPKE `AuthPSK` mode, following listing
-  17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen].
+  17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen2023].
 
 ### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 4 as of 7703a58 -->
 
@@ -326,52 +326,64 @@ a subsequent visit) some $passphrase$:
 
 ## Messaging protocol
 
-SecureDrop is a first-contact protocol between an unknwn party (an anonymous
-source) and well-known parties (journalists). Only a source can initiate a
-conversation.
+SecureDrop is a first-contact protocol between an unknown party (an anonymous
+source) and well-known parties (journalists).
 
-### 5. Source fetches keys and verifies their authenticity
+The preceding setup steps are _role-specific_: sources' and journalists' setup
+steps are different. By contrast, the following protocol steps are
+_role-agnostic_ and _turn-specific_. Except where otherwise noted, sources and
+journalists execute the same fetching step (5), sending step (6), and receiving
+step (7), in any order.
 
-For some newsroom $NR$ and all its enrolled journalists $J^i$:
+Only a source can initiate a conversation. In other words, a source is always
+the first sender.
 
-| Source                                                                                   |                                                                             | Server                                               |
-| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- |
-|                                                                                          | $\longrightarrow$ request keys for $NR$                                     |                                                      |
-|                                                                                          | $`NR_{sig,pk}, \sigma^{FPF} \longleftarrow`$                                |                                                      |
-|                                                                                          |                                                                             | $`\forall J^i`$:                                     |
-|                                                                                          | $`J^i_{sig,pk}, J^i_{fetch,pk}, J^i_{dh,pk}, \sigma^{NR} \longleftarrow`$   |                                                      |
-|                                                                                          | $`J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}, \sigma^{J^i} \longleftarrow`$ | Chosen at random for $J^i$                           |
-|                                                                                          |                                                                             | Discard $J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}$ |
-| $`\text{Vfy}(FPF_{sig,pk}, NR_{sig,pk}, \sigma^{FPF})`$                                  |                                                                             |                                                      |
-| $`\forall J^i`$:                                                                         |                                                                             |                                                      |
-| $`\text{Vfy}(NR_{sig,pk}, (J^i_{sig,pk}, J^i_{fetch,pk}, J^i_{dh,pk}), \sigma^{NR})`$    |                                                                             |                                                      |
-| $`\text{Vfy}(J^i_{sig,pk}, (J^i_{edh,pk}, J^i_{ekem,pk}, J^i_{epke,pk}), \sigma^{J^i})`$ |                                                                             |                                                      |
+### 5. Sender fetches keys and verifies their authenticity <!-- Figure 1 as of 7703a58 -->
 
-### 6. Source submits a message
+**TODO:** Sync with the "Setup" section.
 
-For some message $msg$ to each journalist $J^i$ enrolled with a newsroom $NR$:
+A sender knows their own keys. In addition, in the **reply case,** if the sender
+is a journalist replying to a source, they also already know their recipient's
+keys.
 
-> [!NOTE]
-> The source client MUST submit a distinct copy of $msg$ to each journalist
-> $J_i$: i.e., a total of $n$ unique ciphertexts for $n$ journalists.
+| All senders    | Reply case     |
+| -------------- | -------------- |
+| $pk_S^{APKE}$  | $pk_R^{APKE}$  |
+| $pk_S^{PKE}$   | $pk_R^{PKE}$   |
+| $pk_S^{fetch}$ | $pk_R^{fetch}$ |
+| $sk_S^{APKE}$  |
+| $sk_S^{PKE}$   |
+| $sk_S^{fetch}$ |
 
-| Source                                                                                                                       |                             | Server                           |
-| ---------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------- |
-| $`\forall J^i`$:                                                                                                             |                             |                                  |
-| $`m \gets \text{Pad}(msg \Vert S_{dh,pk} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert J^i_{sig,pk} \Vert NR)`$ |                             |                                  |
-| $`((c_1, c_2), C'') \gets^{\$} \text{AuthEnc}(S_{dh,pk}, (J^i_{edh,pk}, J^i_{ekem,pk}), m, \varepsilon, \varepsilon)`$       |                             |                                  |
-| $`C' \gets^{\$} \text{Enc}(J^i_{epke,pk}, S_{dh,pk} \Vert c_1 \Vert c_2)`$                                                   |                             |                                  |
-| $`C \gets C' \Vert C''`$                                                                                                     |                             |                                  |
-| $`x \gets^{\$} \mathbb Z_q`$                                                                                                 |                             |                                  |
-| $`X \gets \text{DH}(g, x)`$                                                                                                  |                             |                                  |
-| $`Z \gets \text{DH}(J^i_{fetch,pk}, x)`$                                                                                     |                             |                                  |
-|                                                                                                                              | $`\longrightarrow C, Z, X`$ |                                  |
-|                                                                                                                              |                             | $`id \gets^{\$} \text{Rand}()`$  |
-|                                                                                                                              |                             | $`messages[id] \gets (C, Z, X)`$ |
+For some newsroom $NR$ and all its enrolled journalists $J_i$:
 
-> [!NOTE]
-> The source client MUST follow the same procedure for replying to a message
-> from a journalist.
+| Sender                                                                                                               |                                 | Server                                                                        |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------- |
+|                                                                                                                      | $\longrightarrow$ `RequestKeys` |                                                                               |
+|                                                                                                                      |                                 | $`pks = \{(pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch})\}`$ for all $i$ |
+|                                                                                                                      | $`pks \longleftarrow`$          |                                                                               |
+| **TODO:** verification per $NR$ and $J_i$                                                                            |                                 |                                                                               |
+|                                                                                                                      |                                 |                                                                               |
+| **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying:           |                                 |                                                                               |
+| $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                                               |
+
+### 6. Sender submits a message <!-- Figure 1 as of 7703a58 -->
+
+Then, for some message $m$, for all keys $(pk_{R,i}^{APKE}, pk_{R,i}^{PKE},
+pk_{R,i}^{fetch}) \in pks$:
+
+| Source                                                                              |                                 | Server                                         |
+| ----------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
+| $`pt \gets m \Vert pk_S^{fetch} \Vert pk_S^{PKE} `$                                 |                                 |                                                |
+| $`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, -)`$ |                                 |                                                |
+| $`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$             |                                 |                                                |
+| $`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                 |                                 |                                                |
+| $`x \gets^{\$} \mathcal{E}_H`$[^8]                                                  |                                 |                                                |
+| $`X \gets g^x`$                                                                     |                                 |                                                |
+| $`Z \gets (pk_{R,i}^{fetch})^x`$                                                    |                                 |                                                |
+|                                                                                     | $`\longrightarrow (C_S, X, Z)`$ |                                                |
+|                                                                                     |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
+|                                                                                     |                                 | Store $(id, C_S, X, Z)$                        |
 
 ### 7. Source or journalist fetches messages IDs
 
@@ -419,28 +431,6 @@ For some message $id$:
 | Discard $J_{edh,sk}, J_{ekem,sk}, J_{fetch,sk}$                                                                          |                        |                                  |
 | Return $msg \Vert S_{dh,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk}$                                                         |                        |                                  |
 
-### 9. Journalist replies to a source
-
-For some message $msg$ in reply to a source $S$:
-
-| Journalist                                                                                               |                             | Server                           |
-| -------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------- |
-| $`m \gets msg \Vert S \Vert J_{sig,pk} \Vert J_{fetch,pk} \Vert J_{dh,pk} \Vert \sigma^{NR} \Vert NR`$   |                             |                                  |
-| $`((c_1, c_2), C'') \gets^{\$} \text{AuthEnc}(J_{dh,sk}, (S, S_{kem,pk}), m, \varepsilon, \varepsilon)`$ |                             |                                  |
-| $`C' \gets ^{\$} \text{Enc}(S_{pke,pk}, J_{dh,pk} \Vert c_1 \Vert c_2)`$                                 |                             |                                  |
-| $`C \gets C' \Vert C''`$                                                                                 |                             |                                  |
-| $`x \gets^{\$} \mathbb Z_q`$                                                                             |                             |                                  |
-| $`Z \gets \text{DH}(S_{fetch,pk}, x)`$                                                                   |                             |                                  |
-| $`X \gets \text{DH}(g, x)`$                                                                              |                             |                                  |
-|                                                                                                          | $`\longrightarrow C, Z, X`$ |                                  |
-|                                                                                                          |                             | $`id \gets^{\$} \text{Rand}()`$  |
-|                                                                                                          |                             | $`messages[id] \gets (C, Z, X)`$ |
-
-> [!NOTE]
-> In addition to sending the reply encrypted to the source $S$, the journalist
-> client SHOULD also send a copy encrypted to each of the other $n-1$ journalists
-> currently enrolled with the newsroom $NR$.
-
 ### 10. Source fetches and decrypts a message
 
 For some message $id$:
@@ -458,10 +448,6 @@ For some message $id$:
 | $`\text{Vfy}(NR_{sig,pk}, \sigma, J_1 \Vert J_2 \Vert J_3)`$                                                  |                         |                                  |
 | Check $NR = \tilde{NR}, J = J_3, S_{dh,pk} = \tilde{S}$                                                       |                         |                                  |
 | Return $msg \Vert J \Vert NR$                                                                                 |                         |                                  |
-
-### 11. Source replies to a journalist
-
-See ["Source Submits a Message"](#source-submits-a-message).
 
 [^1]: Currently configured as [`CHUNK`][chunk].
 
@@ -481,7 +467,12 @@ See ["Source Submits a Message"](#source-submits-a-message).
     The source's keys are considered "permanent" because they are derived
     deterministically from the source's passphrase, which cannot be changed.
 
-[alwen]: https://eprint.iacr.org/2023/1480
+[^8]:
+    $\mathcal{E}_H \subset \mathbb{Z}$ per Definition 4 of Alwen et al.
+    (2020), ["Analyzing the HPKE Standard"][alwen2020].
+
+[alwen2020]: https://eprint.iacr.org/2020/1499
+[alwen2023]: https://eprint.iacr.org/2023/1480
 [chunk]: https://github.com/freedomofpress/securedrop-protocol/blob/664f8c66312b45e00d1e2b4a26bc466ff105c3ca/README.md?plain=1#L105
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
 [RFC 9180]: https://datatracker.ietf.org/doc/html/rfc9180
