@@ -137,7 +137,7 @@ Protocol" sections from the manuscript.
 | $` g^x \gets \text{DH(g, x)}`$                            | Diffie-Hellman exponentiation of private component $x$                            |
 | $`r \gets^{\$} \text{Rand}()`$                            | Generate a random value                                                           |
 | $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$ to a constant size[^1]                                          |
-| $`\varepsilon`$                                           | The empty string                                                                  |
+| $`-`$                                                     | The empty string (or `None` in pseudocode)                                        |
 
 ## Cryptographic APIs
 
