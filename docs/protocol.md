@@ -385,69 +385,48 @@ pk_{R,i}^{fetch}) \in pks$:
 |                                                                                     |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
 |                                                                                     |                                 | Store $(id, C_S, X, Z)$                        |
 
-### 7. Source or journalist fetches messages IDs
+### 7. Receiver fetches and decrypts messages <!-- Figure 2 as of 7703a58 -->
 
-For a total of $n$ messages:
+A receiver knows their own keys.
 
-| User $`U \in \{J, S\}`$ for journalist $J$ or source $S$ |                                                   | Server                                                       |
-| -------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------ |
-|                                                          | $\longrightarrow$ request messages                |                                                              |
-|                                                          |                                                   | $`\forall i \in 0\dots \text{Len}(messages)`$:               |
-|                                                          |                                                   | $`(id_i, (c_i, Z_i, X_i)) \gets messages.\text{items}()[i]`$ |
-|                                                          |                                                   | $`y \gets^{\$} \mathbb Z_q`$                                 |
-|                                                          |                                                   | $`k_i \gets \text{DH}(Z_i, y)`$                              |
-|                                                          |                                                   | $`Q_i \gets \text{DH}(X_i, y)`$                              |
-|                                                          |                                                   | $`cid_i \gets^{\$} \text{Enc}(k_i, id_i)`$                   |
-|                                                          |                                                   |                                                              |
-|                                                          |                                                   | $`\forall i \in \text{Len}(messages) \dots n`$:              |
-|                                                          |                                                   | $`Q_i \gets^{\$} \text{Rand}()`$                             |
-|                                                          |                                                   | $`cid_i \gets^{\$} \text{Rand}()`$                           |
-|                                                          |                                                   |                                                              |
-|                                                          | $`Q_{0 \dots n}, cid_{0 \dots n} \longleftarrow`$ |                                                              |
-| $`ids \gets \{\}`$                                       |                                                   |                                                              |
-| $`\forall i \in 0 \dots n`$:                             |                                                   |                                                              |
-| $`k_i \gets \text{DH}(Q_i, U_{fetch,sk})`$:              |                                                   |                                                              |
-| $`id_i \gets \text{Dec}(k_i, cid_i) \neq \bot`$          |                                                   |                                                              |
-| $`ids \gets ids \cup \{id_i\}`$                          |                                                   |                                                              |
-|                                                          |                                                   |                                                              |
-| Return $ids$                                             |                                                   |                                                              |
+| All receivers  |
+| -------------- |
+| $pk_R^{APKE}$  |
+| $pk_R^{PKE}$   |
+| $pk_R^{fetch}$ |
+| $sk_R^{APKE}$  |
+| $sk_R^{PKE}$   |
+| $sk_R^{fetch}$ |
 
-### 8. Journalist fetches and decrypts a message
+For some newsroom $NR$:
 
-For some message $id$:
-
-| Journalist                                                                                                               |                        | Server                           |
-| ------------------------------------------------------------------------------------------------------------------------ | ---------------------- | -------------------------------- |
-|                                                                                                                          | $`\longrightarrow id`$ |                                  |
-|                                                                                                                          |                        | $`(C, Z, X) \gets messages[id]`$ |
-|                                                                                                                          | $`C\longleftarrow`$    |                                  |
-| $`\forall J_{edh,sk}, J_{ekem,sk}, J_{epke,sk}`$:                                                                        |                        |                                  |
-| Parse $C$ as $C' \Vert C''$                                                                                              |                        |                                  |
-| $`\tilde{M} \gets \text{Dec}(J_{epke,sk}, C') \neq \bot`$                                                                |                        |                                  |
-| Parse $\tilde{M}$ as $S \Vert c_1 \Vert c_2$                                                                             |                        |                                  |
-| $`m \gets \text{AuthDec}((J_{edh,sk}, J_{ekem,sk}), S, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$          |                        |                                  |
-| Parse $m$ as $msg \Vert \tilde{S} \Vert S_{pke,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk} \Vert \tilde{J} \Vert \tilde{NR}$ |                        |                                  |
-| Check $NR = \tilde{NR}, J_{sig,pk} = \tilde{J}, S = \tilde{S}$                                                           |                        |                                  |
-| Discard $J_{edh,sk}, J_{ekem,sk}, J_{fetch,sk}$                                                                          |                        |                                  |
-| Return $msg \Vert S_{dh,pk} \Vert S_{kem,pk} \Vert S_{fetch,pk}$                                                         |                        |                                  |
-
-### 10. Source fetches and decrypts a message
-
-For some message $id$:
-
-| Source                                                                                                        |                         | Server                           |
-| ------------------------------------------------------------------------------------------------------------- | ----------------------- | -------------------------------- |
-|                                                                                                               | $`\longrightarrow id`$  |                                  |
-|                                                                                                               |                         | $`(C, Z, X) \gets messages[id]`$ |
-|                                                                                                               | $`C, X \longleftarrow`$ |                                  |
-| Parse $C$ as $C' \Vert C''$                                                                                   |                         |                                  |
-| $`\tilde{M} \gets \text{Dec}(S_{pke,sk}, C') \neq \bot`$                                                      |                         |                                  |
-| Parse $\tilde{M}$ as $J \Vert c_1 \Vert c_2$                                                                  |                         |                                  |
-| $`m \gets \text{AuthDec}((S_{dh,sk}, S_{kem,sk}), J, ((c_1, c_2), C''), \varepsilon, \varepsilon) \neq \bot`$ |                         |                                  |
-| Parse $m$ as $msg \Vert \tilde{S} \Vert J_1 \Vert J_2 \Vert J_3 \Vert \sigma \Vert \tilde{NR}$                |                         |                                  |
-| $`\text{Vfy}(NR_{sig,pk}, \sigma, J_1 \Vert J_2 \Vert J_3)`$                                                  |                         |                                  |
-| Check $NR = \tilde{NR}, J = J_3, S_{dh,pk} = \tilde{S}$                                                       |                         |                                  |
-| Return $msg \Vert J \Vert NR$                                                                                 |                         |                                  |
+| Server                                                                                |                                                | Receiver                                                                        |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
+|                                                                                       |                                                | $`fetched \gets \emptyset`$                                                     |
+|                                                                                       | $\longleftarrow$ `RequestMessages`             |                                                                                 |
+| $`\forall C_i = (id_i, C_{S_i}, X_i, Z_i):`$ **TODO:** pad up to $n$ total challenges |                                                |                                                                                 |
+| $`r_i \gets^{\$} \mathcal{E}_H`$[^8]                                                  |                                                |                                                                                 |
+| $`nonce_i \gets 0^{nl}`$ for length $nl$                                              |                                                |                                                                                 |
+| $`idk_i \gets \text{KDF}(Z_i^{r_i}, NR)`$                                             |                                                |                                                                                 |
+| $`eid_i \gets \text{AEAD.Enc}(idk_i, nonce_i, -, id_i)`$                              |                                                |                                                                                 |
+| $`Q_i \gets X_i^{r_i}`$                                                               |                                                |                                                                                 |
+|                                                                                       | $`\longrightarrow \forall i: \{(eid_i, Q_i\}`$ |                                                                                 |
+|                                                                                       |                                                | $`cids = \emptyset`$                                                            |
+|                                                                                       |                                                | $`\forall i:`$                                                                  |
+|                                                                                       |                                                | $`tk_i \gets \text{KDF}(Q_i^{sk_R^{fetch}}, NR)`$                               |
+|                                                                                       |                                                | $`nonce_i \gets 0^{nl}`$ for length $nl$                                        |
+|                                                                                       |                                                | $`res_i \gets \text{AEAD.Dec}(tk_i, nonce_i, -, eid_i)`$                        |
+|                                                                                       |                                                | If $res_i \neq \bot$: $`cids \gets cids \cup \{res_i\}`$                        |
+|                                                                                       |                                                | $`tofetch = fetched \setminus cids`$                                            |
+|                                                                                       |                                                | If $tofetch \neq \emptyset$: $`cid \gets tofetch[0]`$                           |
+|                                                                                       | $`cid \longleftarrow`$                         |                                                                                 |
+|                                                                                       | $`\longrightarrow C_{S_i}`$ where $id_i = cid$ |                                                                                 |
+|                                                                                       |                                                | $`(ct^{APKE}, ct^{PKE}) \gets C_{S_i}`$                                         |
+|                                                                                       |                                                | $`pk_S^{APKE} \gets \text{SD-PKE.Dec}(sk_R^{PKE}, ct^{PKE}, -, -)`$             |
+|                                                                                       |                                                | $`pt \gets \text{SD-APKE.AuthDec}(sk_R^{APKE}, pk_S^{APKE}, ct^{APKE}, NR, -)`$ |
+|                                                                                       |                                                | $`m \Vert pk_S^{fetch} \Vert pk_S^{PKE} \gets pt`$                              |
+|                                                                                       |                                                | $`fetched \gets fetched \cup \{cid\}`$                                          |
+|                                                                                       |                                                | If $tofetch \setminus \{cid\} \neq \emptyset$: repeat from `RequestMessages`    |
 
 [^1]: Currently configured as [`CHUNK`][chunk].
 
