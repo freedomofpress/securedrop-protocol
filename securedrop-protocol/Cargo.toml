@@ -15,12 +15,13 @@ libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e4
 libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
 hpke-rs = {version = "0.3.0", features = ["libcrux"]}
 rand_core = {version = "0.9"}
-rand = {version = "0.9"}
+rand_chacha = { version = "0.9", default-features = false }
 # Needed for wasm compat
-getrandom = {version = "0.3", features = ["wasm_js"]}
+getrandom = {version = "0.3", default-features = false, features = ["wasm_js"]}
 anyhow = "1.0"
 hashbrown = {version = "0.14", features = ["raw"]}
-uuid = {version = "1.0", features = ["v4", "rng-getrandom"]}
+# In theory, it should be possible to use v4 uuids with getrandom per https://docs.rs/uuid/1.18.1/uuid/#building-for-other-targets, but cargo nono complains vigorously
+uuid = {version = "1.0", default-features = false, features = ["v4", "rng-getrandom", "js"]}
 blake2 = "0.10"
 
 [dev-dependencies]

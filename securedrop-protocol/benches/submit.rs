@@ -1,5 +1,6 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use rand::{SeedableRng, rngs::StdRng};
+use rand_chacha::ChaCha20Rng;
+use rand_core::SeedableRng;
 
 use securedrop_protocol::{
     journalist::JournalistClient, keys::FPFKeyPair, messages::core::SourceJournalistKeyResponse,
@@ -12,14 +13,14 @@ fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) 
 
     // 2. Setup newsroom
     let newsroom_setup_request = server
-        .create_newsroom_setup_request(StdRng::seed_from_u64(666))
+        .create_newsroom_setup_request(ChaCha20Rng::seed_from_u64(666))
         .expect("Can create newsroom setup request");
 
     // Store the newsroom verifying key before moving the request
     let newsroom_verifying_key = newsroom_setup_request.newsroom_verifying_key;
 
     // Simulate FPF signing
-    let fpf_keypair = FPFKeyPair::new(StdRng::seed_from_u64(666));
+    let fpf_keypair = FPFKeyPair::new(ChaCha20Rng::seed_from_u64(666));
     let newsroom_setup_response = newsroom_setup_request
         .sign(&fpf_keypair)
         .expect("Can sign newsroom setup request");
@@ -29,7 +30,7 @@ fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) 
     // 3. Setup journalist
     let mut journalist = JournalistClient::new();
     let journalist_setup_request = journalist
-        .create_setup_request(StdRng::seed_from_u64(666))
+        .create_setup_request(ChaCha20Rng::seed_from_u64(666))
         .expect("Can create journalist setup request");
 
     server
@@ -38,7 +39,7 @@ fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) 
 
     // 4. Journalist provides ephemeral keys
     let ephemeral_key_request = journalist
-        .create_ephemeral_key_request(StdRng::seed_from_u64(666))
+        .create_ephemeral_key_request(ChaCha20Rng::seed_from_u64(666))
         .expect("Can create ephemeral key request");
 
     server
@@ -61,7 +62,7 @@ fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) 
     let journalist_key_request = source.fetch_journalist_keys();
     let journalist_key_responses = server.handle_source_journalist_key_request(
         journalist_key_request,
-        &mut StdRng::seed_from_u64(666),
+        &mut ChaCha20Rng::seed_from_u64(666),
     );
 
     // Source handles and verifies the journalist key response
@@ -85,7 +86,7 @@ pub fn bench_submit_message(c: &mut Criterion) {
                     let (source, journalist_key_responses) = setup_test_environment();
 
                     let test_message = vec![0u8; 512]; // Test message content
-                    let mut rng = StdRng::seed_from_u64(666);
+                    let mut rng = ChaCha20Rng::seed_from_u64(666);
                     source
                         .submit_message(test_message, &journalist_key_responses, &mut rng)
                         .expect("Message submission should succeed");

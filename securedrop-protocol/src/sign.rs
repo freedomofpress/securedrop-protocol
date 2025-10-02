@@ -52,13 +52,23 @@ impl VerifyingKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use getrandom;
     use proptest::prelude::*;
-    use rand::rng;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    // Toy purposes
+    fn get_rng() -> ChaCha20Rng {
+        let mut seed = [0u8; 32];
+        getrandom::fill(&mut seed).expect("OS random source failed");
+        ChaCha20Rng::from_seed(seed)
+    }
 
     proptest! {
         #[test]
         fn test_sign_verify_roundtrip(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
-            let mut rng = rng();
+
+            let mut rng = get_rng();
             let signing_key = SigningKey::new(&mut rng).unwrap();
             let signature = signing_key.sign(&msg);
 
@@ -76,7 +86,7 @@ mod tests {
                 return Ok(());
             }
 
-            let mut rng = rng();
+            let mut rng = get_rng();
             let signing_key = SigningKey::new(&mut rng).unwrap();
             let signature = signing_key.sign(&msg1);
 
@@ -87,7 +97,7 @@ mod tests {
     proptest! {
         #[test]
         fn test_verify_fails_with_wrong_key(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
-            let mut rng = rng();
+            let mut rng = get_rng();
             let key1 = SigningKey::new(&mut rng).unwrap();
             let key2 = SigningKey::new(&mut rng).unwrap();
             let signature = key1.sign(&msg);

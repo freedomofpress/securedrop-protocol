@@ -1,7 +1,8 @@
 //! Tests for the setup steps of the protocol.
 //! These correspond to steps 1-4 of the spec.
 
-use rand::rng;
+use rand_chacha::ChaCha20Rng;
+use rand_core::SeedableRng;
 
 use securedrop_protocol::journalist::JournalistClient;
 use securedrop_protocol::keys::{
@@ -15,10 +16,17 @@ use securedrop_protocol::server::Server;
 use securedrop_protocol::source::SourceClient;
 use securedrop_protocol::storage::ServerStorage;
 
+// Toy implementation purposes
+fn get_rng() -> ChaCha20Rng {
+    let mut seed = [0u8; 32];
+    getrandom::fill(&mut seed).expect("OS random source failed");
+    ChaCha20Rng::from_seed(seed)
+}
+
 /// Step 1: Generate FPF keys
 #[test]
 fn protocol_step_1_generate_fpf_keys() {
-    let mut rng = rng();
+    let mut rng = get_rng();
     let fpf_keys = FPFKeyPair::new(&mut rng);
 
     // Test signing/verification roundtrip
@@ -30,7 +38,7 @@ fn protocol_step_1_generate_fpf_keys() {
 /// Step 2: Newsroom setup
 #[test]
 fn protocol_step_2_generate_newsroom_keys() {
-    let mut rng = rng();
+    let mut rng = get_rng();
 
     // Setup: FPF generates their keys (from previous step)
     let fpf_keys = FPFKeyPair::new(&mut rng);
@@ -62,7 +70,7 @@ fn protocol_step_2_generate_newsroom_keys() {
 /// Step 3.1: Journalist enrollment
 #[test]
 fn protocol_step_3_1_journalist_enrollment() {
-    let mut rng = rng();
+    let mut rng = get_rng();
 
     // Setup: FPF generates their keys (from step 1)
     let fpf_keys = FPFKeyPair::new(&mut rng);
@@ -115,7 +123,7 @@ fn protocol_step_3_1_journalist_enrollment() {
 /// Step 3.2: Journalist ephemeral key replenishment
 #[test]
 fn protocol_step_3_2_journalist_ephemeral_keys() {
-    let mut rng = rng();
+    let mut rng = get_rng();
 
     // Setup: FPF generates their keys (Step 1)
     let fpf_keys = FPFKeyPair::new(&mut rng);
@@ -212,7 +220,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
 /// Step 4: Source setup - derive keys from passphrase
 #[test]
 fn protocol_step_4_source_setup() {
-    let mut rng = rng();
+    let mut rng = get_rng();
 
     // Initialize source session with new passphrase (Protocol Step 4)
     let (passphrase, source_session) = SourceClient::initialize_with_passphrase(&mut rng);
