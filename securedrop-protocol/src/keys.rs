@@ -27,7 +27,8 @@ pub use journalist::{
     JournalistEphemeralKEMKeyPair, JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair,
     JournalistOneTimeKeyBundle, JournalistOneTimeKeypairs,
     JournalistOneTimeMessageClassicalKeyPair, JournalistOneTimeMessagePQKeyPair,
-    JournalistOneTimeMetadataKeyPair, JournalistOneTimePublicKeys, JournalistSigningKeyPair,
+    JournalistOneTimeMetadataKeyPair, JournalistOneTimePublicKeys, JournalistReplyClassicalKeyPair,
+    JournalistSigningKeyPair,
 };
 pub use newsroom::NewsroomKeyPair;
 pub use source::{

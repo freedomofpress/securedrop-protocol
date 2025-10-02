@@ -10,11 +10,13 @@ use crate::Signature;
 use crate::keys::{
     JournalistDHKeyPair, JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair,
     JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair, JournalistOneTimeKeyBundle,
-    JournalistOneTimeKeypairs, JournalistOneTimePublicKeys, JournalistSigningKeyPair,
+    JournalistOneTimeKeypairs, JournalistOneTimePublicKeys, JournalistReplyClassicalKeyPair,
+    JournalistSigningKeyPair,
 };
 use crate::keys::{JournalistEnrollmentKeyBundle, SourcePublicKeys};
 use crate::messages::core::{JournalistReplyMessage, Message, MessageChallengeFetchRequest};
 use crate::messages::setup::{JournalistRefreshRequest, JournalistSetupRequest};
+use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey};
 use crate::primitives::x25519::DHPublicKey;
 use crate::sign::VerifyingKey;
 use crate::{Client, client::ClientPrivate};
@@ -28,10 +30,8 @@ pub struct JournalistClient {
     signing_key: Option<JournalistSigningKeyPair>,
     /// Journalist's long-term fetching key pair
     fetching_key: Option<JournalistFetchKeyPair>,
-    /// Journalist's long-term DH key pair
-    /// TODO: Remove? Not for use with encryption, although it
-    /// may be needed as "key of last resort" - to discuss
-    dh_key: Option<JournalistDHKeyPair>,
+    /// Journalist's long-term reply key pair (DH)
+    message_send_dhakem_key: Option<JournalistReplyClassicalKeyPair>,
     /// and use instead of dh_key for encryption
     /// Journalist one-time keypairs
     one_time_keystore: Vec<JournalistOneTimeKeypairs>,
@@ -129,14 +129,13 @@ impl JournalistClient {
         self.fetching_key.as_ref().map(|fk| &fk.public_key)
     }
 
-    /// Get the journalist's long-term DH key
-    /// TODO: keeping? (Key of last resort?)
-    /// This is not the key that should be used for message encryption!
-    /// Message encrpytion uses a one-time DH-AKEM key.
-    /// We shouldn't use this anywhere for now.
-    #[deprecated]
-    pub fn dh_key(&self) -> Option<&DHPublicKey> {
-        self.dh_key.as_ref().map(|dk| &dk.public_key)
+    /// Get the journalist's DH-AKEM reply key.
+    /// Note: Messages addressed to journalist are encrypted using
+    /// one-time DH-AKEM keys; this key is used to send replies.
+    pub fn dhakem_reply_key(&self) -> Option<&DhAkemPublicKey> {
+        self.message_send_dhakem_key
+            .as_ref()
+            .map(|dk| &dk.public_key)
     }
 }
 
@@ -169,6 +168,15 @@ impl ClientPrivate for JournalistClient {
             .clone()
             .into_bytes())
     }
+    fn message_enc_private_key_dhakem(&self) -> Result<[u8; 32], Error> {
+        Ok(*self
+            .message_send_dhakem_key
+            .as_ref()
+            .expect("Reply key in session")
+            .private_key
+            .clone()
+            .as_bytes())
+    }
 }
 
 impl JournalistClient {
@@ -184,15 +192,13 @@ impl JournalistClient {
         newsroom_signature: crate::sign::Signature,
         rng: &mut R,
     ) -> Result<Message, Error> {
-        // Get the journalist's DH private key
-        // TODO: not the long-term DH key!
-        let journalist_dhakem_keypair: JournalistEphemeralDHKeyPair = todo!("");
+        todo!("Unimplemented!");
 
-        let journalist_dh_private_key = self
-            .dh_key
+        // Get the journalist's DH reply key
+        let journalist_dhakem_keypair: JournalistReplyClassicalKeyPair = self
+            .message_send_dhakem_key
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("No DH key found in session"))?
-            .private_key
             .clone();
 
         // 1. Create the structured message according to Step 9 format:
@@ -205,7 +211,7 @@ impl JournalistClient {
         //     source,
         //     journalist_sig_pk: self.signing_key.as_ref().unwrap().vk,
         //     journalist_fetch_pk: self.fetching_key.as_ref().unwrap().public_key.clone(),
-        //     journalist_dh_pk: self.dh_key.as_ref().unwrap().public_key.clone(),
+        //     journalist_dh_pk: self.dhakem_reply_key().unwrap().clone(),
         //     newsroom_signature,
         //     newsroom_sig_pk: *self.get_newsroom_verifying_key()?,
         // };

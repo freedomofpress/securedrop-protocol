@@ -16,6 +16,7 @@ pub trait StructuredMessage {
 pub(crate) trait ClientPrivate {
     /// Get the fetching private key for message ID decryption
     fn fetching_private_key(&self) -> Result<[u8; 32], Error>;
+    fn message_enc_private_key_dhakem(&self) -> Result<[u8; 32], Error>;
 }
 
 /// Common client functionality for source and journalist clients

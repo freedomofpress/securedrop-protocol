@@ -89,6 +89,16 @@ impl ClientPrivate for SourceClient {
             .clone()
             .into_bytes())
     }
+    fn message_enc_private_key_dhakem(&self) -> Result<[u8; 32], Error> {
+        Ok(*self
+            .key_bundle
+            .as_ref()
+            .unwrap()
+            .message_encrypt_dhakem
+            .private_key
+            .clone()
+            .as_bytes())
+    }
 }
 
 impl SourceClient {
@@ -181,7 +191,7 @@ impl SourceClient {
             let source_message = SourceMessage {
                 message: message.clone(),
                 source_message_pq_pk: key_bundle.pq_kem_psk.public_key.clone(),
-                source_message_pk: key_bundle.long_term_dh.public_key.clone(),
+                source_message_pk: key_bundle.message_encrypt_dhakem.public_key.clone(),
                 source_metadata_pk: key_bundle.metadata.public_key.clone(),
                 source_fetch_pk: key_bundle.fetch.public_key.clone(),
                 journalist_sig_pk: journalist_response.journalist_sig_pk,
@@ -197,8 +207,8 @@ impl SourceClient {
                 ),
                 &journalist_response.one_time_metadata_pk,
                 &journalist_response.journalist_fetch_pk,
-                &key_bundle.long_term_dh.private_key,
-                &key_bundle.long_term_dh.public_key,
+                &key_bundle.message_encrypt_dhakem.private_key,
+                &key_bundle.message_encrypt_dhakem.public_key,
                 rng,
             )?;
 
@@ -234,13 +244,13 @@ mod tests {
 
         // DH keys
         assert_eq!(
-            keybundle1.long_term_dh.public_key.as_bytes(),
-            keybundle2.long_term_dh.public_key.as_bytes(),
+            keybundle1.message_encrypt_dhakem.public_key.as_bytes(),
+            keybundle2.message_encrypt_dhakem.public_key.as_bytes(),
             "DH Pubkey should be identical"
         );
         assert_eq!(
-            keybundle1.long_term_dh.private_key.as_bytes(),
-            keybundle2.long_term_dh.private_key.as_bytes(),
+            keybundle1.message_encrypt_dhakem.private_key.as_bytes(),
+            keybundle2.message_encrypt_dhakem.private_key.as_bytes(),
             "DH Private Key should be identical"
         );
 

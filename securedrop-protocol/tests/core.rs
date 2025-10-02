@@ -117,7 +117,7 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Verify the journalist's DH key matches our expectation
     let journalist_dh_key = journalist_session
-        .dh_key()
+        .dhakem_reply_key()
         .expect("Journalist should have DH key");
     assert_eq!(
         journalist_response.journalist_dh_pk.clone().into_bytes(),

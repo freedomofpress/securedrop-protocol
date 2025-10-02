@@ -245,6 +245,36 @@ impl JournalistOneTimeMetadataKeyPair {
     }
 }
 
+/// Journalist medium or long-term DH-AKEM key used for sending replies
+#[derive(Debug, Clone)]
+pub struct JournalistReplyClassicalKeyPair {
+    pub public_key: DhAkemPublicKey,
+    pub(crate) private_key: DhAkemPrivateKey,
+}
+
+impl JournalistReplyClassicalKeyPair {
+    pub fn new(
+        pubkey: DhAkemPublicKey,
+        priv_key: DhAkemPrivateKey,
+    ) -> JournalistReplyClassicalKeyPair {
+        JournalistReplyClassicalKeyPair {
+            public_key: (pubkey),
+            private_key: (priv_key),
+        }
+    }
+
+    /// Generate a new medium/long-term keypair for sending replies
+    pub fn generate<R: RngCore + CryptoRng>(mut rng: R) -> JournalistReplyClassicalKeyPair {
+        let (private_key, public_key) =
+            crate::primitives::dh_akem::generate_dh_akem_keypair(&mut rng)
+                .expect("DH-AKEM key generation failed");
+        JournalistReplyClassicalKeyPair {
+            private_key,
+            public_key,
+        }
+    }
+}
+
 /// One-time public keys for a journalist (without signature)
 ///
 /// This struct contains just the one-time public keys that need to be signed.

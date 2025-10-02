@@ -34,7 +34,7 @@ pub struct SourcePublicKeys {
 #[derive(Debug, Clone)]
 pub struct SourceKeyBundle {
     pub fetch: SourceFetchKeyPair,
-    pub long_term_dh: SourceMessageClassicalKeyPair,
+    pub message_encrypt_dhakem: SourceMessageClassicalKeyPair,
     pub pq_kem_psk: SourceMessagePQKeyPair,
     pub metadata: SourceMetadataKeyPair,
 }
@@ -232,7 +232,7 @@ impl SourceMetadataKeyPair {
 impl SourceKeyBundle {
     /// Get the source's DH-AKEM  public key
     pub fn dh_public_key(&self) -> &DhAkemPublicKey {
-        &self.long_term_dh.public_key
+        &self.message_encrypt_dhakem.public_key
     }
 
     /// Get the source's metadata public key
@@ -296,7 +296,7 @@ impl SourceKeyBundle {
         // Create key pairs
         Self {
             fetch: SourceFetchKeyPair::new(fetch_result.into()),
-            long_term_dh: SourceMessageClassicalKeyPair::from_bytes(dh_result.into()),
+            message_encrypt_dhakem: SourceMessageClassicalKeyPair::from_bytes(dh_result.into()),
             pq_kem_psk: SourceMessagePQKeyPair::from_bytes(kem_result.into()),
             metadata: SourceMetadataKeyPair::from_bytes(pke_result.into()),
         }
