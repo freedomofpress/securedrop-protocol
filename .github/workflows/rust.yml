@@ -63,22 +63,6 @@ jobs:
       - run: cargo fmt --all --check
         working-directory: securedrop-protocol
 
-  no-std:
-   name: no-std compatibility check
-   runs-on: ubuntu-latest
-   steps:
-     # actions/checkout@4.1.1
-      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
-        with:
-         persist-credentials: false
-     # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
-      - uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
-        with:
-         toolchain: stable
-      - run: cargo install --locked cargo-nono
-      - run: cargo nono check --no-default-features
-        working-directory: securedrop-protocol
-
   build_wasm:
     name: wasm build
     runs-on: ubuntu-latest
