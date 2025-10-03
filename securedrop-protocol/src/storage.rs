@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
+use getrandom;
 use hashbrown::HashMap;
-use rand::Rng;
-use rand_core::CryptoRng;
+use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
 use crate::keys::{JournalistEnrollmentKeyBundle, JournalistOneTimeKeyBundle};
@@ -45,7 +45,7 @@ impl ServerStorage {
     ///
     /// Note: This method deletes the ephemeral key from storage.
     /// The returned key is permanently removed from the journalist's ephemeral key pool.
-    pub fn pop_random_ephemeral_keys<R: rand::RngCore + CryptoRng>(
+    pub fn pop_random_ephemeral_keys<R: RngCore + CryptoRng>(
         &mut self,
         journalist_id: Uuid,
         rng: &mut R,
@@ -55,8 +55,8 @@ impl ServerStorage {
                 return None;
             }
 
-            // Select a random index
-            let index = rng.random_range(0..keys.len());
+            // Select a "random" index (note: Modulo bias, Toy purposes only!)
+            let index = getrandom::u32().unwrap() as usize % keys.len();
 
             // Remove and return the selected key set
             Some(keys.remove(index))
@@ -71,7 +71,7 @@ impl ServerStorage {
     ///
     /// Note: This method deletes the ephemeral keys from storage.
     /// Each call removes the returned keys from the journalist's ephemeral key pool.
-    pub fn get_all_ephemeral_keys<R: rand::RngCore + CryptoRng>(
+    pub fn get_all_ephemeral_keys<R: RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,
     ) -> Vec<(Uuid, JournalistOneTimeKeyBundle)> {

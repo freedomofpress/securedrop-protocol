@@ -1,4 +1,4 @@
-use rand::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, RngCore};
 
 use crate::sign::{SigningKey, VerifyingKey};
 

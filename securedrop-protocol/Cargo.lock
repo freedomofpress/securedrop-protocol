@@ -1134,7 +1134,7 @@ dependencies = [
  "libcrux-kem 0.0.3 (git+https://github.com/cryspen/libcrux?rev=54c6624630e47ed599ffc1549101c2b861d51a8c)",
  "libcrux-traits 0.0.3 (git+https://github.com/cryspen/libcrux?rev=54c6624630e47ed599ffc1549101c2b861d51a8c)",
  "proptest",
- "rand",
+ "rand_chacha",
  "rand_core",
  "uuid",
 ]
@@ -1243,9 +1243,9 @@ dependencies = [
 
 [[package]]
 name = "uuid-rng-internal"
-version = "1.18.0"
+version = "1.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23bf87b6052a24c8ebbe4a5301be9df955b874cb3a6d2ede0e1b2468dc7d0e65"
+checksum = "23426b4394875bbc29a3074f94e1b52cd0eed2c8410c21a6edbfb033daef0aa1"
 dependencies = [
  "getrandom",
 ]

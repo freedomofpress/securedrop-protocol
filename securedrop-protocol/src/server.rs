@@ -4,7 +4,6 @@
 
 use alloc::vec::Vec;
 use anyhow::{Error, anyhow};
-use rand::seq::SliceRandom;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
@@ -300,15 +299,39 @@ impl Server {
         // Shuffle the entries to hide which are real vs random
         // Zip the arrays together, shuffle, then unzip
         let mut pairs: Vec<_> = q_entries.into_iter().zip(cid_entries).collect();
-        pairs.shuffle(rng);
+
+        let shuffled = Self::shuffle_not_for_prod(&mut pairs)
+            .expect("Need shuffled list")
+            .to_vec();
 
         // Unzip back into separate arrays
-        let (q_entries, cid_entries): (Vec<_>, Vec<_>) = pairs.into_iter().unzip();
+        let (q_entries, cid_entries): (Vec<_>, Vec<_>) = shuffled.into_iter().unzip();
 
         Ok(MessageChallengeFetchResponse {
             count: MESSAGE_ID_FETCH_SIZE,
             messages: q_entries.into_iter().zip(cid_entries).collect(),
         })
+    }
+
+    /// Shuffle challenges so that real and decoys are interspersed.
+    /// Note: not a true random shuffle, toybox impl only
+    pub fn shuffle_not_for_prod<'a>(
+        vec: &'a mut Vec<(Vec<u8>, Vec<u8>)>,
+    ) -> Option<&'a mut [(Vec<u8>, Vec<u8>)]> {
+        if vec.is_empty() {
+            return None;
+        }
+
+        let len = vec.len();
+
+        // https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+        for i in (0..len - 1).rev() {
+            // not for prod: modulo bias
+            let new_index = getrandom::u32().unwrap() as usize % i;
+            vec.swap(i, new_index);
+        }
+
+        Some(vec.as_mut_slice())
     }
 
     /// Handle message fetch request (step 8/10)

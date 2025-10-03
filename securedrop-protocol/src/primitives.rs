@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 use anyhow::Error;
+use getrandom;
 use hpke_rs::{
     Hpke,
     hpke_types::{AeadAlgorithm, KdfAlgorithm, KemAlgorithm},
@@ -7,7 +8,6 @@ use hpke_rs::{
     prelude::HpkeMode,
 };
 use libcrux_traits::kem::arrayref::Kem;
-use rand_core::{CryptoRng, RngCore};
 
 // Later: Can make these all pub(crate)
 pub mod dh_akem;
@@ -188,9 +188,9 @@ pub fn encrypt_message_id(key: &[u8], message_id: &[u8]) -> Result<Vec<u8>, Erro
         return Err(anyhow::anyhow!("Invalid key length"));
     }
 
-    // Generate a random nonce
+    // Generate a random nonce (use getrandom for cross target compatibility)
     let mut nonce = [0u8; NONCE_LEN];
-    rand::rng().fill_bytes(&mut nonce);
+    getrandom::fill(&mut nonce).expect("Need randomness");
 
     // Prepare output buffer: nonce + ciphertext + tag
     let mut output = alloc::vec::Vec::new();
