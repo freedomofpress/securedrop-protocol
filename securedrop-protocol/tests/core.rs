@@ -25,8 +25,6 @@ fn get_rng() -> ChaCha20Rng {
     ChaCha20Rng::from_seed(seed)
 }
 
-/// TODO
-#[ignore]
 /// Step 5: Source fetches keys and verifies their authenticity
 #[test]
 fn protocol_step_5_source_fetch_keys() {
@@ -158,8 +156,6 @@ fn protocol_step_5_source_fetch_keys() {
     );
 }
 
-/// TODO
-#[ignore]
 /// Step 6: Source submits a message
 #[test]
 fn protocol_step_6_source_submits_message() {
