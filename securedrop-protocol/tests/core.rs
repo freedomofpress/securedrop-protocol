@@ -120,8 +120,11 @@ fn protocol_step_5_source_fetch_keys() {
         .dhakem_reply_key()
         .expect("Journalist should have DH key");
     assert_eq!(
-        journalist_response.journalist_dh_pk.clone().into_bytes(),
-        journalist_dh_key.clone().into_bytes()
+        journalist_response
+            .journalist_dhakem_sending_pk
+            .clone()
+            .as_bytes(),
+        journalist_dh_key.clone().as_bytes()
     );
 
     // Verify that ephemeral keys were consumed (deleted from server storage)

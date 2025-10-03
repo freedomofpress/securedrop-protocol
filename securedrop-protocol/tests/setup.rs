@@ -101,7 +101,7 @@ fn protocol_step_3_1_journalist_enrollment() {
         .expect("Can setup journalist");
 
     // Journalist: Verify the newsroom signature on the enrollment bundle
-    let enrollment_bundle_bytes = enrollment_bundle.into_bytes();
+    let enrollment_bundle_bytes = enrollment_bundle.public_keys.into_bytes();
     let newsroom_vk = server_session
         .get_newsroom_verifying_key()
         .expect("Newsroom keys should be available");
@@ -154,7 +154,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
         .expect("Can setup journalist");
 
     // Journalist: Verify the newsroom signature on the enrollment bundle
-    let enrollment_bundle_bytes = enrollment_bundle.into_bytes();
+    let enrollment_bundle_bytes = enrollment_bundle.public_keys.into_bytes();
     let newsroom_vk = server_session
         .get_newsroom_verifying_key()
         .expect("Newsroom keys should be available");

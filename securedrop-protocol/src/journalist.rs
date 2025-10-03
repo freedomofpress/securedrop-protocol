@@ -6,12 +6,11 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
-use crate::Signature;
 use crate::keys::{
     JournalistDHKeyPair, JournalistEphemeralDHKeyPair, JournalistEphemeralKEMKeyPair,
-    JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair, JournalistOneTimeKeyBundle,
-    JournalistOneTimeKeypairs, JournalistOneTimePublicKeys, JournalistReplyClassicalKeyPair,
-    JournalistSigningKeyPair,
+    JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair, JournalistLongtermPublicKeys,
+    JournalistOneTimeKeyBundle, JournalistOneTimeKeypairs, JournalistOneTimePublicKeys,
+    JournalistReplyClassicalKeyPair, JournalistSigningKeyPair,
 };
 use crate::keys::{JournalistEnrollmentKeyBundle, SourcePublicKeys};
 use crate::messages::core::{JournalistReplyMessage, Message, MessageChallengeFetchRequest};
@@ -20,6 +19,7 @@ use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey};
 use crate::primitives::x25519::DHPublicKey;
 use crate::sign::VerifyingKey;
 use crate::{Client, client::ClientPrivate};
+use crate::{SelfSignature, Signature};
 
 /// Journalist session for interacting with the server
 ///
@@ -61,23 +61,40 @@ impl JournalistClient {
         let signing_key = JournalistSigningKeyPair::new(&mut rng);
         let fetching_key = JournalistFetchKeyPair::new(&mut rng);
 
+        let reply_key = JournalistReplyClassicalKeyPair::generate(&mut rng);
+
         // Extract public keys before moving the key pairs
         let signing_vk = signing_key.vk;
         let fetching_pk = fetching_key.public_key.clone();
+        let reply_key_pk = reply_key.public_key.clone();
 
         // Store the generated keys in the session
         self.signing_key = Some(signing_key);
         self.fetching_key = Some(fetching_key);
+        self.message_send_dhakem_key = Some(reply_key);
 
-        // Create enrollment key bundle with public keys
-        let enrollment_key_bundle = JournalistEnrollmentKeyBundle {
+        // Self-sign bundle of longterm pubkeys
+        // (offline operation)
+        let longterm_bundle = JournalistLongtermPublicKeys {
+            fetch_key: fetching_pk,
+            reply_key: reply_key_pk,
+        };
+        let pubkey_bytes = longterm_bundle.clone().into_bytes();
+        let self_signature = SelfSignature(
+            self.sign(&pubkey_bytes)
+                .expect("Need journalist signature over their pubkeys"),
+        );
+
+        // Create enrollment key bundle with public keys and self signature
+        let longterm_enrollment_key_bundle = JournalistEnrollmentKeyBundle {
             signing_key: signing_vk,
-            fetching_key: fetching_pk,
+            public_keys: longterm_bundle,
+            self_signature,
         };
 
         // Create setup request with the enrollment key bundle
         Ok(JournalistSetupRequest {
-            enrollment_key_bundle,
+            enrollment_key_bundle: longterm_enrollment_key_bundle,
         })
     }
 

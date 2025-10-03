@@ -12,6 +12,16 @@ pub struct SigningKey {
 #[derive(Copy, Clone)]
 pub struct VerifyingKey(LibCruxVerifyingKey);
 
+// TODO (avoid confusion between journalist self-signature and newsroom signature)
+#[derive(Debug, Clone)]
+pub struct SelfSignature(pub Signature);
+
+impl SelfSignature {
+    pub fn as_signature(self) -> Signature {
+        self.0
+    }
+}
+
 /// An Ed25519 signature.
 #[derive(Debug, Clone)]
 pub struct Signature(pub [u8; 64]);

@@ -6,7 +6,8 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::keys::{
-    JournalistEnrollmentKeyBundle, JournalistOneTimePublicKeys, SourceKeyBundle, SourcePassphrase,
+    JournalistEnrollmentKeyBundle, JournalistLongtermPublicKeys, JournalistOneTimePublicKeys,
+    SourceKeyBundle, SourcePassphrase,
 };
 use crate::messages::core::{
     Message, MessageChallengeFetchRequest, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
@@ -142,16 +143,36 @@ impl SourceClient {
         response: &SourceJournalistKeyResponse,
         newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
-        // Create the enrollment bundle that was signed by the newsroom
-        let enrollment_bundle = JournalistEnrollmentKeyBundle {
-            signing_key: response.journalist_sig_pk,
-            fetching_key: response.journalist_fetch_pk.clone(),
+        // Verify the newsroom signature on the journalist's signing key
+        newsroom_verifying_key
+            .verify(
+                &response.journalist_sig_pk.into_bytes(),
+                &response.newsroom_sig,
+            )
+            .map_err(|_| anyhow::anyhow!("Invalid newsroom signature on journalist keys"))?;
+
+        // Reconstruct journalist self-signed long-term pubkey bundle
+        let public_keys = JournalistLongtermPublicKeys {
+            reply_key: response.journalist_dhakem_sending_pk.clone(),
+            fetch_key: response.journalist_fetch_pk.clone(),
         };
 
-        // Verify the newsroom signature on the journalist's enrollment bundle
-        newsroom_verifying_key
-            .verify(&enrollment_bundle.into_bytes(), &response.newsroom_sig)
-            .map_err(|_| anyhow::anyhow!("Invalid newsroom signature on journalist keys"))?;
+        let enrollment_bundle = JournalistEnrollmentKeyBundle {
+            signing_key: response.journalist_sig_pk,
+            public_keys: public_keys,
+            self_signature: response.journalist_self_sig.clone(),
+        };
+
+        let enrollment_signature = &enrollment_bundle.self_signature.clone().as_signature();
+
+        // Verify the journalist's signature on their long-term key bundle
+        enrollment_bundle
+            .signing_key
+            .verify(
+                &enrollment_bundle.public_keys.into_bytes(),
+                enrollment_signature,
+            )
+            .map_err(|_| anyhow::anyhow!("Invalid self-signature on journalist keys"))?;
 
         // Create the one-time keys that were signed by the journalist
         let one_time_keys = JournalistOneTimePublicKeys {
@@ -160,7 +181,7 @@ impl SourceClient {
             one_time_metadata_pk: response.one_time_metadata_pk.clone(),
         };
 
-        // Verify the journalist signature on the one-time keys
+        // Verify the self-signature on the one-time keys
         response
             .journalist_sig_pk
             .verify(
@@ -222,14 +243,13 @@ impl SourceClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
-    use rand::rngs::StdRng;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
 
     #[test]
     fn test_initialize_with_passphrase() {
         // Fixed seed RNG
-        let seed = [0u8; 32];
-        let rng: StdRng = SeedableRng::from_seed(seed);
+        let rng = ChaCha20Rng::seed_from_u64(666);
 
         let (source1, session1) = SourceClient::initialize_with_passphrase(rng.clone());
         let (source2, session2) = SourceClient::initialize_with_passphrase(rng);

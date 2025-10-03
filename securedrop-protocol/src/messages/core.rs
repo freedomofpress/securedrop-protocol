@@ -3,7 +3,7 @@ use crate::primitives::{
     PPKPublicKey, dh_akem::DhAkemPublicKey, mlkem::MLKEM768PublicKey, x25519::DHPublicKey,
     xwing::XWingPublicKey,
 };
-use crate::{Signature, VerifyingKey};
+use crate::{SelfSignature, Signature, VerifyingKey};
 use alloc::vec::Vec;
 use uuid::Uuid;
 
@@ -88,13 +88,15 @@ pub struct SourceJournalistKeyRequest {}
 /// - ephemeral_dh_pk: MLKEM-768 for message enc PSK (one-time)
 /// - ephemeral_kem_pk: DH-AKEM for message enc (one-time)
 /// - ephemeral_pke_pk: XWING for metadata enc (one-time)
+/// TODO: this may be split into 2 responses, one that contains
+/// static keys and one that contains one-time keys
 pub struct SourceJournalistKeyResponse {
     /// Journalist's signing public key
     pub journalist_sig_pk: VerifyingKey,
     /// Journalist's fetching public key
     pub journalist_fetch_pk: DHPublicKey,
     /// Journalist's long-term DH public key
-    pub journalist_dh_pk: DHPublicKey,
+    pub journalist_dhakem_sending_pk: DhAkemPublicKey,
     /// Newsroom's signature over journalist keys
     pub newsroom_sig: Signature,
     /// MLKEM-768 public key for message enc PSK (one-time)
@@ -103,8 +105,10 @@ pub struct SourceJournalistKeyResponse {
     pub one_time_message_pk: DhAkemPublicKey,
     /// XWING public key for metadata enc (one-time)
     pub one_time_metadata_pk: XWingPublicKey,
-    /// Journalist's signature over ephemeral keys
+    /// Journalist's signature over one-time keys
     pub journalist_ephemeral_sig: Signature,
+    /// Journalist's signature over their long-term keys
+    pub journalist_self_sig: SelfSignature,
 }
 
 /// Message structure for Step 6: Source submits a message

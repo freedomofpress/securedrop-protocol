@@ -6,7 +6,7 @@ use crate::primitives::{
     PPKPrivateKey, PPKPublicKey, dh_akem::DhAkemPrivateKey, dh_akem::DhAkemPublicKey,
     x25519::DHPrivateKey, x25519::DHPublicKey,
 };
-use crate::sign::{Signature, SigningKey, VerifyingKey};
+use crate::sign::{SelfSignature, Signature, SigningKey, VerifyingKey};
 
 /// Journalists signing key pair
 /// Signed by the newsroom
@@ -284,6 +284,7 @@ impl JournalistReplyClassicalKeyPair {
 /// - J_{epq} (MLKEM-768) for message enc PSK (one-time)
 /// - J_{epke} (DH-AKEM) for message enc (one-time)
 /// - J_{emd} (XWING) for metadata enc (one-time)
+/// - Note that all the one-time keys are for messages received
 /// TODO: Use JournalistOneTimeKeypairs::pubkeys()
 #[derive(Debug, Clone)]
 pub struct JournalistOneTimePublicKeys {
@@ -329,6 +330,33 @@ pub struct JournalistOneTimeKeyBundle {
     pub signature: Signature,
 }
 
+#[derive(Debug, Clone)]
+pub struct JournalistLongtermPublicKeys {
+    pub reply_key: DhAkemPublicKey,
+    pub fetch_key: DHPublicKey,
+}
+
+impl JournalistLongtermPublicKeys {
+    /// Convert public keys to a byte array for signing
+    ///
+    /// Returns a byte array containing the concatenated public keys:
+    /// - fetch_key (32 bytes) - DH
+    /// - long-term reply (32 bytes) - DH-AKEM
+    ///
+    /// Total: 64 bytes
+    pub fn into_bytes(self) -> [u8; 64] {
+        let mut bytes = [0u8; 64];
+
+        // DH fetching public key (1184 bytes)
+        bytes[0..32].copy_from_slice(&self.fetch_key.into_bytes());
+
+        // DH-AKEM reply public key (32 bytes)
+        bytes[32..64].copy_from_slice(self.reply_key.as_bytes());
+
+        bytes
+    }
+}
+
 /// One-time keystore (public and private) for a journalist
 /// TODO: improve/refactor with OneTimeKeyBundle
 /// TODO: use native hpke-rs types
@@ -372,31 +400,13 @@ impl JournalistOneTimeKeypairs {
 /// Journalist enrollment key bundle for 0.3 spec
 ///
 /// This bundle is used to enroll a journalist into the system.
+/// Long-term keys for a journalist
 #[derive(Clone)]
 pub struct JournalistEnrollmentKeyBundle {
     /// Journalist's signing key
     pub signing_key: VerifyingKey,
-    /// Journalist's fetching key
-    pub fetching_key: DHPublicKey,
-}
-
-impl JournalistEnrollmentKeyBundle {
-    /// Convert the enrollment key bundle to a byte array for signing
-    ///
-    /// Returns a byte array containing the concatenated public keys:
-    /// - signing_key (32 bytes)
-    /// - fetching_key (32 bytes)
-    /// TODO: Fetching key may be signed by the journalist instead of by the newsroom
-    /// Total: 64 bytes
-    pub fn into_bytes(self) -> [u8; 64] {
-        let mut bytes = [0u8; 64];
-
-        // Signing key verification key (32 bytes)
-        bytes[0..32].copy_from_slice(&self.signing_key.into_bytes());
-
-        // Fetching key public key (32 bytes)
-        bytes[32..64].copy_from_slice(&self.fetching_key.into_bytes());
-
-        bytes
-    }
+    /// Long-term keys
+    pub public_keys: JournalistLongtermPublicKeys,
+    /// Journalist's signature over their long-term keys
+    pub self_signature: SelfSignature,
 }
