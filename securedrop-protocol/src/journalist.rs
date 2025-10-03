@@ -32,11 +32,12 @@ pub struct JournalistClient {
     fetching_key: Option<JournalistFetchKeyPair>,
     /// Journalist's long-term reply key pair (DH)
     message_send_dhakem_key: Option<JournalistReplyClassicalKeyPair>,
-    /// and use instead of dh_key for encryption
     /// Journalist one-time keypairs
     one_time_keystore: Vec<JournalistOneTimeKeypairs>,
     /// Newsroom's verifying key
     newsroom_verifying_key: Option<VerifyingKey>,
+    // Self-signature over their own longterm keys
+    self_signature: Option<SelfSignature>,
 }
 
 impl JournalistClient {
@@ -85,6 +86,9 @@ impl JournalistClient {
                 .expect("Need journalist signature over their pubkeys"),
         );
 
+        // Save self-signature in the session (for now)
+        self.self_signature = Some(self_signature.clone());
+
         // Create enrollment key bundle with public keys and self signature
         let longterm_enrollment_key_bundle = JournalistEnrollmentKeyBundle {
             signing_key: signing_vk,
@@ -125,6 +129,7 @@ impl JournalistClient {
         };
 
         // Store the ephemeral key bundle in the session
+        // TODO: maybe store the whole keybundle including signature?
         self.one_time_keystore.push(key_bundle.clone());
 
         Ok(JournalistRefreshRequest {
@@ -209,8 +214,6 @@ impl JournalistClient {
         newsroom_signature: crate::sign::Signature,
         rng: &mut R,
     ) -> Result<Message, Error> {
-        todo!("Unimplemented!");
-
         // Get the journalist's DH reply key
         let journalist_dhakem_keypair: JournalistReplyClassicalKeyPair = self
             .message_send_dhakem_key
@@ -223,28 +226,29 @@ impl JournalistClient {
         // msg || S || J_sig,pk || J_fetch,pk || J_dh,pk || σ^NR || NR
         // Proposed 0.3 format:
         //
-        // let journalist_reply_message = JournalistReplyMessage {
-        //     message,
-        //     source,
-        //     journalist_sig_pk: self.signing_key.as_ref().unwrap().vk,
-        //     journalist_fetch_pk: self.fetching_key.as_ref().unwrap().public_key.clone(),
-        //     journalist_dh_pk: self.dhakem_reply_key().unwrap().clone(),
-        //     newsroom_signature,
-        //     newsroom_sig_pk: *self.get_newsroom_verifying_key()?,
-        // };
+        let journalist_reply_message = JournalistReplyMessage {
+            message,
+            source,
+            journalist_sig_pk: self.signing_key.as_ref().unwrap().vk,
+            journalist_fetch_pk: self.fetching_key.as_ref().unwrap().public_key.clone(),
+            journalist_reply_pk: self.dhakem_reply_key().unwrap().clone(),
+            newsroom_signature,
+            newsroom_sig_pk: *self.get_newsroom_verifying_key()?,
+            self_signature: self.self_signature.as_ref().unwrap().clone(),
+        };
 
         // // 2. Use the shared method for encryption and message creation
-        // self.submit_structured_message(
-        //     journalist_reply_message,
-        //     (
-        //         &source_public_keys.message_dhakem_pk,
-        //         &source_public_keys.message_pq_psk_pk,
-        //     ),
-        //     &source_public_keys.metadata_pk,
-        //     &source_public_keys.fetch_pk,
-        //     &journalist_dh_private_key,
-        //     &self.dh_key.as_ref().unwrap().public_key,
-        //     rng,
-        // )
+        self.submit_structured_message(
+            journalist_reply_message,
+            (
+                &source_public_keys.message_dhakem_pk,
+                &source_public_keys.message_pq_psk_pk,
+            ),
+            &source_public_keys.metadata_pk,
+            &source_public_keys.fetch_pk,
+            &journalist_dhakem_keypair.private_key,
+            &self.dhakem_reply_key().as_ref().unwrap(),
+            rng,
+        )
     }
 }

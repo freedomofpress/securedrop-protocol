@@ -162,6 +162,9 @@ impl StructuredMessage for SourceMessage {
 ///
 /// This represents the message format before padding and encryption:
 /// `msg || S || J_sig,pk || J_fetch,pk || J_dh,pk || σ^NR || NR`
+/// TODO: some of the signature information won't be per-message, but may
+/// be part of a prior per-session fetch. Added self-signature over long-term
+/// keys to message structure for now.
 #[derive(Clone)]
 pub struct JournalistReplyMessage {
     /// The actual message content
@@ -172,12 +175,14 @@ pub struct JournalistReplyMessage {
     pub journalist_sig_pk: VerifyingKey,
     /// Journalist's fetching public key
     pub journalist_fetch_pk: DHPublicKey,
-    /// Journalist's DH public key
-    pub journalist_dh_pk: DHPublicKey,
+    /// Journalist's DH-AKEM public key
+    pub journalist_reply_pk: DhAkemPublicKey,
     /// Newsroom signature
     pub newsroom_signature: Signature,
     /// Newsroom signing public key
     pub newsroom_sig_pk: VerifyingKey,
+    // self-signature over their own long-term keys
+    pub self_signature: SelfSignature,
 }
 
 impl JournalistReplyMessage {
@@ -190,9 +195,10 @@ impl JournalistReplyMessage {
         bytes.extend_from_slice(&self.source.as_bytes()[0..16]);
         bytes.extend_from_slice(&self.journalist_sig_pk.into_bytes()[0..32]);
         bytes.extend_from_slice(&self.journalist_fetch_pk.into_bytes()[0..32]);
-        bytes.extend_from_slice(&self.journalist_dh_pk.into_bytes()[0..32]);
+        bytes.extend_from_slice(&self.journalist_reply_pk.as_bytes()[0..32]);
         bytes.extend_from_slice(&self.newsroom_signature.0[0..64]);
         bytes.extend_from_slice(&self.newsroom_sig_pk.into_bytes()[0..32]);
+        bytes.extend_from_slice(&self.self_signature.as_signature().0[0..64]);
         bytes.extend_from_slice(&self.message);
 
         bytes
