@@ -10,6 +10,7 @@ use hpke_rs::{
 use libcrux_kem::{self, MlKem768};
 use libcrux_ml_kem::mlkem768;
 use libcrux_traits::kem::arrayref::Kem;
+use rand_core::{CryptoRng, RngCore};
 
 // Later: Can make these all pub(crate)
 pub mod dh_akem;
@@ -141,7 +142,7 @@ pub fn enc(
     // Create HPKE configuration for Base mode (unauthenticated)
     let mut hpke: Hpke<libcrux::HpkeLibcrux> = Hpke::new(
         HpkeMode::Base, // Base mode for unauthenticated encryption
-        KemAlgorithm::DhKem25519,
+        KemAlgorithm::XWingDraft06,
         KdfAlgorithm::HkdfSha256,
         AeadAlgorithm::ChaCha20Poly1305,
     );
@@ -157,22 +158,8 @@ pub fn enc(
     metadata.extend_from_slice(c2);
 
     // Setup sender (key encapsulation) in Base mode
-    let (encapsulated_key, mut context) = hpke
-        .setup_sender(
-            &recipient_public_key, // J^i_epke,pk
-            &[],                   // info: empty
-            None,                  // psk: no pre-shared key
-            None,                  // psk_id: no PSK ID
-            None,                  // sk_s: no sender private key (Base mode)
-        )
-        .map_err(|e| anyhow::anyhow!("HPKE setup_sender failed: {:?}", e))?;
-
-    // Encrypt the metadata using the derived context
-    let encrypted_metadata = context
-        .seal(
-            &[],       // aad: empty
-            &metadata, // S_dh,pk || c_1 || c_2
-        )
+    let (encapsulated_key, encrypted_metadata) = hpke
+        .seal(&recipient_public_key, &[], &[], &metadata, None, None, None)
         .map_err(|e| anyhow::anyhow!("HPKE context.seal failed: {:?}", e))?;
 
     // Return encapsulated_key || encrypted_metadata

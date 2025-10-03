@@ -100,14 +100,14 @@ fn protocol_step_3_1_journalist_enrollment() {
         .setup_journalist(journalist_setup_request)
         .expect("Can setup journalist");
 
-    // Journalist: Verify the newsroom signature on the enrollment bundle
-    let enrollment_bundle_bytes = enrollment_bundle.public_keys.into_bytes();
+    // Journalist: Verify newsroom signature on journalist signing pubkey
+    let pubkey_bytes = enrollment_bundle.signing_key.into_bytes();
     let newsroom_vk = server_session
         .get_newsroom_verifying_key()
         .expect("Newsroom keys should be available");
     assert!(
         newsroom_vk
-            .verify(&enrollment_bundle_bytes, &journalist_setup_response.sig)
+            .verify(&pubkey_bytes, &journalist_setup_response.sig)
             .is_ok()
     );
 
@@ -116,6 +116,31 @@ fn protocol_step_3_1_journalist_enrollment() {
     assert!(
         newsroom_vk
             .verify(&wrong_bundle_bytes, &journalist_setup_response.sig)
+            .is_err()
+    );
+
+    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle
+    let enrollment_bundle_bytes = enrollment_bundle.public_keys.into_bytes();
+    let self_signature = enrollment_bundle.self_signature.clone();
+
+    let _ = server_session
+        .find_journalist_id(&enrollment_bundle.signing_key)
+        .expect("Journalist id should be available for erolled signing key");
+    assert!(
+        &enrollment_bundle
+            .signing_key
+            .verify(
+                &enrollment_bundle_bytes,
+                &enrollment_bundle.self_signature.as_signature()
+            )
+            .is_ok()
+    );
+
+    // Test that wrong journalist signature bytes fail self-sig verification
+    assert!(
+        &enrollment_bundle
+            .signing_key
+            .verify(&wrong_bundle_bytes, &self_signature.as_signature())
             .is_err()
     );
 }
@@ -153,14 +178,31 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
         .setup_journalist(journalist_setup_request)
         .expect("Can setup journalist");
 
-    // Journalist: Verify the newsroom signature on the enrollment bundle
-    let enrollment_bundle_bytes = enrollment_bundle.public_keys.into_bytes();
+    // Journalist: Verify newsroom signature on journalist signing pubkey
+    let pubkey_bytes = enrollment_bundle.signing_key.into_bytes();
     let newsroom_vk = server_session
         .get_newsroom_verifying_key()
         .expect("Newsroom keys should be available");
     assert!(
         newsroom_vk
-            .verify(&enrollment_bundle_bytes, &journalist_setup_response.sig)
+            .verify(&pubkey_bytes, &journalist_setup_response.sig)
+            .is_ok()
+    );
+
+    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle
+    let enrollment_bundle_bytes = enrollment_bundle.public_keys.into_bytes();
+    let self_signature = enrollment_bundle.self_signature.clone();
+
+    let _ = server_session
+        .find_journalist_id(&enrollment_bundle.signing_key)
+        .expect("Journalist id should be available for erolled signing key");
+    assert!(
+        &enrollment_bundle
+            .signing_key
+            .verify(
+                &enrollment_bundle_bytes,
+                &enrollment_bundle.self_signature.as_signature()
+            )
             .is_ok()
     );
 
