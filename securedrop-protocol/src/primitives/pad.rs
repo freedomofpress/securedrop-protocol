@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 /// Fixed-length padded message length.
 ///
 /// Note: I made this up. We should pick something based on actual reasons.
-pub const PADDED_MESSAGE_LEN: usize = 1024;
+pub const PADDED_MESSAGE_LEN: usize = 100000;
 
 /// Pad a message to a fixed length
 pub fn pad_message(message: &[u8]) -> Vec<u8> {

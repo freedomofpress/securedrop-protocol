@@ -46,6 +46,18 @@ impl DHSharedSecret {
     }
 }
 
+/// Generate DH keypair from external randomness
+/// FOR TEST PURPOSES ONLY
+pub fn deterministic_dh_keygen(randomness: [u8; 32]) -> Result<(DHPrivateKey, DHPublicKey), Error> {
+    let mut public_key = [0u8; PK_LEN];
+    let mut secret_key = [0u8; SK_LEN];
+
+    libcrux_curve25519::X25519::keygen(&mut public_key, &mut secret_key, &randomness)
+        .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
+
+    Ok((DHPrivateKey(secret_key), DHPublicKey(public_key)))
+}
+
 /// Generate a new DH key pair using X25519
 pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
     mut rng: R,
@@ -99,4 +111,17 @@ pub fn dh_shared_secret(
     libcrux_curve25519::ecdh(&mut shared_secret_bytes, &private_scalar, &public_key.0)
         .map_err(|_| anyhow::anyhow!("X25519 DH failed"))?;
     Ok(DHSharedSecret(shared_secret_bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    #[test]
+    fn test_deterministic_dh_keygen() {
+        proptest!(|(randomness in proptest::array::uniform32(any::<u8>()))| {
+            let (private_key, public_key) = deterministic_dh_keygen(randomness).unwrap();
+        });
+    }
 }

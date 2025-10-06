@@ -25,7 +25,10 @@ impl FPFKeyPair {
 pub use journalist::{
     JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralDHKeyPair,
     JournalistEphemeralKEMKeyPair, JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair,
-    JournalistOneTimeKeyBundle, JournalistOneTimePublicKeys, JournalistSigningKeyPair,
+    JournalistLongtermPublicKeys, JournalistOneTimeKeyBundle, JournalistOneTimeKeypairs,
+    JournalistOneTimeMessageClassicalKeyPair, JournalistOneTimeMessagePQKeyPair,
+    JournalistOneTimeMetadataKeyPair, JournalistOneTimePublicKeys, JournalistReplyClassicalKeyPair,
+    JournalistSigningKeyPair,
 };
 pub use newsroom::NewsroomKeyPair;
 pub use source::{

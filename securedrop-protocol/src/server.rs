@@ -77,14 +77,34 @@ impl Server {
         request: JournalistSetupRequest,
     ) -> Result<JournalistSetupResponse, Error> {
         // Get enrollment key bundle bytes from the request
-        let enrollment_key_bundle_bytes = request.enrollment_key_bundle.clone().into_bytes();
+        let enrollment_key_bundle_bytes = request
+            .enrollment_key_bundle
+            .public_keys
+            .clone()
+            .into_bytes();
+
+        let enrollment_self_signature = request
+            .enrollment_key_bundle
+            .self_signature
+            .clone()
+            .as_signature();
+
+        // Verify journalist signature over their own pubkeys
+        request
+            .enrollment_key_bundle
+            .signing_key
+            .verify(&enrollment_key_bundle_bytes, &enrollment_self_signature)
+            .map_err(|_| anyhow::anyhow!("Invalid signature on longterm keys"))?;
+
+        // If we're happy with that, sign the journalist's VerifyingKey
+        let verifying_key_bytes = &request.enrollment_key_bundle.signing_key.into_bytes();
 
         // Sign the journalist bundle
         let newsroom_keys = self
             .newsroom_keys
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Newsroom keys not found in session"))?;
-        let newsroom_signature = newsroom_keys.sk.sign(&enrollment_key_bundle_bytes);
+        let newsroom_signature = newsroom_keys.sk.sign(verifying_key_bytes);
 
         // Insert journalist keys into storage
         let _journalist_id = self
@@ -194,7 +214,7 @@ impl Server {
         for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys {
             // Get the journalist's long-term keys
             // TODO: Do something better than expect here
-            let (signing_key, fetching_key, newsroom_sig) = self
+            let (signing_key, fetching_key, reply_key, journalist_self_sig, newsroom_sig) = self
                 .storage
                 .get_journalists()
                 .get(&journalist_id)
@@ -202,16 +222,16 @@ impl Server {
                 .clone();
 
             // Create response for this journalist
-            // temp: duplicated the fetching key so things compile while we transition to 0.3 spec
             let response = SourceJournalistKeyResponse {
                 journalist_sig_pk: signing_key,
-                journalist_fetch_pk: fetching_key.clone(),
-                journalist_dh_pk: fetching_key,
+                journalist_fetch_pk: fetching_key,
+                journalist_dhakem_sending_pk: reply_key,
                 newsroom_sig,
                 one_time_message_pq_pk: ephemeral_bundle.public_keys.one_time_message_pq_pk,
                 one_time_message_pk: ephemeral_bundle.public_keys.one_time_message_pk,
                 one_time_metadata_pk: ephemeral_bundle.public_keys.one_time_metadata_pk,
                 journalist_ephemeral_sig: ephemeral_bundle.signature,
+                journalist_self_sig,
             };
 
             responses.push(response);

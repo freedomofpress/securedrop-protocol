@@ -3,7 +3,7 @@ use crate::primitives::{
     PPKPublicKey, dh_akem::DhAkemPublicKey, mlkem::MLKEM768PublicKey, x25519::DHPublicKey,
     xwing::XWingPublicKey,
 };
-use crate::{Signature, VerifyingKey};
+use crate::{SelfSignature, Signature, VerifyingKey};
 use alloc::vec::Vec;
 use uuid::Uuid;
 
@@ -88,13 +88,15 @@ pub struct SourceJournalistKeyRequest {}
 /// - ephemeral_dh_pk: MLKEM-768 for message enc PSK (one-time)
 /// - ephemeral_kem_pk: DH-AKEM for message enc (one-time)
 /// - ephemeral_pke_pk: XWING for metadata enc (one-time)
+/// TODO: this may be split into 2 responses, one that contains
+/// static keys and one that contains one-time keys
 pub struct SourceJournalistKeyResponse {
     /// Journalist's signing public key
     pub journalist_sig_pk: VerifyingKey,
     /// Journalist's fetching public key
     pub journalist_fetch_pk: DHPublicKey,
     /// Journalist's long-term DH public key
-    pub journalist_dh_pk: DHPublicKey,
+    pub journalist_dhakem_sending_pk: DhAkemPublicKey,
     /// Newsroom's signature over journalist keys
     pub newsroom_sig: Signature,
     /// MLKEM-768 public key for message enc PSK (one-time)
@@ -103,19 +105,18 @@ pub struct SourceJournalistKeyResponse {
     pub one_time_message_pk: DhAkemPublicKey,
     /// XWING public key for metadata enc (one-time)
     pub one_time_metadata_pk: XWingPublicKey,
-    /// Journalist's signature over ephemeral keys
+    /// Journalist's signature over one-time keys
     pub journalist_ephemeral_sig: Signature,
+    /// Journalist's signature over their long-term keys
+    pub journalist_self_sig: SelfSignature,
 }
 
 /// Message structure for Step 6: Source submits a message
 ///
 /// This represents the message format before padding and encryption:
-/// `msg || S_dh,pk || S_pke,pk || S_kem,pk || S_fetch,pk || J^i_sig,pk || NR`
-///
-/// Updated for 0.3 spec with new key types:
-/// - source_message_pq_pk: MLKEM-768 for message enc PSK (one-time)
-/// - source_message_pk: DH-AKEM for message enc (one-time)
-/// - source_metadata_pk: XWING for metadata enc (one-time)
+/// `source_message_pq_pk || source_message_pk || source_metadata_pk || S_fetch,pk || J^i_sig,pk || NR || msg`
+/// TODO: Decide on actual format
+/// TODO: Just include a hash of the DH-AKEM public key, 0.3 description suggests that
 #[derive(Clone)]
 pub struct SourceMessage {
     /// The actual message content
@@ -137,7 +138,7 @@ pub struct SourceMessage {
 impl SourceMessage {
     /// Serialize the message into bytes for padding and encryption
     ///
-    /// Note: Deviated from spec here to put variable length field last
+    /// Note: Deviated from 0.2 spec here to put variable length field last
     pub fn into_bytes(self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
         bytes.extend_from_slice(&self.source_message_pq_pk.as_bytes()[0..1184]);
@@ -161,6 +162,9 @@ impl StructuredMessage for SourceMessage {
 ///
 /// This represents the message format before padding and encryption:
 /// `msg || S || J_sig,pk || J_fetch,pk || J_dh,pk || σ^NR || NR`
+/// TODO: some of the signature information won't be per-message, but may
+/// be part of a prior per-session fetch. Added self-signature over long-term
+/// keys to message structure for now.
 #[derive(Clone)]
 pub struct JournalistReplyMessage {
     /// The actual message content
@@ -171,12 +175,14 @@ pub struct JournalistReplyMessage {
     pub journalist_sig_pk: VerifyingKey,
     /// Journalist's fetching public key
     pub journalist_fetch_pk: DHPublicKey,
-    /// Journalist's DH public key
-    pub journalist_dh_pk: DHPublicKey,
+    /// Journalist's DH-AKEM public key
+    pub journalist_reply_pk: DhAkemPublicKey,
     /// Newsroom signature
     pub newsroom_signature: Signature,
     /// Newsroom signing public key
     pub newsroom_sig_pk: VerifyingKey,
+    // self-signature over their own long-term keys
+    pub self_signature: SelfSignature,
 }
 
 impl JournalistReplyMessage {
@@ -189,9 +195,10 @@ impl JournalistReplyMessage {
         bytes.extend_from_slice(&self.source.as_bytes()[0..16]);
         bytes.extend_from_slice(&self.journalist_sig_pk.into_bytes()[0..32]);
         bytes.extend_from_slice(&self.journalist_fetch_pk.into_bytes()[0..32]);
-        bytes.extend_from_slice(&self.journalist_dh_pk.into_bytes()[0..32]);
+        bytes.extend_from_slice(&self.journalist_reply_pk.as_bytes()[0..32]);
         bytes.extend_from_slice(&self.newsroom_signature.0[0..64]);
         bytes.extend_from_slice(&self.newsroom_sig_pk.into_bytes()[0..32]);
+        bytes.extend_from_slice(&self.self_signature.as_signature().0[0..64]);
         bytes.extend_from_slice(&self.message);
 
         bytes

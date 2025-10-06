@@ -37,7 +37,7 @@ pub mod primitives;
 /// TODO: Move to primitives?
 pub mod sign;
 
-pub use sign::{Signature, SigningKey, VerifyingKey};
+pub use sign::{SelfSignature, Signature, SigningKey, VerifyingKey};
 
 /// Server storage
 pub mod storage;

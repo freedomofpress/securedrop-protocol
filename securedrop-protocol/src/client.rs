@@ -16,6 +16,7 @@ pub trait StructuredMessage {
 pub(crate) trait ClientPrivate {
     /// Get the fetching private key for message ID decryption
     fn fetching_private_key(&self) -> Result<[u8; 32], Error>;
+    fn message_enc_private_key_dhakem(&self) -> Result<[u8; 32], Error>;
 }
 
 /// Common client functionality for source and journalist clients
@@ -94,14 +95,14 @@ pub trait Client {
     fn submit_structured_message<M, R>(
         &self,
         message: M,
-        recipient_ephemeral_keys: (
-            &crate::primitives::x25519::DHPublicKey,
-            &crate::primitives::PPKPublicKey,
+        recipient_message_keys: (
+            &crate::primitives::dh_akem::DhAkemPublicKey,
+            &crate::primitives::mlkem::MLKEM768PublicKey,
         ),
-        recipient_pke_key: &crate::primitives::PPKPublicKey,
+        recipient_metadata_key: &crate::primitives::xwing::XWingPublicKey,
         recipient_fetch_key: &crate::primitives::x25519::DHPublicKey,
-        sender_dh_private_key: &crate::primitives::x25519::DHPrivateKey,
-        sender_dh_public_key: &crate::primitives::x25519::DHPublicKey,
+        sender_dh_private_key: &crate::primitives::dh_akem::DhAkemPrivateKey,
+        sender_dh_public_key: &crate::primitives::dh_akem::DhAkemPublicKey,
         rng: &mut R,
     ) -> Result<Message, Error>
     where
@@ -113,13 +114,15 @@ pub trait Client {
 
         // 2. Perform authenticated encryption
         let ((c1, c2), c_double_prime) = crate::primitives::auth_encrypt(
+            rng,
             sender_dh_private_key,
-            recipient_ephemeral_keys,
+            recipient_message_keys,
             &padded_message,
         )?;
 
         // 3. Encrypt the DH key and ciphertexts
-        let c_prime = crate::primitives::enc(recipient_pke_key, sender_dh_public_key, &c1, &c2)?;
+        let c_prime =
+            crate::primitives::enc(recipient_metadata_key, sender_dh_public_key, &c1, &c2)?;
 
         // 4. Combine ciphertexts
         let ciphertext = [c_prime, c_double_prime].concat();

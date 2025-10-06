@@ -6,7 +6,7 @@ use crate::primitives::{
     PPKPrivateKey, PPKPublicKey, dh_akem::DhAkemPrivateKey, dh_akem::DhAkemPublicKey,
     x25519::DHPrivateKey, x25519::DHPublicKey,
 };
-use crate::sign::{Signature, SigningKey, VerifyingKey};
+use crate::sign::{SelfSignature, Signature, SigningKey, VerifyingKey};
 
 /// Journalists signing key pair
 /// Signed by the newsroom
@@ -18,7 +18,7 @@ pub struct JournalistSigningKeyPair {
 
 impl JournalistSigningKeyPair {
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> JournalistSigningKeyPair {
-        let sk = SigningKey::new(&mut rng).unwrap();
+        let sk = SigningKey::new(&mut rng).expect("Signing key generation should succeed");
         let vk = sk.vk;
         JournalistSigningKeyPair { vk, sk }
     }
@@ -147,10 +147,33 @@ impl JournalistEphemeralDHKeyPair {
 /// One-time key
 ///
 /// $J_epq$ in the specification.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct JournalistOneTimeMessagePQKeyPair {
     pub public_key: MLKEM768PublicKey,
     pub(crate) private_key: MLKEM768PrivateKey,
+}
+
+impl JournalistOneTimeMessagePQKeyPair {
+    pub fn new(
+        pubkey: MLKEM768PublicKey,
+        priv_key: MLKEM768PrivateKey,
+    ) -> JournalistOneTimeMessagePQKeyPair {
+        JournalistOneTimeMessagePQKeyPair {
+            public_key: (pubkey),
+            private_key: (priv_key),
+        }
+    }
+
+    /// Generate a new one-time message PQ key pair
+    pub fn generate<R: RngCore + CryptoRng>(mut rng: R) -> JournalistOneTimeMessagePQKeyPair {
+        let (private_key, public_key) =
+            crate::primitives::mlkem::generate_mlkem768_keypair(&mut rng)
+                .expect("MLKEM-768 key generation failed");
+        JournalistOneTimeMessagePQKeyPair {
+            private_key,
+            public_key,
+        }
+    }
 }
 
 /// Journalist message encryption keypair
@@ -158,10 +181,35 @@ pub struct JournalistOneTimeMessagePQKeyPair {
 /// One-time key
 ///
 /// $J_epke$ in the specification.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct JournalistOneTimeMessageClassicalKeyPair {
     pub public_key: DhAkemPublicKey,
     pub(crate) private_key: DhAkemPrivateKey,
+}
+
+impl JournalistOneTimeMessageClassicalKeyPair {
+    pub fn new(
+        pubkey: DhAkemPublicKey,
+        priv_key: DhAkemPrivateKey,
+    ) -> JournalistOneTimeMessageClassicalKeyPair {
+        JournalistOneTimeMessageClassicalKeyPair {
+            public_key: (pubkey),
+            private_key: (priv_key),
+        }
+    }
+
+    /// Generate a new one-time message classical key pair
+    pub fn generate<R: RngCore + CryptoRng>(
+        mut rng: R,
+    ) -> JournalistOneTimeMessageClassicalKeyPair {
+        let (private_key, public_key) =
+            crate::primitives::dh_akem::generate_dh_akem_keypair(&mut rng)
+                .expect("DH-AKEM key generation failed");
+        JournalistOneTimeMessageClassicalKeyPair {
+            private_key,
+            public_key,
+        }
+    }
 }
 
 /// Journalist metadata keypair
@@ -169,10 +217,62 @@ pub struct JournalistOneTimeMessageClassicalKeyPair {
 /// One-time key
 ///
 /// $J_emd$ in the specification.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct JournalistOneTimeMetadataKeyPair {
     pub public_key: XWingPublicKey,
     pub(crate) private_key: XWingPrivateKey,
+}
+
+impl JournalistOneTimeMetadataKeyPair {
+    pub fn new(
+        pubkey: XWingPublicKey,
+        priv_key: XWingPrivateKey,
+    ) -> JournalistOneTimeMetadataKeyPair {
+        JournalistOneTimeMetadataKeyPair {
+            public_key: (pubkey),
+            private_key: (priv_key),
+        }
+    }
+
+    /// Generate a new metadata keypair
+    pub fn generate<R: RngCore + CryptoRng>(mut rng: R) -> JournalistOneTimeMetadataKeyPair {
+        let (private_key, public_key) = crate::primitives::xwing::generate_xwing_keypair(&mut rng)
+            .expect("XWING key generation failed");
+        JournalistOneTimeMetadataKeyPair {
+            private_key,
+            public_key,
+        }
+    }
+}
+
+/// Journalist medium or long-term DH-AKEM key used for sending replies
+#[derive(Debug, Clone)]
+pub struct JournalistReplyClassicalKeyPair {
+    pub public_key: DhAkemPublicKey,
+    pub(crate) private_key: DhAkemPrivateKey,
+}
+
+impl JournalistReplyClassicalKeyPair {
+    pub fn new(
+        pubkey: DhAkemPublicKey,
+        priv_key: DhAkemPrivateKey,
+    ) -> JournalistReplyClassicalKeyPair {
+        JournalistReplyClassicalKeyPair {
+            public_key: (pubkey),
+            private_key: (priv_key),
+        }
+    }
+
+    /// Generate a new medium/long-term keypair for sending replies
+    pub fn generate<R: RngCore + CryptoRng>(mut rng: R) -> JournalistReplyClassicalKeyPair {
+        let (private_key, public_key) =
+            crate::primitives::dh_akem::generate_dh_akem_keypair(&mut rng)
+                .expect("DH-AKEM key generation failed");
+        JournalistReplyClassicalKeyPair {
+            private_key,
+            public_key,
+        }
+    }
 }
 
 /// One-time public keys for a journalist (without signature)
@@ -184,6 +284,8 @@ pub struct JournalistOneTimeMetadataKeyPair {
 /// - J_{epq} (MLKEM-768) for message enc PSK (one-time)
 /// - J_{epke} (DH-AKEM) for message enc (one-time)
 /// - J_{emd} (XWING) for metadata enc (one-time)
+/// - Note that all the one-time keys are for messages received
+/// TODO: Use JournalistOneTimeKeypairs::pubkeys()
 #[derive(Debug, Clone)]
 pub struct JournalistOneTimePublicKeys {
     /// One-time MLKEM-768 public key for message enc PSK (one-time)
@@ -219,7 +321,7 @@ impl JournalistOneTimePublicKeys {
     }
 }
 
-/// One-time key set for a journalist
+/// One-time public key set for a journalist
 #[derive(Debug, Clone)]
 pub struct JournalistOneTimeKeyBundle {
     /// The one-time public keys
@@ -228,33 +330,83 @@ pub struct JournalistOneTimeKeyBundle {
     pub signature: Signature,
 }
 
-/// Journalist enrollment key bundle for 0.3 spec
-///
-/// This bundle is used to enroll a journalist into the system.
-#[derive(Clone)]
-pub struct JournalistEnrollmentKeyBundle {
-    /// Journalist's signing key
-    pub signing_key: VerifyingKey,
-    /// Journalist's fetching key
-    pub fetching_key: DHPublicKey,
+#[derive(Debug, Clone)]
+pub struct JournalistLongtermPublicKeys {
+    pub reply_key: DhAkemPublicKey,
+    pub fetch_key: DHPublicKey,
 }
 
-impl JournalistEnrollmentKeyBundle {
-    /// Convert the enrollment key bundle to a byte array for signing
+impl JournalistLongtermPublicKeys {
+    /// Convert public keys to a byte array for signing
     ///
     /// Returns a byte array containing the concatenated public keys:
-    /// - signing_key (32 bytes)
-    /// - fetching_key (32 bytes)
+    /// - fetch_key (32 bytes) - DH
+    /// - long-term reply (32 bytes) - DH-AKEM
+    ///
     /// Total: 64 bytes
     pub fn into_bytes(self) -> [u8; 64] {
         let mut bytes = [0u8; 64];
 
-        // Signing key verification key (32 bytes)
-        bytes[0..32].copy_from_slice(&self.signing_key.into_bytes());
+        // DH fetching public key (1184 bytes)
+        bytes[0..32].copy_from_slice(&self.fetch_key.into_bytes());
 
-        // Fetching key public key (32 bytes)
-        bytes[32..64].copy_from_slice(&self.fetching_key.into_bytes());
+        // DH-AKEM reply public key (32 bytes)
+        bytes[32..64].copy_from_slice(self.reply_key.as_bytes());
 
         bytes
     }
+}
+
+/// One-time keystore (public and private) for a journalist
+/// TODO: improve/refactor with OneTimeKeyBundle
+/// TODO: use native hpke-rs types
+#[derive(Debug, Clone)]
+pub struct JournalistOneTimeKeypairs {
+    pub dh_akem: JournalistOneTimeMessageClassicalKeyPair,
+    pub pq_kem_psk: JournalistOneTimeMessagePQKeyPair,
+    pub metadata: JournalistOneTimeMetadataKeyPair,
+}
+
+impl JournalistOneTimeKeypairs {
+    pub fn new(
+        dh_key: JournalistOneTimeMessageClassicalKeyPair,
+        pq_kem_psk_key: JournalistOneTimeMessagePQKeyPair,
+        metadata_key: JournalistOneTimeMetadataKeyPair,
+    ) -> JournalistOneTimeKeypairs {
+        JournalistOneTimeKeypairs {
+            dh_akem: dh_key,
+            pq_kem_psk: pq_kem_psk_key,
+            metadata: metadata_key,
+        }
+    }
+
+    /// Generate a key bundle
+    pub fn generate<R: RngCore + CryptoRng>(mut rng: R) -> JournalistOneTimeKeypairs {
+        let dh_key = JournalistOneTimeMessageClassicalKeyPair::generate(&mut rng);
+        let pq_kem_psk_key = JournalistOneTimeMessagePQKeyPair::generate(&mut rng);
+        let metadata_key = JournalistOneTimeMetadataKeyPair::generate(&mut rng);
+        JournalistOneTimeKeypairs::new(dh_key, pq_kem_psk_key, metadata_key)
+    }
+
+    pub fn pubkeys(&self) -> JournalistOneTimePublicKeys {
+        JournalistOneTimePublicKeys {
+            one_time_message_pq_pk: self.pq_kem_psk.public_key.clone(),
+            one_time_message_pk: self.dh_akem.public_key.clone(),
+            one_time_metadata_pk: self.metadata.public_key.clone(),
+        }
+    }
+}
+
+/// Journalist enrollment key bundle for 0.3 spec
+///
+/// This bundle is used to enroll a journalist into the system.
+/// Long-term keys for a journalist
+#[derive(Clone)]
+pub struct JournalistEnrollmentKeyBundle {
+    /// Journalist's signing key
+    pub signing_key: VerifyingKey,
+    /// Long-term keys
+    pub public_keys: JournalistLongtermPublicKeys,
+    /// Journalist's signature over their long-term keys
+    pub self_signature: SelfSignature,
 }

@@ -6,7 +6,8 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::keys::{
-    JournalistEnrollmentKeyBundle, JournalistOneTimePublicKeys, SourceKeyBundle, SourcePassphrase,
+    JournalistEnrollmentKeyBundle, JournalistLongtermPublicKeys, JournalistOneTimePublicKeys,
+    SourceKeyBundle, SourcePassphrase,
 };
 use crate::messages::core::{
     Message, MessageChallengeFetchRequest, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
@@ -89,6 +90,16 @@ impl ClientPrivate for SourceClient {
             .clone()
             .into_bytes())
     }
+    fn message_enc_private_key_dhakem(&self) -> Result<[u8; 32], Error> {
+        Ok(*self
+            .key_bundle
+            .as_ref()
+            .unwrap()
+            .message_encrypt_dhakem
+            .private_key
+            .clone()
+            .as_bytes())
+    }
 }
 
 impl SourceClient {
@@ -132,16 +143,36 @@ impl SourceClient {
         response: &SourceJournalistKeyResponse,
         newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
-        // Create the enrollment bundle that was signed by the newsroom
-        let enrollment_bundle = JournalistEnrollmentKeyBundle {
-            signing_key: response.journalist_sig_pk,
-            fetching_key: response.journalist_fetch_pk.clone(),
+        // Verify the newsroom signature on the journalist's signing key
+        newsroom_verifying_key
+            .verify(
+                &response.journalist_sig_pk.into_bytes(),
+                &response.newsroom_sig,
+            )
+            .map_err(|_| anyhow::anyhow!("Invalid newsroom signature on journalist keys"))?;
+
+        // Reconstruct journalist self-signed long-term pubkey bundle
+        let public_keys = JournalistLongtermPublicKeys {
+            reply_key: response.journalist_dhakem_sending_pk.clone(),
+            fetch_key: response.journalist_fetch_pk.clone(),
         };
 
-        // Verify the newsroom signature on the journalist's enrollment bundle
-        newsroom_verifying_key
-            .verify(&enrollment_bundle.into_bytes(), &response.newsroom_sig)
-            .map_err(|_| anyhow::anyhow!("Invalid newsroom signature on journalist keys"))?;
+        let enrollment_bundle = JournalistEnrollmentKeyBundle {
+            signing_key: response.journalist_sig_pk,
+            public_keys: public_keys,
+            self_signature: response.journalist_self_sig.clone(),
+        };
+
+        let enrollment_signature = &enrollment_bundle.self_signature.clone().as_signature();
+
+        // Verify the journalist's signature on their long-term key bundle
+        enrollment_bundle
+            .signing_key
+            .verify(
+                &enrollment_bundle.public_keys.into_bytes(),
+                enrollment_signature,
+            )
+            .map_err(|_| anyhow::anyhow!("Invalid self-signature on journalist keys"))?;
 
         // Create the one-time keys that were signed by the journalist
         let one_time_keys = JournalistOneTimePublicKeys {
@@ -150,7 +181,7 @@ impl SourceClient {
             one_time_metadata_pk: response.one_time_metadata_pk.clone(),
         };
 
-        // Verify the journalist signature on the one-time keys
+        // Verify the self-signature on the one-time keys
         response
             .journalist_sig_pk
             .verify(
@@ -178,37 +209,93 @@ impl SourceClient {
 
         // Submit a distinct copy of the message to each journalist
         for journalist_response in journalist_responses {
-            // TODO: update for 0.3
+            let source_message = SourceMessage {
+                message: message.clone(),
+                source_message_pq_pk: key_bundle.pq_kem_psk.public_key.clone(),
+                source_message_pk: key_bundle.message_encrypt_dhakem.public_key.clone(),
+                source_metadata_pk: key_bundle.metadata.public_key.clone(),
+                source_fetch_pk: key_bundle.fetch.public_key.clone(),
+                journalist_sig_pk: journalist_response.journalist_sig_pk,
+                newsroom_sig_pk: self.get_newsroom_verifying_key()?.clone(),
+            };
 
-            // // 1. Create the structured message according to Step 6 format:
-            // // msg || S_dh,pk || S_pke,pk || S_kem,pk || S_fetch,pk || J^i_sig,pk || NR
-            // let source_message = SourceMessage {
-            //     message: message.clone(),
-            //     source_message_pq_pk: key_bundle.long_term_dh.public_key.clone(),
-            //     source_message_pk: key_bundle.pke.public_key.clone(),
-            //     source_metadata_pk: key_bundle.kem.public_key.clone(),
-            //     source_fetch_pk: key_bundle.fetch.public_key.clone(),
-            //     journalist_sig_pk: journalist_response.journalist_sig_pk,
-            //     newsroom_sig_pk: self.get_newsroom_verifying_key()?.clone(),
-            // };
+            // Use the shared method for encryption and message creation
+            let request = self.submit_structured_message(
+                source_message,
+                (
+                    &journalist_response.one_time_message_pk,
+                    &journalist_response.one_time_message_pq_pk,
+                ),
+                &journalist_response.one_time_metadata_pk,
+                &journalist_response.journalist_fetch_pk,
+                &key_bundle.message_encrypt_dhakem.private_key,
+                &key_bundle.message_encrypt_dhakem.public_key,
+                rng,
+            )?;
 
-            // // 2. Use the shared method for encryption and message creation
-            // let request = self.submit_structured_message(
-            //     source_message,
-            //     (
-            //         &journalist_response.one_time_message_pq_pk,
-            //         &journalist_response.one_time_message_pk,
-            //     ),
-            //     &journalist_response.one_time_metadata_pk,
-            //     &journalist_response.journalist_fetch_pk,
-            //     &key_bundle.long_term_dh.private_key,
-            //     &key_bundle.long_term_dh.public_key,
-            //     rng,
-            // )?;
-
-            //requests.push(request);
+            requests.push(request);
         }
 
         Ok(requests)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    #[test]
+    fn test_initialize_with_passphrase() {
+        // Fixed seed RNG
+        let rng = ChaCha20Rng::seed_from_u64(666);
+
+        let (source1, session1) = SourceClient::initialize_with_passphrase(rng.clone());
+        let (source2, session2) = SourceClient::initialize_with_passphrase(rng);
+
+        assert_eq!(
+            source1.passphrase, source2.passphrase,
+            "Expected identical passphrase"
+        );
+
+        let keybundle1 = session1.key_bundle.expect("Should be keybundle");
+        let keybundle2 = session2.key_bundle.expect("Should be keybundle");
+
+        // DH keys
+        assert_eq!(
+            keybundle1.message_encrypt_dhakem.public_key.as_bytes(),
+            keybundle2.message_encrypt_dhakem.public_key.as_bytes(),
+            "DH Pubkey should be identical"
+        );
+        assert_eq!(
+            keybundle1.message_encrypt_dhakem.private_key.as_bytes(),
+            keybundle2.message_encrypt_dhakem.private_key.as_bytes(),
+            "DH Private Key should be identical"
+        );
+
+        // PQ KEM keys
+        assert_eq!(
+            keybundle1.pq_kem_psk.public_key.as_bytes(),
+            keybundle2.pq_kem_psk.public_key.as_bytes(),
+            "PQ KEM Public Key should be identical"
+        );
+        assert_eq!(
+            keybundle1.pq_kem_psk.private_key.as_bytes(),
+            keybundle2.pq_kem_psk.private_key.as_bytes(),
+            "PQ KEM Private Key should be identical"
+        );
+
+        // Metadata keys
+        assert_eq!(
+            keybundle1.metadata.public_key.as_bytes(),
+            keybundle2.metadata.public_key.as_bytes(),
+            "Metadata Public Key should be identical"
+        );
+        assert_eq!(
+            keybundle1.metadata.private_key.as_bytes(),
+            keybundle2.metadata.private_key.as_bytes(),
+            "Metadata Private Key should be identical"
+        );
     }
 }

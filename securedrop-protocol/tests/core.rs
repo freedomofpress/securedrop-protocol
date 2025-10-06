@@ -25,8 +25,6 @@ fn get_rng() -> ChaCha20Rng {
     ChaCha20Rng::from_seed(seed)
 }
 
-/// TODO
-#[ignore]
 /// Step 5: Source fetches keys and verifies their authenticity
 #[test]
 fn protocol_step_5_source_fetch_keys() {
@@ -117,11 +115,14 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Verify the journalist's DH key matches our expectation
     let journalist_dh_key = journalist_session
-        .dh_key()
+        .dhakem_reply_key()
         .expect("Journalist should have DH key");
     assert_eq!(
-        journalist_response.journalist_dh_pk.clone().into_bytes(),
-        journalist_dh_key.clone().into_bytes()
+        journalist_response
+            .journalist_dhakem_sending_pk
+            .clone()
+            .as_bytes(),
+        journalist_dh_key.clone().as_bytes()
     );
 
     // Verify that ephemeral keys were consumed (deleted from server storage)
@@ -155,8 +156,6 @@ fn protocol_step_5_source_fetch_keys() {
     );
 }
 
-/// TODO
-#[ignore]
 /// Step 6: Source submits a message
 #[test]
 fn protocol_step_6_source_submits_message() {

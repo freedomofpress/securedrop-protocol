@@ -6,17 +6,28 @@ use uuid::Uuid;
 
 use crate::keys::{JournalistEnrollmentKeyBundle, JournalistOneTimeKeyBundle};
 use crate::messages::core::Message;
+use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::x25519::DHPublicKey;
-use crate::sign::{Signature, VerifyingKey};
+use crate::sign::{SelfSignature, Signature, VerifyingKey};
 
 #[derive(Default)]
 pub struct ServerStorage {
-    /// Journalists with their long/medium term keys
-    journalists: HashMap<Uuid, (VerifyingKey, DHPublicKey, Signature)>,
+    /// Journalists with their long/medium term keys, self-signature, newsroom signature.
+    journalists: HashMap<
+        Uuid,
+        (
+            VerifyingKey,
+            DHPublicKey,
+            DhAkemPublicKey,
+            SelfSignature,
+            Signature,
+        ),
+    >,
     /// Journalists ephemeral keystore
     /// Maps journalist ID to a vector of ephemeral key sets
     /// Each journalist maintains a pool of ephemeral keys that are randomly selected and removed when fetched
     ephemeral_keys: HashMap<Uuid, Vec<JournalistOneTimeKeyBundle>>,
+
     /// Store of messages
     messages: HashMap<Uuid, Message>,
 }
@@ -100,7 +111,18 @@ impl ServerStorage {
     }
 
     /// Get all journalists
-    pub fn get_journalists(&self) -> &HashMap<Uuid, (VerifyingKey, DHPublicKey, Signature)> {
+    pub fn get_journalists(
+        &self,
+    ) -> &HashMap<
+        Uuid,
+        (
+            VerifyingKey,
+            DHPublicKey,
+            DhAkemPublicKey,
+            SelfSignature,
+            Signature,
+        ),
+    > {
         &self.journalists
     }
 
@@ -108,13 +130,15 @@ impl ServerStorage {
     pub fn add_journalist(
         &mut self,
         enrollment_bundle: JournalistEnrollmentKeyBundle,
-        signature: Signature,
+        newsroom_signature: Signature,
     ) -> Uuid {
         let journalist_id = Uuid::new_v4();
         let keys = (
             enrollment_bundle.signing_key,
-            enrollment_bundle.fetching_key,
-            signature,
+            enrollment_bundle.public_keys.fetch_key,
+            enrollment_bundle.public_keys.reply_key,
+            enrollment_bundle.self_signature,
+            newsroom_signature,
         );
         self.journalists.insert(journalist_id, keys);
         journalist_id
@@ -125,7 +149,7 @@ impl ServerStorage {
     ///
     /// TODO: Remove?
     pub fn find_journalist_by_verifying_key(&self, verifying_key: &VerifyingKey) -> Option<Uuid> {
-        for (journalist_id, (stored_vk, _, _)) in &self.journalists {
+        for (journalist_id, (stored_vk, _, _, _, _)) in &self.journalists {
             if stored_vk.into_bytes() == verifying_key.into_bytes() {
                 return Some(*journalist_id);
             }
