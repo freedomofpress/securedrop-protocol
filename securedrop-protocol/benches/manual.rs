@@ -46,19 +46,19 @@ fn main() {
 
     let mut which: Option<String> = None;
     let mut iterations: usize = 10;
-    let mut num_keybundles: usize = 1000;
-    let mut challenges_per_iter: usize = 10000;
+    let mut keybundles: usize = 500;
+    let mut challenges: usize = 10000;
     let mut raw_fmt = RawFmt::None;
     let mut quiet = false;
-    let mut include_rng_in_encrypt = false;
+    let mut include_rng = false;
 
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--bench" => continue,
             "-n" | "--iterations" => iterations = parse_usize(&next_val(&mut args, &arg), "iterations"),
-            "-k" | "--num-onetimekeys" => num_keybundles = parse_usize(&next_val(&mut args, &arg), "num-onetimekeys"),
-            "-j" | "--challenges" => challenges_per_iter = parse_usize(&next_val(&mut args, &arg), "challenges"),
+            "-k" | "--num-onetimekeys" => keybundles = parse_usize(&next_val(&mut args, &arg), "num-onetimekeys"),
+            "-j" | "--challenges" => challenges = parse_usize(&next_val(&mut args, &arg), "challenges"),
             "--raw" => {
                 let v = next_val(&mut args, &arg);
                 raw_fmt = match v.as_str() {
@@ -68,7 +68,7 @@ fn main() {
                 }
             }
             "--quiet" => quiet = true,
-            "--include-rng" => include_rng_in_encrypt = true,
+            "--include-rng" => include_rng = false,
             "encrypt" | "decrypt" | "fetch" | "all" => {
                 if which.is_none() { which = Some(arg); } else { die(&format!("Unexpected extra argument: {arg}")); }
             }
@@ -81,36 +81,36 @@ fn main() {
 
     match which.as_str() {
         "encrypt" => {
-            let samples = bench_encrypt_loop(iterations, num_keybundles, include_rng_in_encrypt);
-            output("encrypt", iterations, num_keybundles, None, &samples, raw_fmt, quiet);
+            let samples = bench_encrypt_loop(iterations, keybundles, include_rng);
+            output("encrypt", iterations, keybundles, None, &samples, raw_fmt, quiet);
         }
         "decrypt" => {
-            let samples = bench_decrypt_loop(iterations, num_keybundles);
-            output("decrypt", iterations, num_keybundles, None, &samples, raw_fmt, quiet);
+            let samples = bench_decrypt_loop(iterations, keybundles);
+            output("decrypt", iterations, keybundles, None, &samples, raw_fmt, quiet);
         }
         "fetch" => {
-            let samples = bench_fetch_loop(iterations, num_keybundles, challenges_per_iter);
+            let samples = bench_fetch_loop(iterations, keybundles, challenges);
             output(
                 "fetch",
                 iterations,
-                num_keybundles,
-                Some(challenges_per_iter),
+                keybundles,
+                Some(challenges),
                 &samples,
                 raw_fmt,
                 quiet,
             );
         }
         "all" => {
-            let e = bench_encrypt_loop(iterations, num_keybundles, include_rng_in_encrypt);
-            output("encrypt", iterations, num_keybundles, None, &e, raw_fmt, quiet);
-            let d = bench_decrypt_loop(iterations, num_keybundles);
-            output("decrypt", iterations, num_keybundles, None, &d, raw_fmt, quiet);
-            let f = bench_fetch_loop(iterations, num_keybundles, challenges_per_iter);
+            let e = bench_encrypt_loop(iterations, keybundles, include_rng);
+            output("encrypt", iterations, keybundles, None, &e, raw_fmt, quiet);
+            let d = bench_decrypt_loop(iterations, keybundles);
+            output("decrypt", iterations, keybundles, None, &d, raw_fmt, quiet);
+            let f = bench_fetch_loop(iterations, keybundles, challenges);
             output(
                 "fetch",
                 iterations,
-                num_keybundles,
-                Some(challenges_per_iter),
+                keybundles,
+                Some(challenges),
                 &f,
                 raw_fmt,
                 quiet,
@@ -122,20 +122,20 @@ fn main() {
 
 // -------------------- encrypt --------------------
 
-fn bench_encrypt_loop(iterations: usize, num_keybundles: usize, include_rng_in_encrypt: bool) -> Vec<Duration> {
+fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -> Vec<Duration> {
     let mut durations = Vec::with_capacity(iterations);
     let mut sink = 0usize;
 
     for _ in 0..iterations {
         let mut prep_rng = mk_rng();
         let sender = Source::new(&mut prep_rng);
-        let recipient = Journalist::new(&mut prep_rng, num_keybundles);
+        let recipient = Journalist::new(&mut prep_rng, keybundles);
         let msg = b"super secret msg".to_vec();
 
         // Bundle index chosen outside the timed section
-        let bundle_ix = if num_keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % num_keybundles };
+        let bundle_ix = if keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % keybundles };
 
-        if include_rng_in_encrypt {
+        if include_rng {
             // Time the seed fill + encrypt together
             let t0 = Instant::now();
             let mut seed = [0u8; 32];
@@ -163,20 +163,19 @@ fn bench_encrypt_loop(iterations: usize, num_keybundles: usize, include_rng_in_e
 
 // -------------------- decrypt --------------------
 
-fn bench_decrypt_loop(iterations: usize, num_keybundles: usize) -> Vec<Duration> {
+fn bench_decrypt_loop(iterations: usize, keybundles: usize) -> Vec<Duration> {
     let mut durations = Vec::with_capacity(iterations);
     let mut sink = 0usize;
 
     for _ in 0..iterations {
         let mut prep_rng = mk_rng();
         let sender = Source::new(&mut prep_rng);
-        let recipient = Journalist::new(&mut prep_rng, num_keybundles);
+        let recipient = Journalist::new(&mut prep_rng, keybundles);
         let msg = b"super secret msg".to_vec();
 
         // Prepare envelope (not timed)
         let mut seed = [0u8; 32];
-        prep_rng.fill_bytes(&mut seed);
-        let bundle_ix = if num_keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % num_keybundles };
+        let bundle_ix = if keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % keybundles };
         let env: Envelope =
             bench_encrypt(seed, &sender as &dyn User, &recipient as &dyn User, bundle_ix, &msg);
 
@@ -194,22 +193,22 @@ fn bench_decrypt_loop(iterations: usize, num_keybundles: usize) -> Vec<Duration>
 
 // -------------------- fetch (solver only) --------------------
 
-fn bench_fetch_loop(iterations: usize, num_keybundles: usize, challenges_per_iter: usize) -> Vec<Duration> {
+fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> Vec<Duration> {
     let mut durations = Vec::with_capacity(iterations);
     let mut sink = 0usize;
 
     for i in 0..iterations {
         let mut prep_rng = mk_rng();
-        let journalist = Journalist::new(&mut prep_rng, num_keybundles);
+        let journalist = Journalist::new(&mut prep_rng, keybundles);
         let source = Source::new(&mut prep_rng);
 
         // Build store (prep)
-        let store_size = challenges_per_iter.min(100);
+        let store_size = challenges.min(100);
         let mut store: Vec<ServerMessageStore> = Vec::with_capacity(store_size);
         for j in 0..store_size {
             let mut seed = [0u8; 32];
             prep_rng.fill_bytes(&mut seed);
-            let bundle_ix = if num_keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % num_keybundles };
+            let bundle_ix = if keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % keybundles };
             let env = bench_encrypt(
                 seed,
                 &source as &dyn User,
@@ -223,7 +222,7 @@ fn bench_fetch_loop(iterations: usize, num_keybundles: usize, challenges_per_ite
         }
 
         // Generate challenges (not timed)
-        let challenges: Vec<FetchResponse> = compute_fetch_challenges(&mut prep_rng, &store, challenges_per_iter);
+        let challenges: Vec<FetchResponse> = compute_fetch_challenges(&mut prep_rng, &store, challenges);
 
         // Time ONLY the solver
         let t0 = Instant::now();
@@ -242,7 +241,7 @@ fn bench_fetch_loop(iterations: usize, num_keybundles: usize, challenges_per_ite
 fn output(
     which: &str,
     iterations: usize,
-    num_keybundles: usize,
+    keybundles: usize,
     challenges: Option<usize>,
     samples: &[Duration],
     raw_fmt: RawFmt,
@@ -251,7 +250,7 @@ fn output(
     match raw_fmt {
         RawFmt::None => {
             if !quiet {
-                print_series_report(which, iterations, num_keybundles, challenges, samples);
+                print_series_report(which, iterations, keybundles, challenges, samples);
             }
         }
         RawFmt::Json => {
@@ -259,7 +258,7 @@ fn output(
             let report = JsonReport {
                 bench: which,
                 iterations,
-                keybundles: num_keybundles,
+                keybundles: keybundles,
                 challenges,
                 total_ms,
                 avg_ms,
@@ -280,7 +279,7 @@ fn output(
             if !quiet {
                 let (total_ms, avg_ms, min_ms, p50, p90, p99, max_ms) = stats_ms(samples);
                 eprintln!(
-                    "# bench={which} iterations={iterations} keybundles={num_keybundles} challenges={:?} total_ms={:.3} avg_ms={:.3} min_ms={:.3} p50_ms={:.3} p90_ms={:.3} p99_ms={:.3} max_ms={:.3}",
+                    "# bench={which} iterations={iterations} keybundles={keybundles} challenges={:?} total_ms={:.3} avg_ms={:.3} min_ms={:.3} p50_ms={:.3} p90_ms={:.3} p99_ms={:.3} max_ms={:.3}",
                     challenges, total_ms, avg_ms, min_ms, p50, p90, p99, max_ms
                 );
             }
@@ -291,7 +290,7 @@ fn output(
 fn print_series_report(
     which: &str,
     iterations: usize,
-    num_keybundles: usize,
+    keybundles: usize,
     challenges: Option<usize>,
     samples: &[Duration],
 ) {
@@ -299,7 +298,7 @@ fn print_series_report(
 
     println!("bench: {which}");
     println!("iterations: {iterations}");
-    println!("keybundles/journo: {num_keybundles}");
+    println!("keybundles/journo: {keybundles}");
     if let Some(c) = challenges {
         println!("challenges/iter: {c}");
     }

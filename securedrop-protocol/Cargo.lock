@@ -853,6 +853,7 @@ dependencies = [
  "getrandom",
  "hashbrown",
  "hpke-rs",
+ "js-sys",
  "libcrux-chacha20poly1305 0.0.3 (git+https://github.com/cryspen/libcrux?rev=54c6624630e47ed599ffc1549101c2b861d51a8c)",
  "libcrux-curve25519 0.0.3 (git+https://github.com/cryspen/libcrux?rev=54c6624630e47ed599ffc1549101c2b861d51a8c)",
  "libcrux-ed25519",
@@ -863,6 +864,8 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rand_core",
+ "serde",
+ "serde_json",
  "uuid",
  "wasm-bindgen",
 ]

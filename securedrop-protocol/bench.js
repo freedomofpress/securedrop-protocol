@@ -1,144 +1,168 @@
 #!/usr/bin/env node
-/* bench.js — native + Selenium Firefox/Chrome flavors, finds best performers.
- *
- * Usage:
- *   node bench.js -n 500
- *   node bench.js --browser chromium -n 250
- *   node bench.js --browser all --native off -n 100
- *   node bench.js --flavors bundled,firefox,chrome -n 200
- */
 
-const http = require('http');
+const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const path = require('path');
-const { spawnSync } = require('child_process');
 
-// --- Selenium imports ---
+const express = require('express');
+const serveStatic = require('serve-static');
+
+const { execa } = require('execa');
+const yargs = require('yargs');
+const { hideBin } = require('yargs/helpers');
+const { z } = require('zod');
+const ss = require('simple-statistics');
+const { createObjectCsvWriter } = require('csv-writer');
+const kleur = require('kleur');
+
 const { Builder, Capabilities } = require('selenium-webdriver');
 const chrome  = require('selenium-webdriver/chrome');
 const firefox = require('selenium-webdriver/firefox');
 
-// -------- CLI --------
-function parseArgs(argv) {
-  let iterations = 100;
-  let browserSel = 'all';          // chromium|firefox|all|none (none disables browsers)
-  let nativeSel = 'on';            // on|off
-  let flavorsArg = 'all';          // all or comma list among: bundled,chrome,chrome-beta,chrome-dev,firefox,firefox-beta,firefox-nightly
-  for (let i = 2; i < argv.length; i++) {
-    const a = argv[i];
-    if ((a === '-n' || a === '--iterations') && i + 1 < argv.length) {
-      iterations = parseInt(argv[++i], 10);
-      if (!Number.isFinite(iterations) || iterations <= 0) {
-        console.error(`Invalid iterations: ${argv[i]}`); process.exit(1);
+// ------------------------------ CLI ------------------------------
+
+const CliSchema = z.object({
+  iterations: z.number().int().positive().default(100),
+  browser: z.enum(['chromium','firefox','all','none']).default('all'),
+  native: z.enum(['on','off']).default('on'),
+  flavors: z.string().default('all'),
+  k: z.number().int().nonnegative().default(500),
+  j: z.number().int().nonnegative().default(3000),
+  rng: z.enum(['on','off']).default('off'),
+  out: z.string().default('out'),
+  root: z.string().default(process.cwd()),
+});
+
+const argv = yargs(hideBin(process.argv))
+  .option('iterations', { alias: 'n', type: 'number', describe: 'Iterations per bench' })
+  .option('browser',    { type: 'string', describe: 'chromium|firefox|all|none' })
+  .option('native',     { type: 'string', describe: 'on|off' })
+  .option('flavors',    { type: 'string', describe: 'all or comma list (chrome,chrome-beta,chrome-dev,firefox,firefox-beta,firefox-nightly,bundled)' })
+  .option('k',          { type: 'number', describe: 'Keybundles per journalist' })
+  .option('j',          { type: 'number', describe: 'Challenges per iter (fetch)' })
+  .option('rng',        { type: 'string', describe: 'Include RNG time inside encrypt loop (on|off)' })
+  .option('out',        { type: 'string', describe: 'Output directory root' })
+  .option('root',       { type: 'string', describe: 'Static server root (contains /www/index.html)' })
+  .strict()
+  .help()
+  .parse();
+
+const cfg = CliSchema.parse({
+  iterations: argv.iterations,
+  browser: argv.browser,
+  native: argv.native,
+  flavors: argv.flavors,
+  k: argv.k,
+  j: argv.j,
+  rng: argv.rng,
+  out: argv.out,
+  root: argv.root,
+});
+
+// ------------------------------ Utils ------------------------------
+
+const stamp = () => {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2,'0');
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+};
+const ensureDir = (p) => fs.mkdirSync(p, { recursive: true });
+
+function logInfo(...a){ console.log(kleur.cyan('[i]'), ...a); }
+function logWarn(...a){ console.warn(kleur.yellow('[!]'), ...a); }
+function logErr (...a){ console.error(kleur.red('[x]'), ...a); }
+
+// ------------------------------ Static server (COOP/COEP) ------------------------------
+
+async function startServer(rootDir) {
+  const app = express();
+
+  // COOP/COEP for crossOriginIsolated + precise timers + SAB
+  app.use((req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    res.setHeader('Timing-Allow-Origin', '*');
+    next();
+  });
+
+  app.use(serveStatic(rootDir, {
+    fallthrough: true,
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('.wasm')) {
+        res.setHeader('Content-Type', 'application/wasm');
       }
-    } else if (a === '--browser' && i + 1 < argv.length) {
-      browserSel = argv[++i];
-      if (!['chromium', 'firefox', 'all', 'none'].includes(browserSel)) {
-        console.error(`Unknown --browser: ${browserSel}`); process.exit(1);
-      }
-    } else if (a === '--native' && i + 1 < argv.length) {
-      nativeSel = argv[++i];
-      if (!['on', 'off'].includes(nativeSel)) {
-        console.error(`--native must be on|off`); process.exit(1);
-      }
-    } else if (a === '--flavors' && i + 1 < argv.length) {
-      flavorsArg = argv[++i];
-    } else {
-      console.error(`Unknown arg: ${a}`);
-      console.error('Usage: node bench.js [--browser chromium|firefox|all|none] [--native on|off] [--flavors all|comma,list] [-n N]');
-      process.exit(1);
     }
-  }
-  return { iterations, browserSel, nativeSel, flavorsArg };
-}
+  }));
 
-// -------- Server (COOP/COEP) --------
-function startServer(root) {
-  return new Promise(resolve => {
-    const server = http.createServer((req, res) => {
-      const reqPath = req.url === '/' ? '/www/index.html' : req.url;
-      const filePath = path.join(root, reqPath);
+  // 404
+  app.use((req, res) => res.status(404).send('Not found'));
 
-      // COOP/COEP: precise timers & SAB-capable
-      res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-      res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-      res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
-      res.setHeader('Timing-Allow-Origin', '*');
-
-      fs.readFile(filePath, (err, data) => {
-        if (err) { res.statusCode = 404; res.end('Not found'); return; }
-        const ext = path.extname(filePath).toLowerCase();
-        const types = {
-          '.html': 'text/html; charset=utf-8',
-          '.js':   'application/javascript; charset=utf-8',
-          '.mjs':  'application/javascript; charset=utf-8',
-          '.wasm': 'application/wasm',
-          '.json': 'application/json; charset=utf-8',
-          '.css':  'text/css; charset=utf-8',
-        };
-        res.setHeader('Content-Type', types[ext] || 'application/octet-stream');
-        res.end(data);
-      });
-    }).listen(0, () => resolve(server));
+  return new Promise((resolve) => {
+    const srv = app.listen(0, () => {
+      const { port } = srv.address();
+      resolve({ server: srv, port });
+    });
   });
 }
 
-// -------- Native runner --------
-function parseNativeOutput(text) {
-  // Expects:
-  // bench: encrypt
-  // iterations: 1000
-  // total: 123.456 ms
-  // avg:   123.456 µs/iter
-  const lines = text.split(/\r?\n/);
-  const out = {};
-  let current = null;
-  for (const line of lines) {
-    const b = line.match(/^bench:\s*(\w+)/);
-    if (b) { current = b[1]; if (!out[current]) out[current] = {}; continue; }
-    if (!current) continue;
-    const m1 = line.match(/^iterations:\s*(\d+)/);
-    if (m1) { out[current].iterations = parseInt(m1[1], 10); continue; }
-    const m2 = line.match(/^total:\s*([\d.]+)\s*ms/);
-    if (m2) { out[current].totalMs = parseFloat(m2[1]); continue; }
-    const m3 = line.match(/^avg:\s*([\d.]+)\s*µs\/iter/);
-    if (m3) { out[current].avgUs = parseFloat(m3[1]); continue; }
+// ------------------------------ Benchmark spec ------------------------------
+
+class BenchmarkSpec {
+  /**
+   * @param {string} name 'encrypt' | 'decrypt_journalist' | 'decrypt_source' | 'fetch'
+   * @param {object} params { n, k, j, include_rng }
+   */
+  constructor(name, params) {
+    this.name = name;
+    this.params = { ...params };
+  }
+  toQuery() {
+    const u = new URLSearchParams();
+    u.set('bench', this.name);
+    if (this.params.n != null) u.set('n', String(this.params.n));
+    if (this.params.k != null) u.set('k', String(this.params.k));
+    if (this.params.j != null) u.set('j', String(this.params.j));
+    if (this.params.include_rng) u.set('include_rng', '1');
+    u.set('raw', 'json');   // page emits JSON & window.benchResults*
+    u.set('quiet', '1');    // no pretty printing
+    return '?' + u.toString();
+  }
+}
+
+function defaultSpecs(iterations, k, j, rngOn) {
+  return [
+    new BenchmarkSpec('encrypt',            { n: iterations, k, include_rng: rngOn }),
+    new BenchmarkSpec('decrypt_journalist', { n: iterations, k }),
+    new BenchmarkSpec('decrypt_source',     { n: iterations, k: 1 }),
+    new BenchmarkSpec('fetch',              { n: iterations, k, j }),
+  ];
+}
+
+// ------------------------------ Selenium flavors ------------------------------
+
+function expandFlavors(browserSel, flavorsArg) {
+  const wantChromium = browserSel === 'chromium' || browserSel === 'all';
+  const wantFirefox  = browserSel === 'firefox'  || browserSel === 'all';
+
+  const requested = (flavorsArg === 'all')
+    ? ['bundled','chrome','chrome-beta','chrome-dev','firefox','firefox-beta','firefox-nightly']
+    : flavorsArg.split(',').map(s => s.trim()).filter(Boolean);
+
+  const out = [];
+  if (wantChromium) {
+    ['bundled','chrome','chrome-beta','chrome-dev'].forEach(label => {
+      if (requested.includes('all') || requested.includes(label)) out.push({ family:'chromium', label });
+    });
+  }
+  if (wantFirefox) {
+    ['bundled','firefox','firefox-beta','firefox-nightly'].forEach(label => {
+      if (requested.includes('all') || requested.includes(label)) out.push({ family:'firefox', label });
+    });
   }
   return out;
 }
 
-function runNative(iterations) {
-  const modes = ['encrypt', 'decrypt', 'fetch', 'submit'];
-  const results = {};
-  for (const m of modes) {
-    const proc = spawnSync(
-      'cargo',
-      ['bench', '--bench', 'manual', '--', m, '-n', String(iterations)],
-      { stdio: ['ignore', 'pipe', 'pipe'] }
-    );
-    if (proc.status !== 0) {
-      console.error(`[native ${m}] failed:\n${proc.stderr.toString()}\n${proc.stdout.toString()}`);
-      process.exit(proc.status || 1);
-    }
-    const parsed = parseNativeOutput(proc.stdout.toString());
-    const key = (m === 'submit') ? 'submit_bench' : `${m}_bench`;
-    let rec = parsed[m] || parsed[Object.keys(parsed)[0]];
-    if (!rec) { console.error(`[native ${m}] could not parse output`); process.exit(1); }
-    if (!rec.iterations) rec.iterations = iterations;
-    results[key] = rec;
-  }
-  return results;
-}
-
-// -------- Selenium helpers --------
-function makeTmpDir(prefix) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-}
-
-// Map our "flavors" to Selenium "browserVersion" labels.
-// Chrome/Chromium: stable|beta|dev|canary
-// Firefox: stable (default)|beta|nightly
 function mapFlavorToVersion(family, label) {
   if (family === 'chromium') {
     if (label === 'bundled' || label === 'chrome') return 'stable';
@@ -155,287 +179,365 @@ function mapFlavorToVersion(family, label) {
 
 async function buildDriver(family, versionLabel, profileDir) {
   if (family === 'chromium') {
-    const opts = new chrome.Options();
-    opts.addArguments(
-      '--headless=new',
-      '--disable-gpu',
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--disable-extensions',
-      `--user-data-dir=${profileDir}`,
-      '--remote-debugging-port=0',
-      // needed when running as root / in CI containers
-      '--no-sandbox',
-      '--disable-dev-shm-usage',
-      // wasm perf toggles
-      '--enable-features=WebAssemblySimd'
-    );
+    const opts = new chrome.Options()
+      .addArguments(
+        '--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check',
+        '--disable-extensions', `--user-data-dir=${profileDir}`,
+        '--remote-debugging-port=0','--no-sandbox','--disable-dev-shm-usage',
+        '--enable-features=WebAssemblySimd'
+      );
     let caps = new Capabilities().setBrowserName('chrome');
-    if (versionLabel) caps = caps.set('browserVersion', versionLabel); // stable|beta|dev|canary
+    if (versionLabel) caps = caps.set('browserVersion', versionLabel);
     return await new Builder().withCapabilities(caps).setChromeOptions(opts).build();
   }
 
-  // Firefox: fresh temp profile dir + headless via CLI arg (works on all versions)
-  const ffProfileDir = profileDir || makeTmpDir('bench-firefox-');
   const opts = new firefox.Options();
-  opts.addArguments('-headless'); // avoid .headless() chaining issues on some builds
-  opts.setProfile(ffProfileDir);
+  opts.addArguments('-headless');
+  opts.setProfile(profileDir);
   opts.setPreference('javascript.options.wasm', true);
   opts.setPreference('javascript.options.wasm_simd', true);
   opts.setPreference('javascript.options.wasm_relaxed_simd', true);
   opts.setPreference('javascript.options.wasm_threads', true);
 
   let caps = new Capabilities().setBrowserName('firefox');
-  if (versionLabel) caps = caps.set('browserVersion', versionLabel);   // stable|beta|nightly
-  const driver = await new Builder().withCapabilities(caps).setFirefoxOptions(opts).build();
-
-  // Keep profile for cleanup
-  driver.__ffProfileDir = ffProfileDir;
-  return driver;
+  if (versionLabel) caps = caps.set('browserVersion', versionLabel);
+  return await new Builder().withCapabilities(caps).setFirefoxOptions(opts).build();
 }
 
-async function ensureExports(driver) {
-  await driver.wait(async () => {
-    return await driver.executeScript(`
-      return ['encrypt_bench','decrypt_bench','fetch_bench','submit_bench']
-        .every(n => typeof window[n] === 'function');
-    `);
-  }, 30000);
-}
+function makeTmp(prefix){ return fs.mkdtempSync(path.join(os.tmpdir(), prefix)); }
 
-async function runOne(driver, iterations, name) {
-  // Warm-up
-  await driver.executeScript(`window;`, name);
-  const res = await driver.executeScript(`
-    const name = arguments[0], iters = arguments[1];
-    const t0 = performance.now();
-    window[name](iters);
-    const totalMs = performance.now() - t0;
-    return { totalMs, avgUs: (totalMs * 1000) / iters };
-  `, name, iterations);
-  return { ...res, iterations };
-}
+// ------------------------------ Page runner (via window.* API) ------------------------------
 
-async function runFlavor(flavor, iterations, url) {
-  const versionLabel = mapFlavorToVersion(flavor.family, flavor.label);
-  const tmpProfile =
-    (flavor.family === 'chromium')
-      ? makeTmpDir(`bench-chrome-${flavor.label}-`)
-      : makeTmpDir(`bench-firefox-${flavor.label}-`);
+async function runSpecOnDriver(driver, baseUrl, spec, timeoutMs = 60_000) {
+  const url = baseUrl + spec.toQuery();
+  await driver.get(url);
 
-  let driver;
-  try {
-    driver = await buildDriver(flavor.family, versionLabel, tmpProfile);
-    await driver.get(url);
-
-    const caps = await driver.getCapabilities();
-    const version = caps.get('browserVersion') || 'unknown';
-
-    const coi = await driver.executeScript('return !!globalThis.crossOriginIsolated;');
-    if (!coi) {
-      console.warn(`[${flavor.family}:${flavor.label}] crossOriginIsolated=false; timers may be coarse.`);
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    const ready = await driver.executeScript('return !!window.benchReady;');
+    if (ready) {
+      const obj = await driver.executeScript('return window.benchResultsByName && window.benchResultsByName[arguments[0]];', spec.name);
+      if (obj) return obj; // contains samples_us (or samples_ms fallback)
     }
-
-    await ensureExports(driver);
-
-    const results = {};
-    for (const name of ['encrypt_bench', 'decrypt_bench', 'fetch_bench', 'submit_bench']) {
-      results[name] = await runOne(driver, iterations, name);
-    }
-
-    return { flavor, version, coi, results };
-  } finally {
-    if (driver) await driver.quit();
-    // Clean up temp profiles
-    try { fs.rmSync(tmpProfile, { recursive: true, force: true }); } catch {}
-    if (driver && driver.__ffProfileDir && driver.__ffProfileDir !== tmpProfile) {
-      try { fs.rmSync(driver.__ffProfileDir, { recursive: true, force: true }); } catch {}
-    }
+    await driver.sleep(100);
   }
+  throw new Error(`Timeout waiting for payload (bench=${spec.name})`);
 }
 
-// -------- Tables / printing --------
-function padRight(s, n) { s = String(s); return s + ' '.repeat(Math.max(0, n - s.length)); }
-function padLeft(s, n)  { s = String(s); return ' '.repeat(Math.max(0, n - s.length)) + s; }
+// ------------------------------ Native (JSON, µs) ------------------------------
 
-function makeTable(rows, headers, aligns = []) {
-  const cols = headers.length;
-  const widths = Array(cols).fill(0);
-  for (let c = 0; c < cols; c++) {
-    widths[c] = Math.max(headers[c].length, ...rows.map(r => String(r[c]).length));
-  }
-  const cell = (s, i) => (aligns[i] === 'right' ? padLeft(s, widths[i]) : padRight(s, widths[i]));
-  console.log(headers.map((h, i) => cell(h, i)).join('  '));
-  console.log('-'.repeat(widths.reduce((a, b) => a + b, 0) + 2 * (cols - 1)));
-  for (const r of rows) console.log(r.map((v, i) => cell(String(v), i)).join('  '));
-}
-
-function buildRowsForFlavor(rec, native) {
-  const opNames = {
-    encrypt_bench: 'encrypt',
-    decrypt_bench: 'decrypt',
-    fetch_bench:   'fetch',
-    submit_bench:  'submit',
-  };
-  const rows = [];
-  for (const op of Object.keys(opNames)) {
-    const m = rec.results[op];
-    const slowNative = (native && native[op]) ? (m.avgUs / native[op].avgUs) : NaN;
-    rows.push([
-      opNames[op],
-      m.iterations,
-      m.totalMs.toFixed(2),
-      m.avgUs.toFixed(2),
-      Number.isFinite(slowNative) ? ('x' + slowNative.toFixed(2)) : '—',
-    ]);
-  }
-  return rows;
-}
-
-function summarizeFlavors(flavors, native) {
-  const ops = ['encrypt_bench', 'decrypt_bench', 'fetch_bench', 'submit_bench'];
-  const best = {};
-  for (const op of ops) {
-    let min = Infinity, who = null;
-    for (const r of flavors) {
-      const val = r.results[op].avgUs;
-      if (val < min) { min = val; who = r; }
-    }
-    best[op] = { min, who };
-  }
-
-  const rows = [];
-  for (const r of flavors) {
-    const label = `${r.flavor.family}:${r.flavor.label} (${r.version})`;
-    const enc = r.results['encrypt_bench'], dec = r.results['decrypt_bench'];
-    const fch = r.results['fetch_bench'],   sub = r.results['submit_bench'];
-
-    const sEncBest = enc.avgUs / best['encrypt_bench'].min;
-    const sDecBest = dec.avgUs / best['decrypt_bench'].min;
-    const sFchBest = fch.avgUs / best['fetch_bench'].min;
-    const sSubBest = sub.avgUs / best['submit_bench'].min;
-
-    const slowVsNative = (op) => (native && native[op]) ? (r.results[op].avgUs / native[op].avgUs) : NaN;
-
-    rows.push([
-      label,
-      enc.avgUs.toFixed(2), dec.avgUs.toFixed(2), fch.avgUs.toFixed(2), sub.avgUs.toFixed(2),
-      'x' + sEncBest.toFixed(2), 'x' + sDecBest.toFixed(2), 'x' + sFchBest.toFixed(2), 'x' + sSubBest.toFixed(2),
-      Number.isFinite(slowVsNative('encrypt_bench')) ? ('x' + slowVsNative('encrypt_bench').toFixed(2)) : '—',
-      Number.isFinite(slowVsNative('decrypt_bench')) ? ('x' + slowVsNative('decrypt_bench').toFixed(2)) : '—',
-      Number.isFinite(slowVsNative('fetch_bench'))   ? ('x' + slowVsNative('fetch_bench').toFixed(2))   : '—',
-      Number.isFinite(slowVsNative('submit_bench'))  ? ('x' + slowVsNative('submit_bench').toFixed(2))  : '—',
-    ]);
-  }
-
+function statsFromUs(samplesUs) {
+  const s = samplesUs.slice().sort((a,b)=>a-b);
+  const pick = (q) => s.length ? s[Math.min(s.length-1, Math.round(q * (s.length - 1)))] : 0;
+  const sum = s.reduce((a,b)=>a+b, 0);
+  const avg = s.length ? sum / s.length : 0;
   return {
-    rows,
-    headers: [
-      'flavor',
-      'enc µs', 'dec µs', 'fch µs', 'sub µs',
-      '×best enc', '×best dec', '×best fch', '×best sub',
-      '×native enc', '×native dec', '×native fch', '×native sub',
-    ],
-    aligns: ['left','right','right','right','right','right','right','right','right','right','right','right','right'],
-    best,
+    n: s.length,
+    total_us: sum,
+    avg_us: avg,
+    min_us: s[0] ?? 0,
+    p50_us: pick(0.50),
+    p90_us: pick(0.90),
+    p99_us: pick(0.99),
+    max_us: s[s.length-1] ?? 0,
   };
 }
 
-// -------- Main --------
-(async () => {
-  const { iterations, browserSel, nativeSel, flavorsArg } = parseArgs(process.argv);
+async function runNative(iterations, k, j, rngOn) {
+  // Lock params for native; pass exactly what web harness gets.
+  const plans = [
+    { bench: 'encrypt',            args: ['encrypt', '-n', String(iterations), '-k', String(k), ...(rngOn ? ['--include-rng'] : [])],
+      expect: { iterations, keybundles: k, challenges: null } },
+    { bench: 'decrypt_journalist', args: ['decrypt', '-n', String(iterations), '-k', String(k)],
+      expect: { iterations, keybundles: k, challenges: null } },
+    { bench: 'decrypt_source',     args: ['decrypt', '-n', String(iterations), '-k', '1'],
+      expect: { iterations, keybundles: 1, challenges: null } },
+    { bench: 'fetch',              args: ['fetch', '-n', String(iterations), '-k', String(k), '-j', String(j)],
+      expect: { iterations, keybundles: k, challenges: j } },
+  ];
 
-  // Native
+  const results = {};
+  for (const p of plans) {
+    try {
+      const { stdout } = await execa(
+        'cargo',
+        ['bench','--bench','manual','--', ...p.args, '--raw','json','--quiet'],
+        { stdio: 'pipe' }
+      );
+      const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
+      const jsonLine = lines.reverse().find(l => l.startsWith('{') && l.endsWith('}'));
+      if (!jsonLine) { logWarn(`Native: no JSON for ${p.bench}`); continue; }
+      const obj = JSON.parse(jsonLine);
+
+      // Normalize to µs
+      let samplesUs = [];
+      if (Array.isArray(obj.samples_us)) {
+        samplesUs = obj.samples_us.map(x => Math.round(x));
+      } else if (Array.isArray(obj.samples_ms)) {
+        samplesUs = obj.samples_ms.map(x => Math.round(x * 1000));
+      } else {
+        logWarn(`Native: no samples array for ${p.bench}`);
+        continue;
+      }
+      const stats = statsFromUs(samplesUs);
+
+      const rec = {
+        bench: p.bench,
+        iterations: obj.iterations ?? p.expect.iterations,
+        keybundles: obj.keybundles ?? p.expect.keybundles,
+        challenges: obj.challenges ?? p.expect.challenges,
+        samples_us: samplesUs,
+        ...stats,
+      };
+
+      results[p.bench] = rec;
+    } catch (e) {
+      logWarn(`Native bench failed ${p.bench}: ${e.message}`);
+    }
+  }
+  return results;
+}
+
+// ------------------------------ Reporting helpers ------------------------------
+
+function prettyStatsFromUs(samplesUs) {
+  const ms = samplesUs.map(us => us / 1000);
+  const s = ms.slice().sort((a,b)=>a-b);
+  return {
+    n: s.length,
+    total_ms: ss.sum(s),
+    avg_ms: ss.mean(s),
+    min_ms: s[0] ?? 0,
+    p50_ms: ss.quantileSorted(s, 0.5),
+    p90_ms: ss.quantileSorted(s, 0.9),
+    p99_ms: ss.quantileSorted(s, 0.99),
+    max_ms: s[s.length-1] ?? 0,
+  };
+}
+
+function makeTable(headers, rows) {
+  const Table = require('cli-table3');
+  const t = new Table({ head: headers });
+  rows.forEach(r => t.push(r));
+  return t.toString();
+}
+
+// ------------------------------ Main ------------------------------
+
+(async () => {
+  const outRoot = path.join(cfg.out, stamp());
+  ensureDir(outRoot);
+
+  // Banner to confirm param lock
+  logInfo(`Params locked: n=${cfg.iterations}, k=${cfg.k}, j=${cfg.j}, rng=${cfg.rng}`);
+
+  // Start static server
+  const { server, port } = await startServer(cfg.root);
+  const baseUrl = `http://localhost:${port}/www/index.html`;
+  logInfo(`Static server @ ${baseUrl}`);
+
+  // Native (optional)
   let native = null;
-  if (nativeSel === 'on') {
-    native = runNative(iterations);
-    console.log(`\n=== Native (cargo bench) — iterations: ${iterations} ===`);
-    makeTable(
-      [
-        ['encrypt', native.encrypt_bench.iterations, native.encrypt_bench.totalMs.toFixed(2), native.encrypt_bench.avgUs.toFixed(2), 'x1.00'],
-        ['decrypt', native.decrypt_bench.iterations, native.decrypt_bench.totalMs.toFixed(2), native.decrypt_bench.avgUs.toFixed(2), 'x1.00'],
-        ['fetch',   native.fetch_bench.iterations,   native.fetch_bench.totalMs.toFixed(2),   native.fetch_bench.avgUs.toFixed(2),   'x1.00'],
-        ['submit',  native.submit_bench.iterations,  native.submit_bench.totalMs.toFixed(2),  native.submit_bench.avgUs.toFixed(2),  'x1.00'],
-      ],
-      ['op', 'iters', 'total (ms)', 'avg (µs/iter)', 'slowdown'],
-      ['left','right','right','right','right']
-    );
+  if (cfg.native === 'on') {
+    logInfo('Running native (cargo bench, JSON)...');
+    try {
+      native = await runNative(cfg.iterations, cfg.k, cfg.j, cfg.rng === 'on');
+
+      const nativeRows = [];
+      for (const op of ['encrypt','decrypt_journalist','decrypt_source','fetch']) {
+        const rec = native?.[op];
+        if (rec) {
+          const s = prettyStatsFromUs(rec.samples_us || []);
+          nativeRows.push([
+            op,
+            rec.iterations ?? cfg.iterations,
+            (op === 'decrypt_journalist' ? (rec.keybundles ?? '—') : '—'),
+            (rec.challenges ?? '—'),
+            s.avg_ms.toFixed(3),
+            s.p50_ms.toFixed(3),
+            s.p90_ms.toFixed(3),
+            s.p99_ms.toFixed(3),
+            s.max_ms.toFixed(3),
+          ]);
+        }
+      }
+
+      if (nativeRows.length) {
+        console.log('\n' + makeTable(
+          ['op','iters','k','j','avg (ms)','p50','p90','p99','max'],
+          nativeRows
+        ));
+      } else {
+        logWarn('Native bench parsed no results.');
+      }
+    } catch (e) {
+      logWarn('Native bench failed:', e.message);
+    }
   }
 
-  if (browserSel === 'none') {
-    console.log('\n(Browsers disabled with --browser none)');
+  if (cfg.browser === 'none') {
+    logWarn('Browsers disabled (--browser none). Done.');
+    server.close();
     return;
   }
 
-  // Which families to test
-  const wantChromium = (browserSel === 'chromium' || browserSel === 'all');
-  const wantFirefox  = (browserSel === 'firefox'  || browserSel === 'all');
+  const specs = defaultSpecs(cfg.iterations, cfg.k, cfg.j, cfg.rng === 'on');
+  const flavors = expandFlavors(cfg.browser, cfg.flavors);
 
-  // Which flavors to test
-  const allFlavors = [];
-  const requested = (flavorsArg === 'all')
-    ? ['bundled','chrome','chrome-beta','chrome-dev','firefox','firefox-beta','firefox-nightly']
-    : flavorsArg.split(',').map(s => s.trim()).filter(Boolean);
-
-  if (wantChromium) {
-    const chromes = ['bundled','chrome','chrome-beta','chrome-dev'];
-    for (const label of chromes) if (requested.includes('all') || requested.includes(label)) {
-      allFlavors.push({ family: 'chromium', label });
-    }
-  }
-  if (wantFirefox) {
-    const foxes = ['bundled','firefox','firefox-beta','firefox-nightly'];
-    for (const label of foxes) if (requested.includes('all') || requested.includes(label)) {
-      allFlavors.push({ family: 'firefox', label });
-    }
+  if (flavors.length === 0) {
+    logWarn('No flavors selected.');
+    server.close();
+    return;
   }
 
-  // Serve once for all runs
-  const server = await startServer(process.cwd());
-  const port = server.address().port;
-  const url = `http://localhost:${port}/www/index.html`;
+  // CSV writer for per-iteration tidy data (store µs)
+  const csvWriter = createObjectCsvWriter({
+    path: path.join(outRoot, 'all_samples.csv'),
+    header: [
+      { id: 'family', title: 'family' },
+      { id: 'label',  title: 'label' },
+      { id: 'browser_version', title: 'browser_version' },
+      { id: 'coi',    title: 'coi' },
+      { id: 'bench',  title: 'bench' },
+      { id: 'iter_index', title: 'iter_index' },
+      { id: 'sample_us',  title: 'sample_us' },    // microseconds
+      { id: 'iterations', title: 'iterations' },
+      { id: 'keybundles', title: 'keybundles' },
+      { id: 'challenges', title: 'challenges' },
+    ],
+    append: false,
+  });
 
-  // Run all flavors
-  const results = [];
-  for (const flavor of allFlavors) {
+  // store a traditional summary for per-flavor tables, and build a pivot for the final table
+  const pivot = new Map(); // flavorKey -> { encrypt: "1.234 (x2.00)", decrypt_journalist: "...", decrypt_source: "...", fetch: "..." }
+
+  for (const flavor of flavors) {
+    const versionLabel = mapFlavorToVersion(flavor.family, flavor.label);
+    const tmpProfile = makeTmp(`bench-${flavor.family}-${flavor.label}-`);
+    const jsonOutFile = path.join(outRoot, `${flavor.family}-${flavor.label}.json`);
+
+    let driver;
     try {
-      const rec = await runFlavor(flavor, iterations, url);
-      results.push(rec);
+      driver = await buildDriver(flavor.family, versionLabel, tmpProfile);
+      await driver.get(baseUrl); // initial load to evaluate capabilities
 
-      // Per-flavor table
-      const title = `${flavor.family}:${flavor.label} (${rec.version}) — iterations: ${iterations}`;
-      console.log(`\n=== ${title} ===`);
-      makeTable(
-        buildRowsForFlavor(rec, native),
-        ['op', 'iters', 'total (ms)', 'avg (µs/iter)', 'slowdown vs native'],
-        ['left','right','right','right','right']
-      );
+      const caps = await driver.getCapabilities();
+      const version = caps.get('browserVersion') || 'unknown';
+      const coi = await driver.executeScript('return !!globalThis.crossOriginIsolated;');
+      if (!coi) logWarn(`${flavor.family}:${flavor.label} crossOriginIsolated=false; timers may be coarse.`);
+
+      const flavorBundle = { flavor, version, coi, benches: {} };
+      const flavorKey = `${flavor.family}:${flavor.label} (${version})`;
+
+      for (const spec of specs) {
+        const res = await runSpecOnDriver(driver, baseUrl, spec);
+
+        // Normalize microseconds array
+        const samplesUs = Array.isArray(res.samples_us)
+          ? res.samples_us.map(x => Math.round(x))
+          : Array.isArray(res.samples_ms)
+            ? res.samples_ms.map(x => Math.round(x * 1000))
+            : [];
+
+        // Build normalized record
+        const norm = {
+          bench: res.bench || spec.name,
+          iterations: res.iterations ?? cfg.iterations,
+          keybundles: (spec.name === 'decrypt_journalist') ? (res.keybundles ?? cfg.k) : null,
+          challenges: (spec.name === 'fetch') ? (res.challenges ?? cfg.j) : null,
+          samples_us: samplesUs,
+        };
+
+        flavorBundle.benches[spec.name] = norm;
+
+        // emit tidy CSV rows
+        const rows = samplesUs.map((us, i) => ({
+          family: flavor.family,
+          label: flavor.label,
+          browser_version: version,
+          coi,
+          bench: norm.bench,
+          iter_index: i,
+          sample_us: us,
+          iterations: norm.iterations,
+          keybundles: norm.keybundles ?? '',
+          challenges: norm.challenges ?? '',
+        }));
+        await csvWriter.writeRecords(rows);
+
+        // summary (ms) + ×native (for per-flavor table + pivot cell)
+        const s = prettyStatsFromUs(samplesUs);
+        const nativeRec = native?.[norm.bench];
+        const nativeAvgUs = nativeRec?.avg_us ?? (nativeRec?.samples_us ? (nativeRec.samples_us.reduce((a,b)=>a+b,0)/(nativeRec.samples_us.length||1)) : null);
+        const slowdown = (nativeAvgUs && nativeAvgUs > 0) ? (s.avg_ms * 1000) / nativeAvgUs : null;
+
+        // populate pivot cell text: "<avg> (x<slowdown>)"
+        const cell = slowdown != null
+          ? `${s.avg_ms.toFixed(3)} (x${slowdown.toFixed(2)})`
+          : `${s.avg_ms.toFixed(3)}`;
+
+        if (!pivot.has(flavorKey)) pivot.set(flavorKey, {});
+        pivot.get(flavorKey)[norm.bench] = cell;
+      }
+
+      // Write per-flavor JSON artifact
+      fs.writeFileSync(jsonOutFile, JSON.stringify(flavorBundle, null, 2));
+
+      // Per-flavor table (unchanged, detailed stats + ×native)
+      console.log('\n' + kleur.bold(`=== ${flavor.family}:${flavor.label} (${version}) — iterations: ${cfg.iterations} ===`));
+      const fRows = Object.values(flavorBundle.benches).map(b => {
+        const s = prettyStatsFromUs(b.samples_us);
+        const nativeRec = native?.[b.bench];
+        const nativeAvgUs = nativeRec?.avg_us ?? (nativeRec?.samples_us ? (nativeRec.samples_us.reduce((a,c)=>a+c,0)/(nativeRec.samples_us.length||1)) : null);
+        const slowdown = (nativeAvgUs && nativeAvgUs > 0) ? (s.avg_ms * 1000) / nativeAvgUs : null;
+        return [
+          b.bench,
+          b.iterations,
+          (b.keybundles ?? '—'),
+          (b.challenges ?? '—'),
+          s.avg_ms.toFixed(3),
+          s.p50_ms.toFixed(3),
+          s.p90_ms.toFixed(3),
+          s.p99_ms.toFixed(3),
+          s.max_ms.toFixed(3),
+          slowdown != null ? `x${slowdown.toFixed(2)}` : '—',
+        ];
+      });
+      console.log(makeTable(
+        ['op','iters','k','j','avg (ms)','p50','p90','p99','max','×native'],
+        fRows
+      ));
+
     } catch (e) {
-      console.error(`\n[ERROR] Failed ${flavor.family}:${flavor.label}:`, e && e.message ? e.message : e);
+      logErr(`Failed ${flavor.family}:${flavor.label}: ${e.message}`);
+    } finally {
+      if (driver) await driver.quit();
+      try { fs.rmSync(tmpProfile, { recursive: true, force: true }); } catch {}
     }
+  }
+
+  // Global summary (PIVOT: one row per browser, columns are ops with "avg (xSlowdown)")
+  if (pivot.size) {
+    const headers = ['browser','encrypt','decrypt_journalist','decrypt_source','fetch'];
+    const rows = [];
+    for (const [flavorKey, cells] of pivot.entries()) {
+      rows.push([
+        flavorKey,
+        cells.encrypt || '—',
+        cells.decrypt_journalist || '—',
+        cells.decrypt_source || '—',
+        cells.fetch || '—',
+      ]);
+    }
+    console.log('\n' + kleur.bold(`=== Summary by browser (iterations: ${cfg.iterations}) ===`));
+    console.log(makeTable(headers, rows));
+  } else {
+    logWarn('No browser results.');
   }
 
   server.close();
-
-  if (results.length === 0) {
-    console.log('\nNo browser results.');
-    return;
-  }
-
-  // Summary across flavors
-  const summary = summarizeFlavors(results, native);
-  console.log(`\n=== Summary: all flavors (iterations: ${iterations}) ===`);
-  makeTable(summary.rows, summary.headers, summary.aligns);
-
-  // Highlight best per op
-  console.log('\nFastest per op:');
-  for (const [op, { who, min }] of Object.entries(summary.best)) {
-    const tag = `${who.flavor.family}:${who.flavor.label} (${who.version})`;
-    const pretty = {encrypt_bench:'encrypt',decrypt_bench:'decrypt',fetch_bench:'fetch',submit_bench:'submit'}[op];
-    console.log(`  ${pretty}: ${tag} — ${min.toFixed(2)} µs/iter`);
-  }
-
+  logInfo(`Artifacts written to ${outRoot}`);
 })().catch(err => {
-  console.error(err);
+  logErr(err.stack || err);
   process.exit(1);
 });

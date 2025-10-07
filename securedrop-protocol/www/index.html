@@ -6,253 +6,195 @@
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 16px; }
     pre { white-space: pre-wrap; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
   </style>
 </head>
 <body>
-  <h1>securedrop-protocol wasm harness</h1>
-  <p>
-    Use query params:<br>
-    <code>?bench=encrypt|decrypt|fetch|all&amp;n=1000&amp;k=500&amp;j=3000&amp;raw=json|csv&amp;include_rng=1&amp;quiet=1</code>
-  </p>
   <pre id="out"></pre>
 
 <script type="module">
   import init, {
-    // opaque types
-    WSource,
-    WJournalist,
-    WEnvelope,
-    WStoreEntry,
-
-    // single-shot ops
-    encrypt_once,
-    decrypt_once,
-    compute_fetch_challenges_once,
-    fetch_once,
+    WSource, WJournalist, WEnvelope, WStoreEntry,
+    encrypt_once, decrypt_once, compute_fetch_challenges_once, fetch_once,
   } from '../pkg/securedrop_protocol.js';
 
-  // ---------- util ----------
-
-  const outEl = document.getElementById('out');
-  const log = (...args) => { console.log(...args); outEl.textContent += args.join(' ') + '\n'; };
-  const print = (s) => { outEl.textContent += s + '\n'; };
-
-  // crypto-safe u32
-  function randU32() {
-    const buf = new Uint32Array(1);
-    crypto.getRandomValues(buf);
-    return buf[0];
+  function bytesEq(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
   }
 
-  // crypto seed (32 bytes)
-  function seed32() {
-    const u = new Uint8Array(32);
-    crypto.getRandomValues(u);
-    return u;
-  }
-
-  // get query param with default
+  // -------- params (no aliases) --------
   const params = new URLSearchParams(location.search);
-  const which = (params.get('bench') || 'all').toLowerCase(); // encrypt|decrypt|fetch|all
+  const allowed = new Set(['encrypt','decrypt_journalist','decrypt_source','fetch','all']);
+  const which = (params.get('bench') || 'all').toLowerCase();
+  if (!allowed.has(which)) throw new Error(`Unknown bench: ${which}`);
+
   const iterations = +(params.get('n') || 10);
   const keybundles  = +(params.get('k') || 500);
   const challenges  = +(params.get('j') || 3000);
-  const raw = (params.get('raw') || 'none').toLowerCase();   // none|json|csv
+  const raw = (params.get('raw') || 'json').toLowerCase();  // json | csv
   const includeRng = params.get('include_rng') === '1';
-  const quiet = params.get('quiet') === '1';
+  const label = params.get('label') || null;
 
-  function nowMs() { return performance.now(); }
+  // -------- env --------
+  const outEl = document.getElementById('out');
+  const print = (s) => { outEl.textContent += s + '\n'; };
 
-  function summarize(samplesMs) {
-    const n = samplesMs.length;
-    const total = samplesMs.reduce((a,b)=>a+b, 0);
-    const avg = n ? total / n : 0;
-    const sorted = [...samplesMs].sort((a,b)=>a-b);
-    const pick = (q) => {
-      if (!sorted.length) return 0;
-      const idx = Math.min(sorted.length-1, Math.round(q * (sorted.length - 1)));
-      return sorted[idx];
-    };
-    const min = sorted[0] ?? 0;
-    const max = sorted[sorted.length-1] ?? 0;
-    return { total_ms: total, avg_ms: avg, min_ms: min, p50_ms: pick(0.50), p90_ms: pick(0.90), p99_ms: pick(0.99), max_ms: max };
-  }
+  function randU32() { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0]; }
+  function seed32()  { const u = new Uint8Array(32); crypto.getRandomValues(u); return u; }
+  function nowUs()   { return performance.now() * 1000; } // microseconds (float)
+  function tickUs(fn) { const t0 = nowUs(); const r = fn(); return [Math.round(nowUs() - t0), r]; }
 
-  function output(benchName, iterations, keybundles, challenges, samplesMs) {
-    const summary = summarize(samplesMs);
-
-    if (raw === 'json') {
-      const payload = {
-        bench: benchName,
-        iterations,
-        keybundles,
-        challenges: challenges ?? null,
-        ...summary,
-        samples_ms: samplesMs,
-      };
-      // one line JSON
-      print(JSON.stringify(payload));
-      return;
-    }
-
-    if (raw === 'csv') {
-      // print samples, one per line
-      for (const v of samplesMs) print(String(v));
-      if (!quiet) {
-        console.error(
-          `# bench=${benchName} iterations=${iterations} keybundles=${keybundles} challenges=${challenges ?? 'null'} ` +
-          `total_ms=${summary.total_ms.toFixed(3)} avg_ms=${summary.avg_ms.toFixed(3)} ` +
-          `min_ms=${summary.min_ms.toFixed(3)} p50_ms=${summary.p50_ms.toFixed(3)} ` +
-          `p90_ms=${summary.p90_ms.toFixed(3)} p99_ms=${summary.p99_ms.toFixed(3)} max_ms=${summary.max_ms.toFixed(3)}`
-        );
-      }
-      return;
-    }
-
-    // pretty
-    if (!quiet) {
-      print(`bench: ${benchName}`);
-      print(`iterations: ${iterations}`);
-      print(`keybundles/journo: ${keybundles}`);
-      if (challenges != null) print(`challenges/iter: ${challenges}`);
-      print(`total: ${summary.total_ms.toFixed(3)} ms`);
-      print(`avg:   ${summary.avg_ms.toFixed(3)} ms/iter`);
-      print(
-        `min:   ${summary.min_ms.toFixed(3)} ms  ` +
-        `p50: ${summary.p50_ms.toFixed(3)}  p90: ${summary.p90_ms.toFixed(3)}  ` +
-        `p99: ${summary.p99_ms.toFixed(3)}  max: ${summary.max_ms.toFixed(3)} ms`
-      );
-    }
-  }
-
-  // ---------- benches (mirror manual.rs semantics) ----------
-
-  async function benchEncryptLoop(iterations, numKeybundles, includeRngInEncrypt) {
+  // -------- benches (return array of integer µs) --------
+  async function benchEncryptLoop(n, k, includeRngInEncrypt) {
     const samples = [];
-
-    for (let i = 0; i < iterations; i++) {
-      // fresh context per iter
+    for (let i = 0; i < n; i++) {
       const sender = new WSource();
-      const recipient = new WJournalist(numKeybundles);
+      const recipient = new WJournalist(k);
       const msg = new TextEncoder().encode('super secret msg');
-
-      const bundleIx = numKeybundles === 0 ? 0 : (randU32() % numKeybundles);
+      //const bundleIx = k === 0 ? 0 : (randU32() % k);
+      const bundleIx = 10;
 
       if (includeRngInEncrypt) {
-        const t0 = nowMs();
-        const seed = seed32(); // counted
-        const env = encrypt_once(seed, sender, recipient, bundleIx, msg);
-        const dt = nowMs() - t0;
+        const [dt] = tickUs(() => {
+          const seed = seed32();
+          const env = encrypt_once(seed, sender, recipient, bundleIx, msg);
+          void env;
+        });
         samples.push(dt);
-        // consume result
-        void env; // (opaque WEnvelope)
       } else {
-        const seed = seed32(); // NOT counted
-        const t0 = nowMs();
-        const env = encrypt_once(seed, sender, recipient, bundleIx, msg);
-        const dt = nowMs() - t0;
+        const seed = seed32();
+        const [dt] = tickUs(() => {
+          const env = encrypt_once(seed, sender, recipient, bundleIx, msg);
+          void env;
+        });
         samples.push(dt);
-        void env;
       }
     }
-
     return samples;
   }
 
-  async function benchDecryptLoop(iterations, numKeybundles) {
+  async function benchDecryptLoop(n, k) {
     const samples = [];
-
-    for (let i = 0; i < iterations; i++) {
-      // fresh context per iter
+    for (let i = 0; i < n; i++) {
       const sender = new WSource();
-      const recipient = new WJournalist(numKeybundles);
+      const recipient = new WJournalist(k);
       const msg = new TextEncoder().encode('super secret msg');
-
-      // prepare envelope (not timed)
       const seed = seed32();
-      const bundleIx = numKeybundles === 0 ? 0 : (randU32() % numKeybundles);
+      const bundleIx = k === 0 ? 0 : (randU32() % k);
       const env = encrypt_once(seed, sender, recipient, bundleIx, msg);
 
-      // time only decrypt
-      const t0 = nowMs();
-      const pt = decrypt_once(recipient, env);
-      const dt = nowMs() - t0;
-      samples.push(dt);
-
-      // consume
+      const [dt, pt] = tickUs(() => decrypt_once(recipient, env));
+      if (!bytesEq(pt, msg)) {
+        throw new Error(
+          `Decryption mismatch at iter ${i}: ` +
+          `expected len=${msg.length} (${toHex(msg).slice(0,64)}...), ` +
+          `got len=${pt.length} (${toHex(pt).slice(0,64)}...)`
+        );
+      }
       void pt;
+      samples.push(dt);
     }
-
     return samples;
-    }
+  }
 
-  async function benchFetchLoop(iterations, numKeybundles, challengesPerIter) {
+  async function benchFetchLoop(n, k, challengesPerIter) {
     const samples = [];
-
-    for (let i = 0; i < iterations; i++) {
-      // fresh context per iter
-      const journalist = new WJournalist(numKeybundles);
+    for (let i = 0; i < n; i++) {
+      const journalist = new WJournalist(k);
       const source = new WSource();
 
-      // build store (prep). mirror: store_size = min(challengesPerIter, 100)
       const storeSize = Math.min(challengesPerIter, 100);
       const storeEntries = [];
       for (let j = 0; j < storeSize; j++) {
         const seed = seed32();
-        const bundleIx = numKeybundles === 0 ? 0 : (randU32() % numKeybundles);
+        const bundleIx = k === 0 ? 0 : (randU32() % k);
         const msg = new TextEncoder().encode(`iter${i}-msg${j}`);
         const env = encrypt_once(seed, source, journalist, bundleIx, msg);
 
         const messageId = new Uint8Array(16);
-        messageId.fill(j & 0xff); // same pattern as Rust
-        const entry = new WStoreEntry(messageId, env);
-        storeEntries.push(entry);
+        messageId.fill(j & 0xff);
+        storeEntries.push(new WStoreEntry(messageId, env));
       }
 
-      // compute challenges (not timed)
       const challSeed = seed32();
-      const challenges = compute_fetch_challenges_once(challSeed, storeEntries, challengesPerIter);
+      const chals = compute_fetch_challenges_once(challSeed, storeEntries, challengesPerIter);
 
-      // time only the solver
-      const t0 = nowMs();
-      const ids = fetch_once(journalist, challenges);
-      const dt = nowMs() - t0;
-      samples.push(dt);
-
-      // consume
+      const [dt, ids] = tickUs(() => fetch_once(journalist, chals));
       void ids;
+      samples.push(dt);
     }
-
     return samples;
   }
 
-  // ---------- run ----------
+  // -------- emitters (no stats) --------
+  function makePayload(bench, iters, k, j, samplesUs, extra = {}) {
+    return {
+      bench,                 // encrypt | decrypt_journalist | decrypt_source | fetch
+      label: extra.label ?? null,
+      iterations: iters,
+      keybundles: k,
+      challenges: j ?? null,
+      samples_us: samplesUs, // integer µs per iteration
+    };
+  }
 
+  function emit(payload) {
+    if (raw === 'json') {
+      print(JSON.stringify(payload));
+    } else if (raw === 'csv') {
+      for (const v of payload.samples_us) print(String(v)); // µs per line
+    }
+  }
+
+  // -------- globals for Selenium --------
+  window.benchResults = [];             // array of payloads (with samples_us)
+  window.benchResultsByName = Object.create(null); // keyed by bench
+  window.benchReady = false;
+  window.waitForBenches = () =>
+    new Promise((resolve) => {
+      if (window.benchReady) return resolve(window.benchResults);
+      const iv = setInterval(() => {
+        if (window.benchReady) { clearInterval(iv); resolve(window.benchResults); }
+      }, 50);
+    });
+
+  // -------- run --------
   (async function run() {
     try {
       const wasmUrl = new URL('../pkg/securedrop_protocol_bg.wasm', import.meta.url);
       await init(wasmUrl);
 
-      print('WASM benches ready');
+      const toRun = (which === 'all')
+        ? ['encrypt','decrypt_journalist','decrypt_source','fetch']
+        : [which];
 
-      if (which === 'encrypt' || which === 'all') {
-        const e = await benchEncryptLoop(iterations, keybundles, includeRng);
-        output('encrypt', iterations, keybundles, null, e);
+      for (const name of toRun) {
+        if (name === 'encrypt') {
+          const samples = await benchEncryptLoop(iterations, keybundles, includeRng);
+          const p = makePayload('encrypt', iterations, keybundles, null, samples, { label });
+          window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
+        } else if (name === 'decrypt_journalist') {
+          const samples = await benchDecryptLoop(iterations, keybundles);
+          const p = makePayload('decrypt_journalist', iterations, keybundles, null, samples, { label });
+          window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
+        } else if (name === 'decrypt_source') {
+          const samples = await benchDecryptLoop(iterations, 1);
+          const p = makePayload('decrypt_source', iterations, 1, null, samples, { label });
+          window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
+        } else if (name === 'fetch') {
+          const samples = await benchFetchLoop(iterations, keybundles, challenges);
+          const p = makePayload('fetch', iterations, keybundles, challenges, samples, { label });
+          window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
+        }
       }
 
-      if (which === 'decrypt' || which === 'all') {
-        const d = await benchDecryptLoop(iterations, keybundles);
-        output('decrypt', iterations, keybundles, null, d);
-      }
-
-      if (which === 'fetch' || which === 'all') {
-        const f = await benchFetchLoop(iterations, keybundles, challenges);
-        output('fetch', iterations, keybundles, challenges, f);
-      }
-
+      window.benchReady = true;
     } catch (e) {
-      console.error('Failed to init/run wasm benches:', e);
-      print('Error: ' + (e && e.stack || e));
+      // emit a single JSON error line, keep harness quiet otherwise
+      print(JSON.stringify({ error: String(e && e.message || e) }));
+      window.benchReady = true;
     }
   })();
 </script>
