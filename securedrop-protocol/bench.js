@@ -26,6 +26,7 @@ const CliSchema = z.object({
   browser: z.enum(['chromium','firefox','all','none']).default('all'),
   native: z.enum(['on','off']).default('on'),
   flavors: z.string().default('all'),
+  mode: z.enum(['warm','profile','worker']).default('warm'),
   k: z.number().int().nonnegative().default(500),
   j: z.number().int().nonnegative().default(3000),
   rng: z.enum(['on','off']).default('off'),
@@ -38,6 +39,7 @@ const argv = yargs(hideBin(process.argv))
   .option('browser',    { type: 'string', describe: 'chromium|firefox|all|none' })
   .option('native',     { type: 'string', describe: 'on|off' })
   .option('flavors',    { type: 'string', describe: 'all or comma list (chrome,chrome-beta,chrome-dev,firefox,firefox-beta,firefox-nightly,bundled)' })
+  .option('mode',       { type: 'string', describe: 'warm|profile|worker' })
   .option('k',          { type: 'number', describe: 'Keybundles per journalist' })
   .option('j',          { type: 'number', describe: 'Challenges per iter (fetch)' })
   .option('rng',        { type: 'string', describe: 'Include RNG time inside encrypt loop (on|off)' })
@@ -52,6 +54,7 @@ const cfg = CliSchema.parse({
   browser: argv.browser,
   native: argv.native,
   flavors: argv.flavors,
+  mode: argv.mode,
   k: argv.k,
   j: argv.j,
   rng: argv.rng,
@@ -206,6 +209,38 @@ async function buildDriver(family, versionLabel, profileDir) {
 
 function makeTmp(prefix){ return fs.mkdtempSync(path.join(os.tmpdir(), prefix)); }
 
+//
+async function runSpecProfileIsolated(family, versionLabel, baseUrl, spec, iterations) {
+  const combined = [];
+  for (let i = 0; i < iterations; i++) {
+    const tmpProfile = makeTmp(`bench-${family}-${versionLabel || 'stable'}-iter${i}-`);
+    let driver;
+    try {
+      driver = await buildDriver(family, versionLabel, tmpProfile);
+      // Force a single-iteration page run
+      const oneIter = new BenchmarkSpec(spec.name, { ...spec.params, n: 1 });
+      const res = await runSpecOnDriver(driver, baseUrl, oneIter);
+
+      const samplesUs = Array.isArray(res.samples_us)
+        ? res.samples_us.map(x => Math.round(x))
+        : Array.isArray(res.samples_ms)
+          ? res.samples_ms.map(x => Math.round(x * 1000))
+          : [];
+
+      if (samplesUs.length !== 1) {
+        // throw an error?
+      } else {
+        combined.push(samplesUs[0]);
+      }
+    } finally {
+      if (driver) await driver.quit();
+      try { fs.rmSync(tmpProfile, { recursive: true, force: true }); } catch {}
+    }
+  }
+  return combined;
+}
+
+
 // ------------------------------ Page runner (via window.* API) ------------------------------
 
 async function runSpecOnDriver(driver, baseUrl, spec, timeoutMs = 60_000) {
@@ -328,8 +363,8 @@ function makeTable(headers, rows) {
   const outRoot = path.join(cfg.out, stamp());
   ensureDir(outRoot);
 
-  // Banner to confirm param lock
-  logInfo(`Params locked: n=${cfg.iterations}, k=${cfg.k}, j=${cfg.j}, rng=${cfg.rng}`);
+  // Banner to confirm parameters
+  logInfo(`Params locked: n=${cfg.iterations}, k=${cfg.k}, j=${cfg.j}, rng=${cfg.rng}, mode=${cfg.mode}`);
 
   // Start static server
   const { server, port } = await startServer(cfg.root);
@@ -429,22 +464,49 @@ function makeTable(headers, rows) {
       const flavorBundle = { flavor, version, coi, benches: {} };
       const flavorKey = `${flavor.family}:${flavor.label} (${version})`;
 
-      for (const spec of specs) {
-        const res = await runSpecOnDriver(driver, baseUrl, spec);
+       for (const spec of specs) {
+        // Modes:
+        //  - warm: single page, N iterations (current behavior)
+        //  - profile: N runs, 1 iteration each, fresh profile/driver (strong isolation)
+        //  - worker: single page, N iterations, Worker-per-iter (page must implement)
 
-        // Normalize microseconds array
-        const samplesUs = Array.isArray(res.samples_us)
-          ? res.samples_us.map(x => Math.round(x))
-          : Array.isArray(res.samples_ms)
-            ? res.samples_ms.map(x => Math.round(x * 1000))
-            : [];
+        // Defaults based on the spec (used in all modes)
+        let samplesUs = [];
+        let benchName   = spec.name;
+        let iterations  = cfg.iterations;
+        let keybundles  = (spec.name === 'decrypt_journalist') ? cfg.k : null;
+        let challenges  = (spec.name === 'fetch') ? cfg.j : null;
+
+        if (cfg.mode === 'profile') {
+          // Strong isolation: 1 iter per fresh profile/driver
+          samplesUs = await runSpecProfileIsolated(flavor.family, versionLabel, baseUrl, spec, cfg.iterations);
+        } else {
+          // warm/worker: page runs the loop; for worker we pass a hint via query
+          const specWithMode = new BenchmarkSpec(
+            spec.name,
+            { ...spec.params, ...(cfg.mode === 'worker' ? { isolation: 'worker' } : {}) }
+          );
+          const res = await runSpecOnDriver(driver, baseUrl, specWithMode);
+          samplesUs = Array.isArray(res.samples_us)
+            ? res.samples_us.map(x => Math.round(x))
+            : Array.isArray(res.samples_ms)
+              ? res.samples_ms.map(x => Math.round(x * 1000))
+              : [];
+          // If the page returned metadata, let it override our defaults
+          if (res) {
+            benchName  = res.bench || benchName;
+            iterations = (res.iterations ?? iterations);
+            if (spec.name === 'decrypt_journalist') keybundles = (res.keybundles ?? keybundles);
+            if (spec.name === 'fetch')             challenges = (res.challenges ?? challenges);
+          }
+        }
 
         // Build normalized record
         const norm = {
-          bench: res.bench || spec.name,
-          iterations: res.iterations ?? cfg.iterations,
-          keybundles: (spec.name === 'decrypt_journalist') ? (res.keybundles ?? cfg.k) : null,
-          challenges: (spec.name === 'fetch') ? (res.challenges ?? cfg.j) : null,
+          bench: benchName,
+          iterations,
+          keybundles,
+          challenges,
           samples_us: samplesUs,
         };
 
