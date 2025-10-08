@@ -197,10 +197,6 @@ async function buildDriver(family, versionLabel, profileDir) {
   const opts = new firefox.Options();
   opts.addArguments('-headless');
   opts.setProfile(profileDir);
-  opts.setPreference('javascript.options.wasm', true);
-  opts.setPreference('javascript.options.wasm_simd', true);
-  opts.setPreference('javascript.options.wasm_relaxed_simd', true);
-  opts.setPreference('javascript.options.wasm_threads', true);
 
   let caps = new Capabilities().setBrowserName('firefox');
   if (versionLabel) caps = caps.set('browserVersion', versionLabel);
@@ -279,7 +275,6 @@ function statsFromUs(samplesUs) {
 }
 
 async function runNative(iterations, k, j, rngOn) {
-  // Lock params for native; pass exactly what web harness gets.
   const plans = [
     { bench: 'encrypt',            args: ['encrypt', '-n', String(iterations), '-k', String(k), ...(rngOn ? ['--include-rng'] : [])],
       expect: { iterations, keybundles: k, challenges: null } },
@@ -374,7 +369,7 @@ function makeTable(headers, rows) {
   // Native (optional)
   let native = null;
   if (cfg.native === 'on') {
-    logInfo('Running native (cargo bench, JSON)...');
+    logInfo('Running native...');
     try {
       native = await runNative(cfg.iterations, cfg.k, cfg.j, cfg.rng === 'on');
 

@@ -125,9 +125,6 @@ impl WStoreEntry {
     }
 }
 
-/* ========= Single-shot ops (what you time in JS) ========= */
-
-/// One encrypt. You time only this call in JS.
 /// `seed32` must be exactly 32 bytes.
 #[wasm_bindgen]
 pub fn encrypt_once(
@@ -150,7 +147,6 @@ pub fn encrypt_once(
     env.into()
 }
 
-/// One decrypt. You time only this call in JS.
 /// Returns plaintext bytes.
 #[wasm_bindgen]
 pub fn decrypt_once(recipient: &WJournalist, envelope: &WEnvelope) -> Vec<u8> {
@@ -159,7 +155,7 @@ pub fn decrypt_once(recipient: &WJournalist, envelope: &WEnvelope) -> Vec<u8> {
     pt.into_bytes()
 }
 
-/// Build challenges for fetch (usually not timed).
+/// Build challenges for fetch
 #[wasm_bindgen]
 pub fn compute_fetch_challenges_once(
     seed32: &[u8],

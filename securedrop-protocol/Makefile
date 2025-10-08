@@ -57,7 +57,7 @@ bench: deps build
 	@echo "Running bench with ITER=$(ITER)"
 	SE_CACHE_PATH="$(abspath $(SELENIUM_CACHE))" \
 	SE_FORCE_BROWSER_DOWNLOAD=true \
-	node bench.js -n $(ITER)
+	node bench.js -n $(ITER) --flavors firefox,chrome --mode profile
 
 warm-cache: selenium-cache node_modules
 	SE_CACHE_PATH="$(abspath $(SELENIUM_CACHE))" \
