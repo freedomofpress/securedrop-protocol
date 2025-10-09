@@ -861,7 +861,6 @@ dependencies = [
  "libcrux-ml-kem 0.0.3 (git+https://github.com/cryspen/libcrux?rev=54c6624630e47ed599ffc1549101c2b861d51a8c)",
  "libcrux-traits 0.0.3 (git+https://github.com/cryspen/libcrux?rev=54c6624630e47ed599ffc1549101c2b861d51a8c)",
  "proptest",
- "rand",
  "rand_chacha",
  "rand_core",
  "serde",

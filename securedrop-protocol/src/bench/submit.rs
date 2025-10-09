@@ -81,22 +81,6 @@ pub fn bench_submit_message(iterations: usize, _: usize) {
         let test_message = vec![0u8; 512]; // Test message content
         let mut rng = StdRng::seed_from_u64(666);
 
-    for index in 0..n {
-        group.bench_with_input(
-            BenchmarkId::new("submit", format!("message_{}", index)),
-            &index,
-            |b, _| {
-                b.iter(|| {
-                    let (source, journalist_key_responses) = setup_test_environment();
-
-                    let test_message = vec![0u8; 512]; // Test message content
-                    let mut rng = ChaCha20Rng::seed_from_u64(666);
-                    source
-                        .submit_message(test_message, &journalist_key_responses, &mut rng)
-                        .expect("Message submission should succeed");
-                })
-            },
-        );
         source
             .submit_message(test_message, &journalist_key_responses, &mut rng)
             .expect(&format!(
@@ -104,5 +88,4 @@ pub fn bench_submit_message(iterations: usize, _: usize) {
                 index
             ));
     }
-}
 }
