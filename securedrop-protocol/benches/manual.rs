@@ -5,11 +5,11 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use serde::Serialize;
 
-use securedrop_protocol::bench::{bench_decrypt, bench_encrypt, bench_fetch};
-use securedrop_protocol::bench::encrypt_decrypt::{Journalist, Source};
 use securedrop_protocol::bench::encrypt_decrypt::{
-    compute_fetch_challenges, Envelope, FetchResponse, ServerMessageStore, User,
+    Envelope, FetchResponse, ServerMessageStore, User, compute_fetch_challenges,
 };
+use securedrop_protocol::bench::encrypt_decrypt::{Journalist, Source};
+use securedrop_protocol::bench::{bench_decrypt, bench_encrypt, bench_fetch};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RawFmt {
@@ -56,9 +56,15 @@ fn main() {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--bench" => continue,
-            "-n" | "--iterations" => iterations = parse_usize(&next_val(&mut args, &arg), "iterations"),
-            "-k" | "--num-onetimekeys" => keybundles = parse_usize(&next_val(&mut args, &arg), "num-onetimekeys"),
-            "-j" | "--challenges" => challenges = parse_usize(&next_val(&mut args, &arg), "challenges"),
+            "-n" | "--iterations" => {
+                iterations = parse_usize(&next_val(&mut args, &arg), "iterations")
+            }
+            "-k" | "--num-onetimekeys" => {
+                keybundles = parse_usize(&next_val(&mut args, &arg), "num-onetimekeys")
+            }
+            "-j" | "--challenges" => {
+                challenges = parse_usize(&next_val(&mut args, &arg), "challenges")
+            }
             "--raw" => {
                 let v = next_val(&mut args, &arg);
                 raw_fmt = match v.as_str() {
@@ -70,7 +76,11 @@ fn main() {
             "--quiet" => quiet = true,
             "--include-rng" => include_rng = false,
             "encrypt" | "decrypt" | "fetch" | "all" => {
-                if which.is_none() { which = Some(arg); } else { die(&format!("Unexpected extra argument: {arg}")); }
+                if which.is_none() {
+                    which = Some(arg);
+                } else {
+                    die(&format!("Unexpected extra argument: {arg}"));
+                }
             }
             _ if arg.starts_with('-') => continue,
             _ => die(&format!("Unknown argument: {arg}")),
@@ -82,11 +92,15 @@ fn main() {
     match which.as_str() {
         "encrypt" => {
             let samples = bench_encrypt_loop(iterations, keybundles, include_rng);
-            output("encrypt", iterations, keybundles, None, &samples, raw_fmt, quiet);
+            output(
+                "encrypt", iterations, keybundles, None, &samples, raw_fmt, quiet,
+            );
         }
         "decrypt" => {
             let samples = bench_decrypt_loop(iterations, keybundles);
-            output("decrypt", iterations, keybundles, None, &samples, raw_fmt, quiet);
+            output(
+                "decrypt", iterations, keybundles, None, &samples, raw_fmt, quiet,
+            );
         }
         "fetch" => {
             let samples = bench_fetch_loop(iterations, keybundles, challenges);
@@ -133,14 +147,24 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
         let msg = b"super secret msg".to_vec();
 
         // Bundle index chosen outside the timed section
-        let bundle_ix = if keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % keybundles };
+        let bundle_ix = if keybundles == 0 {
+            0
+        } else {
+            (prep_rng.next_u32() as usize) % keybundles
+        };
 
         if include_rng {
             // Time the seed fill + encrypt together
             let t0 = Instant::now();
             let mut seed = [0u8; 32];
             prep_rng.fill_bytes(&mut seed);
-            let env: Envelope = bench_encrypt(seed, &sender as &dyn User, &recipient as &dyn User, bundle_ix, &msg);
+            let env: Envelope = bench_encrypt(
+                seed,
+                &sender as &dyn User,
+                &recipient as &dyn User,
+                bundle_ix,
+                &msg,
+            );
             let dt = t0.elapsed();
             durations.push(dt);
             sink ^= env.size_hint();
@@ -150,7 +174,13 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
             prep_rng.fill_bytes(&mut seed);
 
             let t0 = Instant::now();
-            let env: Envelope = bench_encrypt(seed, &sender as &dyn User, &recipient as &dyn User, bundle_ix, &msg);
+            let env: Envelope = bench_encrypt(
+                seed,
+                &sender as &dyn User,
+                &recipient as &dyn User,
+                bundle_ix,
+                &msg,
+            );
             let dt = t0.elapsed();
             durations.push(dt);
             sink ^= env.size_hint();
@@ -175,9 +205,18 @@ fn bench_decrypt_loop(iterations: usize, keybundles: usize) -> Vec<Duration> {
 
         // Prepare envelope (not timed)
         let mut seed = [0u8; 32];
-        let bundle_ix = if keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % keybundles };
-        let env: Envelope =
-            bench_encrypt(seed, &sender as &dyn User, &recipient as &dyn User, bundle_ix, &msg);
+        let bundle_ix = if keybundles == 0 {
+            0
+        } else {
+            (prep_rng.next_u32() as usize) % keybundles
+        };
+        let env: Envelope = bench_encrypt(
+            seed,
+            &sender as &dyn User,
+            &recipient as &dyn User,
+            bundle_ix,
+            &msg,
+        );
 
         // Time ONLY decrypt
         let t0 = Instant::now();
@@ -208,7 +247,11 @@ fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> 
         for j in 0..store_size {
             let mut seed = [0u8; 32];
             prep_rng.fill_bytes(&mut seed);
-            let bundle_ix = if keybundles == 0 { 0 } else { (prep_rng.next_u32() as usize) % keybundles };
+            let bundle_ix = if keybundles == 0 {
+                0
+            } else {
+                (prep_rng.next_u32() as usize) % keybundles
+            };
             let env = bench_encrypt(
                 seed,
                 &source as &dyn User,
@@ -222,7 +265,8 @@ fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> 
         }
 
         // Generate challenges (not timed)
-        let challenges: Vec<FetchResponse> = compute_fetch_challenges(&mut prep_rng, &store, challenges);
+        let challenges: Vec<FetchResponse> =
+            compute_fetch_challenges(&mut prep_rng, &store, challenges);
 
         // Time ONLY the solver
         let t0 = Instant::now();
@@ -313,17 +357,31 @@ fn print_series_report(
 fn stats_ms(samples: &[Duration]) -> (f64, f64, f64, f64, f64, f64, f64) {
     let ms = to_ms(samples);
     let total_ms: f64 = ms.iter().sum();
-    let avg_ms = if ms.is_empty() { 0.0 } else { total_ms / ms.len() as f64 };
+    let avg_ms = if ms.is_empty() {
+        0.0
+    } else {
+        total_ms / ms.len() as f64
+    };
     let mut sorted = ms.clone();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let pick = |q: f64| -> f64 {
-        if sorted.is_empty() { return 0.0; }
+        if sorted.is_empty() {
+            return 0.0;
+        }
         let idx = ((q * (sorted.len() as f64 - 1.0)).round() as usize).min(sorted.len() - 1);
         sorted[idx]
     };
     let min = *sorted.first().unwrap_or(&0.0);
     let max = *sorted.last().unwrap_or(&0.0);
-    (total_ms, avg_ms, min, pick(0.50), pick(0.90), pick(0.99), max)
+    (
+        total_ms,
+        avg_ms,
+        min,
+        pick(0.50),
+        pick(0.90),
+        pick(0.99),
+        max,
+    )
 }
 
 fn to_ms(samples: &[Duration]) -> Vec<f64> {
@@ -339,11 +397,13 @@ fn mk_rng() -> ChaCha20Rng {
 }
 
 fn next_val(args: &mut impl Iterator<Item = String>, flag: &str) -> String {
-    args.next().unwrap_or_else(|| die(&format!("Missing value for {flag}")))
+    args.next()
+        .unwrap_or_else(|| die(&format!("Missing value for {flag}")))
 }
 
 fn parse_usize(s: &str, name: &str) -> usize {
-    s.parse::<usize>().unwrap_or_else(|_| die(&format!("Invalid number for {name}: {s}")))
+    s.parse::<usize>()
+        .unwrap_or_else(|_| die(&format!("Invalid number for {name}: {s}")))
 }
 
 fn die(msg: &str) -> ! {

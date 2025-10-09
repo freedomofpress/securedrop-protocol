@@ -109,22 +109,30 @@ impl Envelope {
     pub fn size_hint(&self) -> usize {
         self.cmessage.len() + self.cmetadata.len()
     }
-    pub fn cmessage_len(&self)->usize { self.cmessage.len() }
-    pub fn cmetadata_len(&self)->usize { self.cmetadata.len() }
+    pub fn cmessage_len(&self) -> usize {
+        self.cmessage.len()
+    }
+    pub fn cmetadata_len(&self) -> usize {
+        self.cmetadata.len()
+    }
 }
 
 impl ServerMessageStore {
     pub fn new(message_id: [u8; 16], envelope: Envelope) -> Self {
-        Self { message_id, envelope }
+        Self {
+            message_id,
+            envelope,
+        }
     }
 
     pub fn message_id(&self) -> [u8; 16] {
         self.message_id
     }
 
-    pub fn envelope(&self) -> &Envelope { &self.envelope }
+    pub fn envelope(&self) -> &Envelope {
+        &self.envelope
+    }
 }
-
 
 // Plaintext metadata
 pub struct Metadata {
@@ -247,7 +255,7 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     sender: &dyn User,
     plaintext: &[u8],
     recipient: &dyn User,
-    recipient_bundle_index: Option<usize>
+    recipient_bundle_index: Option<usize>,
 ) -> Envelope {
     use hpke_rs::hpke_types::AeadAlgorithm::ChaCha20Poly1305;
     use hpke_rs::hpke_types::KdfAlgorithm::HkdfSha256;
@@ -749,7 +757,13 @@ pub fn bench_encrypt(
     plaintext: &[u8],
 ) -> Envelope {
     let mut rng = ChaCha20Rng::from_seed(seed32);
-    encrypt(&mut rng, sender, plaintext, recipient, Some(recipient_bundle_index))
+    encrypt(
+        &mut rng,
+        sender,
+        plaintext,
+        recipient,
+        Some(recipient_bundle_index),
+    )
 }
 
 pub fn bench_decrypt(recipient: &dyn User, envelope: &Envelope) -> Plaintext {

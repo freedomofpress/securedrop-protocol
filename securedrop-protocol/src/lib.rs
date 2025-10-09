@@ -2,38 +2,33 @@
 
 extern crate alloc;
 
+pub mod client;
 pub mod keys;
-pub mod client;  pub use client::Client;
-pub mod messages;
-pub mod server;
-pub mod source;
+pub use client::Client;
 pub mod journalist;
-pub mod setup;
+pub mod messages;
 pub mod primitives;
+pub mod server;
+pub mod setup;
+pub mod source;
 
 // Primitives for signing
 pub mod sign;
-pub use sign::{Signature, SelfSignature, SigningKey, VerifyingKey};
+pub use sign::{SelfSignature, Signature, SigningKey, VerifyingKey};
 
 pub mod storage;
 
 pub mod bench;
 
 use alloc::{boxed::Box, vec::Vec};
+use js_sys::{Array, Uint8Array};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use wasm_bindgen::prelude::*;
-use js_sys::{Array, Uint8Array};
 
 use bench::encrypt_decrypt::{
+    Envelope, FetchResponse, Journalist, Plaintext, ServerMessageStore, Source, User,
     compute_fetch_challenges,
-    Envelope,
-    FetchResponse,
-    Journalist,
-    Plaintext,
-    ServerMessageStore,
-    Source,
-    User,
 };
 use bench::{bench_decrypt, bench_encrypt, bench_fetch};
 
@@ -57,7 +52,9 @@ impl WSource {
         let mut seed = [0u8; 32];
         getrandom::fill(&mut seed).expect("getrandom failed");
         let mut rng = rng_from_seed(seed);
-        WSource { inner: Source::new(&mut rng) }
+        WSource {
+            inner: Source::new(&mut rng),
+        }
     }
 }
 
@@ -74,7 +71,9 @@ impl WJournalist {
         let mut seed = [0u8; 32];
         getrandom::fill(&mut seed).expect("getrandom failed");
         let mut rng = rng_from_seed(seed);
-        WJournalist { inner: Journalist::new(&mut rng, num_keybundles) }
+        WJournalist {
+            inner: Journalist::new(&mut rng, num_keybundles),
+        }
     }
 
     #[wasm_bindgen(getter)]
@@ -89,7 +88,9 @@ pub struct WEnvelope {
 }
 
 impl From<Envelope> for WEnvelope {
-    fn from(inner: Envelope) -> Self { WEnvelope { inner } }
+    fn from(inner: Envelope) -> Self {
+        WEnvelope { inner }
+    }
 }
 
 #[wasm_bindgen]
@@ -105,7 +106,9 @@ pub struct WFetchResponse {
     inner: FetchResponse,
 }
 impl From<FetchResponse> for WFetchResponse {
-    fn from(inner: FetchResponse) -> Self { WFetchResponse { inner } }
+    fn from(inner: FetchResponse) -> Self {
+        WFetchResponse { inner }
+    }
 }
 
 #[wasm_bindgen]
@@ -121,7 +124,9 @@ impl WStoreEntry {
         assert_eq!(message_id_16.len(), 16, "message_id must be 16 bytes");
         let mut id = [0u8; 16];
         id.copy_from_slice(message_id_16);
-        WStoreEntry { inner: ServerMessageStore::new(id, envelope.inner.clone()) }
+        WStoreEntry {
+            inner: ServerMessageStore::new(id, envelope.inner.clone()),
+        }
     }
 }
 
@@ -176,10 +181,7 @@ pub fn compute_fetch_challenges_once(
 }
 
 #[wasm_bindgen]
-pub fn fetch_once(
-    recipient: &WJournalist,
-    challenges: Box<[WFetchResponse]>,
-) -> Array {
+pub fn fetch_once(recipient: &WJournalist, challenges: Box<[WFetchResponse]>) -> Array {
     let inner: Vec<FetchResponse> = challenges.into_vec().into_iter().map(|w| w.inner).collect();
     let ids: Vec<Vec<u8>> = bench_fetch(&recipient.inner, inner);
 
