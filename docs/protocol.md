@@ -99,29 +99,32 @@ deactivate Server
 
 ## Keys
 
-In the table below:
+Throughout this document, keys are notated as $component_{owner}^{scheme}$, where:
 
-> For keys, we use the notation $X_{A,B}$, where $X$ represents the key owner
-> ($`X \in \{NR, J, S\}`$ [for newsroom, journalist, and source, respectively]),
-> $A$ represents the key's usage ($`A \in \{sig,fetch,pke,pq,md\}`$), and is prefixed
-> with an "e" if the key is a one-time key. $B$ indicates whether the component is
-> private or public. For Diffie-Hellman keys $x$, the public component is
-> represented by the exponentiation $DH(g, x)$.[^3]
+- $component \in \{sk, pk\}$ for private ($sk$) or public ($pk$) components;
+- $owner \in \{FPF, NR, J, S\}$ for FPF, newsroom $NR$, journalist $J$, or source $S$; and
+- $scheme \in \{fetch, sig, AKEM, APKE, PKE, PQ\}$ for:
+  - $fetch$ = fetching
+  - $sig = $ signature
+  - $APKE = \text{SD-APKE}$, composed of:
+    - $AKEM = \text{AKEM}$ ($AKEM_E$ if one-time)
+    - $PQ = \text{KEM}_{PQ}$
+- $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time)
 
-| Owner      | Secret Key       | Pubkey           | Usage   | Purpose  | Direction         | Lifetime      | Algorithm                    | Signed by          |
-| ---------- | ---------------- | ---------------- | ------- | -------- | ----------------- | ------------- | ---------------------------- | ------------------ |
-| FPF        | $`FPF_{sig,sk}`$ | $`FPF_{sig,pk}`$ |         | Signing  |                   | Long-term     | ?                            |                    |
-| Newsroom   | $`NR_{sig,sk}`$  | $`NR_{sig,pk}`$  |         | Signing  |                   | Long-term     | ?                            | $`FPF_{sig,sk}`$   |
-| Journalist | $`J_{sig,sk}`$   | $`J_{sig,pk}`$   |         | Signing  |                   | Long-term     | ?                            | $`NR_{sig,sk}`$    |
-| Journalist | $`J_{apke,sk}`$  | $`J_{apke,pk}`$  | SD-APKE | Message  | Outgoing          | Long-term     | DH-AKEM(X25519, HKDF-SHA256) | $`J_{sig,sk}`$     |
-| Journalist | $`J_{fetch,sk}`$ | $`J_{fetch,pk}`$ |         | Fetching |                   | **TBD**[^6]   | ristretto255 (Curve25519)    | $`J_{sig,sk}`$[^4] |
-| Journalist | $`J_{epq,sk}`$   | $`J_{epq,pk}`$   | SD-APKE | Message  | Incoming          | One-time      | ML-KEM-768                   | $`J_{sig,sk}`$     |
-| Journalist | $`J_{epke,sk}`$  | $`J_{epke,pk}`$  | SD-APKE | Message  | Incoming          | One-time      | DH-AKEM(X25519, HKDF-SHA256) | $`J_{sig,sk}`$     |
-| Journalist | $`J_{emd,sk}`$   | $`J_{emd,pk}`$   | SD-PKE  | Metadata | Incoming          | One-time      | X-Wing (X25519, ML-KEM-768)  | $`J_{sig,sk}`$     |
-| Source     | $`S_{fetch,sk}`$ | $`S_{fetch,pk}`$ |         | Fetching |                   | Permanent[^7] | ristretto255 (Curve25519)    |                    |
-| Source     | $`S_{pq,sk}`$    | $`S_{pq,pk}`$    | SD-APKE | Message  | Incoming          | Permanent[^7] | ML-KEM-768                   |                    |
-| Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | SD-APKE | Message  | Incoming+Outgoing | Permanent[^7] | DH-AKEM(X25519, HKDF-SHA256) |                    |
-| Source     | $`S_{md,sk}`$    | $`S_{md,pk}`$    | SD-PKE  | Metadata | Incoming          | Permanent[^7] | X-Wing (X25519, ML-KEM-768)  |                    |
+| Owner      | Private Key        | Public Key         | Usage   | Purpose  | Direction         | Lifetime      | Algorithm                    | Signed by          |
+| ---------- | ------------------ | ------------------ | ------- | -------- | ----------------- | ------------- | ---------------------------- | ------------------ |
+| FPF        | $`sk_{FPF}^{sig}`$ | $`pk_{FPF}^{sig}`$ |         | Signing  |                   | Long-term     | ?                            |                    |
+| Newsroom   | $`sk_{NR}^{sig}`$  | $`pk_{NR}^{sig}`$  |         | Signing  |                   | Long-term     | ?                            | $`sk_{FPF}^{sig}`$ |
+| Journalist | $`sk_J^{sig}`$     | $`pk_J^{sig}`$     |         | Signing  |                   | Long-term     | ?                            | $`sk_{NR}^{sig}`$  |
+| Journalist | $`sk_J^{AKEM}`$    | $`pk_J^{AKEM}`$    | SD-APKE | Message  | Outgoing          | Long-term     | DH-AKEM(X25519, HKDF-SHA256) | $`sk_J^{sig}`$     |
+| Journalist | $`sk_J^{fetch}`$   | $`pk_J^{fetch}`$   |         | Fetching |                   | **TBD**[^6]   | ristretto255 (Curve25519)    | $`sk_J^{sig}`$[^4] |
+| Journalist | $`sk_J^{PQ_E}`$    | $`pk_J^{PQ_E}`$    | SD-APKE | Message  | Incoming          | One-time      | ML-KEM-768                   | $`sk_J^{sig}`$     |
+| Journalist | $`sk_J^{AKEM_E}`$  | $`pk_J^{AKEM_E}`$  | SD-APKE | Message  | Incoming          | One-time      | DH-AKEM(X25519, HKDF-SHA256) | $`sk_J^{sig}`$     |
+| Journalist | $`sk_J^{PKE_E}`$   | $`pk_J^{PKE_E}`$   | SD-PKE  | Metadata | Incoming          | One-time      | X-Wing (X25519, ML-KEM-768)  | $`sk_J^{sig}`$     |
+| Source     | $`sk_S^{fetch}`$   | $`pk_S^{fetch}`$   |         | Fetching |                   | Permanent[^7] | ristretto255 (Curve25519)    |                    |
+| Source     | $`sk_S^{PQ}`$      | $`pk_S^{PQ}`$      | SD-APKE | Message  | Incoming          | Permanent[^7] | ML-KEM-768                   |                    |
+| Source     | $`sk_S^{AKEM}`$    | $`pk_S^{AKEM}`$    | SD-APKE | Message  | Incoming+Outgoing | Permanent[^7] | DH-AKEM(X25519, HKDF-SHA256) |                    |
+| Source     | $`sk_S^{PKE}`$     | $`pk_S^{PKE}`$     | SD-PKE  | Metadata | Incoming          | Permanent[^7] | X-Wing (X25519, ML-KEM-768)  |                    |
 
 [^4]: **TODO:** Discussion of whether the newsroom's or the journalist's signing key signs the journalist's fetching key.
 
