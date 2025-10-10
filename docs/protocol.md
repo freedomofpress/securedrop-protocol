@@ -152,7 +152,7 @@ The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC
 - For message encryption, `SD-APKE` wraps HPKE `AuthPSK` mode, following listing
   17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen2023].
 
-### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 4 as of 7703a58 -->
+### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 4 as of 7944378 -->
 
 $\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
 mode][RFC 9180 §5.1.1] with:
@@ -189,7 +189,7 @@ def Dec(skR, (c, cp)):  # cp = c'
 
 ### Message encryption
 
-#### `AKEM`: Authenticated KEM <!-- Definition 4.1 as of 7703a58 -->
+#### `AKEM`: Authenticated KEM <!-- Definition 4.1 as of 7944378 -->
 
 $\text{AKEM}$ instantiates the [DH-based KEM][RFC 9180 §4.1]
 $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
@@ -205,7 +205,7 @@ $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
 
 Concretely, these functions are used as specified in [RFC 9180 §4.1].
 
-#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 5 as of 9f4d2ab -->
+#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 5 as of 7944378 -->
 
 $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 `AuthPSK` mode][RFC 9180 §5.1.4] with:
@@ -214,10 +214,10 @@ $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
 - $\text{AEAD} =$ AES-GCM
 
-| Syntax                                                                | Description                                                                                           |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk_S, pk_R, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
-| $`m \gets \text{pskADec}(pk_S, sk_R, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
+| Syntax                                                                | Description                                                                                                                   |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk_S, pk_R, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5]                         |
+| $`m \gets \text{pskADec}(pk_S, sk_R, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] <!-- FIXME: 28dd67c --> |
 
 Concretely:
 
@@ -228,6 +228,7 @@ def pskAEnc(skS, pkR, psk, m, ad, info):
     cp = AEAD.Enc(k, nonce, ad, m)  # cp = c'
     return (c1, cp)
 
+# FIXME: 28dd67c
 def pskADec(pkS, skR, psk, (c1, cp), ad, info):  # cp = c'
     K1 = AKEM.AuthDecap(skR, pkS, c1)
     (k, nonce) = KS(K1, psk, info)
@@ -235,7 +236,7 @@ def pskADec(pkS, skR, psk, (c1, cp), ad, info):  # cp = c'
     return m
 ```
 
-#### `SD-APKE`: SecureDrop APKE <!-- Figure 3 as of 7703a58 -->
+#### `SD-APKE`: SecureDrop APKE <!-- Figure 3 as of 7944378 -->
 
 $\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
 
@@ -243,11 +244,11 @@ $\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
 - $\text{KEM}_{PQ} =$ ML-KEM-768
 - $\text{pskAPKE}$ as above
 
-| Syntax                                                                                          | Description                                                |
-| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| $`(sk, pk) \gets^{\$} \text{KGen}()`$                                                           | Generate keys                                              |
-| $`((c_1, c'), c_2) \gets^{\$} \text{AuthEnc}((sk_S^1, sk_S^2), (pk_R^1, pk_R^2), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
-| $`m \gets \text{AuthDec}((sk_R^1, sk_R^2), (pk_S^1, pk_S^2), ((c_1, c'), c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
+| Syntax                                                                                                        | Description                                                |
+| ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| $`(sk, pk) \gets^{\$} \text{KGen}()`$                                                                         | Generate keys                                              |
+| $`((c_1, c'), c_2) \gets^{\$} \text{AuthEnc}(sk_S = (sk_S^1, sk_S^2), pk_S = (pk_R^1, pk_R^2), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
+| $`m \gets \text{AuthDec}(sk_R = (sk_R^1, sk_R^2), pk_S = (pk_S^1, pk_S^2), ((c_1, c'), c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
 
 Concretely:
 
@@ -266,7 +267,7 @@ def AuthEnc((skS1, skS2), (pkR1, pkR2), m, ad, info):
 
 def AuthDec((skR1, skR2), (pkS1, pkS2), ((c1, cp), c2), ad, info):  # cp = c'
     K2 = KEM_PQ.Decap(skR2, c2)
-    m = pskADec(pkS1, skR1, K2, (c1, cp), ad, c2)
+    m = pskADec(pkS1, skR1, K2, (c1, cp), ad, c2)  # FIXME: 28dd67c
     return m
 ```
 
@@ -342,9 +343,7 @@ step (7), in any order.
 Only a source can initiate a conversation. In other words, a source is always
 the first sender.
 
-### 5. Sender fetches keys and verifies their authenticity <!-- Figure 1 as of 7703a58 -->
-
-**TODO:** Sync with the "Setup" section.
+### 5. Sender fetches keys and verifies their authenticity <!-- Figure 1 as of 7944378 -->
 
 A sender knows their own keys. In addition, in the **reply case,** if the sender
 is a journalist replying to a source, they also already know their recipient's
@@ -371,7 +370,7 @@ For some newsroom $NR$ and all its enrolled journalists $J_i$:
 | **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying:           |                                 |                                                                               |
 | $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                                               |
 
-### 6. Sender submits a message <!-- Figure 1 as of 7703a58 -->
+### 6. Sender submits a message <!-- Figure 1 as of 7944378 -->
 
 Then, for some message $m$, for all keys $(pk_{R,i}^{APKE}, pk_{R,i}^{PKE},
 pk_{R,i}^{fetch}) \in pks$:
@@ -389,7 +388,7 @@ pk_{R,i}^{fetch}) \in pks$:
 |                                                                                     |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
 |                                                                                     |                                 | Store $(id, C_S, X, Z)$                        |
 
-### 7. Receiver fetches and decrypts messages <!-- Figure 2 as of 7703a58 -->
+### 7. Receiver fetches and decrypts messages <!-- Figure 2 as of 7944378 -->
 
 A receiver knows their own keys.
 
