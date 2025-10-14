@@ -347,7 +347,7 @@ impl JournalistLongtermPublicKeys {
     pub fn into_bytes(self) -> [u8; 64] {
         let mut bytes = [0u8; 64];
 
-        // DH fetching public key (1184 bytes)
+        // DH fetching public key (32 bytes)
         bytes[0..32].copy_from_slice(&self.fetch_key.into_bytes());
 
         // DH-AKEM reply public key (32 bytes)

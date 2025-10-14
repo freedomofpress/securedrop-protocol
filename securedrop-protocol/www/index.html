@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>securedrop-protocol wasm harness</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 16px; }
+    pre { white-space: pre-wrap; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  </style>
+</head>
+<body>
+  <pre id="out"></pre>
+
+<script type="module">
+  import init, {
+    WSource, WJournalist, WEnvelope, WStoreEntry,
+    encrypt_once, decrypt_once, compute_fetch_challenges_once, fetch_once,
+  } from '../pkg/securedrop_protocol.js';
+
+  function bytesEq(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
+  // -------- params (no aliases) --------
+  const params = new URLSearchParams(location.search);
+  const allowed = new Set(['encrypt','decrypt_journalist','decrypt_source','fetch','all']);
+  const which = (params.get('bench') || 'all').toLowerCase();
+  if (!allowed.has(which)) throw new Error(`Unknown bench: ${which}`);
+
+  const iterations = +(params.get('n') || 10);
+  const keybundles  = +(params.get('k') || 500);
+  const challenges  = +(params.get('j') || 3000);
+  const raw = (params.get('raw') || 'json').toLowerCase();  // json | csv
+  const includeRng = params.get('include_rng') === '1';
+  const label = params.get('label') || null;
+
+  // -------- env --------
+  const outEl = document.getElementById('out');
+  const print = (s) => { outEl.textContent += s + '\n'; };
+
+  function randU32() { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0]; }
+  function seed32()  { const u = new Uint8Array(32); crypto.getRandomValues(u); return u; }
+  function nowUs()   { return performance.now() * 1000; } // microseconds (float)
+  function tickUs(fn) { const t0 = nowUs(); const r = fn(); return [Math.round(nowUs() - t0), r]; }
+
+  // -------- benches (return array of integer µs) --------
+  async function benchEncryptLoop(n, k, includeRngInEncrypt) {
+    const samples = [];
+    for (let i = 0; i < n; i++) {
+      const sender = new WSource();
+      const recipient = new WJournalist(k);
+      const msg = new TextEncoder().encode('super secret msg');
+      //const bundleIx = k === 0 ? 0 : (randU32() % k);
+      const bundleIx = 10;
+
+      if (includeRngInEncrypt) {
+        const [dt] = tickUs(() => {
+          const seed = seed32();
+          const env = encrypt_once(seed, sender, recipient, bundleIx, msg);
+          void env;
+        });
+        samples.push(dt);
+      } else {
+        const seed = seed32();
+        const [dt] = tickUs(() => {
+          const env = encrypt_once(seed, sender, recipient, bundleIx, msg);
+          void env;
+        });
+        samples.push(dt);
+      }
+    }
+    return samples;
+  }
+
+  async function benchDecryptLoop(n, k) {
+    const samples = [];
+    for (let i = 0; i < n; i++) {
+      const sender = new WSource();
+      const recipient = new WJournalist(k);
+      const msg = new TextEncoder().encode('super secret msg');
+      const seed = seed32();
+      const bundleIx = k === 0 ? 0 : (randU32() % k);
+      const env = encrypt_once(seed, sender, recipient, bundleIx, msg);
+
+      const [dt, pt] = tickUs(() => decrypt_once(recipient, env));
+      if (!bytesEq(pt, msg)) {
+        throw new Error(
+          `Decryption mismatch at iter ${i}: ` +
+          `expected len=${msg.length} (${toHex(msg).slice(0,64)}...), ` +
+          `got len=${pt.length} (${toHex(pt).slice(0,64)}...)`
+        );
+      }
+      void pt;
+      samples.push(dt);
+    }
+    return samples;
+  }
+
+  async function benchFetchLoop(n, k, challengesPerIter) {
+    const samples = [];
+    for (let i = 0; i < n; i++) {
+      const journalist = new WJournalist(k);
+      const source = new WSource();
+
+      const storeSize = Math.min(challengesPerIter, 100);
+      const storeEntries = [];
+      for (let j = 0; j < storeSize; j++) {
+        const seed = seed32();
+        const bundleIx = k === 0 ? 0 : (randU32() % k);
+        const msg = new TextEncoder().encode(`iter${i}-msg${j}`);
+        const env = encrypt_once(seed, source, journalist, bundleIx, msg);
+
+        const messageId = new Uint8Array(16);
+        messageId.fill(j & 0xff);
+        storeEntries.push(new WStoreEntry(messageId, env));
+      }
+
+      const challSeed = seed32();
+      const chals = compute_fetch_challenges_once(challSeed, storeEntries, challengesPerIter);
+
+      const [dt, ids] = tickUs(() => fetch_once(journalist, chals));
+      void ids;
+      samples.push(dt);
+    }
+    return samples;
+  }
+
+  // -------- emitters (no stats) --------
+  function makePayload(bench, iters, k, j, samplesUs, extra = {}) {
+    return {
+      bench,                 // encrypt | decrypt_journalist | decrypt_source | fetch
+      label: extra.label ?? null,
+      iterations: iters,
+      keybundles: k,
+      challenges: j ?? null,
+      samples_us: samplesUs, // integer µs per iteration
+    };
+  }
+
+  function emit(payload) {
+    if (raw === 'json') {
+      print(JSON.stringify(payload));
+    } else if (raw === 'csv') {
+      for (const v of payload.samples_us) print(String(v)); // µs per line
+    }
+  }
+
+  // -------- globals for Selenium --------
+  window.benchResults = [];             // array of payloads (with samples_us)
+  window.benchResultsByName = Object.create(null); // keyed by bench
+  window.benchReady = false;
+  window.waitForBenches = () =>
+    new Promise((resolve) => {
+      if (window.benchReady) return resolve(window.benchResults);
+      const iv = setInterval(() => {
+        if (window.benchReady) { clearInterval(iv); resolve(window.benchResults); }
+      }, 50);
+    });
+
+  // -------- run --------
+  (async function run() {
+    try {
+      const wasmUrl = new URL('../pkg/securedrop_protocol_bg.wasm', import.meta.url);
+      await init(wasmUrl);
+
+      const toRun = (which === 'all')
+        ? ['encrypt','decrypt_journalist','decrypt_source','fetch']
+        : [which];
+
+      for (const name of toRun) {
+        if (name === 'encrypt') {
+          const samples = await benchEncryptLoop(iterations, keybundles, includeRng);
+          const p = makePayload('encrypt', iterations, keybundles, null, samples, { label });
+          window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
+        } else if (name === 'decrypt_journalist') {
+          const samples = await benchDecryptLoop(iterations, keybundles);
+          const p = makePayload('decrypt_journalist', iterations, keybundles, null, samples, { label });
+          window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
+        } else if (name === 'decrypt_source') {
+          const samples = await benchDecryptLoop(iterations, 1);
+          const p = makePayload('decrypt_source', iterations, 1, null, samples, { label });
+          window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
+        } else if (name === 'fetch') {
+          const samples = await benchFetchLoop(iterations, keybundles, challenges);
+          const p = makePayload('fetch', iterations, keybundles, challenges, samples, { label });
+          window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
+        }
+      }
+
+      window.benchReady = true;
+    } catch (e) {
+      // emit a single JSON error line, keep harness quiet otherwise
+      print(JSON.stringify({ error: String(e && e.message || e) }));
+      window.benchReady = true;
+    }
+  })();
+</script>
+</body>
+</html>

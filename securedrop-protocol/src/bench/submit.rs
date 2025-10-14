@@ -1,8 +1,8 @@
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
+use alloc::{format, vec, vec::Vec};
 
-use securedrop_protocol::{
+use crate::{
     journalist::JournalistClient, keys::FPFKeyPair, messages::core::SourceJournalistKeyResponse,
     server::Server, source::SourceClient,
 };
@@ -73,29 +73,19 @@ fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) 
     (source, journalist_key_responses)
 }
 
-pub fn bench_submit_message(c: &mut Criterion) {
-    let mut group = c.benchmark_group("submit_message");
-    let n = 1; // I reduced this for faster benchmarking, we still use a group consisting of 100 measurements
+// For now the usize param is unused, but eventually it can specify
+// num keybundles, as it does in the other benchmarks
+pub fn bench_submit_message(iterations: usize, _: usize) {
+    for index in 0..iterations {
+        let (source, journalist_key_responses) = setup_test_environment();
+        let test_message = vec![0u8; 512]; // Test message content
+        let mut rng = StdRng::seed_from_u64(666);
 
-    for index in 0..n {
-        group.bench_with_input(
-            BenchmarkId::new("submit", format!("message_{}", index)),
-            &index,
-            |b, _| {
-                b.iter(|| {
-                    let (source, journalist_key_responses) = setup_test_environment();
-
-                    let test_message = vec![0u8; 512]; // Test message content
-                    let mut rng = ChaCha20Rng::seed_from_u64(666);
-                    source
-                        .submit_message(test_message, &journalist_key_responses, &mut rng)
-                        .expect("Message submission should succeed");
-                })
-            },
-        );
+        source
+            .submit_message(test_message, &journalist_key_responses, &mut rng)
+            .expect(&format!(
+                "Message submission should succeed at iteration {}",
+                index
+            ));
     }
-    group.finish();
 }
-
-criterion_group!(benches, bench_submit_message);
-criterion_main!(benches);

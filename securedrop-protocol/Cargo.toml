@@ -2,33 +2,49 @@
 name = "securedrop-protocol"
 version = "0.1.0"
 edition = "2024"
-authors = ["redshiftzero <jen@freedom.press>"]
+authors = ["SecureDrop Team <securedrop@freedom.press>"]
 description = "A wip impl of the securedrop protocol"
 license = "GPL-3.0"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", features = ["rand"], rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
-# using git rev bc X25519 struct was unavailable in latest release on crates
-libcrux-curve25519 = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
-libcrux-chacha20poly1305 = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
-libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
-libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
+# crypto stack
+libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", features = ["rand"], rev = "54c6624630e47ed599ffc1549101c2b861d51a8c" }
+libcrux-curve25519 = { git = "https://github.com/cryspen/libcrux", rev = "54c6624630e47ed599ffc1549101c2b861d51a8c" }
+libcrux-chacha20poly1305 = { git = "https://github.com/cryspen/libcrux", rev = "54c6624630e47ed599ffc1549101c2b861d51a8c" }
+libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev = "54c6624630e47ed599ffc1549101c2b861d51a8c" }
+libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev = "54c6624630e47ed599ffc1549101c2b861d51a8c" }
 libcrux-ml-kem = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
-hpke-rs = {version = "0.3.0", features = ["libcrux"]}
-rand_core = {version = "0.9"}
-rand_chacha = { version = "0.9", default-features = false }
-# Needed for wasm compat
-getrandom = {version = "0.3", default-features = false, features = ["wasm_js"]}
+hpke-rs = { version = "0.3.0", features = ["libcrux"] }
+rand_core = { version = "0.9" }
+getrandom = { version = "0.3", default-features = false, features = ["wasm_js"] }
 anyhow = "1.0"
-hashbrown = {version = "0.14", features = ["raw"]}
+hashbrown = { version = "0.14", features = ["raw"] }
 # In theory, it should be possible to use v4 uuids with getrandom per https://docs.rs/uuid/1.18.1/uuid/#building-for-other-targets, but cargo nono complains vigorously
-uuid = {version = "1.0", default-features = false, features = ["v4", "rng-getrandom", "js"]}
+uuid = { version = "1.0", default-features = false, features = ["v4", "rng-getrandom", "js"] }
 blake2 = "0.10"
+
+# pin an exact version to resolve wasm-bindgen schema compatibility issue
+rand_chacha = {  version = "0.9.0", default-features = false  }
+wasm-bindgen = "0.2.103"
+js-sys = "0.3"
 
 [dev-dependencies]
 proptest = "1.3"
-criterion = { version = "0.5", features = ["html_reports"] }
+getrandom = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [[bench]]
-name = "submit"
+name = "manual"
 harness = false
+
+
+[profile.release]
+opt-level = "z"     # smallest code size
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
