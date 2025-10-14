@@ -99,29 +99,32 @@ deactivate Server
 
 ## Keys
 
-In the table below:
+Throughout this document, keys are notated as $component_{owner}^{scheme}$, where:
 
-> For keys, we use the notation $X_{A,B}$, where $X$ represents the key owner
-> ($`X \in \{NR, J, S\}`$ [for newsroom, journalist, and source, respectively]),
-> $A$ represents the key's usage ($`A \in \{sig,fetch,pke,pq,md\}`$), and is prefixed
-> with an "e" if the key is a one-time key. $B$ indicates whether the component is
-> private or public. For Diffie-Hellman keys $x$, the public component is
-> represented by the exponentiation $DH(g, x)$.[^3]
+- $component \in \{sk, pk\}$ for private ($sk$) or public ($pk$) components;
+- $owner \in \{FPF, NR, J, S\}$ for FPF, newsroom $NR$, journalist $J$, or source $S$; and
+- $scheme \in \{fetch, sig, AKEM, APKE, PKE, PQ\}$ for:
+  - $fetch$ = fetching
+  - $sig = $ signature
+  - $APKE = \text{SD-APKE}$, composed of:
+    - $AKEM = \text{AKEM}$ ($AKEM_E$ if one-time)
+    - $PQ = \text{KEM}_{PQ}$
+- $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time)
 
-| Owner      | Secret Key       | Pubkey           | Usage   | Purpose  | Direction         | Lifetime      | Algorithm                    | Signed by          |
-| ---------- | ---------------- | ---------------- | ------- | -------- | ----------------- | ------------- | ---------------------------- | ------------------ |
-| FPF        | $`FPF_{sig,sk}`$ | $`FPF_{sig,pk}`$ |         | Signing  |                   | Long-term     | ?                            |                    |
-| Newsroom   | $`NR_{sig,sk}`$  | $`NR_{sig,pk}`$  |         | Signing  |                   | Long-term     | ?                            | $`FPF_{sig,sk}`$   |
-| Journalist | $`J_{sig,sk}`$   | $`J_{sig,pk}`$   |         | Signing  |                   | Long-term     | ?                            | $`NR_{sig,sk}`$    |
-| Journalist | $`J_{apke,sk}`$  | $`J_{apke,pk}`$  | SD-APKE | Message  | Outgoing          | Long-term     | DH-AKEM(X25519, HKDF-SHA256) | $`J_{sig,sk}`$     |
-| Journalist | $`J_{fetch,sk}`$ | $`J_{fetch,pk}`$ |         | Fetching |                   | **TBD**[^6]   | ristretto255 (Curve25519)    | $`J_{sig,sk}`$[^4] |
-| Journalist | $`J_{epq,sk}`$   | $`J_{epq,pk}`$   | SD-APKE | Message  | Incoming          | One-time      | ML-KEM-768                   | $`J_{sig,sk}`$     |
-| Journalist | $`J_{epke,sk}`$  | $`J_{epke,pk}`$  | SD-APKE | Message  | Incoming          | One-time      | DH-AKEM(X25519, HKDF-SHA256) | $`J_{sig,sk}`$     |
-| Journalist | $`J_{emd,sk}`$   | $`J_{emd,pk}`$   | SD-PKE  | Metadata | Incoming          | One-time      | X-Wing (X25519, ML-KEM-768)  | $`J_{sig,sk}`$     |
-| Source     | $`S_{fetch,sk}`$ | $`S_{fetch,pk}`$ |         | Fetching |                   | Permanent[^7] | ristretto255 (Curve25519)    |                    |
-| Source     | $`S_{pq,sk}`$    | $`S_{pq,pk}`$    | SD-APKE | Message  | Incoming          | Permanent[^7] | ML-KEM-768                   |                    |
-| Source     | $`S_{pke,sk}`$   | $`S_{pke,pk}`$   | SD-APKE | Message  | Incoming+Outgoing | Permanent[^7] | DH-AKEM(X25519, HKDF-SHA256) |                    |
-| Source     | $`S_{md,sk}`$    | $`S_{md,pk}`$    | SD-PKE  | Metadata | Incoming          | Permanent[^7] | X-Wing (X25519, ML-KEM-768)  |                    |
+| Owner      | Private Key        | Public Key         | Usage   | Purpose  | Direction         | Lifetime      | Algorithm                    | Signed by          |
+| ---------- | ------------------ | ------------------ | ------- | -------- | ----------------- | ------------- | ---------------------------- | ------------------ |
+| FPF        | $`sk_{FPF}^{sig}`$ | $`pk_{FPF}^{sig}`$ |         | Signing  |                   | Long-term     | ?                            |                    |
+| Newsroom   | $`sk_{NR}^{sig}`$  | $`pk_{NR}^{sig}`$  |         | Signing  |                   | Long-term     | ?                            | $`sk_{FPF}^{sig}`$ |
+| Journalist | $`sk_J^{sig}`$     | $`pk_J^{sig}`$     |         | Signing  |                   | Long-term     | ?                            | $`sk_{NR}^{sig}`$  |
+| Journalist | $`sk_J^{AKEM}`$    | $`pk_J^{AKEM}`$    | SD-APKE | Message  | Outgoing          | Long-term     | DH-AKEM(X25519, HKDF-SHA256) | $`sk_J^{sig}`$     |
+| Journalist | $`sk_J^{fetch}`$   | $`pk_J^{fetch}`$   |         | Fetching |                   | **TBD**[^6]   | ristretto255 (Curve25519)    | $`sk_J^{sig}`$[^4] |
+| Journalist | $`sk_J^{PQ_E}`$    | $`pk_J^{PQ_E}`$    | SD-APKE | Message  | Incoming          | One-time      | ML-KEM-768                   | $`sk_J^{sig}`$     |
+| Journalist | $`sk_J^{AKEM_E}`$  | $`pk_J^{AKEM_E}`$  | SD-APKE | Message  | Incoming          | One-time      | DH-AKEM(X25519, HKDF-SHA256) | $`sk_J^{sig}`$     |
+| Journalist | $`sk_J^{PKE_E}`$   | $`pk_J^{PKE_E}`$   | SD-PKE  | Metadata | Incoming          | One-time      | X-Wing (X25519, ML-KEM-768)  | $`sk_J^{sig}`$     |
+| Source     | $`sk_S^{fetch}`$   | $`pk_S^{fetch}`$   |         | Fetching |                   | Permanent[^7] | ristretto255 (Curve25519)    |                    |
+| Source     | $`sk_S^{PQ}`$      | $`pk_S^{PQ}`$      | SD-APKE | Message  | Incoming          | Permanent[^7] | ML-KEM-768                   |                    |
+| Source     | $`sk_S^{AKEM}`$    | $`pk_S^{AKEM}`$    | SD-APKE | Message  | Incoming+Outgoing | Permanent[^7] | DH-AKEM(X25519, HKDF-SHA256) |                    |
+| Source     | $`sk_S^{PKE}`$     | $`pk_S^{PKE}`$     | SD-PKE  | Metadata | Incoming          | Permanent[^7] | X-Wing (X25519, ML-KEM-768)  |                    |
 
 [^4]: **TODO:** Discussion of whether the newsroom's or the journalist's signing key signs the journalist's fetching key.
 
@@ -152,7 +155,7 @@ The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC
 - For message encryption, `SD-APKE` wraps HPKE `AuthPSK` mode, following listing
   17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen2023].
 
-### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 4 as of 7703a58 -->
+### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 4 as of 7944378 -->
 
 $\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
 mode][RFC 9180 §5.1.1] with:
@@ -161,11 +164,11 @@ mode][RFC 9180 §5.1.1] with:
 - $\text{AEAD} =$ AES-GCM
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
 
-| Syntax                                     | Description                                                  |
-| ------------------------------------------ | ------------------------------------------------------------ |
-| $`(sk, pk) \gets^{\$} \text{KGen}()`$      | Generate keys                                                |
-| $`(c, c') \gets^{\$} \text{Enc}(pk_R, m)`$ | Encrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
-| $`m \gets \text{Dec}(sk_R, (c, c'))`$      | Decrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
+| Syntax                                                | Description                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------------ |
+| $`(sk_S^{PKE}, pk_S^{PKE}) \gets^{\$} \text{KGen}()`$ | Generate keys                                                |
+| $`(c, c') \gets^{\$} \text{Enc}(pk_R^{PKE}, m)`$      | Encrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
+| $`m \gets \text{Dec}(sk_R^{PKE}, (c, c'))`$           | Decrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
 
 Concretely:
 
@@ -189,7 +192,7 @@ def Dec(skR, (c, cp)):  # cp = c'
 
 ### Message encryption
 
-#### `AKEM`: Authenticated KEM <!-- Definition 4.1 as of 7703a58 -->
+#### `AKEM`: Authenticated KEM <!-- Definition 4.1 as of 7944378 -->
 
 $\text{AKEM}$ instantiates the [DH-based KEM][RFC 9180 §4.1]
 $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
@@ -197,15 +200,15 @@ $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
 - $\text{Group} =$ [X25519][RFC 9180 §7.1]
 - $\text{KDF} =$ [HKDF-SHA256][RFC 9180 §7.1]
 
-| Syntax                                             | Description                                                                                                                                                              |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| $`(sk_S, pk_S) \gets^{\$} \text{KGen}()`$          | Generate keys; for DH-AKEM, $(sk, pk) = (x, \text{DH}(g, x)) = (x, g^x)$                                                                                                 |
-| $`(c, K) \gets^{\$} \text{AuthEncap}(sk_S, pk_R)`$ | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $sk_S$ and a receiver's public key $pk_R$; for DH-AKEM, $(c, K) = (pkE, K) = (g^x, K)$ |
-| $`K \gets \text{AuthDecap}(sk_R, pk_S, c)`$        | Decapsulate a shared secret $K$ using a receiver's private key $sk_R$, a sender's public key $pk_S$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                        |
+| Syntax                                                           | Description                                                                                                                                                              |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| $`(sk_S^{AKEM}, pk_S^{AKEM}) \gets^{\$} \text{KGen}()`$          | Generate keys; for DH-AKEM, $(sk, pk) = (x, \text{DH}(g, x)) = (x, g^x)$                                                                                                 |
+| $`(c, K) \gets^{\$} \text{AuthEncap}(sk_S^{AKEM}, pk_R^{AKEM})`$ | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $sk_S$ and a receiver's public key $pk_R$; for DH-AKEM, $(c, K) = (pkE, K) = (g^x, K)$ |
+| $`K \gets \text{AuthDecap}(sk_R^{AKEM}, pk_S^{AKEM}, c)`$        | Decapsulate a shared secret $K$ using a receiver's private key $sk_R$, a sender's public key $pk_S$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                        |
 
 Concretely, these functions are used as specified in [RFC 9180 §4.1].
 
-#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 5 as of 9f4d2ab -->
+#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 5 as of 7944378 -->
 
 $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 `AuthPSK` mode][RFC 9180 §5.1.4] with:
@@ -214,10 +217,10 @@ $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
 - $\text{AEAD} =$ AES-GCM
 
-| Syntax                                                                | Description                                                                                           |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk_S, pk_R, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
-| $`m \gets \text{pskADec}(pk_S, sk_R, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
+| Syntax                                                                              | Description                                                                                                                   |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk_S^{AKEM}, pk_R^{AKEM}, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5]                         |
+| $`m \gets \text{pskADec}(pk_S^{AKEM}, sk_R^{AKEM}, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] <!-- FIXME: 28dd67c --> |
 
 Concretely:
 
@@ -228,6 +231,7 @@ def pskAEnc(skS, pkR, psk, m, ad, info):
     cp = AEAD.Enc(k, nonce, ad, m)  # cp = c'
     return (c1, cp)
 
+# FIXME: 28dd67c
 def pskADec(pkS, skR, psk, (c1, cp), ad, info):  # cp = c'
     K1 = AKEM.AuthDecap(skR, pkS, c1)
     (k, nonce) = KS(K1, psk, info)
@@ -235,7 +239,7 @@ def pskADec(pkS, skR, psk, (c1, cp), ad, info):  # cp = c'
     return m
 ```
 
-#### `SD-APKE`: SecureDrop APKE <!-- Figure 3 as of 7703a58 -->
+#### `SD-APKE`: SecureDrop APKE <!-- Figure 3 as of 7944378 -->
 
 $\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
 
@@ -243,11 +247,11 @@ $\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
 - $\text{KEM}_{PQ} =$ ML-KEM-768
 - $\text{pskAPKE}$ as above
 
-| Syntax                                                                                          | Description                                                |
-| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| $`(sk, pk) \gets^{\$} \text{KGen}()`$                                                           | Generate keys                                              |
-| $`((c_1, c'), c_2) \gets^{\$} \text{AuthEnc}((sk_S^1, sk_S^2), (pk_R^1, pk_R^2), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
-| $`m \gets \text{AuthDec}((sk_R^1, sk_R^2), (pk_S^1, pk_S^2), ((c_1, c'), c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
+| Syntax                                                                                                                                      | Description                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| $`(sk_S^{APKE}, pk_S^{APKE}) \gets^{\$} \text{KGen}()`$                                                                                     | Generate keys                                              |
+| $`((c_1, c'), c_2) \gets^{\$} \text{AuthEnc}(sk_S^{APKE} = (sk_S^{AKEM}, sk_S^{PQ}), pk_R^{APKE} = (pk_R^{AKEM}, pk_R^{PQ}), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
+| $`m \gets \text{AuthDec}(sk_R^{APKE} = (sk_R^{AKEM}, sk_R^{PQ}), pk_S^{APKE} = (pk_S^{AKEM}, pk_S^{PQ}), ((c_1, c'), c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
 
 Concretely:
 
@@ -266,7 +270,7 @@ def AuthEnc((skS1, skS2), (pkR1, pkR2), m, ad, info):
 
 def AuthDec((skR1, skR2), (pkS1, pkS2), ((c1, cp), c2), ad, info):  # cp = c'
     K2 = KEM_PQ.Decap(skR2, c2)
-    m = pskADec(pkS1, skR1, K2, (c1, cp), ad, c2)
+    m = pskADec(pkS1, skR1, K2, (c1, cp), ad, c2)  # FIXME: 28dd67c
     return m
 ```
 
@@ -342,9 +346,7 @@ step (7), in any order.
 Only a source can initiate a conversation. In other words, a source is always
 the first sender.
 
-### 5. Sender fetches keys and verifies their authenticity <!-- Figure 1 as of 7703a58 -->
-
-**TODO:** Sync with the "Setup" section.
+### 5. Sender fetches keys and verifies their authenticity <!-- Figure 1 as of 7944378 -->
 
 A sender knows their own keys. In addition, in the **reply case,** if the sender
 is a journalist replying to a source, they also already know their recipient's
@@ -371,7 +373,7 @@ For some newsroom $NR$ and all its enrolled journalists $J_i$:
 | **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying:           |                                 |                                                                               |
 | $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                                               |
 
-### 6. Sender submits a message <!-- Figure 1 as of 7703a58 -->
+### 6. Sender submits a message <!-- Figure 1 as of 7944378 -->
 
 Then, for some message $m$, for all keys $(pk_{R,i}^{APKE}, pk_{R,i}^{PKE},
 pk_{R,i}^{fetch}) \in pks$:
@@ -389,7 +391,7 @@ pk_{R,i}^{fetch}) \in pks$:
 |                                                                                     |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
 |                                                                                     |                                 | Store $(id, C_S, X, Z)$                        |
 
-### 7. Receiver fetches and decrypts messages <!-- Figure 2 as of 7703a58 -->
+### 7. Receiver fetches and decrypts messages <!-- Figure 2 as of 7944378 -->
 
 A receiver knows their own keys.
 
