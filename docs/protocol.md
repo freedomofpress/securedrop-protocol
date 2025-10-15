@@ -132,9 +132,6 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 ## Functions and notation
 
-**TODO:** Reevaluate this table after revising the "Setup" and "Message
-Protocol" sections from the manuscript.
-
 | Syntax                                                    | Description                                                                         |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | $`h \gets \text{Hash}(m)`$                                | Hash message $m$ to digest $h$                                                      |
@@ -143,7 +140,6 @@ Protocol" sections from the manuscript.
 | $`b \in \{0,1\} \gets \text{Vfy}(pk_S, m, \sigma_S)`$     | Verify a message $m$ and a signature $\sigma_S$ with the sender's public key $pk_S$ |
 | $` g^x \gets \text{DH(g, x)}`$                            | Diffie-Hellman exponentiation of private component $x$                              |
 | $`r \gets^{\$} \text{Rand}()`$                            | Generate a random value                                                             |
-| $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$ to a constant size[^1]                                            |
 | $`-`$                                                     | The empty string (or `None` in pseudocode)                                          |
 
 ## Cryptographic APIs
