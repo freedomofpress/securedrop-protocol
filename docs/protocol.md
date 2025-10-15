@@ -105,7 +105,7 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 - $owner \in \{FPF, NR, J, S\}$ for FPF, newsroom $NR$, journalist $J$, or source $S$; and
 - $scheme \in \{fetch, sig, AKEM, APKE, PKE, PQ\}$ for:
   - $fetch$ = fetching
-  - $sig = $ signature
+  - $sig$ = signature
   - $APKE = \text{SD-APKE}$, composed of:
     - $AKEM = \text{AKEM}$ ($AKEM_E$ if one-time)
     - $PQ = \text{KEM}_{PQ}$
