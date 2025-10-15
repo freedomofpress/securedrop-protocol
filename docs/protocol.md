@@ -367,15 +367,18 @@ verification.
 
 For some newsroom $NR$ and all its enrolled journalists $J_i$:
 
-| Sender                                                                                                               |                                 | Server                                                                        |
-| -------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------- |
-|                                                                                                                      | $\longrightarrow$ `RequestKeys` |                                                                               |
-|                                                                                                                      |                                 | $`pks = \{(pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch})\}`$ for all $i$ |
-|                                                                                                                      | $`pks \longleftarrow`$          |                                                                               |
-| **TODO:** verification per $NR$ and $J_i$                                                                            |                                 |                                                                               |
-|                                                                                                                      |                                 |                                                                               |
-| **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying:           |                                 |                                                                               |
-| $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                                               |
+| Sender                                                                                                               |                                 | Server                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
+|                                                                                                                      | $\longrightarrow$ `RequestKeys` |                                                                                               |
+|                                                                                                                      |                                 | $`pks = \{(pk_{R,i}^{sig}, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch})\}`$ for all $i$ |
+|                                                                                                                      |                                 | $`sigs = \{(\sigma_{R,i}, \sigma_{NR,i})\}`$ for all $i$                                      |
+|                                                                                                                      | $`(pks, sigs) \longleftarrow`$  |                                                                                               |
+| $`\forall i:`$                                                                                                       |                                 |                                                                                               |
+| $`\text{Vfy}(pk_{NR}^{sig}, pk_{R,i}^{sig}, \sigma_{NR,i})`$                                                         |                                 |                                                                                               |
+| $`\text{Vfy}(pk_{R,i}^{sig}, (pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, \sigma_{R,i})`$ [^4]                                  |                                 |                                                                                               |
+|                                                                                                                      |                                 |                                                                                               |
+| **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying:           |                                 |                                                                                               |
+| $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                                                               |
 
 ### 6. Sender submits a message <!-- Figure 1 as of 7944378 -->
 
@@ -444,10 +447,6 @@ For some newsroom $NR$:
 [^2]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
 
 [^3]: Adapted from Maier §5.4.1.
-
-<!--
-[^4]: TODO kept inline above.
--->
 
 <!--
 [^6]: TODO kept inline above.
