@@ -220,7 +220,7 @@ $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 | Syntax                                                                              | Description                                                                                                                   |
 | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk_S^{AKEM}, pk_R^{AKEM}, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5]                         |
-| $`m \gets \text{pskADec}(pk_S^{AKEM}, sk_R^{AKEM}, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] <!-- FIXME: 28dd67c --> |
+| $`m \gets \text{pskADec}(pk_S^{AKEM}, sk_R^{AKEM}, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] <!-- FIXME: 7194db1 --> |
 
 Concretely:
 
@@ -231,7 +231,7 @@ def pskAEnc(skS, pkR, psk, m, ad, info):
     cp = AEAD.Enc(k, nonce, ad, m)  # cp = c'
     return (c1, cp)
 
-# FIXME: 28dd67c
+# FIXME: 7194db1
 def pskADec(pkS, skR, psk, (c1, cp), ad, info):  # cp = c'
     K1 = AKEM.AuthDecap(skR, pkS, c1)
     (k, nonce) = KS(K1, psk, info)
@@ -270,7 +270,7 @@ def AuthEnc((skS1, skS2), (pkR1, pkR2), m, ad, info):
 
 def AuthDec((skR1, skR2), (pkS1, pkS2), ((c1, cp), c2), ad, info):  # cp = c'
     K2 = KEM_PQ.Decap(skR2, c2)
-    m = pskADec(pkS1, skR1, K2, (c1, cp), ad, c2)  # FIXME: 28dd67c
+    m = pskADec(pkS1, skR1, K2, (c1, cp), ad, c2)  # FIXME: 7194db1
     return m
 ```
 
