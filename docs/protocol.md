@@ -279,7 +279,7 @@ def AuthDec((skR1, skR2), (pkS1, pkS2), ((c1, cp), c2), ad, info):  # cp = c'
 | $`(sk_{FPF}^{sig}, pk_{FPF}^{sig}) \gets^{\$} \text{Gen}()`$ |
 
 The server, the journalist client, and the source client SHOULD be built with
-$pk_{FPF}^{sig}$ pinned.[^2]
+FPF's signing key $pk_{FPF}^{sig}$ pinned.[^2]
 
 ### 2. Newsroom
 
@@ -290,8 +290,9 @@ $pk_{FPF}^{sig}$ pinned.[^2]
 |                                                            |                                   | $`\sigma_{FPF} \gets^{\$} \text{Sign}(sk_{FPF}^{sig}, pk_{NR}^{sig})`$ |
 |                                                            | $`\sigma_{FPF} \longleftarrow`$   |
 
-The server MUST be deployed with $pk_{NR}^{sig}$ pinned. The server MAY be
-deployed with $\sigma_{FPF}$ pinned.[^2]
+The server MUST be deployed with the newsroom's signing key $pk_{NR}^{sig}$
+pinned. The server MAY be deployed with FPF's signing key $pk_{FPF}^{sig}$
+pinned.[^2]
 
 ### 3. Journalist
 
@@ -349,18 +350,20 @@ the first sender.
 
 ### 5. Sender fetches keys and verifies their authenticity <!-- Figure 1 as of 7944378 -->
 
-A sender knows their own keys. In addition, in the **reply case,** if the sender
-is a journalist replying to a source, they also already know their recipient's
-keys.
+A sender knows their own keys and the newsroom's signing key $pk_{NR}^{sig}$. In
+addition, in the **reply case,** if the sender is a journalist replying to a
+source, they also already know their recipient's keys without further
+verification.
 
-| All senders    | Reply case     |
-| -------------- | -------------- |
-| $pk_S^{APKE}$  | $pk_R^{APKE}$  |
-| $pk_S^{PKE}$   | $pk_R^{PKE}$   |
-| $pk_S^{fetch}$ | $pk_R^{fetch}$ |
-| $sk_S^{APKE}$  |
-| $sk_S^{PKE}$   |
-| $sk_S^{fetch}$ |
+| Anyone          | All senders     | Reply case      |
+| --------------- | --------------- | --------------- |
+| $pk_{NR}^{sig}$ | $pk_{NR}^{sig}$ | $pk_{NR}^{sig}$ |
+|                 | $pk_S^{APKE}$   | $pk_R^{APKE}$   |
+|                 | $pk_S^{PKE}$    | $pk_R^{PKE}$    |
+|                 | $pk_S^{fetch}$  | $pk_R^{fetch}$  |
+|                 | $sk_S^{APKE}$   |
+|                 | $sk_S^{PKE}$    |
+|                 | $sk_S^{fetch}$  |
 
 For some newsroom $NR$ and all its enrolled journalists $J_i$:
 
@@ -394,16 +397,17 @@ pk_{R,i}^{fetch}) \in pks$:
 
 ### 7. Receiver fetches and decrypts messages <!-- Figure 2 as of 7944378 -->
 
-A receiver knows their own keys.
+A receiver knows their own keys and the newsroom's $pk_{NR}^{sig}$:
 
-| All receivers  |
-| -------------- |
-| $pk_R^{APKE}$  |
-| $pk_R^{PKE}$   |
-| $pk_R^{fetch}$ |
-| $sk_R^{APKE}$  |
-| $sk_R^{PKE}$   |
-| $sk_R^{fetch}$ |
+| Anyone          | All receivers   |
+| --------------- | --------------- |
+| $pk_{NR}^{sig}$ | $pk_{NR}^{sig}$ |
+|                 | $pk_R^{APKE}$   |
+|                 | $pk_R^{PKE}$    |
+|                 | $pk_R^{fetch}$  |
+|                 | $sk_R^{APKE}$   |
+|                 | $sk_R^{PKE}$    |
+|                 | $sk_R^{fetch}$  |
 
 For some newsroom $NR$:
 
