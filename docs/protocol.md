@@ -170,7 +170,7 @@ mode][RFC 9180 §5.1.1] with:
 | $`(c, c') \gets^{\$} \text{Enc}(pk_R^{PKE}, m)`$      | Encrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
 | $`m \gets \text{Dec}(sk_R^{PKE}, (c, c'))`$           | Decrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
 
-Concretely:
+Concretely, using HPKE's [single-shot APIs][RFC 9180 §6.1]:
 
 ```python
 def KGen():
@@ -178,15 +178,11 @@ def KGen():
     return (sk, pk)
 
 def Enc(pkR, m):
-    (c, K3) = KEM_H.Encap(pkR)
-    (k, nonce) = KS(K3, None, None)
-    cp = AEAD.Enc(k, nonce, None, m)  # cp = c'
+    c, cp = HPKE.SealBase(pkR=pkR, info=None, aad=None, pt=m)  # cp = c'
     return (c, cp)
 
 def Dec(skR, (c, cp)):  # cp = c'
-    K3 = KEM_H.Decap(skR, c)
-    (k, nonce) = KS(K3, None, None)
-    m = AEAD.Dec(k, nonce, None, cp)
+    m = HPKE.OpenBase(enc=c, skR=skR, info=None, aad=None, ct=cp)
     return m
 ```
 
@@ -474,5 +470,6 @@ For some newsroom $NR$:
 [RFC 9180 §5.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-creating-the-encryption-con
 [RFC 9180 §5.1.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-encryption-to-a-public-key
 [RFC 9180 §5.1.4]: https://datatracker.ietf.org/doc/html/rfc9180#name-authentication-using-both-a
+[RFC 9180 §6.1]: https://datatracker.ietf.org/doc/html/rfc9180#section-6.1
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
 [RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
