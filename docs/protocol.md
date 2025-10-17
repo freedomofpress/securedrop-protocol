@@ -104,9 +104,9 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 - $component \in \{sk, pk\}$ for private ($sk$) or public ($pk$) components;
 - $owner \in \{FPF, NR, J, S\}$ for FPF, newsroom $NR$, journalist $J$, or source $S$; and
 - $scheme \in \{fetch, sig, AKEM, APKE, PKE, PQ\}$ for:
-  - $fetch$ = fetching
-  - $sig = $ signature
-  - $APKE = \text{SD-APKE}$, composed of:
+  - $fetch$ fetching
+  - $sig$ signature
+  - $APKE = \text{SD-APKE}$, composed concretely of:
     - $AKEM = \text{AKEM}$ ($AKEM_E$ if one-time)
     - $PQ = \text{KEM}_{PQ}$
 - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time)
@@ -132,19 +132,15 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 ## Functions and notation
 
-**TODO:** Reevaluate this table after revising the "Setup" and "Message
-Protocol" sections from the manuscript.
-
-| Syntax                                                    | Description                                                                       |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| $`h \gets \text{Hash}(m)`$                                | Hash message $m$ to digest $h$                                                    |
-| $`k \Vert k_1 \Vert \dots \Vert k_n \gets \text{KDF}(m)`$ | Derive one or more keys $k$ from a message $m$                                    |
-| $`\sigma \gets^{\$} \text{Sign}(sk_S, m)`$                | Sign a message $m$ with the sender's private key $sk_S$                           |
-| $`b \in \{0,1\} \gets \text{Vfy}(pk_S, m, \sigma)`$       | Verify a message $m$ and a signature $\sigma$ with the sender's public key $pk_S$ |
-| $` g^x \gets \text{DH(g, x)}`$                            | Diffie-Hellman exponentiation of private component $x$                            |
-| $`r \gets^{\$} \text{Rand}()`$                            | Generate a random value                                                           |
-| $`mp \gets \text{Pad}(m)`$                                | Pad a message $m$ to a constant size[^1]                                          |
-| $`-`$                                                     | The empty string (or `None` in pseudocode)                                        |
+| Syntax                                                    | Description                                                                         |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| $`h \gets \text{Hash}(m)`$                                | Hash message $m$ to digest $h$                                                      |
+| $`k \Vert k_1 \Vert \dots \Vert k_n \gets \text{KDF}(m)`$ | Derive one or more keys $k$ from a message $m$                                      |
+| $`\sigma_S \gets^{\$} \text{Sign}(sk_S, m)`$              | Sign a message $m$ with the sender's private key $sk_S$                             |
+| $`b \in \{0,1\} \gets \text{Vfy}(pk_S, m, \sigma_S)`$     | Verify a message $m$ and a signature $\sigma_S$ with the sender's public key $pk_S$ |
+| $` g^x \gets \text{DH(g, x)}`$                            | Diffie-Hellman exponentiation of private component $x$                              |
+| $`r \gets^{\$} \text{Rand}()`$                            | Generate a random value                                                             |
+| $`-`$                                                     | The empty string (or `None` in pseudocode)                                          |
 
 ## Cryptographic APIs
 
@@ -278,59 +274,65 @@ def AuthDec((skR1, skR2), (pkS1, pkS2), ((c1, cp), c2), ad, info):  # cp = c'
 
 ### 1. FPF
 
-| FPF                                                      |
-| -------------------------------------------------------- |
-| $`(FPF_{sig,sk}, FPF_{sig,pk}) \gets^{\$} \text{Gen}()`$ |
+| FPF                                                          |
+| ------------------------------------------------------------ |
+| $`(sk_{FPF}^{sig}, pk_{FPF}^{sig}) \gets^{\$} \text{Gen}()`$ |
 
 The server, the journalist client, and the source client SHOULD be built with
-$FPF_{sig,pk}$ pinned.[^2]
+FPF's signing key $pk_{FPF}^{sig}$ pinned.[^2]
 
 ### 2. Newsroom
 
-| Newsroom                                               |                                 | FPF                                                                |
-| ------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------ |
-| $`(NR_{sig,sk}, NR_{sig,pk}) \gets^{\$} \text{Gen}()`$ |                                 |                                                                    |
-|                                                        | $`\longrightarrow NR_{sig,pk}`$ | Verify manually                                                    |
-|                                                        |                                 | $`\sigma^{FPF} \gets^{\$} \text{Sign}(FPF_{sig,sk}, NR_{sig,pk})`$ |
-|                                                        | $`\sigma^{FPF} \longleftarrow`$ |
+| Newsroom                                                   |                                   | FPF                                                                    |
+| ---------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------- |
+| $`(sk_{NR}^{sig}, pk_{NR}^{sig}) \gets^{\$} \text{Gen}()`$ |                                   |                                                                        |
+|                                                            | $`\longrightarrow pk_{NR}^{sig}`$ | Verify manually                                                        |
+|                                                            |                                   | $`\sigma_{FPF} \gets^{\$} \text{Sign}(sk_{FPF}^{sig}, pk_{NR}^{sig})`$ |
+|                                                            | $`\sigma_{FPF} \longleftarrow`$   |
 
-The server MUST be deployed with $NR_{sig,pk}$ pinned. The server MAY be
-deployed with $\sigma^{FPF}$ pinned.[^2]
+The server MUST be deployed with the newsroom's signing key $pk_{NR}^{sig}$
+pinned. The server MAY be deployed with FPF's signing key $pk_{FPF}^{sig}$
+pinned.[^2]
 
 ### 3. Journalist
 
 #### 3.1. Enrollment
 
-| Journalist                                               |                                                         | Newsroom                                                                                   |
-| -------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| $`(J_{sig,sk}, J_{sig,pk}) \gets^{\$} \text{Gen}()`$     |                                                         |                                                                                            |
-| $`(J_{fetch,sk}, J_{fetch,pk}) \gets^{\$} \text{Gen}()`$ |                                                         |                                                                                            |
-| $`(J_{dh,sk}, J_{dh,pk}) \gets^{\$} \text{Gen}()`$       |                                                         |                                                                                            |
-|                                                          | $`\longrightarrow J_{sig,pk}, J_{fetch,pk}, J_{dh,pk}`$ | Verify manually, then save for $J$                                                         |
-|                                                          |                                                         | $`\sigma^{NR} \gets^{\$} \text{Sign}(NR_{sig,sk}, (J_{sig,pk}, J_{fetch,pk}, J_{dh,pk}))`$ |
+| Journalist                                                           |                                                            | Newsroom                                                          |
+| -------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| $`(sk_J^{sig}, pk_J^{sig}) \gets^{\$} \text{Gen}()`$                 |                                                            |                                                                   |
+|                                                                      | $`\longrightarrow pk_J^{sig}`$                             | Verify $pk_J^{sig}$ manually, then store for $J$                  |
+|                                                                      |                                                            | $`\sigma_{NR} \gets^{\$} \text{Sign}(sk_{NR}^{sig}, pk_J^{sig})`$ |
+|                                                                      |                                                            | Store $\sigma_{NR}$ for $J$                                       |
+| $`(sk_J^{AKEM}, pk_J^{AKEM}) \gets^{\$} \text{AKEM.KGen}()`$         |                                                            |                                                                   |
+| $`(sk_J^{fetch}, pk_J^{fetch}) \gets^{\$} \text{KGen}()`$ (**TODO**) |                                                            |                                                                   |
+| $`\sigma_J \gets^{\$} \text{Sign}(sk_J^{sig}, pk_J^{AKEM})`$ [^4]    |                                                            |                                                                   |
+|                                                                      | $`\longrightarrow (\sigma_J, pk_J^{AKEM}, pk_J^{fetch}) `$ |                                                                   |
+|                                                                      |                                                            | $`\text{Vfy}(pk_J^{sig}, pk_J^{AKEM}, \sigma_J)`$                 |
+|                                                                      |                                                            | Store $(\sigma_J, pk_J^{AKEM}, pk_J^{fetch})$ for $J$             |
 
-#### 3.2. Setup and periodic replenishment of $n$ ephemeral keys
+#### 3.2. Setup and periodic replenishment of $n$ ephemeral keybundles
 
-Each journalist $J$ MUST generate and maintain a pool of $n$ ephemeral keys.
-For each key:
+Each journalist $J$ MUST generate and maintain a pool of $n$ ephemeral
+keybundles. For each keybundle:
 
-| Journalist                                                                              |                                                                    | Server                                                                       |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| $`(J_{edh,sk}, J_{edh,pk}) \gets^{\$} \text{Gen}()`$                                    |                                                                    |                                                                              |
-| $`(J_{ekem,sk}, J_{ekem,pk}) \gets^{\$} \text{Gen}()`$                                  |                                                                    |                                                                              |
-| $`(J_{epke,sk}, J_{epke,pk}) \gets^{\$} \text{Gen}()`$                                  |                                                                    |                                                                              |
-| $`\sigma^J \gets^{\$} \text{Sign}(J_{sig,sk}, (J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}))`$ |                                                                    |                                                                              |
-|                                                                                         |                                                                    | $`\text{Vfy}(J_{sig,pk}, (J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}), \sigma^J)`$ |
-|                                                                                         | $`\longrightarrow J_{edh,pk}, J_{ekem,pk}, J_{epke,pk}, \sigma^J`$ | Save for $J$                                                                 |
+| Journalist                                                                     |                                                             | Server                                                              |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------- |
+| $`(sk_J^{APKE_E}, pk_J^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$            |                                                             |                                                                     |
+| $`(sk_J^{PKE_E}, pk_J^{PKE_E} \gets^{\$} \text{SD-PKE.KGen}()`$                |                                                             |                                                                     |
+| $`\sigma_J \gets^{\$} \text{Sign}(sk_J^{sig}, (pk_J^{APKE_E}, pk_J^{PKE_E}))`$ |                                                             |                                                                     |
+|                                                                                | $`\longrightarrow (\sigma_J, pk_J^{APKE_E}, pk_J^{PKE_E})`$ |
+|                                                                                |                                                             | $`\text{Vfy}(pk_J^{sig}, (pk_J^{APKE_E}, pk_J^{PKE_E}), \sigma^J)`$ |
+|                                                                                |                                                             | Store $(\sigma_J, pk_J^{APKE_E}, pk_J^{PKE_E})$ for $J$             |
 
 ### 4. Source
 
 To begin each session, a source MUST enter (on their first visit) or reenter (on
 a subsequent visit) some $passphrase$:
 
-| Source                                                                                          |
-| ----------------------------------------------------------------------------------------------- |
-| $`S_{dh,sk} \Vert S_{fetch,sk} \Vert S_{pke,sk} \Vert S_{kem,sk} \gets \text{KDF}(passphrase)`$ |
+| Source                                                                                           |
+| ------------------------------------------------------------------------------------------------ |
+| $`sk_S^{fetch} \Vert sk_S^{PQ} \Vert sk_S^{AKEM} \Vert sk_S^{PKE} \gets \text{KDF}(passphrase)`$ |
 
 ## Messaging protocol
 
@@ -348,30 +350,35 @@ the first sender.
 
 ### 5. Sender fetches keys and verifies their authenticity <!-- Figure 1 as of 7944378 -->
 
-A sender knows their own keys. In addition, in the **reply case,** if the sender
-is a journalist replying to a source, they also already know their recipient's
-keys.
+A sender knows their own keys and the newsroom's signing key $pk_{NR}^{sig}$. In
+addition, in the **reply case,** if the sender is a journalist replying to a
+source, they also already know their recipient's keys without further
+verification.
 
-| All senders    | Reply case     |
-| -------------- | -------------- |
-| $pk_S^{APKE}$  | $pk_R^{APKE}$  |
-| $pk_S^{PKE}$   | $pk_R^{PKE}$   |
-| $pk_S^{fetch}$ | $pk_R^{fetch}$ |
-| $sk_S^{APKE}$  |
-| $sk_S^{PKE}$   |
-| $sk_S^{fetch}$ |
+| Anyone          | All senders     | Reply case      |
+| --------------- | --------------- | --------------- |
+| $pk_{NR}^{sig}$ | $pk_{NR}^{sig}$ | $pk_{NR}^{sig}$ |
+|                 | $pk_S^{APKE}$   | $pk_R^{APKE}$   |
+|                 | $pk_S^{PKE}$    | $pk_R^{PKE}$    |
+|                 | $pk_S^{fetch}$  | $pk_R^{fetch}$  |
+|                 | $sk_S^{APKE}$   |
+|                 | $sk_S^{PKE}$    |
+|                 | $sk_S^{fetch}$  |
 
 For some newsroom $NR$ and all its enrolled journalists $J_i$:
 
-| Sender                                                                                                               |                                 | Server                                                                        |
-| -------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------- |
-|                                                                                                                      | $\longrightarrow$ `RequestKeys` |                                                                               |
-|                                                                                                                      |                                 | $`pks = \{(pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch})\}`$ for all $i$ |
-|                                                                                                                      | $`pks \longleftarrow`$          |                                                                               |
-| **TODO:** verification per $NR$ and $J_i$                                                                            |                                 |                                                                               |
-|                                                                                                                      |                                 |                                                                               |
-| **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying:           |                                 |                                                                               |
-| $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                                               |
+| Sender                                                                                                               |                                 | Server                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
+|                                                                                                                      | $\longrightarrow$ `RequestKeys` |                                                                                               |
+|                                                                                                                      |                                 | $`pks = \{(pk_{R,i}^{sig}, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch})\}`$ for all $i$ |
+|                                                                                                                      |                                 | $`sigs = \{(\sigma_{R,i}, \sigma_{NR,i})\}`$ for all $i$                                      |
+|                                                                                                                      | $`(pks, sigs) \longleftarrow`$  |                                                                                               |
+| $`\forall i:`$                                                                                                       |                                 |                                                                                               |
+| $`\text{Vfy}(pk_{NR}^{sig}, pk_{R,i}^{sig}, \sigma_{NR,i})`$                                                         |                                 |                                                                                               |
+| $`\text{Vfy}(pk_{R,i}^{sig}, (pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, \sigma_{R,i})`$ [^4]                                  |                                 |                                                                                               |
+|                                                                                                                      |                                 |                                                                                               |
+| **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying:           |                                 |                                                                                               |
+| $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                                                               |
 
 ### 6. Sender submits a message <!-- Figure 1 as of 7944378 -->
 
@@ -393,16 +400,17 @@ pk_{R,i}^{fetch}) \in pks$:
 
 ### 7. Receiver fetches and decrypts messages <!-- Figure 2 as of 7944378 -->
 
-A receiver knows their own keys.
+A receiver knows their own keys and the newsroom's $pk_{NR}^{sig}$:
 
-| All receivers  |
-| -------------- |
-| $pk_R^{APKE}$  |
-| $pk_R^{PKE}$   |
-| $pk_R^{fetch}$ |
-| $sk_R^{APKE}$  |
-| $sk_R^{PKE}$   |
-| $sk_R^{fetch}$ |
+| Anyone          | All receivers   |
+| --------------- | --------------- |
+| $pk_{NR}^{sig}$ | $pk_{NR}^{sig}$ |
+|                 | $pk_R^{APKE}$   |
+|                 | $pk_R^{PKE}$    |
+|                 | $pk_R^{fetch}$  |
+|                 | $sk_R^{APKE}$   |
+|                 | $sk_R^{PKE}$    |
+|                 | $sk_R^{fetch}$  |
 
 For some newsroom $NR$:
 
@@ -439,10 +447,6 @@ For some newsroom $NR$:
 [^2]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
 
 [^3]: Adapted from Maier §5.4.1.
-
-<!--
-[^4]: TODO kept inline above.
--->
 
 <!--
 [^6]: TODO kept inline above.
