@@ -117,7 +117,7 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 | Newsroom   | $`sk_{NR}^{sig}`$  | $`pk_{NR}^{sig}`$  |         | Signing  |                   | Long-term     | ?                            | $`sk_{FPF}^{sig}`$ |
 | Journalist | $`sk_J^{sig}`$     | $`pk_J^{sig}`$     |         | Signing  |                   | Long-term     | ?                            | $`sk_{NR}^{sig}`$  |
 | Journalist | $`sk_J^{AKEM}`$    | $`pk_J^{AKEM}`$    | SD-APKE | Message  | Outgoing          | Long-term     | DH-AKEM(X25519, HKDF-SHA256) | $`sk_J^{sig}`$     |
-| Journalist | $`sk_J^{fetch}`$   | $`pk_J^{fetch}`$   |         | Fetching |                   | **TBD**[^6]   | ristretto255 (Curve25519)    | $`sk_J^{sig}`$[^4] |
+| Journalist | $`sk_J^{fetch}`$   | $`pk_J^{fetch}`$   |         | Fetching |                   | **TBD**[^6]   | ristretto255 (Curve25519)    | $`sk_J^{sig}`$     |
 | Journalist | $`sk_J^{PQ_E}`$    | $`pk_J^{PQ_E}`$    | SD-APKE | Message  | Incoming          | One-time      | ML-KEM-768                   | $`sk_J^{sig}`$     |
 | Journalist | $`sk_J^{AKEM_E}`$  | $`pk_J^{AKEM_E}`$  | SD-APKE | Message  | Incoming          | One-time      | DH-AKEM(X25519, HKDF-SHA256) | $`sk_J^{sig}`$     |
 | Journalist | $`sk_J^{PKE_E}`$   | $`pk_J^{PKE_E}`$   | SD-PKE  | Metadata | Incoming          | One-time      | X-Wing (X25519, ML-KEM-768)  | $`sk_J^{sig}`$     |
@@ -125,8 +125,6 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 | Source     | $`sk_S^{PQ}`$      | $`pk_S^{PQ}`$      | SD-APKE | Message  | Incoming          | Permanent[^7] | ML-KEM-768                   |                    |
 | Source     | $`sk_S^{AKEM}`$    | $`pk_S^{AKEM}`$    | SD-APKE | Message  | Incoming+Outgoing | Permanent[^7] | DH-AKEM(X25519, HKDF-SHA256) |                    |
 | Source     | $`sk_S^{PKE}`$     | $`pk_S^{PKE}`$     | SD-PKE  | Metadata | Incoming          | Permanent[^7] | X-Wing (X25519, ML-KEM-768)  |                    |
-
-[^4]: **TODO:** Discussion of whether the newsroom's or the journalist's signing key signs the journalist's fetching key.
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
@@ -298,18 +296,18 @@ pinned.[^2]
 
 #### 3.1. Enrollment
 
-| Journalist                                                           |                                                            | Newsroom                                                          |
-| -------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
-| $`(sk_J^{sig}, pk_J^{sig}) \gets^{\$} \text{Gen}()`$                 |                                                            |                                                                   |
-|                                                                      | $`\longrightarrow pk_J^{sig}`$                             | Verify $pk_J^{sig}$ manually, then store for $J$                  |
-|                                                                      |                                                            | $`\sigma_{NR} \gets^{\$} \text{Sign}(sk_{NR}^{sig}, pk_J^{sig})`$ |
-|                                                                      |                                                            | Store $\sigma_{NR}$ for $J$                                       |
-| $`(sk_J^{AKEM}, pk_J^{AKEM}) \gets^{\$} \text{AKEM.KGen}()`$         |                                                            |                                                                   |
-| $`(sk_J^{fetch}, pk_J^{fetch}) \gets^{\$} \text{KGen}()`$ (**TODO**) |                                                            |                                                                   |
-| $`\sigma_J \gets^{\$} \text{Sign}(sk_J^{sig}, pk_J^{AKEM})`$ [^4]    |                                                            |                                                                   |
-|                                                                      | $`\longrightarrow (\sigma_J, pk_J^{AKEM}, pk_J^{fetch}) `$ |                                                                   |
-|                                                                      |                                                            | $`\text{Vfy}(pk_J^{sig}, pk_J^{AKEM}, \sigma_J)`$                 |
-|                                                                      |                                                            | Store $(\sigma_J, pk_J^{AKEM}, pk_J^{fetch})$ for $J$             |
+| Journalist                                                                   |                                                           | Newsroom                                                          |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------- |
+| $`(sk_J^{sig}, pk_J^{sig}) \gets^{\$} \text{Gen}()`$                         |                                                           |                                                                   |
+|                                                                              | $`\longrightarrow pk_J^{sig}`$                            | Verify $pk_J^{sig}$ manually, then store for $J$                  |
+|                                                                              |                                                           | $`\sigma_{NR} \gets^{\$} \text{Sign}(sk_{NR}^{sig}, pk_J^{sig})`$ |
+|                                                                              |                                                           | Store $\sigma_{NR}$ for $J$                                       |
+| $`(sk_J^{AKEM}, pk_J^{AKEM}) \gets^{\$} \text{AKEM.KGen}()`$                 |                                                           |                                                                   |
+| $`(sk_J^{fetch}, pk_J^{fetch}) \gets^{\$} \text{KGen}()`$ (**TODO**)         |                                                           |                                                                   |
+| $`\sigma_J \gets^{\$} \text{Sign}(sk_J^{sig}, (pk_J^{AKEM}, pk_J^{fetch}))`$ |                                                           |                                                                   |
+|                                                                              | $`\longrightarrow (\sigma_J, pk_J^{AKEM}, pk_J^{fetch})`$ |                                                                   |
+|                                                                              |                                                           | $`\text{Vfy}(pk_J^{sig}, (pk_J^{AKEM}, pk_J^{fetch}), \sigma_J)`$ |
+|                                                                              |                                                           | Store $(\sigma_J, pk_J^{AKEM}, pk_J^{fetch})$ for $J$             |
 
 #### 3.2. Setup and periodic replenishment of $n$ ephemeral keybundles
 
@@ -375,7 +373,7 @@ For some newsroom $NR$ and all its enrolled journalists $J_i$:
 |                                                                                                                      | $`(pks, sigs) \longleftarrow`$  |                                                                                               |
 | $`\forall i:`$                                                                                                       |                                 |                                                                                               |
 | $`\text{Vfy}(pk_{NR}^{sig}, pk_{R,i}^{sig}, \sigma_{NR,i})`$                                                         |                                 |                                                                                               |
-| $`\text{Vfy}(pk_{R,i}^{sig}, (pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, \sigma_{R,i})`$ [^4]                                  |                                 |                                                                                               |
+| $`\text{Vfy}(pk_{R,i}^{sig}, (pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}), \sigma_{R,i})`$                    |                                 |                                                                                               |
 |                                                                                                                      |                                 |                                                                                               |
 | **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying:           |                                 |                                                                                               |
 | $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                                                               |
