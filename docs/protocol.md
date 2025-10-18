@@ -9,6 +9,8 @@
 > RECOMMENDED, MAY, and OPTIONAL in this document are to be interpreted as
 > described in [RFC 2119].
 
+<!-- TODO: update v0.2 → v0.3
+
 ## Overview
 
 This sequence diagram shows the flow of messages and values in the SecureDrop
@@ -96,6 +98,8 @@ deactivate Source
 deactivate Journalist
 deactivate Server
 ```
+
+-->
 
 ## Keys
 
