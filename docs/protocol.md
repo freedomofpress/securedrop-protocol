@@ -181,7 +181,8 @@ def Enc(pkR, m):
     c, cp = HPKE.SealBase(pkR=pkR, info=None, aad=None, pt=m)  # cp = c'
     return (c, cp)
 
-def Dec(skR, (c, cp)):  # cp = c'
+# cp = c' in (c, cp)
+def Dec(skR, c, cp):
     m = HPKE.OpenBase(enc=c, skR=skR, info=None, aad=None, ct=cp)
     return m
 ```
@@ -228,7 +229,8 @@ def pskAEnc(skS, pkR, psk, m, ad, info):
     return (c1, cp)
 
 # FIXME: 7194db1
-def pskADec(pkS, skR, psk, (c1, cp), ad, info):  # cp = c'
+# cp = c' in (c1, cp)
+def pskADec(pkS, skR, psk, c1, cp, ad, info):
     m = HPKE.OpenAuthPSK(enc=c1, skR=skR, info=info, aad=ad, ct=cp, psk=psk, psk_id=PSK_ID, pkS=pkS)
     return m
 ```
@@ -257,14 +259,26 @@ def KGen():
     pk = (pk1, pk2)
     return (sk, pk)
 
-def AuthEnc((skS1, skS2), (pkR1, pkR2), m, ad, info):
-    (c2, K2) = KEM_PQ.Encap(pkR2)
-    (c1, cp) = pskAEnc(skS1, pkR1, K2, m, ad, c2)  # cp = c'
+
+
+def AuthEnc(
+        skS1, skS2,  # (skS1, skS2)
+        pkR1, pkR2,  # (pkR1, pkR2)
+        m, ad, _info=None):
+    (c2, K2) = KEM_PQ.Encap(pkR=pkR2)
+    (c1, cp) = pskAEnc(skS=skS1, pkR=pkR1, psk=K2, m=m, ad=ad, info=c2)  # cp = c'
     return ((c1, cp), c2)
 
-def AuthDec((skR1, skR2), (pkS1, pkS2), ((c1, cp), c2), ad, info):  # cp = c'
-    K2 = KEM_PQ.Decap(skR2, c2)
-    m = pskADec(pkS1, skR1, K2, (c1, cp), ad, c2)  # FIXME: 7194db1
+
+
+
+def AuthDec(
+        skR1, skR2,  # (skR1, skR2)
+        pkS1, pkS2,  # (pkS1, pkS2)
+        c1, cp, c2,  # cp = c' in ((c1, cp), c2)
+        ad, _info=None):
+    K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
+    m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2)  # FIXME: 7194db1
     return m
 ```
 
