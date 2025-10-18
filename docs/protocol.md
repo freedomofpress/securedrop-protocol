@@ -218,20 +218,18 @@ $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 | $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk_S^{AKEM}, pk_R^{AKEM}, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5]                         |
 | $`m \gets \text{pskADec}(pk_S^{AKEM}, sk_R^{AKEM}, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] <!-- FIXME: 7194db1 --> |
 
-Concretely:
+Concretely, using HPKE's [single-shot APIs][RFC 9180 §6.1]:
 
 ```python
+PSK_ID = "SD-pskAPKE"
+
 def pskAEnc(skS, pkR, psk, m, ad, info):
-    (c1, K1) = AKEM.AuthEncap(skS, pkR)
-    (k, nonce) = KS(K1, psk, info)
-    cp = AEAD.Enc(k, nonce, ad, m)  # cp = c'
+    c1, cp = HPKE.SealAuthPSK(pkR=pkR, info=info, aad=ad, pt=m, psk=psk, psk_id=PSK_ID, skS=skS)  # cp = c'
     return (c1, cp)
 
 # FIXME: 7194db1
 def pskADec(pkS, skR, psk, (c1, cp), ad, info):  # cp = c'
-    K1 = AKEM.AuthDecap(skR, pkS, c1)
-    (k, nonce) = KS(K1, psk, info)
-    m = AEAD.Dec(k, nonce, ad, cp)
+    m = HPKE.OpenAuthPSK(enc=c1, skR=skR, info=info, aad=ad, ct=cp, psk=psk, psk_id=PSK_ID, pkS=pkS)
     return m
 ```
 
