@@ -170,7 +170,7 @@ mode][RFC 9180 §5.1.1] with:
 | $`(c, c') \gets^{\$} \text{Enc}(pk_R^{PKE}, m)`$      | Encrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
 | $`m \gets \text{Dec}(sk_R^{PKE}, (c, c'))`$           | Decrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
 
-Concretely:
+Concretely, using HPKE's [single-shot APIs][RFC 9180 §6.1]:
 
 ```python
 def KGen():
@@ -178,15 +178,12 @@ def KGen():
     return (sk, pk)
 
 def Enc(pkR, m):
-    (c, K3) = KEM_H.Encap(pkR)
-    (k, nonce) = KS(K3, None, None)
-    cp = AEAD.Enc(k, nonce, None, m)  # cp = c'
+    c, cp = HPKE.SealBase(pkR=pkR, info=None, aad=None, pt=m)  # cp = c'
     return (c, cp)
 
-def Dec(skR, (c, cp)):  # cp = c'
-    K3 = KEM_H.Decap(skR, c)
-    (k, nonce) = KS(K3, None, None)
-    m = AEAD.Dec(k, nonce, None, cp)
+# cp = c' in (c, cp)
+def Dec(skR, c, cp):
+    m = HPKE.OpenBase(enc=c, skR=skR, info=None, aad=None, ct=cp)
     return m
 ```
 
@@ -222,20 +219,19 @@ $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 | $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk_S^{AKEM}, pk_R^{AKEM}, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5]                         |
 | $`m \gets \text{pskADec}(pk_S^{AKEM}, sk_R^{AKEM}, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] <!-- FIXME: 7194db1 --> |
 
-Concretely:
+Concretely, using HPKE's [single-shot APIs][RFC 9180 §6.1]:
 
 ```python
+PSK_ID = "SD-pskAPKE"
+
 def pskAEnc(skS, pkR, psk, m, ad, info):
-    (c1, K1) = AKEM.AuthEncap(skS, pkR)
-    (k, nonce) = KS(K1, psk, info)
-    cp = AEAD.Enc(k, nonce, ad, m)  # cp = c'
+    c1, cp = HPKE.SealAuthPSK(pkR=pkR, info=info, aad=ad, pt=m, psk=psk, psk_id=PSK_ID, skS=skS)  # cp = c'
     return (c1, cp)
 
 # FIXME: 7194db1
-def pskADec(pkS, skR, psk, (c1, cp), ad, info):  # cp = c'
-    K1 = AKEM.AuthDecap(skR, pkS, c1)
-    (k, nonce) = KS(K1, psk, info)
-    m = AEAD.Dec(k, nonce, ad, cp)
+# cp = c' in (c1, cp)
+def pskADec(pkS, skR, psk, c1, cp, ad, info):
+    m = HPKE.OpenAuthPSK(enc=c1, skR=skR, info=info, aad=ad, ct=cp, psk=psk, psk_id=PSK_ID, pkS=pkS)
     return m
 ```
 
@@ -263,14 +259,26 @@ def KGen():
     pk = (pk1, pk2)
     return (sk, pk)
 
-def AuthEnc((skS1, skS2), (pkR1, pkR2), m, ad, info):
-    (c2, K2) = KEM_PQ.Encap(pkR2)
-    (c1, cp) = pskAEnc(skS1, pkR1, K2, m, ad, c2)  # cp = c'
+
+
+def AuthEnc(
+        skS1, skS2,  # (skS1, skS2)
+        pkR1, pkR2,  # (pkR1, pkR2)
+        m, ad, _info=None):
+    (c2, K2) = KEM_PQ.Encap(pkR=pkR2)
+    (c1, cp) = pskAEnc(skS=skS1, pkR=pkR1, psk=K2, m=m, ad=ad, info=c2)  # cp = c'
     return ((c1, cp), c2)
 
-def AuthDec((skR1, skR2), (pkS1, pkS2), ((c1, cp), c2), ad, info):  # cp = c'
-    K2 = KEM_PQ.Decap(skR2, c2)
-    m = pskADec(pkS1, skR1, K2, (c1, cp), ad, c2)  # FIXME: 7194db1
+
+
+
+def AuthDec(
+        skR1, skR2,  # (skR1, skR2)
+        pkS1, pkS2,  # (pkS1, pkS2)
+        c1, cp, c2,  # cp = c' in ((c1, cp), c2)
+        ad, _info=None):
+    K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
+    m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2)  # FIXME: 7194db1
     return m
 ```
 
@@ -474,5 +482,6 @@ For some newsroom $NR$:
 [RFC 9180 §5.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-creating-the-encryption-con
 [RFC 9180 §5.1.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-encryption-to-a-public-key
 [RFC 9180 §5.1.4]: https://datatracker.ietf.org/doc/html/rfc9180#name-authentication-using-both-a
+[RFC 9180 §6.1]: https://datatracker.ietf.org/doc/html/rfc9180#section-6.1
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
 [RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
