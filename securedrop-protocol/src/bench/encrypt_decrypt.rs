@@ -6,6 +6,7 @@ use crate::primitives::x25519::generate_random_scalar;
 use crate::primitives::xwing::generate_xwing_keypair;
 use crate::primitives::{decrypt_message_id, encrypt_message_id};
 use alloc::{format, vec::Vec};
+use anyhow::Error;
 use getrandom;
 use hpke_rs::libcrux::HpkeLibcrux;
 use hpke_rs::{HpkeKeyPair, HpkePrivateKey, HpkePublicKey};
@@ -50,12 +51,9 @@ const LEN_KMID: usize =
     libcrux_chacha20poly1305::TAG_LEN + libcrux_chacha20poly1305::NONCE_LEN + LEN_MESSAGE_ID;
 
 #[derive(Debug, Clone)]
-pub struct Envelope {
-    // In the manuscript, this ciphertext is a concatenation of (cmessage || message_dhakem_ss_encap || msg_psk_ss_encap).
-    // For example purposes, they are stored in separate variables.
-
+pub struct CombinedCiphertext {
     // authenc message ciphertext
-    cmessage: Vec<u8>,
+    ct_message: Vec<u8>,
 
     // dh-akem ss encaps (needed to decrypt message)
     message_dhakem_ss_encap: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS],
@@ -63,6 +61,57 @@ pub struct Envelope {
     // pq psk encap (needed to decaps psk)
     // also passed as `info` param during hpke.authopen
     message_pqpsk_ss_encap: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS],
+}
+
+impl CombinedCiphertext {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+
+        // Store fixed-size arrays
+        buf.extend_from_slice(&self.message_dhakem_ss_encap);
+        buf.extend_from_slice(&self.message_pqpsk_ss_encap);
+
+        // Store cmessage bytes
+        buf.extend_from_slice(&self.ct_message);
+
+        buf
+    }
+
+    pub fn len(&self) -> usize {
+        self.to_bytes().len()
+    }
+
+    // TOY ONLY
+    pub fn from_bytes(ct_bytes: &Vec<u8>) -> Result<Self, Error> {
+        let mut dhakem_ss_encaps: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] =
+            [0u8; LEN_DHKEM_SHAREDSECRET_ENCAPS];
+
+        let mut pqpsk_ss_encaps: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS] =
+            [0u8; LEN_MLKEM_SHAREDSECRET_ENCAPS];
+
+        dhakem_ss_encaps.copy_from_slice(&ct_bytes[0..LEN_DHKEM_SHAREDSECRET_ENCAPS]);
+
+        pqpsk_ss_encaps.copy_from_slice(
+            &ct_bytes[LEN_DHKEM_SHAREDSECRET_ENCAPS
+                ..LEN_DHKEM_SHAREDSECRET_ENCAPS + LEN_MLKEM_SHAREDSECRET_ENCAPS],
+        );
+
+        let cmessage: Vec<u8> =
+            ct_bytes[LEN_DHKEM_SHAREDSECRET_ENCAPS + LEN_MLKEM_SHAREDSECRET_ENCAPS..].to_vec();
+
+        Ok(CombinedCiphertext {
+            ct_message: (cmessage),
+            message_dhakem_ss_encap: dhakem_ss_encaps,
+            message_pqpsk_ss_encap: pqpsk_ss_encaps,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Envelope {
+    // (message_ciphertext || message_dhakem_ss_encap || msg_psk_ss_encap)
+    // see CombinedCiphertext
+    cmessage: Vec<u8>,
 
     // baseenc "metadata", aka sender pubkey
     cmetadata: Vec<u8>,
@@ -125,8 +174,9 @@ impl Plaintext {
 }
 
 impl Envelope {
+    // Used for benchmarks - see wasm_bindgen
     pub fn size_hint(&self) -> usize {
-        self.cmessage.len() + self.cmetadata.len() + self.message_dhakem_ss_encap.len()
+        self.cmessage.len() + self.cmetadata.len()
     }
 
     pub fn cmessage_len(&self) -> usize {
@@ -313,15 +363,15 @@ pub fn encrypt<R: RngCore + CryptoRng>(
             LEN_XWING_SHAREDSECRET_ENCAPS
         ));
 
+    let cmessage = CombinedCiphertext {
+        ct_message: message_ciphertext,
+        message_dhakem_ss_encap: dhakem_ss_encaps_bytes,
+        message_pqpsk_ss_encap: psk_ct,
+    };
+
     Envelope {
         // authenc ciphertext
-        cmessage: message_ciphertext,
-
-        // pq psk encaps
-        message_pqpsk_ss_encap: psk_ct,
-
-        // dhakem ss encaps
-        message_dhakem_ss_encap: dhakem_ss_encaps_bytes,
+        cmessage: cmessage.to_bytes(),
 
         // sender pubkey ciphertext
         cmetadata: metadata_ciphertext,
@@ -404,19 +454,22 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
     let hpke_receiver_keys =
         hpke_keypair_from_bytes(receiver_keys.get_dhakem_sk(), receiver_keys.get_dhakem_pk());
 
+    // toy (unsafe) parse combined ciphertext
+    let combined_ct = CombinedCiphertext::from_bytes(&envelope.cmessage).unwrap();
+
     let psk = MlKem768::decaps(
-        &envelope.message_pqpsk_ss_encap,
+        &combined_ct.message_pqpsk_ss_encap,
         receiver_keys.get_pq_kem_psk_sk(),
     )
     .unwrap();
 
     let pt = hpke_authenc
         .open(
-            &envelope.message_dhakem_ss_encap,
+            &combined_ct.message_dhakem_ss_encap,
             hpke_receiver_keys.private_key(),
-            &envelope.message_pqpsk_ss_encap,
+            &combined_ct.message_pqpsk_ss_encap,
             HPKE_AAD,
-            &envelope.cmessage,
+            &combined_ct.ct_message,
             Some(&psk),
             Some(HPKE_PSK_ID),
             Some(&hpke_pubkey_sender),
