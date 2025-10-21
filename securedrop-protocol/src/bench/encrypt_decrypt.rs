@@ -335,11 +335,12 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     let mut mgdh = [0u8; LEN_DH_ITEM];
     let _ = scalarmult(&mut mgdh, &eph_sk, recipient.get_fetch_pk());
 
-    // Serialize sender Dh-AKEM pubkey for Metadata
+    // Serialize sender DH-AKEM pubkey
     let mut sender_pubkey_bytes: [u8; LEN_DHKEM_ENCAPS_KEY] = [0u8; LEN_DHKEM_ENCAPS_KEY];
     sender_pubkey_bytes.copy_from_slice(sender_hpke_keypair.public_key().as_slice());
 
-    // Serialize then encrypt sender pubkey metadata key (xwing) and Hpke Base mode:
+    // Serialize then encapsulate sender pubkey to recipient metadata key
+    // (xwing) in Hpke Base mode:
     // https://www.rfc-editor.org/rfc/rfc9180.html#name-metadata-protection
     // Although we do use a PSK and PSK_ID in the message, we don't need to
     // encrypt the message PSK_ID, because it is a hard-coded string
