@@ -363,7 +363,8 @@ verification.
 |                 | $sk_S^{PKE}$    |
 |                 | $sk_S^{fetch}$  |
 
-For some newsroom $NR$ and all its enrolled journalists $J_i$:
+For some newsroom $NR = \text{Hash}(pk_{NR}^{sig})$ and all its enrolled
+journalists $J_i$:
 
 | Sender                                                                                                               |                                 | Server                                                                                        |
 | -------------------------------------------------------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
@@ -380,8 +381,8 @@ For some newsroom $NR$ and all its enrolled journalists $J_i$:
 
 ### 6. Sender submits a message <!-- Figure 1 as of 7944378 -->
 
-Then, for some message $m$, for all keys $(pk_{R,i}^{APKE}, pk_{R,i}^{PKE},
-pk_{R,i}^{fetch}) \in pks$:
+Then, for some message $m$ to a newsroom $NR = \text{Hash}(pk_{NR}^{sig})$, for
+all keys $(pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}) \in pks$:
 
 | Source                                                                              |                                 | Server                                         |
 | ----------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
@@ -410,7 +411,7 @@ A receiver knows their own keys and the newsroom's $pk_{NR}^{sig}$:
 |                 | $sk_R^{PKE}$    |
 |                 | $sk_R^{fetch}$  |
 
-For some newsroom $NR$:
+For some newsroom $NR = \text{Hash}(pk_{NR}^{sig})$:
 
 | Server                                                                                |                                                | Receiver                                                                        |
 | ------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
