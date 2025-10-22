@@ -3,7 +3,7 @@
 |                       | Version |
 | --------------------- | ------- |
 | Implementation (here) | 0.1     |
-| [Specification]       | 0.2     |
+| [Specification]       | 0.3     |
 
 [specification]: ./docs/protocol.md
 
