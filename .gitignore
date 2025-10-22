@@ -1,7 +1,10 @@
 __pycache*
 .venv
 files/
-keys/
+cryptokeys/
 downloads/
 docs/html/
 node_modules/
+securedrop-protocol/target/*
+securedrop-protocol/pkg/*
+securedrop-protocol/.selenium-cache

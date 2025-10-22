@@ -1,0 +1,85 @@
+name: Rust CI
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@v4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
+        with:
+          persist-credentials: false
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      # (rust-toolchain@v1 latest reviewed and pinned)
+      - uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+        with:
+          toolchain: stable
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      - run: cargo check
+        working-directory: securedrop-protocol
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
+        with:
+          persist-credentials: false
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      - uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+        with:
+          toolchain: stable
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      - run: cargo test --all-features
+        working-directory: securedrop-protocol
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
+        with:
+          persist-credentials: false
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      - uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+        with:
+          toolchain: stable
+          components: rustfmt
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      - run: cargo fmt --all --check
+        working-directory: securedrop-protocol
+
+  build_wasm:
+    name: wasm build
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: '--cfg getrandom_backend="wasm_js"'
+    steps:
+      # actions/checkout@4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
+        with:
+          persist-credentials: false
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      - uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      - run: cargo build --package securedrop-protocol --target wasm32-unknown-unknown
+        working-directory: securedrop-protocol

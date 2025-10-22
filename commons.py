@@ -17,7 +17,7 @@ SERVER = "127.0.0.1:5000"
 # The folder where everybody will load the keys from. There is no separation for demo simplicity
 # of course in an actual implementation, everybody will only have their keys and the
 # required public one to ensure the trust chain
-DIR = "keys/"
+DIR = "cryptokeys/"
 # Where the flask server will store uploaded files
 UPLOADS = "files/"
 # How many journalists do we create and enroll. In general, this is realistic, in current

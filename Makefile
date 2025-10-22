@@ -39,6 +39,12 @@ doxygen:  ## Generate browsable documentation and call/caller graphs (requires D
 	@doxygen
 	@echo "Now open \"$(PWD)/docs/html/index.html\" in your browser."
 
+.PHONY: build-wasm
+build-wasm:  ## Compile securedrop-protocol crate for wasm32-unknown-unknown (browser compat, requires rust toolchain).
+	@which cargo >> /dev/null || { echo "Please install the Rust toolchain"; exit 1; }
+	@rustup target list --installed | grep wasm32-unknown-unknown || { echo "Install wasm32 target using \`rustup target add wasm32-unknown-unknown\`"; exit 1; }
+	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo build --manifest-path securedrop-protocol/Cargo.toml --target wasm32-unknown-unknown
+
 .PHONY: fix
 fix: docs-fix  ## Apply automatic fixes.
 
