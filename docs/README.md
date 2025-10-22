@@ -19,7 +19,7 @@ Nonetheless, the server must not reveal information about its internal state to 
 - **Message expiry/deletion will occur on a fuzzy interval.**
   The computation and bandwidth required for the message-fetching portion of this protocol limits the number of messages that can be stored on the server at once (a current estimate is that more than a few thousand would produce unreasonably slow computation times).
   The protocol will expire messages on the server at a fuzzy interval `d` days +/- `i` (for example, 37 +- 7 days would guarantee message availability for a minimum of 30 days). The goal of fuzzy-interval message expiry is to avoid writing precise metadata to disk about when a message was submitted, which would be implied by a fixed expiry time.
-  Client-side (local) message deletion will be supported for journalists. Note this is not an anti-forensic measure, because some indicator will be retained in order to avoid re-downloading it.
+  Client-side (local) message deletion will be supported for journalists. Note this is not an anti-forensic measure, because some indicator will be retained in order to avoid re-downloading it. As of v0.3 (2025-10-17), this implementation decision contrasts with the existing Tamarin model, where one-time message delivery is modeled.
 
 - **Messaging an arbitrary subset of journalists will not be supported.**
   Messages from source to newsroom will be delivered to all* enrolled journalists for a given newsroom. Replies to sources from journalists will be delivered to all enrolled journalists plus the source. Journalists will be able to send group messages to all other journalists enrolled at their newsroom. Neither journalists nor sources will
@@ -76,3 +76,14 @@ This protocol can be hardened further in specific parts, including: rotating fet
 - **Keys**: When referring to keys, either symmetric or asymmetric, depending on the context, the key storage backend (i.e.: the media device) may eventually vary. Long term keys in particular can be stored on Hardware Security Modules or Smart Cards, and signing keys might also be a combination of multiple keys with special requirements (e.g., 3 out of 5 signers)
 - **Server**: For this project, a server might be a physical dedicated server housed in a trusted location, a physical server in an untrusted location, or a virtual server in a trusted or untrusted context. Besides the initial setup, all the connections to the server have to happen though the Tor Hidden Service Protocol. However, we can expect that a powerful attacker can find the server location and provider (through financial records, legal orders, de-anonymization attacks, logs of the setup phase).
 - **Trust(ed) parties**: When referring to "trust" and "trusted" parties, the term "trust" is meant in a technical sense (as used in https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-133r2.pdf), and not the social sense (as used in https://www.pewresearch.org/topic/news-habits-media/media-society/media-attitudes/trust-in-media/).
+
+## Areas for further discussion
+
+The following are areas of ongoing discussion/development or may be addressed by the application rather than the protocol level.
+
+- **Key-fetch**: timing of key-fetch request (avoid timing information about partial/incomplete protocol runs). See also key exhaustion above.
+- **Plaintext message structure**: specifically, application-level "metadata" (which could include non-cryptographic information such as key identifiers, or any other information encrypted along with the message plaintext and transmitted to the recipient) remains to be specified.
+- **Dead-drop mode**: In a unidirectional dead-drop mode, the sender could avoid attaching public keys.
+- **Message-fetch batching**: for now, one fetch request corresponds to one message_id, and multiple ids are not fetched at once.
+- **One-time key choice/conflicts**: What to do with messages encrypted to recipient using same recipient key bundle remains to be discussed. See also https://github.com/freedomofpress/securedrop-protocol/issues/99.
+- **Key lifetimes**: The lifetime of the journalist fetching key and journalist DH-AKEM reply key are still to be discussed. See also https://github.com/freedomofpress/securedrop-protocol/issues/99 for separate discussion of lifetime of journalist key bundles for receiving messages (currently one-time use).
