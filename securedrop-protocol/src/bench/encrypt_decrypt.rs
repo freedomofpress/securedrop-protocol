@@ -1,3 +1,4 @@
+use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
 use crate::primitives::dh_akem::generate_dh_akem_keypair;
 use crate::primitives::mlkem::generate_mlkem768_keypair;
 use crate::primitives::x25519::generate_dh_keypair;
@@ -5,6 +6,7 @@ use crate::primitives::x25519::generate_random_scalar;
 use crate::primitives::xwing::generate_xwing_keypair;
 use crate::primitives::{decrypt_message_id, encrypt_message_id};
 use alloc::{format, vec::Vec};
+use anyhow::Error;
 use getrandom;
 use hpke_rs::libcrux::HpkeLibcrux;
 use hpke_rs::{HpkeKeyPair, HpkePrivateKey, HpkePublicKey};
@@ -14,9 +16,9 @@ use libcrux_traits::kem::secrets::Kem;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
-const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // Spec requires a tag
-const HPKE_INFO: &[u8] = b"";
-const HPKE_AAD: &[u8] = b"";
+const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // authpsk only, required by spec
+const HPKE_AAD: &[u8] = b""; // base and authpsk
+const HPKE_BASE_INFO: &[u8] = b""; // base mode only
 
 // Key lengths
 const LEN_DHKEM_ENCAPS_KEY: usize = libcrux_curve25519::EK_LEN;
@@ -40,10 +42,6 @@ const LEN_XWING_SHAREDSECRET_ENCAPS: usize = 1120;
 const LEN_XWING_SHAREDSECRET: usize = 32;
 const LEN_XWING_RAND_SEED_SIZE: usize = 96;
 
-// "Metadata" aka sender pubkey and encapsulated secrets
-const METADATA_LENGTH: usize =
-    LEN_DH_ITEM + LEN_MLKEM_SHAREDSECRET_ENCAPS + LEN_DHKEM_SHAREDSECRET_ENCAPS;
-
 // Message ID (uuid) and KMID
 const LEN_MESSAGE_ID: usize = 16;
 // TODO: this will be aes-gcm and use AES GCM TagSize
@@ -53,10 +51,75 @@ const LEN_KMID: usize =
     libcrux_chacha20poly1305::TAG_LEN + libcrux_chacha20poly1305::NONCE_LEN + LEN_MESSAGE_ID;
 
 #[derive(Debug, Clone)]
+pub struct CombinedCiphertext {
+    // authenc message ciphertext
+    ct_message: Vec<u8>,
+
+    // dh-akem ss encaps (needed to decrypt message)
+    message_dhakem_ss_encap: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS],
+
+    // pq psk encap (needed to decaps psk)
+    // also passed as `info` param during hpke.authopen
+    message_pqpsk_ss_encap: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS],
+}
+
+impl CombinedCiphertext {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+
+        // Store fixed-size arrays
+        buf.extend_from_slice(&self.message_dhakem_ss_encap);
+        buf.extend_from_slice(&self.message_pqpsk_ss_encap);
+
+        // Store cmessage bytes
+        buf.extend_from_slice(&self.ct_message);
+
+        buf
+    }
+
+    pub fn len(&self) -> usize {
+        self.to_bytes().len()
+    }
+
+    // TOY ONLY
+    pub fn from_bytes(ct_bytes: &Vec<u8>) -> Result<Self, Error> {
+        let mut dhakem_ss_encaps: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] =
+            [0u8; LEN_DHKEM_SHAREDSECRET_ENCAPS];
+
+        let mut pqpsk_ss_encaps: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS] =
+            [0u8; LEN_MLKEM_SHAREDSECRET_ENCAPS];
+
+        dhakem_ss_encaps.copy_from_slice(&ct_bytes[0..LEN_DHKEM_SHAREDSECRET_ENCAPS]);
+
+        pqpsk_ss_encaps.copy_from_slice(
+            &ct_bytes[LEN_DHKEM_SHAREDSECRET_ENCAPS
+                ..LEN_DHKEM_SHAREDSECRET_ENCAPS + LEN_MLKEM_SHAREDSECRET_ENCAPS],
+        );
+
+        let cmessage: Vec<u8> =
+            ct_bytes[LEN_DHKEM_SHAREDSECRET_ENCAPS + LEN_MLKEM_SHAREDSECRET_ENCAPS..].to_vec();
+
+        Ok(CombinedCiphertext {
+            ct_message: (cmessage),
+            message_dhakem_ss_encap: dhakem_ss_encaps,
+            message_pqpsk_ss_encap: pqpsk_ss_encaps,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Envelope {
+    // (message_ciphertext || message_dhakem_ss_encap || msg_psk_ss_encap)
+    // see CombinedCiphertext
     cmessage: Vec<u8>,
+
+    // baseenc "metadata", aka sender pubkey
     cmetadata: Vec<u8>,
+
+    // "metadata" encaps shared secret
     metadata_encap: [u8; LEN_XWING_SHAREDSECRET_ENCAPS],
+
+    // clue material
     mgdh_pubkey: [u8; LEN_DH_ITEM],
     mgdh: [u8; LEN_DH_ITEM],
 }
@@ -64,11 +127,15 @@ pub struct Envelope {
 // TODO: plaintext structure/types
 #[derive(Debug)]
 pub struct Plaintext {
-    msg: Vec<u8>,
+    // todo: this is an ID instead of a pubkey, it's attached already
     recipient_pubkey_dhakem: Option<Vec<u8>>,
+
     sender_reply_pubkey_dhakem: Option<Vec<u8>>,
     sender_reply_pubkey_pq_psk: Option<Vec<u8>>,
     sender_reply_pubkey_hybrid: Option<Vec<u8>>,
+    sender_fetch_key: Option<Vec<u8>>,
+
+    msg: Vec<u8>,
 }
 
 /// Represent stored ciphertexts on the server
@@ -93,6 +160,7 @@ impl FetchResponse {
 
 impl Plaintext {
     pub fn as_bytes(&self) -> &[u8] {
+        // TODO: serialize in order including keys
         &self.msg
     }
 
@@ -106,12 +174,16 @@ impl Plaintext {
 }
 
 impl Envelope {
+    // Used for benchmarks - see wasm_bindgen
     pub fn size_hint(&self) -> usize {
         self.cmessage.len() + self.cmetadata.len()
     }
+
     pub fn cmessage_len(&self) -> usize {
         self.cmessage.len()
     }
+
+    // sender dh-akem pubkey bytes
     pub fn cmetadata_len(&self) -> usize {
         self.cmetadata.len()
     }
@@ -131,64 +203,6 @@ impl ServerMessageStore {
 
     pub fn envelope(&self) -> &Envelope {
         &self.envelope
-    }
-}
-
-// Plaintext metadata
-pub struct Metadata {
-    pub sender_pubkey_bytes: [u8; LEN_DH_ITEM],
-    pub pq_psk_ss_encaps: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS],
-    pub dhakem_ss_encaps: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS],
-}
-
-// TODO: NOT FOR PROD, parsing untrusted ct
-impl Metadata {
-    /// Serialize Metadata.
-    /// [0:LEN_DHKEM_ENCAPS_KEY] is sender pubkey
-    /// [LEN_DHKEM_ENCAPS_KEY:LEN_DHKEM_ENCAPS_KEY+LEN_MLKEM_SS_ENCAPS] is PSK encaps
-    /// [LEN_DHKEM_ENCAPS_KEY+LEN_MLKEM_SS_ENCAPS:] is dh-akem enc encaps
-    /// Order may change in final version
-    pub fn to_bytes(&self) -> [u8; METADATA_LENGTH] {
-        let mut bytes = [0u8; METADATA_LENGTH];
-        bytes[0..LEN_DHKEM_ENCAPS_KEY].copy_from_slice(&self.sender_pubkey_bytes);
-        bytes[LEN_DHKEM_ENCAPS_KEY..LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_SHAREDSECRET_ENCAPS]
-            .copy_from_slice(&self.pq_psk_ss_encaps);
-        bytes[LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_SHAREDSECRET_ENCAPS..]
-            .copy_from_slice(&self.dhakem_ss_encaps);
-        bytes
-    }
-}
-
-impl core::convert::TryFrom<&[u8]> for Metadata {
-    type Error = &'static str;
-
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.len() != METADATA_LENGTH {
-            return Err("Metadata length error");
-        }
-
-        let sender_pubkey_bytes = bytes[0..LEN_DHKEM_ENCAPS_KEY]
-            .try_into()
-            .expect("Metadata slice -> array error [0:32]");
-        let pq_psk_end = LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_SHAREDSECRET_ENCAPS;
-        let pq_psk_ss_encaps = bytes[LEN_DHKEM_ENCAPS_KEY..pq_psk_end]
-            .try_into()
-            .expect("Metadata slice -> array error [32:32+1088]");
-        let dhakem_ss_encaps = bytes[pq_psk_end..]
-            .try_into()
-            .expect("Metadata slice -> array error [32+1088:]");
-
-        Ok(Metadata {
-            sender_pubkey_bytes,
-            pq_psk_ss_encaps,
-            dhakem_ss_encaps,
-        })
-    }
-}
-
-impl From<[u8; METADATA_LENGTH]> for Metadata {
-    fn from(bytes: [u8; METADATA_LENGTH]) -> Self {
-        Metadata::try_from(&bytes[..]).expect("Need valid array length")
     }
 }
 
@@ -296,7 +310,10 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     let (mesage_dhakem_shared_secret_encaps, message_ciphertext) = hpke_authenc
         .seal(
             &recipient_dhakem_pubkey,
-            HPKE_INFO,
+            // psk_encaps_ct as authenticated (info).
+            // In single-shot mode this is how authenticated data is passed:
+            // https://www.rfc-editor.org/rfc/rfc9180.html#section-8.1-2
+            &psk_ct,
             HPKE_AAD,
             plaintext,
             Some(&psk),
@@ -304,6 +321,10 @@ pub fn encrypt<R: RngCore + CryptoRng>(
             Some(sender_hpke_keypair.private_key()), // sender DH-AKEM private key
         )
         .unwrap();
+
+    let mut dhakem_ss_encaps_bytes: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] =
+        [0u8; LEN_DHKEM_SHAREDSECRET_ENCAPS];
+    dhakem_ss_encaps_bytes.copy_from_slice(mesage_dhakem_shared_secret_encaps.as_slice());
 
     // Create mgdh (message clue) with a DH agreement between an ephemeral curve25519 keypair
     // and the recipient's Fetching key
@@ -314,31 +335,23 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     let mut mgdh = [0u8; LEN_DH_ITEM];
     let _ = scalarmult(&mut mgdh, &eph_sk, recipient.get_fetch_pk());
 
-    // Serialize sender Dh-AKEM pubkey for Metadata
+    // Serialize sender DH-AKEM pubkey
     let mut sender_pubkey_bytes: [u8; LEN_DHKEM_ENCAPS_KEY] = [0u8; LEN_DHKEM_ENCAPS_KEY];
     sender_pubkey_bytes.copy_from_slice(sender_hpke_keypair.public_key().as_slice());
 
-    let dhakem_ss_encaps: [u8; LEN_DH_ITEM] = mesage_dhakem_shared_secret_encaps
-        .try_into()
-        .expect(&format!("Need {} bytes", LEN_DH_ITEM));
-
-    // Build Plaintext metadata
-    let metadata_bytes = Metadata {
-        sender_pubkey_bytes: sender_pubkey_bytes,
-        pq_psk_ss_encaps: psk_ct,
-        dhakem_ss_encaps: dhakem_ss_encaps,
-    }
-    .to_bytes();
-
-    // Serialize then encrypt metadata with metadata key (xwing) and Hpke Base mode
+    // Serialize then encapsulate sender pubkey to recipient metadata key
+    // (xwing) in Hpke Base mode:
+    // https://www.rfc-editor.org/rfc/rfc9180.html#name-metadata-protection
+    // Although we do use a PSK and PSK_ID in the message, we don't need to
+    // encrypt the message PSK_ID, because it is a hard-coded string
     let recipient_md_pubkey = hpke_pubkey_from_bytes(recipient_keybundle.get_hybrid_md_pk());
 
     let (md_ss_encaps_vec, metadata_ciphertext) = hpke_metadata
         .seal(
             &recipient_md_pubkey,
-            HPKE_INFO,
-            HPKE_AAD,
-            &metadata_bytes,
+            HPKE_BASE_INFO, // b""
+            HPKE_AAD,       // b""
+            &sender_pubkey_bytes,
             None,
             None,
             None,
@@ -351,10 +364,23 @@ pub fn encrypt<R: RngCore + CryptoRng>(
             LEN_XWING_SHAREDSECRET_ENCAPS
         ));
 
+    let cmessage = CombinedCiphertext {
+        ct_message: message_ciphertext,
+        message_dhakem_ss_encap: dhakem_ss_encaps_bytes,
+        message_pqpsk_ss_encap: psk_ct,
+    };
+
     Envelope {
-        cmessage: message_ciphertext,
+        // authenc ciphertext
+        cmessage: cmessage.to_bytes(),
+
+        // sender pubkey ciphertext
         cmetadata: metadata_ciphertext,
+
+        // sender pubkey ss encaps
         metadata_encap: metadata_ss_encaps,
+
+        // clue stuff
         mgdh_pubkey: eph_pk,
         mgdh: mgdh,
     }
@@ -396,7 +422,7 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
                 hpke_base.open(
                     &envelope.metadata_encap,
                     receiver_metadata_keypair.private_key(),
-                    HPKE_INFO,
+                    HPKE_BASE_INFO,
                     HPKE_AAD,
                     &envelope.cmetadata,
                     None,
@@ -418,31 +444,33 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
     let receiver_keys = receiver.keybundle(Some(*index));
 
     // kind of silly, but just enforcing length
-    let raw_md_bytes: [u8; METADATA_LENGTH] = raw_metadata
+    let raw_md_bytes: [u8; DH_AKEM_PUBLIC_KEY_LEN] = raw_metadata
         .as_slice()
         .try_into()
-        .expect("Need METADATA_LENGTH array");
-    let metadata = Metadata::try_from(raw_md_bytes).unwrap();
+        .expect("Need {DH_AKEM_PUBLIC_KEY_LEN} array");
 
     // hpke keytypes
-    let hpke_pubkey_sender = hpke_pubkey_from_bytes(&metadata.sender_pubkey_bytes);
+    let hpke_pubkey_sender = hpke_pubkey_from_bytes(&raw_md_bytes);
 
     let hpke_receiver_keys =
         hpke_keypair_from_bytes(receiver_keys.get_dhakem_sk(), receiver_keys.get_dhakem_pk());
 
+    // toy (unsafe) parse combined ciphertext
+    let combined_ct = CombinedCiphertext::from_bytes(&envelope.cmessage).unwrap();
+
     let psk = MlKem768::decaps(
-        &metadata.pq_psk_ss_encaps,
+        &combined_ct.message_pqpsk_ss_encap,
         receiver_keys.get_pq_kem_psk_sk(),
     )
     .unwrap();
 
     let pt = hpke_authenc
         .open(
-            &metadata.dhakem_ss_encaps,
+            &combined_ct.message_dhakem_ss_encap,
             hpke_receiver_keys.private_key(),
-            HPKE_INFO,
+            &combined_ct.message_pqpsk_ss_encap,
             HPKE_AAD,
-            &envelope.cmessage,
+            &combined_ct.ct_message,
             Some(&psk),
             Some(HPKE_PSK_ID),
             Some(&hpke_pubkey_sender),
@@ -456,6 +484,7 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
         sender_reply_pubkey_dhakem: None,
         sender_reply_pubkey_pq_psk: None,
         sender_reply_pubkey_hybrid: None,
+        sender_fetch_key: None,
     }
 }
 
@@ -610,6 +639,9 @@ pub struct Journalist {
 
     sk_fetch: [u8; LEN_DH_ITEM],
     pk_fetch: [u8; LEN_DH_ITEM],
+
+    sk_reply: [u8; LEN_DH_ITEM],
+    pk_reply: [u8; LEN_DH_ITEM],
 }
 
 impl Journalist {
@@ -621,6 +653,13 @@ impl Journalist {
         let mut sk_fetch: [u8; LEN_DHKEM_DECAPS_KEY] =
             generate_random_scalar(rng).expect("DH keygen (Fetching) failed!");
         let _ = libcrux_curve25519::secret_to_public(&mut pk_fetch, &mut sk_fetch);
+
+        // We don't currently benchmark replies, but this key
+        // would be used by journalist for replying to sources
+        let mut pk_reply: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
+        let mut sk_reply: [u8; LEN_DHKEM_DECAPS_KEY] =
+            generate_random_scalar(rng).expect("DH keygen (Reply) failed!");
+        let _ = libcrux_curve25519::secret_to_public(&mut pk_reply, &mut sk_reply);
 
         // Generate one-time/short-lived keybundles
         for _ in 0..num_keybundles {
@@ -650,6 +689,8 @@ impl Journalist {
             keybundle: key_bundle,
             sk_fetch: sk_fetch,
             pk_fetch: pk_fetch,
+            sk_reply: sk_reply,
+            pk_reply: pk_reply,
         }
     }
 }
@@ -709,6 +750,16 @@ mod tests {
         let sender = Source::new(&mut rng);
         let recipient = Journalist::new(&mut rng, 2);
         let plaintext = b"Encrypt-decrypt test".to_vec();
+
+        // TODO
+        let pt = Plaintext {
+            sender_reply_pubkey_pq_psk: Some(sender.keys.get_pq_kem_psk_pk().to_vec()),
+            sender_reply_pubkey_dhakem: Some(sender.keys.get_dhakem_pk().to_vec()),
+            sender_fetch_key: Some(sender.pk_fetch.to_vec()),
+            sender_reply_pubkey_hybrid: None,
+            recipient_pubkey_dhakem: None,
+            msg: b"Encrypt-decrypt test".to_vec(),
+        };
 
         let envelope = encrypt(&mut rng, &sender, &plaintext, &recipient, None);
         let decrypted = decrypt(&recipient, &envelope);
