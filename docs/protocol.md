@@ -132,19 +132,29 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
-## Functions and notation
+## Building blocks <!-- Section 4 as of cf81f37 -->
 
-| Syntax                                                    | Description                                                                         |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| $`h \gets \text{Hash}(m)`$                                | Hash message $m$ to digest $h$                                                      |
-| $`k \Vert k_1 \Vert \dots \Vert k_n \gets \text{KDF}(m)`$ | Derive one or more keys $k$ from a message $m$                                      |
-| $`\sigma_S \gets^{\$} \text{Sign}(sk_S, m)`$              | Sign a message $m$ with the sender's private key $sk_S$                             |
-| $`b \in \{0,1\} \gets \text{Vfy}(pk_S, m, \sigma_S)`$     | Verify a message $m$ and a signature $\sigma_S$ with the sender's public key $pk_S$ |
-| $` g^x \gets \text{DH(g, x)}`$                            | Diffie-Hellman exponentiation of private component $x$                              |
-| $`r \gets^{\$} \text{Rand}()`$                            | Generate a random value                                                             |
-| $`-`$                                                     | The empty string (or `None` in pseudocode)                                          |
+| Scheme          | Function                                                  | Use                                                        |
+| --------------- | --------------------------------------------------------- | ---------------------------------------------------------- |
+|                 | $`k \gets \text{KDF}(ik, params)`$                        | Derive a key from input key $ik$ and $params$              |
+|                 | $`k \gets \text{PBKDF}(pw)`$                              | Derive a key from password $pw$ (including any parameters) |
+| $`\text{SIG}`$  | Signature scheme                                          |                                                            |
+|                 | $`(sk, vk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                              |
+|                 | $`\sigma \gets^{\$} \text{Sign}(sk, m)`$                  | Sign a message $m$                                         |
+|                 | $`b \in \{0, 1\} \gets \text{Vfy}(vk, m, \sigma)`$        | Verify a message $m$                                       |
+| $`\text{AEAD}`$ | Nonce-based authenticated encryption with associated data |                                                            |
+|                 | $`c \gets \text{Enc}(k, nonce, ad, m)`$                   | Encrypt a message $m$                                      |
+|                 | $`m \gets \text{Dec}(k, nonce, ad, c)`$                   | Decrypt a ciphertext $c$                                   |
+| $`\text{PKE}`$  | Public-key encryption                                     |                                                            |
+|                 | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                              |
+|                 | $`c \gets^{\$} \text{Enc}(pk, m, ad, info)`$              | Encrypt a message $m$                                      |
+|                 | $`m \gets \text{Dec}(sk, c, ad, info)`$                   | Decrypt a ciphertext $c$                                   |
+| $`\text{APKE}`$ | Authenticated public-key encryption                       |                                                            |
+|                 | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                              |
+|                 | $`c \gets^{\$} \text{AuthEnc}(sk, pk, m, ad, info)`$      | Encrypt a message $m$                                      |
+|                 | $`m \gets \text{AuthDec}(sk, pk, c, ad, info)`$           | Decrypt a ciphertext $c$                                   |
 
-## Cryptographic APIs
+## Cryptographic APIs[^9]
 
 The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC 9180]:
 
@@ -469,6 +479,10 @@ For some newsroom $NR$:
 [^8]:
     $\mathcal{E}_H \subset \mathbb{Z}$ per Definition 4 of Alwen et al.
     (2020), ["Analyzing the HPKE Standard"][alwen2020].
+
+[^9]:
+    In the listings that follow, mathematical syntax uses `-` for the empty
+    string, while Python pseudocode uses `None`.
 
 [alwen2020]: https://eprint.iacr.org/2020/1499
 [alwen2023]: https://eprint.iacr.org/2023/1480
