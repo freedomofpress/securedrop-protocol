@@ -105,9 +105,9 @@ deactivate Server
 
 Throughout this document, keys are notated as $component_{owner}^{scheme}$, where:
 
-- $component \in \{sk, pk, vk\}$ for private ($sk$) or public ($pk$ or $vk$) components
-- $owner \in \{FPF, NR, J, S\}$ for FPF, newsroom $NR$, journalist $J$, or source $S$; and
-- $scheme \in \{fetch, sig, AKEM, APKE, PKE, PQ\}$ for:
+- $`component \in \{sk, pk, vk\}`$ for private ($sk$) or public ($pk$ or $vk$) components
+- $`owner \in \{FPF, NR, J, S\}`$ for FPF, newsroom $NR$, journalist $J$, or source $S$; and
+- $`scheme \in \{fetch, sig, AKEM, APKE, PKE, PQ\}`$ for:
   - $fetch$ fetching
   - $sig$ signature
   - $APKE = \text{SD-APKE}$, composed concretely of:
