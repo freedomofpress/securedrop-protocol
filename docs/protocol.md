@@ -101,11 +101,11 @@ deactivate Server
 
 -->
 
-## Keys
+## Keys <!-- as of cf81f37 -->
 
 Throughout this document, keys are notated as $component_{owner}^{scheme}$, where:
 
-- $component \in \{sk, pk\}$ for private ($sk$) or public ($pk$) components;
+- $component \in \{sk, pk, vk\}$ for private ($sk$) or public ($pk$ or $vk$) components
 - $owner \in \{FPF, NR, J, S\}$ for FPF, newsroom $NR$, journalist $J$, or source $S$; and
 - $scheme \in \{fetch, sig, AKEM, APKE, PKE, PQ\}$ for:
   - $fetch$ fetching
@@ -117,9 +117,9 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 | Owner      | Private Key        | Public Key         | Usage   | Purpose  | Direction         | Lifetime      | Algorithm                    | Signed by          |
 | ---------- | ------------------ | ------------------ | ------- | -------- | ----------------- | ------------- | ---------------------------- | ------------------ |
-| FPF        | $`sk_{FPF}^{sig}`$ | $`pk_{FPF}^{sig}`$ |         | Signing  |                   | Long-term     | ?                            |                    |
-| Newsroom   | $`sk_{NR}^{sig}`$  | $`pk_{NR}^{sig}`$  |         | Signing  |                   | Long-term     | ?                            | $`sk_{FPF}^{sig}`$ |
-| Journalist | $`sk_J^{sig}`$     | $`pk_J^{sig}`$     |         | Signing  |                   | Long-term     | ?                            | $`sk_{NR}^{sig}`$  |
+| FPF        | $`sk_{FPF}^{sig}`$ | $`vk_{FPF}^{sig}`$ |         | Signing  |                   | Long-term     | ?                            |                    |
+| Newsroom   | $`sk_{NR}^{sig}`$  | $`vk_{NR}^{sig}`$  |         | Signing  |                   | Long-term     | ?                            | $`sk_{FPF}^{sig}`$ |
+| Journalist | $`sk_J^{sig}`$     | $`vk_J^{sig}`$     |         | Signing  |                   | Long-term     | ?                            | $`sk_{NR}^{sig}`$  |
 | Journalist | $`sk_J^{AKEM}`$    | $`pk_J^{AKEM}`$    | SD-APKE | Message  | Outgoing          | Long-term     | DH-AKEM(X25519, HKDF-SHA256) | $`sk_J^{sig}`$     |
 | Journalist | $`sk_J^{fetch}`$   | $`pk_J^{fetch}`$   |         | Fetching |                   | **TBD**[^6]   | ristretto255 (Curve25519)    | $`sk_J^{sig}`$     |
 | Journalist | $`sk_J^{PQ_E}`$    | $`pk_J^{PQ_E}`$    | SD-APKE | Message  | Incoming          | One-time      | ML-KEM-768                   | $`sk_J^{sig}`$     |
@@ -134,25 +134,25 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 ## Building blocks <!-- Section 4 as of cf81f37 -->
 
-| Scheme          | Function                                                  | Use                                                        |
-| --------------- | --------------------------------------------------------- | ---------------------------------------------------------- |
-|                 | $`k \gets \text{KDF}(ik, params)`$                        | Derive a key from input key $ik$ and $params$              |
-|                 | $`k \gets \text{PBKDF}(pw)`$                              | Derive a key from password $pw$ (including any parameters) |
-| $`\text{SIG}`$  | Signature scheme                                          |                                                            |
-|                 | $`(sk, vk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                              |
-|                 | $`\sigma \gets^{\$} \text{Sign}(sk, m)`$                  | Sign a message $m$                                         |
-|                 | $`b \in \{0, 1\} \gets \text{Vfy}(vk, m, \sigma)`$        | Verify a message $m$                                       |
-| $`\text{AEAD}`$ | Nonce-based authenticated encryption with associated data |                                                            |
-|                 | $`c \gets \text{Enc}(k, nonce, ad, m)`$                   | Encrypt a message $m$                                      |
-|                 | $`m \gets \text{Dec}(k, nonce, ad, c)`$                   | Decrypt a ciphertext $c$                                   |
-| $`\text{PKE}`$  | Public-key encryption                                     |                                                            |
-|                 | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                              |
-|                 | $`c \gets^{\$} \text{Enc}(pk, m, ad, info)`$              | Encrypt a message $m$                                      |
-|                 | $`m \gets \text{Dec}(sk, c, ad, info)`$                   | Decrypt a ciphertext $c$                                   |
-| $`\text{APKE}`$ | Authenticated public-key encryption                       |                                                            |
-|                 | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                              |
-|                 | $`c \gets^{\$} \text{AuthEnc}(sk, pk, m, ad, info)`$      | Encrypt a message $m$                                      |
-|                 | $`m \gets \text{AuthDec}(sk, pk, c, ad, info)`$           | Decrypt a ciphertext $c$                                   |
+| Scheme          | Function                                                  | Use                                                                                                                 |
+| --------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+|                 | $`k \gets \text{KDF}(ik, params)`$                        | Derive a key from input key $ik$ and $params$                                                                       |
+|                 | $`k \gets \text{PBKDF}(pw)`$                              | Derive a key from password $pw$ (including any parameters)                                                          |
+| $`\text{SIG}`$  | Signature scheme                                          |                                                                                                                     |
+|                 | $`(sk, vk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                       |
+|                 | $`\sigma \gets^{\$} \text{Sign}(sk, m)`$                  | Sign a message $m$ using a signing key $sk$                                                                         |
+|                 | $`b \in \{0, 1\} \gets \text{Vfy}(vk, m, \sigma)`$        | Verify signature $\sigma$ over a message $m$ using a verifiying key $vk$                                            |
+| $`\text{AEAD}`$ | Nonce-based authenticated encryption with associated data |                                                                                                                     |
+|                 | $`c \gets \text{Enc}(k, nonce, ad, m)`$                   | Encrypt a message $m$ using a key $k$, a nonce $nonce$, and associated data $ad$                                    |
+|                 | $`m \gets \text{Dec}(k, nonce, ad, c)`$                   | Decrypt a ciphertext $c$; rest as above                                                                             |
+| $`\text{PKE}`$  | Public-key encryption                                     |                                                                                                                     |
+|                 | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                       |
+|                 | $`c \gets^{\$} \text{Enc}(pk, m, ad, info)`$              | Encrypt a message $m$ to a recipient's public key $pk$, associated data $ad$, and $info$                            |
+|                 | $`m \gets \text{Dec}(sk, c, ad, info)`$                   | Decrypt a ciphertext $c$ using a recipient's private key $sk$; rest as above                                        |
+| $`\text{APKE}`$ | Authenticated public-key encryption                       |                                                                                                                     |
+|                 | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                       |
+|                 | $`c \gets^{\$} \text{AuthEnc}(sk, pk, m, ad, info)`$      | Encrypt a message $m$ to a recipient's public key key $pk$ using private key $sk$, associated data $ad$, and $info$ |
+|                 | $`m \gets \text{AuthDec}(sk, pk, c, ad, info)`$           | Decrypt a ciphertext $c$ using a recipient's private key $sk$ and a sender's public key $pk$; rest as above         |
 
 ## Cryptographic APIs[^9]
 
@@ -296,22 +296,22 @@ def AuthDec(
 
 | FPF                                                          |
 | ------------------------------------------------------------ |
-| $`(sk_{FPF}^{sig}, pk_{FPF}^{sig}) \gets^{\$} \text{Gen}()`$ |
+| $`(sk_{FPF}^{sig}, vk_{FPF}^{sig}) \gets^{\$} \text{Gen}()`$ |
 
 The server, the journalist client, and the source client SHOULD be built with
-FPF's signing key $pk_{FPF}^{sig}$ pinned.[^2]
+FPF's signing key $vk_{FPF}^{sig}$ pinned.[^2]
 
 ### 2. Newsroom
 
 | Newsroom                                                   |                                   | FPF                                                                    |
 | ---------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------- |
-| $`(sk_{NR}^{sig}, pk_{NR}^{sig}) \gets^{\$} \text{Gen}()`$ |                                   |                                                                        |
-|                                                            | $`\longrightarrow pk_{NR}^{sig}`$ | Verify manually                                                        |
-|                                                            |                                   | $`\sigma_{FPF} \gets^{\$} \text{Sign}(sk_{FPF}^{sig}, pk_{NR}^{sig})`$ |
+| $`(sk_{NR}^{sig}, vk_{NR}^{sig}) \gets^{\$} \text{Gen}()`$ |                                   |                                                                        |
+|                                                            | $`\longrightarrow vk_{NR}^{sig}`$ | Verify manually                                                        |
+|                                                            |                                   | $`\sigma_{FPF} \gets^{\$} \text{Sign}(sk_{FPF}^{sig}, vk_{NR}^{sig})`$ |
 |                                                            | $`\sigma_{FPF} \longleftarrow`$   |
 
-The server MUST be deployed with the newsroom's signing key $pk_{NR}^{sig}$
-pinned. The server MAY be deployed with FPF's signing key $pk_{FPF}^{sig}$
+The server MUST be deployed with the newsroom's verifying key $vk_{NR}^{sig}$
+pinned. The server MAY be deployed with FPF's verifying key $vk_{FPF}^{sig}$
 pinned.[^2]
 
 ### 3. Journalist
@@ -320,15 +320,15 @@ pinned.[^2]
 
 | Journalist                                                                   |                                                           | Newsroom                                                          |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------- |
-| $`(sk_J^{sig}, pk_J^{sig}) \gets^{\$} \text{Gen}()`$                         |                                                           |                                                                   |
-|                                                                              | $`\longrightarrow pk_J^{sig}`$                            | Verify $pk_J^{sig}$ manually, then store for $J$                  |
-|                                                                              |                                                           | $`\sigma_{NR} \gets^{\$} \text{Sign}(sk_{NR}^{sig}, pk_J^{sig})`$ |
+| $`(sk_J^{sig}, vk_J^{sig}) \gets^{\$} \text{Gen}()`$                         |                                                           |                                                                   |
+|                                                                              | $`\longrightarrow vk_J^{sig}`$                            | Verify $vk_J^{sig}$ manually, then store for $J$                  |
+|                                                                              |                                                           | $`\sigma_{NR} \gets^{\$} \text{Sign}(sk_{NR}^{sig}, vk_J^{sig})`$ |
 |                                                                              |                                                           | Store $\sigma_{NR}$ for $J$                                       |
 | $`(sk_J^{AKEM}, pk_J^{AKEM}) \gets^{\$} \text{AKEM.KGen}()`$                 |                                                           |                                                                   |
 | $`(sk_J^{fetch}, pk_J^{fetch}) \gets^{\$} \text{KGen}()`$ (**TODO**)         |                                                           |                                                                   |
 | $`\sigma_J \gets^{\$} \text{Sign}(sk_J^{sig}, (pk_J^{AKEM}, pk_J^{fetch}))`$ |                                                           |                                                                   |
 |                                                                              | $`\longrightarrow (\sigma_J, pk_J^{AKEM}, pk_J^{fetch})`$ |                                                                   |
-|                                                                              |                                                           | $`\text{Vfy}(pk_J^{sig}, (pk_J^{AKEM}, pk_J^{fetch}), \sigma_J)`$ |
+|                                                                              |                                                           | $`\text{Vfy}(vk_J^{sig}, (pk_J^{AKEM}, pk_J^{fetch}), \sigma_J)`$ |
 |                                                                              |                                                           | Store $(\sigma_J, pk_J^{AKEM}, pk_J^{fetch})$ for $J$             |
 
 #### 3.2. Setup and periodic replenishment of $n$ ephemeral keybundles
@@ -342,7 +342,7 @@ keybundles. For each keybundle:
 | $`(sk_J^{PKE_E}, pk_J^{PKE_E} \gets^{\$} \text{SD-PKE.KGen}()`$                |                                                             |                                                                     |
 | $`\sigma_J \gets^{\$} \text{Sign}(sk_J^{sig}, (pk_J^{APKE_E}, pk_J^{PKE_E}))`$ |                                                             |                                                                     |
 |                                                                                | $`\longrightarrow (\sigma_J, pk_J^{APKE_E}, pk_J^{PKE_E})`$ |
-|                                                                                |                                                             | $`\text{Vfy}(pk_J^{sig}, (pk_J^{APKE_E}, pk_J^{PKE_E}), \sigma^J)`$ |
+|                                                                                |                                                             | $`\text{Vfy}(vk_J^{sig}, (pk_J^{APKE_E}, pk_J^{PKE_E}), \sigma^J)`$ |
 |                                                                                |                                                             | Store $(\sigma_J, pk_J^{APKE_E}, pk_J^{PKE_E})$ for $J$             |
 
 ### 4. Source
@@ -370,14 +370,14 @@ the first sender.
 
 ### 5. Sender fetches keys and verifies their authenticity <!-- Figure 1 as of 7944378 -->
 
-A sender knows their own keys and the newsroom's signing key $pk_{NR}^{sig}$. In
+A sender knows their own keys and the newsroom's signing key $vk_{NR}^{sig}$. In
 addition, in the **reply case,** if the sender is a journalist replying to a
 source, they also already know their recipient's keys without further
 verification.
 
 | Anyone          | All senders     | Reply case      |
 | --------------- | --------------- | --------------- |
-| $pk_{NR}^{sig}$ | $pk_{NR}^{sig}$ | $pk_{NR}^{sig}$ |
+| $vk_{NR}^{sig}$ | $vk_{NR}^{sig}$ | $vk_{NR}^{sig}$ |
 |                 | $pk_S^{APKE}$   | $pk_R^{APKE}$   |
 |                 | $pk_S^{PKE}$    | $pk_R^{PKE}$    |
 |                 | $pk_S^{fetch}$  | $pk_R^{fetch}$  |
@@ -390,12 +390,12 @@ For some newsroom $NR$ and all its enrolled journalists $J_i$:
 | Sender                                                                                                               |                                 | Server                                                                                        |
 | -------------------------------------------------------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
 |                                                                                                                      | $\longrightarrow$ `RequestKeys` |                                                                                               |
-|                                                                                                                      |                                 | $`pks = \{(pk_{R,i}^{sig}, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch})\}`$ for all $i$ |
+|                                                                                                                      |                                 | $`pks = \{(vk_{R,i}^{sig}, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch})\}`$ for all $i$ |
 |                                                                                                                      |                                 | $`sigs = \{(\sigma_{R,i}, \sigma_{NR,i})\}`$ for all $i$                                      |
 |                                                                                                                      | $`(pks, sigs) \longleftarrow`$  |                                                                                               |
 | $`\forall i:`$                                                                                                       |                                 |                                                                                               |
-| $`\text{Vfy}(pk_{NR}^{sig}, pk_{R,i}^{sig}, \sigma_{NR,i})`$                                                         |                                 |                                                                                               |
-| $`\text{Vfy}(pk_{R,i}^{sig}, (pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}), \sigma_{R,i})`$                    |                                 |                                                                                               |
+| $`\text{Vfy}(vk_{NR}^{sig}, pk_{R,i}^{sig}, \sigma_{NR,i})`$                                                         |                                 |                                                                                               |
+| $`\text{Vfy}(vk_{R,i}^{sig}, (pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}), \sigma_{R,i})`$                    |                                 |                                                                                               |
 |                                                                                                                      |                                 |                                                                                               |
 | **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying:           |                                 |                                                                                               |
 | $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                                                               |
@@ -420,11 +420,11 @@ pk_{R,i}^{fetch}) \in pks$:
 
 ### 7. Receiver fetches and decrypts messages <!-- Figure 2 as of 7944378 -->
 
-A receiver knows their own keys and the newsroom's $pk_{NR}^{sig}$:
+A receiver knows their own keys and the newsroom's $vk_{NR}^{sig}$:
 
 | Anyone          | All receivers   |
 | --------------- | --------------- |
-| $pk_{NR}^{sig}$ | $pk_{NR}^{sig}$ |
+| $vk_{NR}^{sig}$ | $vk_{NR}^{sig}$ |
 |                 | $pk_R^{APKE}$   |
 |                 | $pk_R^{PKE}$    |
 |                 | $pk_R^{fetch}$  |
