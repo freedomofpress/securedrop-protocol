@@ -284,21 +284,30 @@ def AuthDec(
 
 ### 1. FPF
 
-| FPF                                                          |
-| ------------------------------------------------------------ |
-| $`(sk_{FPF}^{sig}, vk_{FPF}^{sig}) \gets^{\$} \text{Gen}()`$ |
+| FPF                                                               |
+| ----------------------------------------------------------------- |
+| $`(sk_{FPF}^{sig}, vk_{FPF}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |
 
 The server, the journalist client, and the source client SHOULD be built with
 FPF's signing key $vk_{FPF}^{sig}$ pinned.[^2]
 
-### 2. Newsroom
+### 2. Newsroom <!-- Figure 1 as of cf81f37 -->
 
-| Newsroom                                                   |                                   | FPF                                                                    |
-| ---------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------- |
-| $`(sk_{NR}^{sig}, vk_{NR}^{sig}) \gets^{\$} \text{Gen}()`$ |                                   |                                                                        |
-|                                                            | $`\longrightarrow vk_{NR}^{sig}`$ | Verify manually                                                        |
-|                                                            |                                   | $`\sigma_{FPF} \gets^{\$} \text{Sign}(sk_{FPF}^{sig}, vk_{NR}^{sig})`$ |
-|                                                            | $`\sigma_{FPF} \longleftarrow`$   |
+Given:
+
+| FPF              |
+| ---------------- |
+| $vk_{FPF}^{sig}$ |
+| $sk_{FPF}^{sig}$ |
+
+Then:
+
+| Newsroom                                                        |                                   | FPF                                                                        |
+| --------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------- |
+| $`(sk_{NR}^{sig}, vk_{NR}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |                                   |                                                                            |
+|                                                                 | $`\longrightarrow vk_{NR}^{sig}`$ | Verify manually                                                            |
+|                                                                 |                                   | $`\sigma_{FPF} \gets^{\$} \text{SIG.Sign}(sk_{FPF}^{sig}, vk_{NR}^{sig})`$ |
+|                                                                 | $`\sigma_{FPF} \longleftarrow`$   |
 
 The server MUST be deployed with the newsroom's verifying key $vk_{NR}^{sig}$
 pinned. The server MAY be deployed with FPF's verifying key $vk_{FPF}^{sig}$
