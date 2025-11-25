@@ -301,6 +301,11 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     let (psk, psk_ct) = MlKem768::encaps(recipient_keybundle.get_pq_kem_psk_pk(), &randomness)
         .expect("PSK encaps failed");
 
+    // Info parameter is pq_psk_encaps_bytes || receiver_fetch_pubkey_bytes
+    let mut info = Vec::new();
+    info.extend_from_slice(&psk_ct);
+    info.extend_from_slice(recipient.get_fetch_pk());
+
     // TODO: message serialization and format
     // (include any message metadata, the sender serialized XWING pubkey
     // for sending replies, key identifiers, newsroom key/identifier, etc.)
@@ -313,7 +318,7 @@ pub fn encrypt<R: RngCore + CryptoRng>(
             // psk_encaps_ct as authenticated (info).
             // In single-shot mode this is how authenticated data is passed:
             // https://www.rfc-editor.org/rfc/rfc9180.html#section-8.1-2
-            &psk_ct,
+            &info,
             HPKE_AAD,
             plaintext,
             Some(&psk),
@@ -458,6 +463,12 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
     // toy (unsafe) parse combined ciphertext
     let combined_ct = CombinedCiphertext::from_bytes(&envelope.cmessage).unwrap();
 
+    // Construct 'info' parameter (authenticated data)
+    // Info is c2 || receiver_fetch_pubkey
+    let mut info = Vec::new();
+    info.extend_from_slice(&combined_ct.message_pqpsk_ss_encap);
+    info.extend_from_slice(receiver.get_fetch_pk());
+
     let psk = MlKem768::decaps(
         &combined_ct.message_pqpsk_ss_encap,
         receiver_keys.get_pq_kem_psk_sk(),
@@ -468,7 +479,7 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
         .open(
             &combined_ct.message_dhakem_ss_encap,
             hpke_receiver_keys.private_key(),
-            &combined_ct.message_pqpsk_ss_encap,
+            &info,
             HPKE_AAD,
             &combined_ct.ct_message,
             Some(&psk),
