@@ -52,15 +52,15 @@ const LEN_KMID: usize =
 
 #[derive(Debug, Clone)]
 pub struct CombinedCiphertext {
-    // authenc message ciphertext
-    ct_message: Vec<u8>,
-
     // dh-akem ss encaps (needed to decrypt message)
     message_dhakem_ss_encap: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS],
 
     // pq psk encap (needed to decaps psk)
-    // also passed as `info` param during hpke.authopen
+    // also passed as part of `info` param during hpke.authopen
     message_pqpsk_ss_encap: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS],
+
+    // authenc message ciphertext
+    ct_message: Vec<u8>,
 }
 
 impl CombinedCiphertext {
@@ -100,9 +100,9 @@ impl CombinedCiphertext {
             ct_bytes[LEN_DHKEM_SHAREDSECRET_ENCAPS + LEN_MLKEM_SHAREDSECRET_ENCAPS..].to_vec();
 
         Ok(CombinedCiphertext {
-            ct_message: (cmessage),
             message_dhakem_ss_encap: dhakem_ss_encaps,
             message_pqpsk_ss_encap: pqpsk_ss_encaps,
+            ct_message: (cmessage),
         })
     }
 }
@@ -365,9 +365,9 @@ pub fn encrypt<R: RngCore + CryptoRng>(
         ));
 
     let cmessage = CombinedCiphertext {
-        ct_message: message_ciphertext,
         message_dhakem_ss_encap: dhakem_ss_encaps_bytes,
         message_pqpsk_ss_encap: psk_ct,
+        ct_message: message_ciphertext,
     };
 
     Envelope {
