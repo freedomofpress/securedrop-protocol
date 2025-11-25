@@ -340,19 +340,19 @@ Then:
 |                                                                                  |                                                                       | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J)`$ |
 |                                                                                  |                                                                       | If $b = 1$: Store $(\sigma_J, pk_J^{APKE}, pk_J^{fetch})$ for $J$             |
 
-#### 3.2. Setup and periodic replenishment of $n$ ephemeral keybundles
+#### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 2 as of cf81f37 -->
 
-Each journalist $J$ MUST generate and maintain a pool of $n$ ephemeral
-keybundles. For each keybundle:
+Following [enrollment](#31-enrollment-), each journalist $J$ MUST generate and
+maintain a pool of $n$ ephemeral key bundles. For each key bundle $i$:
 
-| Journalist                                                                     |                                                             | Server                                                              |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------- |
-| $`(sk_J^{APKE_E}, pk_J^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$            |                                                             |                                                                     |
-| $`(sk_J^{PKE_E}, pk_J^{PKE_E} \gets^{\$} \text{SD-PKE.KGen}()`$                |                                                             |                                                                     |
-| $`\sigma_J \gets^{\$} \text{Sign}(sk_J^{sig}, (pk_J^{APKE_E}, pk_J^{PKE_E}))`$ |                                                             |                                                                     |
-|                                                                                | $`\longrightarrow (\sigma_J, pk_J^{APKE_E}, pk_J^{PKE_E})`$ |
-|                                                                                |                                                             | $`\text{Vfy}(vk_J^{sig}, (pk_J^{APKE_E}, pk_J^{PKE_E}), \sigma^J)`$ |
-|                                                                                |                                                             | Store $(\sigma_J, pk_J^{APKE_E}, pk_J^{PKE_E})$ for $J$             |
+| Journalist                                                                                                   |                                                                         | Server                                                                                                |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                                  |                                                                         |                                                                                                       |
+| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                                     |                                                                         |                                                                                                       |
+| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}))`$ |                                                                         |                                                                                                       |
+|                                                                                                              | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |
+|                                                                                                              |                                                                         | $`b = \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i})`$ |
+|                                                                                                              |                                                                         | If $b = 1$: Store $(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})$ for $J$                       |
 
 ### 4. Source <!-- Section 4 as of cf81f37 -->
 
