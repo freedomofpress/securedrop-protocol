@@ -101,32 +101,33 @@ deactivate Server
 
 -->
 
-## Keys <!-- as of cf81f37 -->
+## Key hierarchy <!-- as of cf81f37 -->
 
 Throughout this document, keys are notated as $component_{owner}^{scheme}$, where:
 
 - $`component \in \{sk, pk, vk\}`$ for private ($sk$) or public ($pk$ or $vk$) components
-- $`owner \in \{FPF, NR, J, S\}`$ for FPF, newsroom $NR$, journalist $J$, or source $S$; and
+- $`owner \in \{FPF, NR, J, S\}`$ for FPF, newsroom $NR$, journalist $J$, or source $S$
 - $`scheme \in \{fetch, sig, APKE, PKE\}`$ for:
   - $fetch$ fetching
   - $sig$ signature
   - $APKE = \text{SD-APKE}$ ($APKE_E$ if one-time)
   - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time)
 
-| Owner      | Private Key        | Public Key         | Usage   | Purpose  | Direction         | Lifetime      | Algorithm                    | Signed by          |
-| ---------- | ------------------ | ------------------ | ------- | -------- | ----------------- | ------------- | ---------------------------- | ------------------ |
-| FPF        | $`sk_{FPF}^{sig}`$ | $`vk_{FPF}^{sig}`$ |         | Signing  |                   | Long-term     | ?                            |                    |
-| Newsroom   | $`sk_{NR}^{sig}`$  | $`vk_{NR}^{sig}`$  |         | Signing  |                   | Long-term     | ?                            | $`sk_{FPF}^{sig}`$ |
-| Journalist | $`sk_J^{sig}`$     | $`vk_J^{sig}`$     |         | Signing  |                   | Long-term     | ?                            | $`sk_{NR}^{sig}`$  |
-| Journalist | $`sk_J^{AKEM}`$    | $`pk_J^{AKEM}`$    | SD-APKE | Message  | Outgoing          | Long-term     | DH-AKEM(X25519, HKDF-SHA256) | $`sk_J^{sig}`$     |
-| Journalist | $`sk_J^{fetch}`$   | $`pk_J^{fetch}`$   |         | Fetching |                   | **TBD**[^6]   | ristretto255 (Curve25519)    | $`sk_J^{sig}`$     |
-| Journalist | $`sk_J^{PQ_E}`$    | $`pk_J^{PQ_E}`$    | SD-APKE | Message  | Incoming          | One-time      | ML-KEM-768                   | $`sk_J^{sig}`$     |
-| Journalist | $`sk_J^{AKEM_E}`$  | $`pk_J^{AKEM_E}`$  | SD-APKE | Message  | Incoming          | One-time      | DH-AKEM(X25519, HKDF-SHA256) | $`sk_J^{sig}`$     |
-| Journalist | $`sk_J^{PKE_E}`$   | $`pk_J^{PKE_E}`$   | SD-PKE  | Metadata | Incoming          | One-time      | X-Wing (X25519, ML-KEM-768)  | $`sk_J^{sig}`$     |
-| Source     | $`sk_S^{fetch}`$   | $`pk_S^{fetch}`$   |         | Fetching |                   | Permanent[^7] | ristretto255 (Curve25519)    |                    |
-| Source     | $`sk_S^{PQ}`$      | $`pk_S^{PQ}`$      | SD-APKE | Message  | Incoming          | Permanent[^7] | ML-KEM-768                   |                    |
-| Source     | $`sk_S^{AKEM}`$    | $`pk_S^{AKEM}`$    | SD-APKE | Message  | Incoming+Outgoing | Permanent[^7] | DH-AKEM(X25519, HKDF-SHA256) |                    |
-| Source     | $`sk_S^{PKE}`$     | $`pk_S^{PKE}`$     | SD-PKE  | Metadata | Incoming          | Permanent[^7] | X-Wing (X25519, ML-KEM-768)  |                    |
+| Owner      | Private Key         | Public Key          | Usage     | Purpose  | Direction | Lifetime      | Algorithm                           | Signed by        |
+| ---------- | ------------------- | ------------------- | --------- | -------- | --------- | ------------- | ----------------------------------- | ---------------- |
+| FPF        | $sk_{FPF}^{sig}$    | $vk_{FPF}^{sig}$    |           | Signing  |           | Long-term     | ?                                   |                  |
+| Newsroom   | $sk_{NR}^{sig}$     | $vk_{NR}^{sig}$     |           | Signing  |           | Long-term     | ?                                   | $sk_{FPF}^{sig}$ |
+| Journalist | $sk_J^{sig}$        | $vk_J^{sig}$        |           | Signing  |           | Long-term     | ?                                   | $sk_{NR}^{sig}$  |
+| Journalist | $sk_J^{APKE}$       | $pk_J^{APKE}$       | [SD-APKE] | Message  | Outgoing  | Long-term     | DHKEM(X25519, HKDF-SHA256) + ML-KEM | $sk_J^{sig}$     |
+| Journalist | $sk_J^{fetch}$      | $pk_J^{fetch}$      |           | Fetching |           | TBD[^6]       | ristretto255 (Curve25519)           | $sk_J^{sig}$     |
+| Journalist | $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | [SD-APKE] | Message  | Incoming  | One-time      | DHKEM(X25519, HKDF-SHA256) + ML-KEM | $sk_J^{sig}$     |
+| Journalist | $sk_{J,i}^{PKE_E}$  | $pk_{J,i}^{PKE_E}$  | [SD-PKE]  | Metadata | Incoming  | One-time      | X-Wing(X25519, ML-KEM-768)          | $sk_J^{sig}$     |
+| Source     | $sk_S^{fetch}$      | $pk_S^{fetch}$      |           | Fetching |           | Permanent[^7] | ristretto255 (Curve25519)           |                  |
+| Source     | $sk_S^{APKE}$       | $pk_S^{APKE}$       | [SD-APKE] | Message  | In+Out    | Permanent[^7] | DHKEM(X25519, HKDF-SHA256) + ML-KEM |                  |
+| Source     | $sk_S^{PKE}$        | $pk_S^{PKE}$        | [SD-PKE]  | Metadata | Incoming  | Permanent[^7] | X-Wing(X25519, ML-KEM-768)          |                  |
+
+[SD-APKE]: #sd-apke-securedrop-apke-
+[SD-PKE]: #metadata-protection-via-sd-pke-securedrop-pke-
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
