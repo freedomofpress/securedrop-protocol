@@ -443,49 +443,57 @@ Then:
 |                                                                                                                                                             |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
 |                                                                                                                                                             |                                 | Store $(id, C_S, X, Z)$                        |
 
-### 7. Receiver fetches and decrypts messages <!-- Figure 2 as of 7944378 -->
+### 7. Receiver fetches and decrypts messages <!-- Figure 5 as of cf81f37 -->
 
-A receiver knows their own keys and the newsroom's $vk_{NR}^{sig}$:
+A receiver knows their own keys, the newsroom's signing key $vk_{NR}^{sig}$, and
+the $pks$ and $sigs$ they previously [fetched].
 
-| Anyone          | All receivers   |
-| --------------- | --------------- |
-| $vk_{NR}^{sig}$ | $vk_{NR}^{sig}$ |
-|                 | $pk_R^{APKE}$   |
-|                 | $pk_R^{PKE}$    |
-|                 | $pk_R^{fetch}$  |
-|                 | $sk_R^{APKE}$   |
-|                 | $sk_R^{PKE}$    |
-|                 | $sk_R^{fetch}$  |
+|                       | Source          | Journalist                  |
+| --------------------- | --------------- | --------------------------- |
+| Published by server   | $vk_{NR}^{sig}$ | $vk_{NR}^{sig}$             |
+| Holds                 | $pk_R^{APKE}$   | $pk_{R,i}^{APKE} \forall i$ |
+|                       | $pk_R^{PKE}$    | $pk_{R,i}^{PKE} \forall i$  |
+|                       | $pk_R^{fetch}$  | $pk_R^{fetch}$              |
+|                       | $sk_R^{APKE}$   | $sk_{R,i}^{APKE} \forall i$ |
+|                       | $sk_R^{PKE}$    | $sk_{R,i}^{PKE} \forall i$  |
+|                       | $sk_R^{fetch}$  | $sk_R^{fetch}$              |
+| [Fetched] for all $J$ | $pk_J^{APKE}$   | $pk_J^{APKE}$               |
+|                       | $pk_J^{PKE}$    | $pk_J^{PKE}$                |
+|                       | $pk_J^{fetch}$  | $pk_J^{fetch}$              |
 
 For some newsroom $NR$:
 
-| Server                                                                                |                                                | Receiver                                                                        |
-| ------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
-|                                                                                       |                                                | $`fetched \gets \emptyset`$                                                     |
-|                                                                                       | $\longleftarrow$ `RequestMessages`             |                                                                                 |
-| $`\forall C_i = (id_i, C_{S_i}, X_i, Z_i):`$ **TODO:** pad up to $n$ total challenges |                                                |                                                                                 |
-| $`r_i \gets^{\$} \mathcal{E}_H`$[^8]                                                  |                                                |                                                                                 |
-| $`nonce_i \gets 0^{nl}`$ for length $nl$                                              |                                                |                                                                                 |
-| $`idk_i \gets \text{KDF}(Z_i^{r_i}, NR)`$                                             |                                                |                                                                                 |
-| $`eid_i \gets \text{AEAD.Enc}(idk_i, nonce_i, -, id_i)`$                              |                                                |                                                                                 |
-| $`Q_i \gets X_i^{r_i}`$                                                               |                                                |                                                                                 |
-|                                                                                       | $`\longrightarrow \forall i: \{(eid_i, Q_i\}`$ |                                                                                 |
-|                                                                                       |                                                | $`cids = \emptyset`$                                                            |
-|                                                                                       |                                                | $`\forall i:`$                                                                  |
-|                                                                                       |                                                | $`tk_i \gets \text{KDF}(Q_i^{sk_R^{fetch}}, NR)`$                               |
-|                                                                                       |                                                | $`nonce_i \gets 0^{nl}`$ for length $nl$                                        |
-|                                                                                       |                                                | $`res_i \gets \text{AEAD.Dec}(tk_i, nonce_i, -, eid_i)`$                        |
-|                                                                                       |                                                | If $res_i \neq \bot$: $`cids \gets cids \cup \{res_i\}`$                        |
-|                                                                                       |                                                | $`tofetch = fetched \setminus cids`$                                            |
-|                                                                                       |                                                | If $tofetch \neq \emptyset$: $`cid \gets tofetch[0]`$                           |
-|                                                                                       | $`cid \longleftarrow`$                         |                                                                                 |
-|                                                                                       | $`\longrightarrow C_{S_i}`$ where $id_i = cid$ |                                                                                 |
-|                                                                                       |                                                | $`(ct^{APKE}, ct^{PKE}) \gets C_{S_i}`$                                         |
-|                                                                                       |                                                | $`pk_S^{APKE} \gets \text{SD-PKE.Dec}(sk_R^{PKE}, ct^{PKE}, -, -)`$             |
-|                                                                                       |                                                | $`pt \gets \text{SD-APKE.AuthDec}(sk_R^{APKE}, pk_S^{APKE}, ct^{APKE}, NR, -)`$ |
-|                                                                                       |                                                | $`m \Vert pk_S^{fetch} \Vert pk_S^{PKE} \gets pt`$                              |
-|                                                                                       |                                                | $`fetched \gets fetched \cup \{cid\}`$                                          |
-|                                                                                       |                                                | If $tofetch \setminus \{cid\} \neq \emptyset$: repeat from `RequestMessages`    |
+| Server                                                                                          |                                                 | Receiver                                                                                                            |
+| ----------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+|                                                                                                 |                                                 | $`fetched \gets \emptyset`$                                                                                         |
+|                                                                                                 | $\longleftarrow$ `RequestMessages`              |                                                                                                                     |
+| $`\forall C_k = (id_k, C_{S_k}, X_k, Z_k):`$ **TODO:** pad up to $n$ total challenges           |                                                 |                                                                                                                     |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`r_k \gets^{\$} \mathcal{E}_H`$[^8]                                    |                                                 |                                                                                                                     |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`idk_k \gets \text{KDF}(Z_k^{r_k}, NR)`$                               |                                                 |                                                                                                                     |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`eid_k \gets \text{AEAD.Enc}(idk_k, 0^{nl}, -, id_k)`$ for length $nl$ |                                                 |                                                                                                                     |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`Q_k \gets X_k^{r_k}`$                                                 |                                                 |                                                                                                                     |
+|                                                                                                 | $`\longrightarrow \forall k: \{(eid_k, Q_k)\}`$ |                                                                                                                     |
+|                                                                                                 |                                                 | $`cids = \emptyset`$                                                                                                |
+|                                                                                                 |                                                 | $`\forall k:`$                                                                                                      |
+|                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;$`tk_k \gets \text{KDF}(Q_k^{sk_R^{fetch}}, NR)`$                                           |
+|                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;$`res_k \gets \text{AEAD.Dec}(tk_k, 0^{nl}, -, eid_k)`$ for length $nl$                     |
+|                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;If $res_k \neq \bot$: $`cids \gets cids \cup \{res_k\}`$                                    |
+|                                                                                                 |                                                 | $`tofetch = fetched \setminus cids`$                                                                                |
+|                                                                                                 |                                                 | If $tofetch \neq \emptyset$: $`cid \gets tofetch[0]`$                                                               |
+|                                                                                                 | $`cid \longleftarrow`$                          |                                                                                                                     |
+|                                                                                                 | $`\longrightarrow C_{S_k}`$ where $id_k = cid$  |                                                                                                                     |
+|                                                                                                 |                                                 | $`(ct^{APKE}, ct^{PKE}) \gets C_{S_k}`$                                                                             |
+|                                                                                                 |                                                 | If journalist:                                                                                                      |
+|                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;$`\forall i`$:                                                                              |
+|                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$`sk_R^{PKE} \gets sk_{R,i}^{PKE}`$                                 |
+|                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$`pk_S^{APKE} \gets \text{SD-PKE.Dec}(sk_R^{PKE}, ct^{PKE}, -, -)`$ |
+|                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;If $pk_S^{APKE} \neq \bot$: break                                   |
+|                                                                                                 |                                                 | $`pt \gets \text{SD-APKE.AuthDec}(sk_R^{APKE}, pk_S^{APKE}, ct^{APKE}, NR, -)`$                                     |
+|                                                                                                 |                                                 | $`m \Vert pk_S^{fetch} \Vert pk_S^{PKE} \gets pt`$                                                                  |
+|                                                                                                 |                                                 | If source:                                                                                                          |
+|                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;If $(-, pk_S^{APKE}, -, -, -) \notin pks$: **TODO**                                         |
+|                                                                                                 |                                                 | $`fetched \gets fetched \cup \{cid\}`$                                                                              |
+|                                                                                                 |                                                 | If $tofetch \setminus \{cid\} \neq \emptyset$: repeat from `RequestMessages`                                        |
 
 [^1]: Currently configured as [`CHUNK`][chunk].
 
