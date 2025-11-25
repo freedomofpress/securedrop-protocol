@@ -380,8 +380,9 @@ step (7), in any order.
 Only a source can initiate a conversation. In other words, a source is always
 the first sender.
 
-### 5. Sender fetches keys and verifies their authenticity <!-- Figure 1 as of 7944378 -->
+### 5. Sender fetches keys and verifies their authenticity <!-- Figure 3 as of cf81f37 -->
 
+<!--
 A sender knows their own keys and the newsroom's signing key $vk_{NR}^{sig}$. In
 addition, in the **reply case,** if the sender is a journalist replying to a
 source, they also already know their recipient's keys without further
@@ -397,20 +398,31 @@ verification.
 |                 | $sk_S^{PKE}$    |
 |                 | $sk_S^{fetch}$  |
 
-For some newsroom $NR$ and all its enrolled journalists $J_i$:
+For some newsroom $NR$ and all its enrolled journalists $J,i$:
+-->
 
-| Sender                                                                                                               |                                 | Server                                                                                        |
-| -------------------------------------------------------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
-|                                                                                                                      | $\longrightarrow$ `RequestKeys` |                                                                                               |
-|                                                                                                                      |                                 | $`pks = \{(vk_{R,i}^{sig}, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch})\}`$ for all $i$ |
-|                                                                                                                      |                                 | $`sigs = \{(\sigma_{R,i}, \sigma_{NR,i})\}`$ for all $i$                                      |
-|                                                                                                                      | $`(pks, sigs) \longleftarrow`$  |                                                                                               |
-| $`\forall i:`$                                                                                                       |                                 |                                                                                               |
-| $`\text{Vfy}(vk_{NR}^{sig}, pk_{R,i}^{sig}, \sigma_{NR,i})`$                                                         |                                 |                                                                                               |
-| $`\text{Vfy}(vk_{R,i}^{sig}, (pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}), \sigma_{R,i})`$                    |                                 |                                                                                               |
-|                                                                                                                      |                                 |                                                                                               |
-| **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying:           |                                 |                                                                                               |
-| $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                                                               |
+Given:
+
+| Anyone          |
+| --------------- |
+| $vk_{NR}^{sig}$ |
+
+Then:
+
+| Sender                                                                                                                       |                                 | Server                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+|                                                                                                                              | $\longrightarrow$ `RequestKeys` |                                                                                                                                  |
+|                                                                                                                              |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE_E})\}`$ for all $J$ and key bundles $i$ |
+|                                                                                                                              |                                 | $`sigs \gets \{(\sigma_{NR,J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$ and key bundles $i$                                       |
+|                                                                                                                              | $`pks, sigs \longleftarrow`$    |                                                                                                                                  |
+| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, vk_J^{sig}, \sigma_{NR,J}) = 0`$ for some $J$: abort                                      |                                 |                                                                                                                                  |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE_E}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                           |                                 |                                                                                                                                  |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i}) = 0`$ for some $J$: abort |                                 |                                                                                                                                  |
+
+<!--
+| **Reply case:** The journalist replaces their own keys with those of the source to whom they are replying: | | |
+| $`pks \gets pks \setminus \{pk_S^{APKE}, pk_S^{PKE}, pk_S^{fetch}\} \cup \{pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ | | |
+-->
 
 ### 6. Sender submits a message <!-- Figure 1 as of 7944378 -->
 
