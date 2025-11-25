@@ -344,14 +344,17 @@ keybundles. For each keybundle:
 |                                                                                |                                                             | $`\text{Vfy}(vk_J^{sig}, (pk_J^{APKE_E}, pk_J^{PKE_E}), \sigma^J)`$ |
 |                                                                                |                                                             | Store $(\sigma_J, pk_J^{APKE_E}, pk_J^{PKE_E})$ for $J$             |
 
-### 4. Source
+### 4. Source <!-- Section 4 as of cf81f37 -->
 
 To begin each session, a source MUST enter (on their first visit) or reenter (on
 a subsequent visit) some $passphrase$:
 
-| Source                                                                                           |
-| ------------------------------------------------------------------------------------------------ |
-| $`sk_S^{fetch} \Vert sk_S^{PQ} \Vert sk_S^{AKEM} \Vert sk_S^{PKE} \gets \text{KDF}(passphrase)`$ |
+| Source                                                         |
+| -------------------------------------------------------------- |
+| $`mk \gets \text{PBKDF}(passphrase)`$                          |
+| $`sk_S^{fetch} \gets \text{KDF}(mk, \texttt{sourcefetchkey})`$ |
+| $`sk_S^{APKE} \gets \text{KDF}(mk, \texttt{sourceAPKEkey})`$   |
+| $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$     |
 
 ## Messaging protocol
 
