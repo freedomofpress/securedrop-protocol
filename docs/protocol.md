@@ -295,10 +295,10 @@ FPF's signing key $vk_{FPF}^{sig}$ pinned.[^2]
 
 Given:
 
-| FPF              |
-| ---------------- |
-| $vk_{FPF}^{sig}$ |
-| $sk_{FPF}^{sig}$ |
+|       | FPF              |
+| ----- | ---------------- |
+| Holds | $vk_{FPF}^{sig}$ |
+|       | $sk_{FPF}^{sig}$ |
 
 Then:
 
@@ -319,10 +319,10 @@ pinned.[^2]
 
 Given:
 
-| Newsroom        |
-| --------------- |
-| $vk_{NR}^{sig}$ |
-| $sk_{NR}^{sig}$ |
+|       | Newsroom        |
+| ----- | --------------- |
+| Holds | $vk_{NR}^{sig}$ |
+|       | $sk_{NR}^{sig}$ |
 
 Then:
 
@@ -384,9 +384,9 @@ the first sender.
 
 Given:
 
-| Anyone          |
-| --------------- |
-| $vk_{NR}^{sig}$ |
+|                     | Anyone          |
+| ------------------- | --------------- |
+| Published by server | $vk_{NR}^{sig}$ |
 
 Then:
 
@@ -409,15 +409,21 @@ In addition, in the **reply case,** if the sender is a journalist replying to a
 source, they also already know their recipient's keys without further
 verification.
 
-| All senders     | Reply case      |
-| --------------- | --------------- |
-| $vk_{NR}^{sig}$ | $vk_{NR}^{sig}$ |
-| $pk_S^{APKE}$   | $pk_R^{APKE}$   |
-| $pk_S^{PKE}$    | $pk_R^{PKE}$    |
-| $pk_S^{fetch}$  | $pk_R^{fetch}$  |
-| $sk_S^{APKE}$   |
-| $sk_S^{PKE}$    |
-| $sk_S^{fetch}$  |
+|                                                   | All senders     | Reply case     |
+| ------------------------------------------------- | --------------- | -------------- |
+| Published by server                               | $vk_{NR}^{sig}$ |                |
+| Holds                                             | $sk^{APKE}$     |                |
+|                                                   | $sk^{PKE}$      |                |
+|                                                   | $sk^{fetch}$    |                |
+| [Fetched][fetched] for all $J$                    | $pk_J^{APKE}$   |                |
+|                                                   | $pk_J^{PKE}$    |                |
+|                                                   | $pk_J^{fetch}$  |                |
+| [Decrypted] from previous message from source $R$ |                 | $pk_R^{APKE}$  |
+|                                                   |                 | $pk_R^{PKE}$   |
+|                                                   |                 | $pk_R^{fetch}$ |
+
+[fetched]: #5-sender-fetches-keys-and-verifies-their-authenticity-
+[decrypted]: #7-receiver-fetches-and-decrypts-messages-
 
 Then:
 
