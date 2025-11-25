@@ -315,20 +315,30 @@ pinned.[^2]
 
 ### 3. Journalist
 
-#### 3.1. Enrollment
+#### 3.1. Enrollment <!-- Figure 2 as of cf81f37 -->
 
-| Journalist                                                                   |                                                           | Newsroom                                                          |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------- |
-| $`(sk_J^{sig}, vk_J^{sig}) \gets^{\$} \text{Gen}()`$                         |                                                           |                                                                   |
-|                                                                              | $`\longrightarrow vk_J^{sig}`$                            | Verify $vk_J^{sig}$ manually, then store for $J$                  |
-|                                                                              |                                                           | $`\sigma_{NR} \gets^{\$} \text{Sign}(sk_{NR}^{sig}, vk_J^{sig})`$ |
-|                                                                              |                                                           | Store $\sigma_{NR}$ for $J$                                       |
-| $`(sk_J^{AKEM}, pk_J^{AKEM}) \gets^{\$} \text{AKEM.KGen}()`$                 |                                                           |                                                                   |
-| $`(sk_J^{fetch}, pk_J^{fetch}) \gets^{\$} \text{KGen}()`$ (**TODO**)         |                                                           |                                                                   |
-| $`\sigma_J \gets^{\$} \text{Sign}(sk_J^{sig}, (pk_J^{AKEM}, pk_J^{fetch}))`$ |                                                           |                                                                   |
-|                                                                              | $`\longrightarrow (\sigma_J, pk_J^{AKEM}, pk_J^{fetch})`$ |                                                                   |
-|                                                                              |                                                           | $`\text{Vfy}(vk_J^{sig}, (pk_J^{AKEM}, pk_J^{fetch}), \sigma_J)`$ |
-|                                                                              |                                                           | Store $(\sigma_J, pk_J^{AKEM}, pk_J^{fetch})$ for $J$             |
+Given:
+
+| Newsroom        |
+| --------------- |
+| $vk_{NR}^{sig}$ |
+| $sk_{NR}^{sig}$ |
+
+Then:
+
+| Journalist                                                                       |                                                                       | Newsroom                                                                      |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| $`(sk_J^{sig}, vk_J^{sig}) \gets^{\$} \text{SIG.KGen}()`$                        |                                                                       |                                                                               |
+| $`(sk_J^{APKE}, pk_J^{APKE}) \gets^{\$} \text{SD-APKE.KGen}()`$                  |                                                                       |                                                                               |
+| $`sk_J^{fetch} \gets^{\$} \mathcal{E}_H`$[^8]                                    |                                                                       |                                                                               |
+| $`pk_J^{fetch} \gets g^x`$                                                       |                                                                       |                                                                               |
+| $`\sigma_J \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}))`$ |                                                                       |                                                                               |
+|                                                                                  | $`\longrightarrow (vk_J^{sig}, \sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ |                                                                               |
+|                                                                                  |                                                                       | Verify $vk_J^{sig}$ manually, then store for $J$                              |
+|                                                                                  |                                                                       | $`\sigma_{NR,J} \gets^{\$} \text{SIG.Sign}(sk_{NR}^{sig}, vk_J^{sig})`$       |
+|                                                                                  |                                                                       | Store $\sigma_{NR,J}$ for $J$                                                 |
+|                                                                                  |                                                                       | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J)`$ |
+|                                                                                  |                                                                       | If $b = 1$: Store $(\sigma_J, pk_J^{APKE}, pk_J^{fetch})$ for $J$             |
 
 #### 3.2. Setup and periodic replenishment of $n$ ephemeral keybundles
 
