@@ -391,15 +391,15 @@ Given:
 
 Then:
 
-| Sender                                                                                                                       |                                 | Server                                                                                                                           |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-|                                                                                                                              | $\longrightarrow$ `RequestKeys` |                                                                                                                                  |
-|                                                                                                                              |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE_E})\}`$ for all $J$ and key bundles $i$ |
-|                                                                                                                              |                                 | $`sigs \gets \{(\sigma_{NR,J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$ and key bundles $i$                                       |
-|                                                                                                                              | $`pks, sigs \longleftarrow`$    |                                                                                                                                  |
-| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, vk_J^{sig}, \sigma_{NR,J}) = 0`$ for some $J$: abort                                      |                                 |                                                                                                                                  |
-| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE_E}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                           |                                 |                                                                                                                                  |
-| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i}) = 0`$ for some $J$: abort |                                 |                                                                                                                                  |
+| Sender                                                                                                                       |                                 | Server                                                                                                                              |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+|                                                                                                                              | $\longrightarrow$ `RequestKeys` |                                                                                                                                     |
+|                                                                                                                              |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE})\}`$ for all $J$ and key bundles $i$[^10] |
+|                                                                                                                              |                                 | $`sigs \gets \{(\sigma_{NR,J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$ and key bundles $i$                                          |
+|                                                                                                                              | $`pks, sigs \longleftarrow`$    |                                                                                                                                     |
+| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, vk_J^{sig}, \sigma_{NR,J}) = 0`$ for some $J$: abort                                      |                                 |                                                                                                                                     |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                             |                                 |                                                                                                                                     |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i}) = 0`$ for some $J$: abort |                                 |                                                                                                                                     |
 
 ### 6. Sender submits a message <!-- Figure 4 as of cf81f37 -->
 
@@ -416,9 +416,10 @@ verification.
 | Holds                                             | $sk^{APKE}$     |                |
 |                                                   | $sk^{PKE}$      |                |
 |                                                   | $sk^{fetch}$    |                |
-| [Fetched][fetched] for all $J$                    | $pk_J^{APKE}$   |                |
-|                                                   | $pk_J^{PKE}$    |                |
+| [Fetched][fetched] for all $J$                    | $pk_J^{APKE_E}$ |                |
+|                                                   | $pk_J^{PKE_E}$  |                |
 |                                                   | $pk_J^{fetch}$  |                |
+|                                                   | $pk_J^{APKE}$   |                |
 | [Decrypted] from previous message from source $R$ |                 | $pk_R^{APKE}$  |
 |                                                   |                 | $pk_R^{PKE}$   |
 |                                                   |                 | $pk_R^{fetch}$ |
@@ -428,39 +429,40 @@ verification.
 
 Then:
 
-| Sender                                                                                                                                                      |                                 | Server                                         |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
-| **Reply case:** A journalist $J$ replaces their own keys with those of the source $R$ to whom they are replying:                                            |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{vk_J^{sig}, pk_J^{APKE}, pk_J^{PKE}, pk_J^{fetch}\} \cup \{-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}\}`$ |                                 |                                                |
-| For some message $m$, $`\forall (pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}) \in pks`$:                                                              |                                 |                                                |
-| $`pt \gets m \Vert pk_S^{fetch} \Vert pk_S^{PKE} `$                                                                                                         |                                 |                                                |
-| $`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, -)`$                                                                         |                                 |                                                |
-| $`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                                                                                     |                                 |                                                |
-| $`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                                                                         |                                 |                                                |
-| $`x \gets^{\$} \mathcal{E}_H`$[^8]                                                                                                                          |                                 |                                                |
-| $`X \gets g^x`$                                                                                                                                             |                                 |                                                |
-| $`Z \gets (pk_{R,i}^{fetch})^x`$                                                                                                                            |                                 |                                                |
-|                                                                                                                                                             | $`\longrightarrow (C_S, X, Z)`$ |                                                |
-|                                                                                                                                                             |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
-|                                                                                                                                                             |                                 | Store $(id, C_S, X, Z)$                        |
+| Sender                                                                                                                                                                                                        |                                 | Server                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
+| **Reply case:** A journalist $J$ replaces their own keys with those of the source $R$ to whom they are replying:                                                                                              |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{vk_J^{sig}, \forall i: pk_{J,i}^{APKE_E}, \forall i: pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE}\} \cup \{-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -\}`$ |                                 |                                                |
+| For some message $m$, $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                                                                                        |                                 |                                                |
+| $`pt \gets m \Vert pk_S^{fetch} \Vert pk_S^{PKE} `$                                                                                                                                                           |                                 |                                                |
+| $`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, -)`$                                                                                                                           |                                 |                                                |
+| $`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                                                                                                                                       |                                 |                                                |
+| $`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                                                                                                                           |                                 |                                                |
+| $`x \gets^{\$} \mathcal{E}_H`$[^8]                                                                                                                                                                            |                                 |                                                |
+| $`X \gets g^x`$                                                                                                                                                                                               |                                 |                                                |
+| $`Z \gets (pk_{R,i}^{fetch})^x`$                                                                                                                                                                              |                                 |                                                |
+|                                                                                                                                                                                                               | $`\longrightarrow (C_S, X, Z)`$ |                                                |
+|                                                                                                                                                                                                               |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
+|                                                                                                                                                                                                               |                                 | Store $(id, C_S, X, Z)$                        |
 
 ### 7. Receiver fetches and decrypts messages <!-- Figure 5 as of cf81f37 -->
 
 A receiver knows their own keys, the newsroom's signing key $vk_{NR}^{sig}$, and
 the $pks$ and $sigs$ they previously [fetched].
 
-|                       | Source          | Journalist                  |
-| --------------------- | --------------- | --------------------------- |
-| Published by server   | $vk_{NR}^{sig}$ | $vk_{NR}^{sig}$             |
-| Holds                 | $pk_R^{APKE}$   | $pk_{R,i}^{APKE} \forall i$ |
-|                       | $pk_R^{PKE}$    | $pk_{R,i}^{PKE} \forall i$  |
-|                       | $pk_R^{fetch}$  | $pk_R^{fetch}$              |
-|                       | $sk_R^{APKE}$   | $sk_{R,i}^{APKE} \forall i$ |
-|                       | $sk_R^{PKE}$    | $sk_{R,i}^{PKE} \forall i$  |
-|                       | $sk_R^{fetch}$  | $sk_R^{fetch}$              |
-| [Fetched] for all $J$ | $pk_J^{APKE}$   | $pk_J^{APKE}$               |
-|                       | $pk_J^{PKE}$    | $pk_J^{PKE}$                |
-|                       | $pk_J^{fetch}$  | $pk_J^{fetch}$              |
+|                                | Source          | Journalist                  |
+| ------------------------------ | --------------- | --------------------------- |
+| Published by server            | $vk_{NR}^{sig}$ | $vk_{NR}^{sig}$             |
+| Holds                          | $pk_R^{APKE}$   | $pk_{R,i}^{APKE} \forall i$ |
+|                                | $pk_R^{PKE}$    | $pk_{R,i}^{PKE} \forall i$  |
+|                                | $pk_R^{fetch}$  | $pk_R^{fetch}$              |
+|                                | $sk_R^{APKE}$   | $sk_{R,i}^{APKE} \forall i$ |
+|                                | $sk_R^{PKE}$    | $sk_{R,i}^{PKE} \forall i$  |
+|                                | $sk_R^{fetch}$  | $sk_R^{fetch}$              |
+| [Fetched][fetched] for all $J$ | $pk_J^{APKE_E}$ |                             |
+|                                | $pk_J^{PKE_E}$  |                             |
+|                                | $pk_J^{fetch}$  |                             |
+|                                | $pk_J^{APKE}$   |                             |
 
 For some newsroom $NR$:
 
@@ -492,7 +494,7 @@ For some newsroom $NR$:
 |                                                                                                 |                                                 | $`pt \gets \text{SD-APKE.AuthDec}(sk_R^{APKE}, pk_S^{APKE}, ct^{APKE}, NR, -)`$                                     |
 |                                                                                                 |                                                 | $`m \Vert pk_S^{fetch} \Vert pk_S^{PKE} \gets pt`$                                                                  |
 |                                                                                                 |                                                 | If source:                                                                                                          |
-|                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;If $(-, pk_S^{APKE}, -, -, -) \notin pks$: **TODO**                                         |
+|                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;If $`(\_, pk_S^{APKE}, \_, \_, \_) \notin pks`$: **TODO**                                   |
 |                                                                                                 |                                                 | $`fetched \gets fetched \cup \{cid\}`$                                                                              |
 |                                                                                                 |                                                 | If $tofetch \setminus \{cid\} \neq \emptyset$: repeat from `RequestMessages`                                        |
 
@@ -516,7 +518,12 @@ For some newsroom $NR$:
 
 [^9]:
     In the listings that follow, mathematical syntax uses `-` for the empty
-    string, while Python pseudocode uses `None`.
+    string, while Python pseudocode uses `None`. In tuples, `_` denotes a value we
+    don't care about for the current operation.
+
+[^10]:
+    `pks` is assumed to have this arity and sequence for the remainder of
+    this document.
 
 [alwen2020]: https://eprint.iacr.org/2020/1499
 [alwen2023]: https://eprint.iacr.org/2023/1480
