@@ -101,7 +101,7 @@ deactivate Server
 
 -->
 
-## Key hierarchy <!-- as of cf81f37 -->
+## Key hierarchy <!-- as of 243f384 -->
 
 Throughout this document, keys are notated as $component_{owner}^{scheme}$, where:
 
@@ -131,7 +131,7 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
-## Building blocks[^9] <!-- Section 4 as of cf81f37 -->
+## Building blocks[^9] <!-- Section 4 as of 243f384 -->
 
 | Scheme          | Function                                                  | Use                                                                                                             |
 | --------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -160,7 +160,7 @@ The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC
 - For message encryption, `SD-APKE` wraps HPKE `AuthPSK` mode, following listing
   17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen2023].
 
-### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 8 as of cf81f37 -->
+### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 8 as of 243f384 -->
 
 $\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
 mode][RFC 9180 §5.1.1] with:
@@ -193,7 +193,7 @@ def Dec(skR, c, cp):  # where cp = c' in (c, cp)
 
 ### Message encryption
 
-#### `AKEM`: Authenticated KEM <!-- Definition A.7 as of cf81f37 -->
+#### `AKEM`: Authenticated KEM <!-- Definition A.7 as of 243f384 -->
 
 $\text{AKEM}$ instantiates the [DH-based KEM][RFC 9180 §4.1]
 $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
@@ -209,7 +209,7 @@ $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
 
 Concretely, these functions are used as specified in [RFC 9180 §4.1].
 
-#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 6 as of cf81f37 -->
+#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 6 as of 243f384 -->
 
 $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 `AuthPSK` mode][RFC 9180 §5.1.4] with:
@@ -237,7 +237,7 @@ def pskADec(pkS, skR, psk, c1, cp, ad, info):  # where cp = c' in (c1, cp)
     return m
 ```
 
-#### `SD-APKE`: SecureDrop APKE <!-- Figure 7 as of cf81f37 -->
+#### `SD-APKE`: SecureDrop APKE <!-- Figure 7 as of 243f384 -->
 
 $\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
 
@@ -290,7 +290,7 @@ def AuthDec(
 The server, the journalist client, and the source client SHOULD be built with
 FPF's signing key $vk_{FPF}^{sig}$ pinned.[^2]
 
-### 2. Newsroom <!-- Figure 1 as of cf81f37 -->
+### 2. Newsroom <!-- Figure 1 as of 243f384 -->
 
 Given:
 
@@ -314,7 +314,7 @@ pinned.[^2]
 
 ### 3. Journalist
 
-#### 3.1. Enrollment <!-- Figure 2 as of cf81f37 -->
+#### 3.1. Enrollment <!-- Figure 2 as of 243f384 -->
 
 Given:
 
@@ -339,7 +339,7 @@ Then:
 |                                                                                  |                                                                       | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J)`$ |
 |                                                                                  |                                                                       | If $b = 1$: Store $(\sigma_J, pk_J^{APKE}, pk_J^{fetch})$ for $J$             |
 
-#### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 2 as of cf81f37 -->
+#### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 2 as of 243f384 -->
 
 Following [enrollment](#31-enrollment-), each journalist $J$ MUST generate and
 maintain a pool of $n$ ephemeral key bundles. For each key bundle $i$:
@@ -353,7 +353,7 @@ maintain a pool of $n$ ephemeral key bundles. For each key bundle $i$:
 |                                                                                                              |                                                                         | $`b = \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i})`$ |
 |                                                                                                              |                                                                         | If $b = 1$: Store $(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})$ for $J$                       |
 
-### 4. Source <!-- Section 4 as of cf81f37 -->
+### 4. Source <!-- Section 4 as of 243f384 -->
 
 To begin each session, a source MUST enter (on their first visit) or reenter (on
 a subsequent visit) some $passphrase$:
@@ -379,7 +379,7 @@ step (7), in any order.
 Only a source can initiate a conversation. In other words, a source is always
 the first sender.
 
-### 5. Sender fetches keys and verifies their authenticity <!-- Figure 3 as of cf81f37 -->
+### 5. Sender fetches keys and verifies their authenticity <!-- Figure 3 as of 243f384 -->
 
 Given:
 
@@ -399,7 +399,7 @@ Then:
 | If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                             |                                 |                                                                                                                                     |
 | If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i}) = 0`$ for some $J$: abort |                                 |                                                                                                                                     |
 
-### 6. Sender submits a message <!-- Figure 4 as of cf81f37 -->
+### 6. Sender submits a message <!-- Figure 4 as of 243f384 -->
 
 A sender knows their own keys, the newsroom's signing key $vk_{NR}^{sig}$, and
 the $pks$ and $sigs$ they previously [fetched].
@@ -433,7 +433,7 @@ Then:
 | &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{vk_J^{sig}, \forall i: pk_{J,i}^{APKE_E}, \forall i: pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE}\} \cup \{-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -\}`$ |                                 |                                                |
 | For some message $m$, $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                                                                                        |                                 |                                                |
 | $`pt \gets m \Vert pk_S^{fetch} \Vert pk_S^{PKE} `$                                                                                                                                                           |                                 |                                                |
-| $`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, -)`$                                                                                                                           |                                 |                                                |
+| $`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch})`$                                                                                                            |                                 |                                                |
 | $`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                                                                                                                                       |                                 |                                                |
 | $`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                                                                                                                           |                                 |                                                |
 | $`x \gets^{\$} \mathcal{E}_H`$[^8]                                                                                                                                                                            |                                 |                                                |
@@ -489,7 +489,7 @@ For some newsroom $NR$:
 |                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$`sk_R^{PKE} \gets sk_{R,i}^{PKE}`$                                 |
 |                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$`pk_S^{APKE} \gets \text{SD-PKE.Dec}(sk_R^{PKE}, ct^{PKE}, -, -)`$ |
 |                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;If $pk_S^{APKE} \neq \bot$: break                                   |
-|                                                                                                 |                                                 | $`pt \gets \text{SD-APKE.AuthDec}(sk_R^{APKE}, pk_S^{APKE}, ct^{APKE}, NR, -)`$                                     |
+|                                                                                                 |                                                 | $`pt \gets \text{SD-APKE.AuthDec}(sk_R^{APKE}, pk_S^{APKE}, ct^{APKE}, NR, pk_R^{fetch})`$                          |
 |                                                                                                 |                                                 | $`m \Vert pk_S^{fetch} \Vert pk_S^{PKE} \gets pt`$                                                                  |
 |                                                                                                 |                                                 | If source:                                                                                                          |
 |                                                                                                 |                                                 | &nbsp;&nbsp;&nbsp;&nbsp;If $`(\_, pk_S^{APKE}, \_, \_, \_) \notin pks`$: **TODO**                                   |
