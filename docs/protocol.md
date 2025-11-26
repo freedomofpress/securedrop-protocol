@@ -183,11 +183,10 @@ def KGen():
     return (skS, pkS)
 
 def Enc(pkR, m):
-    c, cp = HPKE.SealBase(pkR=pkR, info=None, aad=None, pt=m)  # cp = c'
+    c, cp = HPKE.SealBase(pkR=pkR, info=None, aad=None, pt=m)  # where cp = c'
     return (c, cp)
 
-# cp = c' in (c, cp)
-def Dec(skR, c, cp):
+def Dec(skR, c, cp):  # where cp = c' in (c, cp)
     m = HPKE.OpenBase(enc=c, skR=skR, info=None, aad=None, ct=cp)
     return m
 ```
@@ -230,11 +229,10 @@ Concretely, using HPKE's [single-shot APIs][RFC 9180 §6.1]:
 PSK_ID = "SD-pskAPKE"
 
 def pskAEnc(skS, pkR, psk, m, ad, info):
-    c1, cp = HPKE.SealAuthPSK(pkR=pkR, info=info, aad=ad, pt=m, psk=psk, psk_id=PSK_ID, skS=skS)  # cp = c'
+    c1, cp = HPKE.SealAuthPSK(pkR=pkR, info=info, aad=ad, pt=m, psk=psk, psk_id=PSK_ID, skS=skS)  # where cp = c'
     return (c1, cp)
 
-# cp = c' in (c1, cp)
-def pskADec(pkS, skR, psk, c1, cp, ad, info):
+def pskADec(pkS, skR, psk, c1, cp, ad, info):  # where cp = c' in (c1, cp)
     m = HPKE.OpenAuthPSK(enc=c1, skR=skR, info=info, aad=ad, ct=cp, psk=psk, psk_id=PSK_ID, pkS=pkS)
     return m
 ```
@@ -264,20 +262,20 @@ def KGen():
     return (sk, pk)
 
 def AuthEnc(
-        sk=(skS1, skS2),
+        sk=(skS1, skS2),  # NB. invalid Python syntax for parity with the mathematical signature
         pk=(pkR1, pkR2),
         m, ad, info):
     (c2, K2) = KEM_PQ.Encap(pkR=pkR2)
-    (c1, cp) = pskAEnc(skS=skS1, pkR=pkR1, psk=K2, m=m, ad=ad, info=c2 + info)  # cp = c'
+    (c1, cp) = pskAEnc(skS=skS1, pkR=pkR1, psk=K2, m=m, ad=ad, info=c2 + info)  # where cp = c' and "+" means concatenation
     return ((c1, cp), c2)
 
 def AuthDec(
-        sk=(skR1, skR2),
+        sk=(skR1, skR2),  # NB. invalid Python syntax for parity with the mathematical signature
         pk=(pkS1, pkS2),
-        c1, cp, c2,  # cp = c' in ((c1, cp), c2)
+        c1, cp, c2,  # where cp = c' in ((c1, cp), c2)
         ad, info):
     K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
-    m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2 + info)
+    m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2 + info)  # "+" for concatenation
     return m
 ```
 
