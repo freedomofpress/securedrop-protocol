@@ -344,14 +344,14 @@ Then:
 Following [enrollment](#31-enrollment-), each journalist $J$ MUST generate and
 maintain a pool of $n$ ephemeral key bundles. For each key bundle $i$:
 
-| Journalist                                                                                                   |                                                                         | Server                                                                                                |
-| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                                  |                                                                         |                                                                                                       |
-| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                                     |                                                                         |                                                                                                       |
-| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}))`$ |                                                                         |                                                                                                       |
-|                                                                                                              | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |
-|                                                                                                              |                                                                         | $`b = \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i})`$ |
-|                                                                                                              |                                                                         | If $b = 1$: Store $(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})$ for $J$                       |
+| Journalist                                                                                                                      |                                                                         | Server                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                                                     |                                                                         |                                                                                                       |
+| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                                                        |                                                                         |                                                                                                       |
+| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}))`$ (**TODO:** [#127]) |                                                                         |                                                                                                       |
+|                                                                                                                                 | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |
+|                                                                                                                                 |                                                                         | $`b = \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i})`$ |
+|                                                                                                                                 |                                                                         | If $b = 1$: Store $(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})$ for $J$                       |
 
 ### 4. Source <!-- Section 4 as of 243f384 -->
 
@@ -389,15 +389,15 @@ Given:
 
 Then:
 
-| Sender                                                                                                                       |                                 | Server                                                                                                                              |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-|                                                                                                                              | $\longrightarrow$ `RequestKeys` |                                                                                                                                     |
-|                                                                                                                              |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE})\}`$ for all $J$ and key bundles $i$[^10] |
-|                                                                                                                              |                                 | $`sigs \gets \{(\sigma_{NR,J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$ and key bundles $i$                                          |
-|                                                                                                                              | $`pks, sigs \longleftarrow`$    |                                                                                                                                     |
-| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, vk_J^{sig}, \sigma_{NR,J}) = 0`$ for some $J$: abort                                      |                                 |                                                                                                                                     |
-| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                             |                                 |                                                                                                                                     |
-| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i}) = 0`$ for some $J$: abort |                                 |                                                                                                                                     |
+| Sender                                                                                                                                          |                                 | Server                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+|                                                                                                                                                 | $\longrightarrow$ `RequestKeys` |                                                                                                                                     |
+|                                                                                                                                                 |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE})\}`$ for all $J$ and key bundles $i$[^10] |
+|                                                                                                                                                 |                                 | $`sigs \gets \{(\sigma_{NR,J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$ and key bundles $i$                                          |
+|                                                                                                                                                 | $`pks, sigs \longleftarrow`$    |                                                                                                                                     |
+| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, vk_J^{sig}, \sigma_{NR,J}) = 0`$ for some $J$: abort                                                         |                                 |                                                                                                                                     |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                                                |                                 |                                                                                                                                     |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i}) = 0`$ (**TODO:** [#127]) for some $J$: abort |                                 |                                                                                                                                     |
 
 ### 6. Sender submits a message <!-- Figure 4 as of 243f384 -->
 
@@ -536,6 +536,7 @@ For some newsroom $NR$:
     `pks` is assumed to have this arity and sequence for the remainder of
     this document.
 
+[#127]: https://github.com/freedomofpress/securedrop-protocol/issues/127
 [alwen2020]: https://eprint.iacr.org/2020/1499
 [alwen2023]: https://eprint.iacr.org/2023/1480
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
