@@ -108,10 +108,12 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 - $`component \in \{sk, pk, vk\}`$ for private ($sk$) or public ($pk$ or $vk$) components
 - $`owner \in \{FPF, NR, J, S\}`$ for FPF, newsroom $NR$, journalist $J$, or source $S$
 - $`scheme \in \{fetch, sig, APKE, PKE\}`$ for:
-  - $fetch$ fetching
-  - $sig$ signature
+  - $fetch$ for use in the [message-fetching protocol][message-fetching]
+  - $sig$ for a signature scheme TBD
   - $APKE = \text{SD-APKE}$ ($APKE_E$ if one-time)
   - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time)
+
+[message-fetching]: #7-receiver-fetches-and-decrypts-messages-
 
 | Owner      | Private Key         | Public Key          | Usage     | Purpose  | Direction | Lifetime      | Algorithm                           | Signed by        |
 | ---------- | ------------------- | ------------------- | --------- | -------- | --------- | ------------- | ----------------------------------- | ---------------- |
@@ -133,25 +135,25 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 ## Building blocks[^9] <!-- Section 4 as of 243f384 -->
 
-| Scheme          | Function                                                  | Use                                                                                                             |
-| --------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-|                 | $`k \gets \text{KDF}(ik, params)`$                        | Derive a key from input key $ik$ and $params$                                                                   |
-|                 | $`k \gets \text{PBKDF}(pw)`$                              | Derive a key from password $pw$ (including any parameters)                                                      |
-| $`\text{SIG}`$  | Signature scheme                                          |                                                                                                                 |
-|                 | $`(sk, vk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                   |
-|                 | $`\sigma \gets^{\$} \text{Sign}(sk, m)`$                  | Sign a message $m$ using a signing key $sk$                                                                     |
-|                 | $`b \in \{0, 1\} \gets \text{Vfy}(vk, m, \sigma)`$        | Verify signature $\sigma$ over a message $m$ using a verifying key $vk$                                         |
-| $`\text{AEAD}`$ | Nonce-based authenticated encryption with associated data |                                                                                                                 |
-|                 | $`c \gets \text{Enc}(k, nonce, ad, m)`$                   | Encrypt a message $m$ using a key $k$, a nonce $nonce$, and associated data $ad$                                |
-|                 | $`m \gets \text{Dec}(k, nonce, ad, c)`$                   | Decrypt a ciphertext $c$; rest as above                                                                         |
-| $`\text{PKE}`$  | Public-key encryption                                     |                                                                                                                 |
-|                 | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                   |
-|                 | $`c \gets^{\$} \text{Enc}(pk, m, ad, info)`$              | Encrypt a message $m$ to a recipient's public key $pk$, associated data $ad$, and $info$                        |
-|                 | $`m \gets \text{Dec}(sk, c, ad, info)`$                   | Decrypt a ciphertext $c$ using a recipient's private key $sk$; rest as above                                    |
-| $`\text{APKE}`$ | Authenticated public-key encryption                       |                                                                                                                 |
-|                 | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                   |
-|                 | $`c \gets^{\$} \text{AuthEnc}(sk, pk, m, ad, info)`$      | Encrypt a message $m$ to a recipient's public key $pk$ using private key $sk$, associated data $ad$, and $info$ |
-|                 | $`m \gets \text{AuthDec}(sk, pk, c, ad, info)`$           | Decrypt a ciphertext $c$ using a recipient's private key $sk$ and a sender's public key $pk$; rest as above     |
+| Scheme               | Function                                                  | Use                                                                                                             |
+| -------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+|                      | $`k \gets \text{KDF}(ik, params)`$                        | Derive a key from input key $ik$ and $params$                                                                   |
+|                      | $`k \gets \text{PBKDF}(pw)`$                              | Derive a key from password $pw$ (including any parameters)                                                      |
+| `SIG`                | Signature scheme                                          |                                                                                                                 |
+|                      | $`(sk, vk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                   |
+|                      | $`\sigma \gets^{\$} \text{Sign}(sk, m)`$                  | Sign a message $m$ using a signing key $sk$                                                                     |
+|                      | $`b \in \{0, 1\} \gets \text{Vfy}(vk, m, \sigma)`$        | Verify signature $\sigma$ over a message $m$ using a verifying key $vk$                                         |
+| `AEAD`               | Nonce-based authenticated encryption with associated data |                                                                                                                 |
+|                      | $`c \gets \text{Enc}(k, nonce, ad, m)`$                   | Encrypt a message $m$ using a key $k$, a nonce $nonce$, and associated data $ad$                                |
+|                      | $`m \gets \text{Dec}(k, nonce, ad, c)`$                   | Decrypt a ciphertext $c$; rest as above                                                                         |
+| [`SD-PKE`][SD-PKE]   | [Public-key encryption][SD-PKE]                           |                                                                                                                 |
+|                      | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                   |
+|                      | $`c \gets^{\$} \text{Enc}(pk, m, ad, info)`$              | Encrypt a message $m$ to a recipient's public key $pk$, associated data $ad$, and $info$                        |
+|                      | $`m \gets \text{Dec}(sk, c, ad, info)`$                   | Decrypt a ciphertext $c$ using a recipient's private key $sk$; rest as above                                    |
+| [`SD-APKE`][SD-APKE] | [Authenticated public-key encryption][SD-APKE]            |                                                                                                                 |
+|                      | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                   |
+|                      | $`c \gets^{\$} \text{AuthEnc}(sk, pk, m, ad, info)`$      | Encrypt a message $m$ to a recipient's public key $pk$ using private key $sk$, associated data $ad$, and $info$ |
+|                      | $`m \gets \text{AuthDec}(sk, pk, c, ad, info)`$           | Decrypt a ciphertext $c$ using a recipient's private key $sk$ and a sender's public key $pk$; rest as above     |
 
 The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC 9180]:
 
@@ -509,11 +511,37 @@ For some newsroom $NR$:
 |                                                                                                                 |                                                | $`fetched \gets fetched \cup \{cid\}`$                                                                              |
 |                                                                                                                 |                                                | If $tofetch \setminus \{cid\} \neq \emptyset$: repeat from `RequestMessages`                                        |
 
+## Changelog
+
+Beginning with v1, the protocol may adopt [semantic versioning]. For now,
+versions like `0.x` reflect coarse-grained phases of the protocol's development,
+with finer-grained changes reflected in individual Git commits. All changes
+SHOULD be considered breaking.
+
+### [0.1]
+
+Initial proof of concept.
+
+### [0.2]
+
+As analyzed in Maier (2025), ["A Formal Analysis of the SecureDrop
+Protocol"][maier2025], using modified $`\text{HPKE}^{pq}_{auth}`$.
+
+### 0.3
+
+Using standard HPKE modes `Base` and `AuthPSK`.
+
+<!--
+## Footnotes
+
+It's okay if order and even numbering here gets out of sync.  Markdown will
+render them numbered by reference order, so it's okay to keep this list in
+insertion order.
+-->
+
 [^1]: See ["Configuration"](../README.md#config).
 
 [^2]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
-
-[^3]: Adapted from Maier §5.4.1.
 
 <!--
 [^6]: TODO kept inline above.
@@ -536,9 +564,12 @@ For some newsroom $NR$:
     `pks` is assumed to have this arity and sequence for the remainder of
     this document.
 
+[0.1]: https://github.com/freedomofpress/securedrop-protocol/blob/ffc07fd85d1d43dc2796e3b63aca91298adb018e/docs/protocol.md
+[0.2]: https://github.com/freedomofpress/securedrop-protocol/blob/9e6c165673c03e9821725f72b3df4d8292b8cabf/docs/protocol.md
 [#127]: https://github.com/freedomofpress/securedrop-protocol/issues/127
 [alwen2020]: https://eprint.iacr.org/2020/1499
 [alwen2023]: https://eprint.iacr.org/2023/1480
+[maier2025]: https://github.com/lumaier/securedrop-formalanalysis/tree/fd0daf0ce90144e12956032abf1817e18cec48e0
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
 [RFC 9180]: https://datatracker.ietf.org/doc/html/rfc9180
 [RFC 9180 §4.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-dh-based-kem-dhkem
@@ -549,3 +580,4 @@ For some newsroom $NR$:
 [RFC 9180 §6.1]: https://datatracker.ietf.org/doc/html/rfc9180#section-6.1
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
 [RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
+[semantic versioning]: https://semver.org
