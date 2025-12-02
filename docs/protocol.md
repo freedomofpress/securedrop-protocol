@@ -529,6 +529,14 @@ Protocol"][maier2025], using modified $`\text{HPKE}^{pq}_{auth}`$.
 
 Using standard HPKE modes `Base` and `AuthPSK`.
 
+<!--
+## Footnotes
+
+It's okay if order and even numbering here gets out of sync.  Markdown will
+render them numbered by reference order, so it's okay to keep this list in
+insertion order.
+-->
+
 [^1]: See ["Configuration"](../README.md#config).
 
 [^2]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
