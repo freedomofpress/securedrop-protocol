@@ -108,10 +108,12 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 - $`component \in \{sk, pk, vk\}`$ for private ($sk$) or public ($pk$ or $vk$) components
 - $`owner \in \{FPF, NR, J, S\}`$ for FPF, newsroom $NR$, journalist $J$, or source $S$
 - $`scheme \in \{fetch, sig, APKE, PKE\}`$ for:
-  - $fetch$ for fetching
-  - $sig$ for signatures
+  - $fetch$ for use in the [message-fetching protocol][message-fetching]
+  - $sig$ for a signature scheme TBD
   - $APKE = \text{SD-APKE}$ ($APKE_E$ if one-time)
   - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time)
+
+[message-fetching]: #7-receiver-fetches-and-decrypts-messages-
 
 | Owner      | Private Key         | Public Key          | Usage     | Purpose  | Direction | Lifetime      | Algorithm                           | Signed by        |
 | ---------- | ------------------- | ------------------- | --------- | -------- | --------- | ------------- | ----------------------------------- | ---------------- |
