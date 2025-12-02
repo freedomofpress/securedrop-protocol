@@ -108,8 +108,8 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 - $`component \in \{sk, pk, vk\}`$ for private ($sk$) or public ($pk$ or $vk$) components
 - $`owner \in \{FPF, NR, J, S\}`$ for FPF, newsroom $NR$, journalist $J$, or source $S$
 - $`scheme \in \{fetch, sig, APKE, PKE\}`$ for:
-  - $fetch$ fetching
-  - $sig$ signature
+  - $fetch$ for fetching
+  - $sig$ for signatures
   - $APKE = \text{SD-APKE}$ ($APKE_E$ if one-time)
   - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time)
 
