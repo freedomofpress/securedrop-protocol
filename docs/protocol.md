@@ -121,10 +121,10 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 | Newsroom   | $sk_{NR}^{sig}$     | $vk_{NR}^{sig}$     |           | Signing  |           | Long-term     | ?                                   | $sk_{FPF}^{sig}$ |
 | Journalist | $sk_J^{sig}$        | $vk_J^{sig}$        |           | Signing  |           | Long-term     | ?                                   | $sk_{NR}^{sig}$  |
 | Journalist | $sk_J^{APKE}$       | $pk_J^{APKE}$       | [SD-APKE] | Message  | Outgoing  | Long-term     | DHKEM(X25519, HKDF-SHA256) + ML-KEM | $sk_J^{sig}$     |
-| Journalist | $sk_J^{fetch}$      | $pk_J^{fetch}$      |           | Fetching |           | TBD[^6]       | ristretto255 (Curve25519)           | $sk_J^{sig}$     |
+| Journalist | $sk_J^{fetch}$      | $pk_J^{fetch}$      |           | Fetching |           | TBD[^6]       | ristretto255                        | $sk_J^{sig}$     |
 | Journalist | $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | [SD-APKE] | Message  | Incoming  | One-time      | DHKEM(X25519, HKDF-SHA256) + ML-KEM | $sk_J^{sig}$     |
 | Journalist | $sk_{J,i}^{PKE_E}$  | $pk_{J,i}^{PKE_E}$  | [SD-PKE]  | Metadata | Incoming  | One-time      | X-Wing(X25519, ML-KEM-768)          | $sk_J^{sig}$     |
-| Source     | $sk_S^{fetch}$      | $pk_S^{fetch}$      |           | Fetching |           | Permanent[^7] | ristretto255 (Curve25519)           |                  |
+| Source     | $sk_S^{fetch}$      | $pk_S^{fetch}$      |           | Fetching |           | Permanent[^7] | ristretto255                        |                  |
 | Source     | $sk_S^{APKE}$       | $pk_S^{APKE}$       | [SD-APKE] | Message  | In+Out    | Permanent[^7] | DHKEM(X25519, HKDF-SHA256) + ML-KEM |                  |
 | Source     | $sk_S^{PKE}$        | $pk_S^{PKE}$        | [SD-PKE]  | Metadata | Incoming  | Permanent[^7] | X-Wing(X25519, ML-KEM-768)          |                  |
 
@@ -331,7 +331,7 @@ Then:
 | -------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | $`(sk_J^{sig}, vk_J^{sig}) \gets^{\$} \text{SIG.KGen}()`$                        |                                                                       |                                                                               |
 | $`(sk_J^{APKE}, pk_J^{APKE}) \gets^{\$} \text{SD-APKE.KGen}()`$                  |                                                                       |                                                                               |
-| $`sk_J^{fetch} \gets^{\$} \mathcal{E}_H`$[^8]                                    |                                                                       |                                                                               |
+| $`sk_J^{fetch} \gets^{\$} \mathbb{Z}_ell`$[^8]                                   |                                                                       |                                                                               |
 | $`pk_J^{fetch} \gets g^x`$                                                       |                                                                       |                                                                               |
 | $`\sigma_J \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}))`$ |                                                                       |                                                                               |
 |                                                                                  | $`\longrightarrow (vk_J^{sig}, \sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ |                                                                               |
@@ -366,6 +366,8 @@ a subsequent visit) some $passphrase$:
 | $`sk_S^{fetch} \gets \text{KDF}(mk, \texttt{sourcefetchkey})`$ |
 | $`sk_S^{APKE} \gets \text{KDF}(mk, \texttt{sourceAPKEkey})`$   |
 | $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$     |
+
+As with the journalist, the source samples $`sk_S^{fetch}`$ from Ristretto255 scalar field.
 
 ## Messaging protocol
 
@@ -438,7 +440,7 @@ Then:
 | $`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch})`$                                                                                                            |                                 |                                                |
 | $`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                                                                                                                                       |                                 |                                                |
 | $`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                                                                                                                           |                                 |                                                |
-| $`x \gets^{\$} \mathcal{E}_H`$[^8]                                                                                                                                                                            |                                 |                                                |
+| $`x \gets^{\$} \mathbb{Z}_\ell`$[^8]                                                                                                                                                                          |                                 |                                                |
 | $`X \gets g^x`$                                                                                                                                                                                               |                                 |                                                |
 | $`Z \gets (pk_{R,i}^{fetch})^x`$                                                                                                                                                                              |                                 |                                                |
 |                                                                                                                                                                                                               | $`\longrightarrow (C_S, X, Z)`$ |                                                |
@@ -473,7 +475,7 @@ For some newsroom $NR$:
 | If $`\|database\| > \texttt{MAX\_MESSAGES}`$[^1]: return $\bot$                                                 |                                                |                                                                                                                     |
 | $`challs \gets \emptyset`$                                                                                      |                                                |                                                                                                                     |
 | $`\forall C_k = (id_k, C_{S_k}, X_k, Z_k) \in database:`$                                                       |                                                |                                                                                                                     |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`r_k \gets^{\$} \mathcal{E}_H`$[^8]                                                    |                                                |                                                                                                                     |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`r_k \gets^{\$} \mathbb{Z}_\ell`$[^8]                                                  |                                                |                                                                                                                     |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`Q_k \gets X_k^{r_k}`$                                                                 |                                                |                                                                                                                     |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`idk_k \gets \text{KDF}(Z_k^{r_k}, NR)`$                                               |                                                |                                                                                                                     |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`eid_k \gets \text{AEAD.Enc}(idk_k, 0^{nl}, -, id_k)`$ for length $nl$                 |                                                |                                                                                                                     |
@@ -551,9 +553,10 @@ insertion order.
     The source's keys are considered "permanent" because they are derived
     deterministically from the source's passphrase, which cannot be changed.
 
-[^8]:
-    $\mathcal{E}_H \subset \mathbb{Z}$ per Definition 4 of Alwen et al.
-    (2020), ["Analyzing the HPKE Standard"][alwen2020].
+[^8]: $\mathbb{Z}_\ell \text{ (Ristretto255 scalar field)}$.
+
+    <!-- $\mathcal{E}_H \subset \mathbb{Z}$ per Definition 4 of Alwen et al.
+    (2020), ["Analyzing the HPKE Standard"][alwen2020]. -->
 
 [^9]:
     In the listings that follow, mathematical syntax uses `-` for the empty
