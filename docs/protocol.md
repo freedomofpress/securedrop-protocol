@@ -20,29 +20,29 @@ sequenceDiagram
 actor Source
 
 box News Organization
-participant Server
+participant Server as Newsroom<br>(Server)
 actor Journalist
-participant Newsroom
+participant Newsroom as Newsroom<br>(Signing)
 end
 
 participant FPF
 
 activate FPF
-Note over FPF: 1. FPF setup
+Note over FPF: 1. FPF signing setup
 
 activate Newsroom
-Note over Newsroom, FPF: 2. Newsroom setup
+Note over Newsroom, FPF: 2. Newsroom signing setup
 deactivate FPF
 
 activate Server
 activate Journalist
-Note over Journalist, Server: 3.1. Journalist enrollment
+Note over Server, Newsroom: 3.1. Journalist initial key setup and enrollment
 deactivate Newsroom
 
 Note over Journalist, Server: 3.2. Setup and periodic replenishment<br>of n ephemeral key bundles
 
 activate Source
-Note over Source: 4. Source setup
+Note over Source: 4. Source key setup
 alt Source → Journalist
 Note over Source, Server: 5. Sender fetches keys and verifies<br>their authenticity
 Note over Source, Server: 6. Sender submits a message
@@ -238,7 +238,7 @@ def AuthDec(
 
 ## Setup
 
-### 1. FPF
+### 1. FPF signing setup
 
 | FPF                                                               |
 | ----------------------------------------------------------------- |
@@ -247,7 +247,7 @@ def AuthDec(
 The server, the journalist client, and the source client SHOULD be built with
 FPF's signing key $vk_{FPF}^{sig}$ pinned.[^2]
 
-### 2. Newsroom <!-- Figure 1 as of 243f384 -->
+### 2. Newsroom signing setup <!-- Figure 1 as of 243f384 -->
 
 Given:
 
@@ -271,7 +271,7 @@ pinned.[^2]
 
 ### 3. Journalist
 
-#### 3.1. Enrollment <!-- Figure 2 as of 243f384 -->
+#### 3.1. Journalist initial key setup <!-- Figure 2 as of 243f384 -->
 
 Given:
 
@@ -310,7 +310,7 @@ maintain a pool of $n$ ephemeral key bundles. For each key bundle $i$:
 |                                                                                                                                 |                                                                         | $`b = \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i})`$ |
 |                                                                                                                                 |                                                                         | If $b = 1$: Store $(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})$ for $J$                       |
 
-### 4. Source <!-- Section 4 as of 243f384 -->
+### 4. Source key setup <!-- Section 4 as of 243f384 -->
 
 To begin each session, a source MUST enter (on their first visit) or reenter (on
 a subsequent visit) some $passphrase$:
