@@ -30,5 +30,9 @@ jobs:
             "$HAX_IMAGE" \
             cargo-hax into fstar
 
-        # TODO: Once this succeeds, we'll want to know when it fails, when it
-        # produces a diff, etc.
+      - name: Diff
+        run: git diff
+
+    # Someday:
+    # - name: Fail on differences
+    #   run: test -n $(git status --porcelain)
