@@ -36,7 +36,8 @@ deactivate FPF
 
 activate Server
 activate Journalist
-Note over Server, Newsroom: 3.1. Journalist initial key setup and enrollment
+Note over Journalist, Newsroom: 3.1. (offline) Journalist initial key setup
+Note over Server, Journalist: 3.1. Journalist enrollment
 deactivate Newsroom
 
 Note over Journalist, Server: 3.2. Setup and periodic replenishment<br>of n ephemeral key bundles
