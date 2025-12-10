@@ -14,7 +14,7 @@ jobs:
       packages: read
 
     env:
-      HAX_IMAGE: ghcr.io/cfm/hax@sha256:9200676dcc475677fb18b8f07ea1da1aeb63680eedec8a78c26a760343b0d6a4
+      HAX_IMAGE: ghcr.io/cfm/hax@sha256:2534a88484ece6c645daa76bca288eb06a0cde00f7a2d99eff24b9584e3e8afd
 
     steps:
       - uses: actions/checkout@v4
