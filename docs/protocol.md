@@ -9,13 +9,10 @@
 > RECOMMENDED, MAY, and OPTIONAL in this document are to be interpreted as
 > described in [RFC 2119].
 
-<!-- TODO: update v0.2 → v0.3
+## Table of contents
 
-## Overview
-
-This sequence diagram shows the flow of messages and values in the SecureDrop
-Protocol. The yellow boxes correspond to sections in the specification below
-that describe how these values are constructed and consumed.
+This sequence diagram is a visual table of contents to the SecureDrop Protocol
+outlined in the sections below. See individual protocol steps for details.
 
 ```mermaid
 sequenceDiagram
@@ -23,83 +20,42 @@ sequenceDiagram
 actor Source
 
 box News Organization
-participant Server
+participant Server as Newsroom<br>(Server)
 actor Journalist
-participant Newsroom
+participant Newsroom as Newsroom<br>(Signing)
 end
 
 participant FPF
 
-Note over Newsroom, FPF: 2. Newsroom setup
 activate FPF
-activate Newsroom
-Newsroom ->> FPF: NRsig,pk := newsroom's signing key
-FPF ->> Newsroom: σFPF := FPF's signature
-deactivate FPF
-activate Server
+Note over FPF: 1. FPF signing setup
 
-Note over Journalist, Server: 3.1. Journalist enrollment
+activate Newsroom
+Note over Newsroom, FPF: 2. Newsroom signing setup
+deactivate FPF
+
+activate Server
 activate Journalist
-Journalist ->> Newsroom: Jsig,pk := journalist's signing key
-Newsroom ->> Journalist: σNR := newsroom's signature on Jsig,pk
-Journalist ->> Journalist: J{fetch,dh},pk := journalist's long-term keys
-Journalist ->> Journalist: σJ := signature over J{fetch,dh},pk using Jsig,sk
-Journalist ->> Server: J{sig,fetch,dh},pk<br>σNR, σJ
+Note over Journalist, Newsroom: 3.1. (offline) Journalist initial key setup
+Note over Server, Journalist: 3.1. Journalist enrollment
 deactivate Newsroom
 
-Note over Journalist, Server: 3.2. Setup and periodic replenishment<br>of n ephemeral keys
-loop forall n:
-Journalist ->> Server: J{edh,ekem,epke},pk := journalist's ephemeral keys<br>σJ := journalist's signature
-end
+Note over Journalist, Server: 3.2. Setup and periodic replenishment<br>of n ephemeral key bundles
 
-Note over Source: 4. Source setup
-Source ->> Source: passphrase
-
-alt Source → Journalist
-Note over Source, Server: 5. Source fetches keys and verifies<br>their authenticity
 activate Source
-Source ->> Server: request keys for newsroom
-Server ->> Source: NRsig,pk<br>σFPF
-loop forall journalists J:
-Server ->> Source: J{sig,fetch,dh},pk<br>σNR<br>J{edh,ekem,epke},pk<br>σJ
-end
-
-Note over Source, Server: 6. Source submits a message
-loop forall journalists J:
-Source ->> Server: C := message ciphertext<br>Z := public key<br>X := Diffie-Hellman share
-end
-
-Note over Server, Journalist: 7. Journalist fetches message IDs
-Journalist ->> Server: request messages
-loop forall n  messages:
-Server ->> Journalist: Q0...n := public keys<br>cid0...n := encrypted message IDs
-end
-
-Note over Server, Journalist: 8. Journalist fetches and decrypts a message
-Journalist ->> Server: id := decrypted message ID
-Server ->> Journalist: C
-
+Note over Source: 4. Source key setup
+alt Source → Journalist
+Note over Source, Server: 5. Sender fetches keys and verifies<br>their authenticity
+Note over Source, Server: 6. Sender submits a message
+Note over Server, Journalist: 7. Receiver fetches and decrypts messages
 else Journalist → Source
-Note over Server, Journalist: 9. Journalist replies to a source
-Journalist ->> Server: C' := message ciphertext<br>Z' := public key<br>X' := Diffie-Hellman share
-
-Note over Source, Server: 7. Source fetches message IDs
-Source ->> Server: request messages
-loop forall n  messages:
-Server ->> Source: Q'0...n := public keys<br>cid'0...n := encrypted message IDs
+Note over Server, Journalist: 6. Sender submits a message (reply case)
+Note over Source, Server: 7. Receiver fetches and decrypts messages
 end
-
-Note over Source, Server: 10. Source fetches and decrypts a message
-Source ->> Server: id' := decrypted message ID
-Server ->> Source: C'<br>X'
-end
-
 deactivate Source
 deactivate Journalist
 deactivate Server
 ```
-
--->
 
 ## Key hierarchy <!-- as of 243f384 -->
 
@@ -283,7 +239,7 @@ def AuthDec(
 
 ## Setup
 
-### 1. FPF
+### 1. FPF signing setup
 
 | FPF                                                               |
 | ----------------------------------------------------------------- |
@@ -292,7 +248,7 @@ def AuthDec(
 The server, the journalist client, and the source client SHOULD be built with
 FPF's signing key $vk_{FPF}^{sig}$ pinned.[^2]
 
-### 2. Newsroom <!-- Figure 1 as of 243f384 -->
+### 2. Newsroom signing setup <!-- Figure 1 as of 243f384 -->
 
 Given:
 
@@ -316,7 +272,7 @@ pinned.[^2]
 
 ### 3. Journalist
 
-#### 3.1. Enrollment <!-- Figure 2 as of 243f384 -->
+#### 3.1. Journalist initial key setup <!-- Figure 2 as of 243f384 -->
 
 Given:
 
@@ -355,7 +311,7 @@ maintain a pool of $n$ ephemeral key bundles. For each key bundle $i$:
 |                                                                                                                                 |                                                                         | $`b = \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i})`$ |
 |                                                                                                                                 |                                                                         | If $b = 1$: Store $(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})$ for $J$                       |
 
-### 4. Source <!-- Section 4 as of 243f384 -->
+### 4. Source key setup <!-- Section 4 as of 243f384 -->
 
 To begin each session, a source MUST enter (on their first visit) or reenter (on
 a subsequent visit) some $passphrase$:
