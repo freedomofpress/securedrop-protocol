@@ -1,0 +1,38 @@
+name: hax
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  hax:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      HAX_IMAGE: ghcr.io/cfm/hax@sha256:2534a88484ece6c645daa76bca288eb06a0cde00f7a2d99eff24b9584e3e8afd
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pull hax image
+        run: docker pull "$HAX_IMAGE"
+
+      - name: Extract F*
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace/securedrop-protocol \
+            "$HAX_IMAGE" \
+            cargo-hax into fstar
+
+      - name: Diff
+        run: git diff
+
+    # Someday:
+    # - name: Fail on differences
+    #   run: test -n $(git status --porcelain)

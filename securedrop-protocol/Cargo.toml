@@ -11,13 +11,13 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # crypto stack
-libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", features = ["rand"], rev = "54c6624630e47ed599ffc1549101c2b861d51a8c" }
-libcrux-curve25519 = { git = "https://github.com/cryspen/libcrux", rev = "54c6624630e47ed599ffc1549101c2b861d51a8c" }
-libcrux-chacha20poly1305 = { git = "https://github.com/cryspen/libcrux", rev = "54c6624630e47ed599ffc1549101c2b861d51a8c" }
-libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev = "54c6624630e47ed599ffc1549101c2b861d51a8c" }
-libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev = "54c6624630e47ed599ffc1549101c2b861d51a8c" }
-libcrux-ml-kem = { git = "https://github.com/cryspen/libcrux", rev="54c6624630e47ed599ffc1549101c2b861d51a8c" }
-hpke-rs = { version = "0.3.0", features = ["libcrux"] }
+libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad", features = ["rand"] }
+libcrux-curve25519 = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad" }
+libcrux-chacha20poly1305 = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad" }
+libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad" }
+libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad" }
+libcrux-ml-kem = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad" }
+hpke-rs = { git = "https://github.com/cfm/hpke-rs", rev = "b8fd80ef2a409b2dde4fa1430f559f23823f4920", features = ["libcrux"] }
 rand_core = { version = "0.9" }
 getrandom = { version = "0.3", default-features = false, features = ["wasm_js"] }
 anyhow = "1.0"
@@ -48,3 +48,6 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[target."cfg(hax)".dependencies]
+hax-lib = { git = "https://github.com/hacspec/hax", version = "0.3.5" }
