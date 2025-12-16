@@ -12,7 +12,7 @@ use hpke_rs::libcrux::HpkeLibcrux;
 use hpke_rs::{HpkeKeyPair, HpkePrivateKey, HpkePublicKey};
 use libcrux_curve25519::hacl::scalarmult;
 use libcrux_kem::MlKem768;
-use libcrux_traits::kem::secrets::Kem;
+use libcrux_traits::kem::owned::Kem;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
