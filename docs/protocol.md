@@ -154,6 +154,8 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 |                      | $`(sk, pk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                   |
 |                      | $`c \gets^{\$} \text{AuthEnc}(sk, pk, m, ad, info)`$      | Encrypt a message $m$ to a recipient's public key $pk$ using private key $sk$, associated data $ad$, and $info$ |
 |                      | $`m \gets \text{AuthDec}(sk, pk, c, ad, info)`$           | Decrypt a ciphertext $c$ using a recipient's private key $sk$ and a sender's public key $pk$; rest as above     |
+| [`Fetch`][fetched]  | $(sk, pk) \gets^{\$} \text{Ristretto255.KGen}()$ | Generate a Ristretto255 DH keypair by sampling $`x \gets^{\$} \mathbb{F}_\ell`$, the Ristretto255 scalar field of order $`\ell`$, and computing $`pk = x \cdot B`$, where $`B \in \mathbb{G}_{\mathrm{R255}}`$ is the canonical basepoint. |
+|        | $`K \gets \mathsf{DH}(sk, pk')`$ | Perform a Diffie--Hellman agreement between two Ristretto255 keys, outputting $`K = sk \cdot pk' = sk' \cdot pk \in \mathbb{G}_{\mathrm{R255}}`$. |
 
 The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC 9180]:
 
@@ -331,8 +333,7 @@ Then:
 | -------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | $`(sk_J^{sig}, vk_J^{sig}) \gets^{\$} \text{SIG.KGen}()`$                        |                                                                       |                                                                               |
 | $`(sk_J^{APKE}, pk_J^{APKE}) \gets^{\$} \text{SD-APKE.KGen}()`$                  |                                                                       |                                                                               |
-| $`sk_J^{fetch} \gets^{\$} \mathbb{Z}_ell`$[^8]                                   |                                                                       |                                                                               |
-| $`pk_J^{fetch} \gets g^x`$                                                       |                                                                       |                                                                               |
+| $`(sk_J^{fetch}, pk_J^{fetch}) \gets^{\$} \text{Ristretto255.KGen}()`$[^8]                                   |                                                                       |                                                                               |
 | $`\sigma_J \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}))`$ |                                                                       |                                                                               |
 |                                                                                  | $`\longrightarrow (vk_J^{sig}, \sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ |                                                                               |
 |                                                                                  |                                                                       | Verify $vk_J^{sig}$ manually, then store for $J$                              |
@@ -367,7 +368,7 @@ a subsequent visit) some $passphrase$:
 | $`sk_S^{APKE} \gets \text{KDF}(mk, \texttt{sourceAPKEkey})`$   |
 | $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$     |
 
-As with the journalist, the source samples $`sk_S^{fetch}`$ from Ristretto255 scalar field.
+As with the journalist, the source samples $`sk_S^{fetch}`$ from the Ristretto255 scalar field.
 
 ## Messaging protocol
 
@@ -440,9 +441,8 @@ Then:
 | $`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch})`$                                                                                                            |                                 |                                                |
 | $`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                                                                                                                                       |                                 |                                                |
 | $`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                                                                                                                           |                                 |                                                |
-| $`x \gets^{\$} \mathbb{Z}_\ell`$[^8]                                                                                                                                                                          |                                 |                                                |
-| $`X \gets g^x`$                                                                                                                                                                                               |                                 |                                                |
-| $`Z \gets (pk_{R,i}^{fetch})^x`$                                                                                                                                                                              |                                 |                                                |
+| $`(x, X) \gets^{\$} \text{Ristretto255.KGen}()`$[^8]                                                                                                                                                                          |                                 |                                                |
+| $`Z \gets DH(x, pk_{R,i}^{fetch})`$                                                                                                                                                                              |                                 |                                                |
 |                                                                                                                                                                                                               | $`\longrightarrow (C_S, X, Z)`$ |                                                |
 |                                                                                                                                                                                                               |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
 |                                                                                                                                                                                                               |                                 | Store $(id, C_S, X, Z)$ in $database$          |
