@@ -296,7 +296,7 @@ Then:
 |                                                                                  |                                                                       | $`\sigma_{NR,J} \gets^{\$} \text{SIG.Sign}(sk_{NR}^{sig}, vk_J^{sig})`$       |
 |                                                                                  |                                                                       | Store $\sigma_{NR,J}$ for $J$                                                 |
 |                                                                                  |                                                                       | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J)`$ |
-|                                                                                  |                                                                       | If $b = 1$: Store $(\sigma_J, pk_J^{APKE}, pk_J^{fetch})$ for $J$             |
+|                                                                                  |                                                                       | If $b = 1$: Store $`(\sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ for $J$             |
 
 #### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 2 as of 243f384 -->
 
