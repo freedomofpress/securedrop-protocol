@@ -16,8 +16,11 @@ use libcrux_traits::kem::owned::Kem;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
+// Mock Newsroom ID
+const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
+
 const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // authpsk only, required by spec
-const HPKE_AAD: &[u8] = b""; // base and authpsk
+const HPKE_BASE_AAD: &[u8] = b""; // base only; in authpsk mode the NR_ID is supplied
 const HPKE_BASE_INFO: &[u8] = b""; // base mode only
 
 // Key lengths
@@ -319,7 +322,7 @@ pub fn encrypt<R: RngCore + CryptoRng>(
             // In single-shot mode this is how authenticated data is passed:
             // https://www.rfc-editor.org/rfc/rfc9180.html#section-8.1-2
             &info,
-            HPKE_AAD,
+            NR_ID, // Newsroom ID is associated data
             plaintext,
             Some(&psk),
             Some(HPKE_PSK_ID),                       // Fixed PSK ID
@@ -355,7 +358,7 @@ pub fn encrypt<R: RngCore + CryptoRng>(
         .seal(
             &recipient_md_pubkey,
             HPKE_BASE_INFO, // b""
-            HPKE_AAD,       // b""
+            HPKE_BASE_AAD,  // b""
             &sender_pubkey_bytes,
             None,
             None,
@@ -428,7 +431,7 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
                     &envelope.metadata_encap,
                     receiver_metadata_keypair.private_key(),
                     HPKE_BASE_INFO,
-                    HPKE_AAD,
+                    HPKE_BASE_AAD,
                     &envelope.cmetadata,
                     None,
                     None,
@@ -480,7 +483,7 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
             &combined_ct.message_dhakem_ss_encap,
             hpke_receiver_keys.private_key(),
             &info,
-            HPKE_AAD,
+            NR_ID, // Recipient supplies NR_ID to decrypt
             &combined_ct.ct_message,
             Some(&psk),
             Some(HPKE_PSK_ID),
