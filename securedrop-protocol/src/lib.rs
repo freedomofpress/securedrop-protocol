@@ -155,9 +155,8 @@ pub fn encrypt_once(
 /// Returns plaintext bytes.
 #[wasm_bindgen]
 pub fn decrypt_once(recipient: &WJournalist, envelope: &WEnvelope) -> Vec<u8> {
-    // add `impl Plaintext { pub fn into_bytes(self)->Vec<u8> { self.msg } }` in bench module if missing
     let pt: Plaintext = bench_decrypt(&recipient.inner, &envelope.inner);
-    pt.into_bytes()
+    pt.to_bytes()
 }
 
 /// Build challenges for fetch
