@@ -1,36 +1,53 @@
 .DEFAULT_GOAL := help
-DOCS=$(wildcard *.md) $(wildcard **/*.md)
 
-.PHONY: check-lint-deps
-check-lint-deps:
-	@which npx >> /dev/null || { echo "npx is not installed"; exit 1; }
-	@LINT_PRETTIER_VERSION=$$(command -v jq >> /dev/null && jq -r '.packages["node_modules/prettier"].version' package-lock.json 2> /dev/null || echo ""); \
-	\
-	if [ -z "$$LINT_PRETTIER_VERSION" ]; then \
-		echo "Could not parse package-lock.json for dependency versions (is jq installed?)"; \
-		exit 0; \
-	fi; \
-	\
-	PRETTIER_INSTALLED=$$(npx --no-install prettier --version 2> /dev/null || echo ""); \
-	if [ "$$PRETTIER_INSTALLED" != "$$LINT_PRETTIER_VERSION" ]; then \
-		echo "Run 'npm ci' to install the pinned version of Prettier."; \
-		exit 1; \
-	fi; \
+# Specify lint tooling versions here
+DPRINT_VER=0.51.0
+ZIZMOR_VER=1.19.0
 
+# Avoid conflicts with user's system directories
+BIN_DIR := $(CURDIR)/lint-tools/bin/
+TOOLS_DIR := $(CURDIR)/lint-tools/
 
-.PHONY: ci-lint
-ci-lint:  ## Lint GitHub Actions workflows.
-	@poetry run zizmor .
+.PHONY: lint
+lint: deps-lint lint-ci lint-docs  ## Run all linters.
+	@cargo fmt --check --manifest-path=securedrop-protocol/Cargo.toml
 
-.PHONY: docs-lint
-docs-lint: $(DOCS) ## Lint Markdown-format documentation.
-	$(MAKE) check-lint-deps
-	@npx prettier --check $^
+.PHONY: lint-ci
+lint-ci: deps-lint  ## Lint GitHub Actions workflows.
+	@$(BIN_DIR)/zizmor .github/ || { echo "INFO: Run 'make fix-ci' to try autofix"; exit 1; }
+
+# Currently lints markdown, but can be configured to lint various formats:
+# https://dprint.dev/config/
+.PHONY: lint-docs
+lint-docs: deps-lint  ## Lint Markdown-format documentation.
+	@$(BIN_DIR)/dprint check || { echo "INFO: Run 'make fix-docs' to try autofix"; exit 1; }
 
 .PHONY: fix
-docs-fix: $(DOCS)  ## Apply automatic fixes to Markdown-format documentation.
-	$(MAKE) check-lint-deps
-	@npx prettier --write $^
+fix: fix-ci fix-docs  ## Apply all automatic formatting fixes.
+	@cargo fmt --all
+
+.PHONY: fix-ci
+fix-ci: deps-lint  ## Apply automatic fixes to CI.
+	@$(BIN_DIR)/zizmor --fix .github/
+
+.PHONY: fix-docs
+fix-docs: deps-lint  ## Apply automatic fixes to (Markdown-format) documentation.
+	@$(BIN_DIR)/dprint fmt
+
+.PHONY: deps-lint
+deps-lint: deps-rust  ## Install project-level linters
+	@cargo install --locked dprint --version $(DPRINT_VER) --root $(TOOLS_DIR)
+	@cargo install --locked zizmor --version $(ZIZMOR_VER) --root $(TOOLS_DIR)
+
+.PHONY: deps-rust
+deps-rust:  ## Install clippy and rustfmt.
+	@which cargo >> /dev/null || { echo "Please install the Rust toolchain"; exit 1; }
+	@rustup component add clippy rustfmt
+
+# future TODO: stricter clippy (append -D warnings)
+.PHONY: clippy
+clippy: deps-rust  ## Check Rust code with clippy
+	@cargo clippy --manifest-path=securedrop-protocol/Cargo.toml --all-targets --all-features --
 
 .PHONY: doxygen
 doxygen:  ## Generate browsable documentation and call/caller graphs (requires Doxygen and Graphviz).
@@ -45,15 +62,10 @@ build-wasm:  ## Compile securedrop-protocol crate for wasm32-unknown-unknown (br
 	@rustup target list --installed | grep wasm32-unknown-unknown || { echo "Install wasm32 target using \`rustup target add wasm32-unknown-unknown\`"; exit 1; }
 	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo build --manifest-path securedrop-protocol/Cargo.toml --target wasm32-unknown-unknown
 
-.PHONY: fix
-fix: docs-fix  ## Apply automatic fixes.
-
-.PHONY: lint
-lint: ci-lint docs-lint  ## Run all linters.
-
 .PHONY: help
 help: ## Prints this message and exits.
 	@printf "Subcommands:\n\n"
 	@perl -F':.*##\s+' -lanE '$$F[1] and say "\033[36m$$F[0]\033[0m : $$F[1]"' $(MAKEFILE_LIST) \
 		| sort \
 		| column -s ':' -t
+
