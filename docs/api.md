@@ -105,7 +105,7 @@ curl -X POST -H "Content-Type: application/json" "http://127.0.0.1:5000/ephemera
 
 ### GET
 
-The server pops a random ephemeral*key from every enrolled journalist bucket and returns it. The `pop` operation effectively removes the returned keys from the corresponding \_Journalist* bucket.
+The server pops a random ephemeral_key from every enrolled journalist bucket and returns it. The `pop` operation effectively removes the returned keys from the corresponding \_Journalist_ bucket.
 
 ```
 curl -X GET http://127.0.0.1:5000/ephemeral_keys

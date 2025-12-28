@@ -10,7 +10,7 @@ The readme sketches the following PKI scheme for use with the SecureDrop Protoco
 
 | The party... | ...has the secret key... | ...with the public key... | ...with the signature[^1]... | ...so that...                                       |
 | ------------ | ------------------------ | ------------------------- | ---------------------------- | --------------------------------------------------- |
-| FPF          | $FPF_{SK}$               | $FPF_{PK}$                | $\bot$                       |
+| FPF          | $FPF_{SK}$               | $FPF_{PK}$                | $\bot$                       |                                                     |
 | Newsroom     | $NR_{SK}$                | $NR_{PK}$                 | $sig^{FPF_{SK}}(NR_{PK})$    | FPF can attest to an instance's legitimacy.[^2]     |
 | Journalist   | $J_{SK}$                 | $J_{PK}$                  | $sig^{NR_{SK}}(J_{PK})$      | a source can verify a journalist's enrollment.      |
 | Journalist   | $JC_{SK}$                | $JC_{PK}$                 | $sig^{J_{SK}}(JC_{PK})$      | the server can verify a journalist's fetching key.  |
@@ -77,13 +77,11 @@ The disadvantages of KT are:
 2. **Operational implications:** KT is another service to run, with new failure
    modes to reason about and manage.
 
-[^1]:
-    See
+[^1]: See
     <https://github.com/freedomofpress/securedrop-protocol?tab=readme-ov-file#functions>
     for the notation used here.
 
-[^2]:
-    One reviewer has suggested including a countersignature
+[^2]: One reviewer has suggested including a countersignature
     $sig^{NR_{SK}}(FPF_{PK})$.
 
 [^3]: https://github.com/freedomofpress/securedrop-poc/files/14903819/securedrop.report.pdf

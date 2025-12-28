@@ -113,7 +113,6 @@ options:
                         Plaintext message content for submissions or replies
   -f FILES [FILES ...], --files FILES [FILES ...]
                         List of local files to submit
-
 ```
 
 #### Send a submission (without attachments)
@@ -121,7 +120,6 @@ options:
 ```
 # python3 source.py -a submit -m "My first contact message with a newsroom :)"
 [+] New submission passphrase: 23a90f6499c5f3bc630e7103a4e63c131a8248c1ae5223541660b7bcbda8b2a9
-
 ```
 
 #### Send a submission (with attachments)
@@ -129,7 +127,6 @@ options:
 ```
 # python3 source.py -a submit -m "My first contact message with a newsroom, plus evidence and a supporting video :)" -f /tmp/secret_files/file1.mkv /tmp/secret_files/file2.zip
 [+] New submission passphrase: c2cf422563cd2dc2813150faf2f40cf6c2032e3be6d57d1cd4737c70925743f6
-
 ```
 
 #### Fetch replies
@@ -138,7 +135,6 @@ options:
 # python3 source.py -p 23a90f6499c5f3bc630e7103a4e63c131a8248c1ae5223541660b7bcbda8b2a9 -a fetch
 [+] Found 1 message(s)
     de55e92ca3d89de37855cea52e77c182111ca3fd00cf623a11c1f41ceb2a19ca
-
 ```
 
 #### Read a reply
@@ -151,7 +147,6 @@ options:
     From: a1eb055608e169d04392607a79a3bf8ac4ccfc9e0d3f5056941f31be78a12be1
     Date: 2023-01-23 23:42:14
     Text: This is a reply to the message without attachments, it is identified only by the id
-
 ```
 
 #### Send an additional reply
@@ -165,7 +160,6 @@ options:
 ```
 # python3 source.py -p 23a90f6499c5f3bc630e7103a4e63c131a8248c1ae5223541660b7bcbda8b2a9 -a delete -i de55e92ca3d89de37855cea52e77c182111ca3fd00cf623a11c1f41ceb2a19ca
 [+] Message de55e92ca3d89de37855cea52e77c182111ca3fd00cf623a11c1f41ceb2a19ca deleted
-
 ```
 
 ### Journalist
@@ -185,7 +179,6 @@ options:
   -i ID, --id ID        Message id
   -m MESSAGE, --message MESSAGE
                         Plaintext message content for replies
-
 ```
 
 #### Fetch replies and submissions
@@ -195,7 +188,6 @@ options:
 [+] Found 2 message(s)
     0358306e106d1d9e0449e8e35a59c37c41b28a5e6630b88360738f5989da501c
     1216789eab54869259e168b02825151b665f04b0b9f01f654c913e3bbea1f627
-
 ```
 
 #### Read a submission/reply (without attachments)
@@ -207,7 +199,6 @@ options:
     ID: 1216789eab54869259e168b02825151b665f04b0b9f01f654c913e3bbea1f627
     Date: 2023-01-23 23:37:15
     Text: My first contact message with a newsroom :)
-
 ```
 
 #### Read a submission/reply (with attachments)
@@ -221,7 +212,6 @@ options:
     Attachment: name=file1.mkv;size=1562624;parts_count=3
     Attachment: name=file2.zip;size=93849;parts_count=1
     Text: My first contact message with a newsroom with collected evidences and a supporting video :)
-
 ```
 
 #### Send a reply
@@ -235,5 +225,4 @@ options:
 ```
 # python3 journalist.py -j 7 -a delete -i 1216789eab54869259e168b02825151b665f04b0b9f01f654c913e3bbea1f627
 [+] Message 1216789eab54869259e168b02825151b665f04b0b9f01f654c913e3bbea1f627 deleted
-
 ```
