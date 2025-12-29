@@ -38,3 +38,13 @@ To better understand the context of this research and the previous steps that le
 - [Part 2: Anatomy of a whistleblowing system](https://securedrop.org/news/anatomy-of-a-whistleblowing-system/)
 - [Part 3: How to research your own cryptography and survive](https://securedrop.org/news/how-to-research-your-own-cryptography-and-survive/)
 - [Part 4: Introducing SecureDrop Protocol](https://securedrop.org/news/introducing-securedrop-protocol/)
+
+## Setup instructions
+
+Install the Rust toolchain and `cargo-binstall`. To view browsable documentation, install `doxygen` and `dot` (Graphviz).
+
+Developers can use `make help` to see available targets, including convenience targets for installing developer dependencies (lint tools). Lint tools are installed in the `lint-tools` directory to avoid interfering with system dependencies; use the make targets for linting, or specify that directory (e.g. `./lint-tools/bin/dprint fmt` )
+
+### Rust benchmarking
+
+The `securedrop-protocol/securedrop-protocol` directory contains Rust proof-of-concept code under development. Running `make bench` from within that directory allows for benchmarking the proof-of-concept implementation.
