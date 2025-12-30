@@ -8,6 +8,9 @@ ZIZMOR_VER=1.19.0
 BIN_DIR := $(CURDIR)/lint-tools/bin/
 TOOLS_DIR := $(CURDIR)/lint-tools/
 
+.PHONY: check
+check: lint clippy  ## Run all lint and code checks
+
 .PHONY: lint
 lint: deps-lint lint-ci lint-docs  ## Run all linters.
 	@cargo fmt --check --manifest-path=securedrop-protocol/Cargo.toml
