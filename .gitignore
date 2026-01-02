@@ -3,8 +3,9 @@ securedrop-protocol/target/*
 securedrop-protocol/pkg/*
 securedrop-protocol/.selenium-cache
 
-lint-tools/*
-!lint-tools/Cargo.toml
+lint-tools/bin*
+lint-tools/.crates.toml
+lint-tools/.crates2.json
 
 demo-v0.1/files/
 demo-v0.1/.venv
