@@ -16,8 +16,11 @@ use libcrux_traits::kem::owned::Kem;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
+// Mock Newsroom ID
+const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
+
 const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // authpsk only, required by spec
-const HPKE_AAD: &[u8] = b""; // base and authpsk
+const HPKE_BASE_AAD: &[u8] = b""; // base only; in authpsk mode the NR_ID is supplied
 const HPKE_BASE_INFO: &[u8] = b""; // base mode only
 
 // Key lengths
@@ -52,15 +55,15 @@ const LEN_KMID: usize =
 
 #[derive(Debug, Clone)]
 pub struct CombinedCiphertext {
-    // authenc message ciphertext
-    ct_message: Vec<u8>,
-
     // dh-akem ss encaps (needed to decrypt message)
     message_dhakem_ss_encap: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS],
 
     // pq psk encap (needed to decaps psk)
-    // also passed as `info` param during hpke.authopen
+    // also passed as part of `info` param during hpke.authopen
     message_pqpsk_ss_encap: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS],
+
+    // authenc message ciphertext
+    ct_message: Vec<u8>,
 }
 
 impl CombinedCiphertext {
@@ -100,9 +103,9 @@ impl CombinedCiphertext {
             ct_bytes[LEN_DHKEM_SHAREDSECRET_ENCAPS + LEN_MLKEM_SHAREDSECRET_ENCAPS..].to_vec();
 
         Ok(CombinedCiphertext {
-            ct_message: (cmessage),
             message_dhakem_ss_encap: dhakem_ss_encaps,
             message_pqpsk_ss_encap: pqpsk_ss_encaps,
+            ct_message: (cmessage),
         })
     }
 }
@@ -124,18 +127,58 @@ pub struct Envelope {
     mgdh: [u8; LEN_DH_ITEM],
 }
 
-// TODO: plaintext structure/types
 #[derive(Debug)]
+/// Toy pt structure - provide params in order
 pub struct Plaintext {
-    // todo: this is an ID instead of a pubkey, it's attached already
-    recipient_pubkey_dhakem: Option<Vec<u8>>,
-
-    sender_reply_pubkey_dhakem: Option<Vec<u8>>,
-    sender_reply_pubkey_pq_psk: Option<Vec<u8>>,
-    sender_reply_pubkey_hybrid: Option<Vec<u8>>,
-    sender_fetch_key: Option<Vec<u8>>,
-
+    sender_reply_pubkey_pq_psk: [u8; LEN_MLKEM_ENCAPS_KEY],
+    sender_reply_pubkey_hybrid: [u8; LEN_XWING_ENCAPS_KEY],
+    sender_fetch_key: [u8; LEN_DH_ITEM],
     msg: Vec<u8>,
+}
+
+impl Plaintext {
+    pub fn to_bytes(&self) -> alloc::vec::Vec<u8> {
+        let mut buf = Vec::new();
+
+        buf.extend_from_slice(&self.sender_reply_pubkey_pq_psk);
+        buf.extend_from_slice(&self.sender_reply_pubkey_hybrid);
+        buf.extend_from_slice(&self.sender_fetch_key);
+        buf.extend_from_slice(&self.msg);
+
+        buf
+    }
+
+    pub fn len(&self) -> usize {
+        return LEN_MLKEM_ENCAPS_KEY + LEN_XWING_ENCAPS_KEY + LEN_DH_ITEM + &self.msg.len();
+    }
+
+    // Toy parsing only
+    pub fn from_bytes(pt_bytes: &Vec<u8>) -> Result<Self, Error> {
+        let mut offset = 0;
+
+        let mut sender_reply_pubkey_pq_psk = [0u8; LEN_MLKEM_ENCAPS_KEY];
+        sender_reply_pubkey_pq_psk
+            .copy_from_slice(&pt_bytes[offset..offset + LEN_MLKEM_ENCAPS_KEY]);
+        offset += LEN_MLKEM_ENCAPS_KEY;
+
+        let mut sender_reply_pubkey_hybrid = [0u8; LEN_XWING_ENCAPS_KEY];
+        sender_reply_pubkey_hybrid
+            .copy_from_slice(&pt_bytes[offset..offset + LEN_XWING_ENCAPS_KEY]);
+        offset += LEN_XWING_ENCAPS_KEY;
+
+        let mut sender_fetch_key = [0u8; LEN_DH_ITEM];
+        sender_fetch_key.copy_from_slice(&pt_bytes[offset..offset + LEN_DH_ITEM]);
+        offset += LEN_DH_ITEM;
+
+        let msg = pt_bytes[offset..].to_vec();
+
+        Ok(Plaintext {
+            sender_reply_pubkey_pq_psk,
+            sender_reply_pubkey_hybrid,
+            sender_fetch_key,
+            msg,
+        })
+    }
 }
 
 /// Represent stored ciphertexts on the server
@@ -155,21 +198,6 @@ impl FetchResponse {
             enc_id: enc_id,
             pmgdh: pmgdh,
         }
-    }
-}
-
-impl Plaintext {
-    pub fn as_bytes(&self) -> &[u8] {
-        // TODO: serialize in order including keys
-        &self.msg
-    }
-
-    pub fn len(&self) -> usize {
-        self.msg.len()
-    }
-
-    pub fn into_bytes(self) -> alloc::vec::Vec<u8> {
-        self.msg
     }
 }
 
@@ -301,6 +329,11 @@ pub fn encrypt<R: RngCore + CryptoRng>(
     let (psk, psk_ct) = MlKem768::encaps(recipient_keybundle.get_pq_kem_psk_pk(), &randomness)
         .expect("PSK encaps failed");
 
+    // Info parameter is pq_psk_encaps_bytes || receiver_fetch_pubkey_bytes
+    let mut info = Vec::new();
+    info.extend_from_slice(&psk_ct);
+    info.extend_from_slice(recipient.get_fetch_pk());
+
     // TODO: message serialization and format
     // (include any message metadata, the sender serialized XWING pubkey
     // for sending replies, key identifiers, newsroom key/identifier, etc.)
@@ -313,8 +346,8 @@ pub fn encrypt<R: RngCore + CryptoRng>(
             // psk_encaps_ct as authenticated (info).
             // In single-shot mode this is how authenticated data is passed:
             // https://www.rfc-editor.org/rfc/rfc9180.html#section-8.1-2
-            &psk_ct,
-            HPKE_AAD,
+            &info,
+            NR_ID, // Newsroom ID is associated data
             plaintext,
             Some(&psk),
             Some(HPKE_PSK_ID),                       // Fixed PSK ID
@@ -350,7 +383,7 @@ pub fn encrypt<R: RngCore + CryptoRng>(
         .seal(
             &recipient_md_pubkey,
             HPKE_BASE_INFO, // b""
-            HPKE_AAD,       // b""
+            HPKE_BASE_AAD,  // b""
             &sender_pubkey_bytes,
             None,
             None,
@@ -365,9 +398,9 @@ pub fn encrypt<R: RngCore + CryptoRng>(
         ));
 
     let cmessage = CombinedCiphertext {
-        ct_message: message_ciphertext,
         message_dhakem_ss_encap: dhakem_ss_encaps_bytes,
         message_pqpsk_ss_encap: psk_ct,
+        ct_message: message_ciphertext,
     };
 
     Envelope {
@@ -423,7 +456,7 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
                     &envelope.metadata_encap,
                     receiver_metadata_keypair.private_key(),
                     HPKE_BASE_INFO,
-                    HPKE_AAD,
+                    HPKE_BASE_AAD,
                     &envelope.cmetadata,
                     None,
                     None,
@@ -458,6 +491,12 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
     // toy (unsafe) parse combined ciphertext
     let combined_ct = CombinedCiphertext::from_bytes(&envelope.cmessage).unwrap();
 
+    // Construct 'info' parameter (authenticated data)
+    // Info is c2 || receiver_fetch_pubkey
+    let mut info = Vec::new();
+    info.extend_from_slice(&combined_ct.message_pqpsk_ss_encap);
+    info.extend_from_slice(receiver.get_fetch_pk());
+
     let psk = MlKem768::decaps(
         &combined_ct.message_pqpsk_ss_encap,
         receiver_keys.get_pq_kem_psk_sk(),
@@ -468,8 +507,8 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
         .open(
             &combined_ct.message_dhakem_ss_encap,
             hpke_receiver_keys.private_key(),
-            &combined_ct.message_pqpsk_ss_encap,
-            HPKE_AAD,
+            &info,
+            NR_ID, // Recipient supplies NR_ID to decrypt
             &combined_ct.ct_message,
             Some(&psk),
             Some(HPKE_PSK_ID),
@@ -477,15 +516,7 @@ pub fn decrypt(receiver: &dyn User, envelope: &Envelope) -> Plaintext {
         )
         .expect("Decryption failed");
 
-    // TODO parse
-    Plaintext {
-        msg: pt,
-        recipient_pubkey_dhakem: None,
-        sender_reply_pubkey_dhakem: None,
-        sender_reply_pubkey_pq_psk: None,
-        sender_reply_pubkey_hybrid: None,
-        sender_fetch_key: None,
-    }
+    Plaintext::from_bytes(&pt).unwrap()
 }
 
 /// Given a set of ciphertext bundles (C, X, Z) and their associated uuid (ServerMessageStore),
@@ -749,23 +780,31 @@ mod tests {
 
         let sender = Source::new(&mut rng);
         let recipient = Journalist::new(&mut rng, 2);
-        let plaintext = b"Encrypt-decrypt test".to_vec();
 
-        // TODO
         let pt = Plaintext {
-            sender_reply_pubkey_pq_psk: Some(sender.keys.get_pq_kem_psk_pk().to_vec()),
-            sender_reply_pubkey_dhakem: Some(sender.keys.get_dhakem_pk().to_vec()),
-            sender_fetch_key: Some(sender.pk_fetch.to_vec()),
-            sender_reply_pubkey_hybrid: None,
-            recipient_pubkey_dhakem: None,
+            sender_reply_pubkey_pq_psk: *sender.keys.get_pq_kem_psk_pk(),
+            sender_fetch_key: *sender.get_fetch_pk(),
+            sender_reply_pubkey_hybrid: *sender.keys.get_hybrid_md_pk(),
             msg: b"Encrypt-decrypt test".to_vec(),
         };
 
-        let envelope = encrypt(&mut rng, &sender, &plaintext, &recipient, None);
+        let envelope = encrypt(&mut rng, &sender, &pt.to_bytes(), &recipient, None);
         let decrypted = decrypt(&recipient, &envelope);
 
-        assert_eq!(decrypted.msg, plaintext);
-        // TODO: Add more fields to plaintext, and add assertions
+        assert_eq!(pt.msg, decrypted.msg);
+        assert_eq!(pt.sender_fetch_key, *sender.get_fetch_pk());
+        assert_eq!(
+            pt.sender_reply_pubkey_hybrid,
+            *sender.keys.get_hybrid_md_pk()
+        );
+        assert_eq!(
+            pt.sender_reply_pubkey_pq_psk,
+            *sender.keys.get_pq_kem_psk_pk()
+        );
+        assert_eq!(
+            pt.len(),
+            pt.msg.len() + LEN_DH_ITEM + LEN_MLKEM_ENCAPS_KEY + LEN_XWING_ENCAPS_KEY
+        );
     }
 
     #[test]
@@ -775,8 +814,14 @@ mod tests {
         let journalist = Journalist::new(&mut rng, 2);
         let source = Source::new(&mut rng);
 
-        let plaintext = b"Fetch this message".to_vec();
-        let envelope = encrypt(&mut rng, &source, &plaintext, &journalist, None);
+        let msg = b"Fetch this message";
+        let plaintext: Plaintext = Plaintext {
+            sender_reply_pubkey_pq_psk: *source.keys.get_pq_kem_psk_pk(),
+            sender_reply_pubkey_hybrid: *source.keys.get_hybrid_md_pk(),
+            sender_fetch_key: *source.get_fetch_pk(),
+            msg: msg.to_vec(),
+        };
+        let envelope = encrypt(&mut rng, &source, &plaintext.to_bytes(), &journalist, None);
 
         // On server. TODO: in helper function
         let message_id: [u8; LEN_MESSAGE_ID] = {
