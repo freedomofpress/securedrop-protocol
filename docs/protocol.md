@@ -264,7 +264,7 @@ Then:
 | $`(sk_{NR}^{sig}, vk_{NR}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |                                   |                                                                            |
 |                                                                 | $`\longrightarrow vk_{NR}^{sig}`$ | Verify manually                                                            |
 |                                                                 |                                   | $`\sigma_{FPF} \gets^{\$} \text{SIG.Sign}(sk_{FPF}^{sig}, vk_{NR}^{sig})`$ |
-|                                                                 | $`\sigma_{FPF} \longleftarrow`$   |
+|                                                                 | $`\sigma_{FPF} \longleftarrow`$   |                                                                            |
 
 The server MUST be deployed with the newsroom's verifying key $vk_{NR}^{sig}$
 pinned. The server MAY be deployed with FPF's verifying key $vk_{FPF}^{sig}$
@@ -307,7 +307,7 @@ maintain a pool of $n$ ephemeral key bundles. For each key bundle $i$:
 | $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                                                     |                                                                         |                                                                                                       |
 | $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                                                        |                                                                         |                                                                                                       |
 | $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}))`$ (**TODO:** [#127]) |                                                                         |                                                                                                       |
-|                                                                                                                                 | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |
+|                                                                                                                                 | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                                                       |
 |                                                                                                                                 |                                                                         | $`b = \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}), \sigma_{J,i})`$ |
 |                                                                                                                                 |                                                                         | If $b = 1$: Store $(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})$ for $J$                       |
 
@@ -503,21 +503,17 @@ insertion order.
 [^6]: TODO kept inline above.
 -->
 
-[^7]:
-    The source's keys are considered "permanent" because they are derived
+[^7]: The source's keys are considered "permanent" because they are derived
     deterministically from the source's passphrase, which cannot be changed.
 
-[^8]:
-    $\mathcal{E}_H \subset \mathbb{Z}$ per Definition 4 of Alwen et al.
+[^8]: $\mathcal{E}_H \subset \mathbb{Z}$ per Definition 4 of Alwen et al.
     (2020), ["Analyzing the HPKE Standard"][alwen2020].
 
-[^9]:
-    In the listings that follow, mathematical syntax uses `-` for the empty
+[^9]: In the listings that follow, mathematical syntax uses `-` for the empty
     string, while Python pseudocode uses `None`. In tuples, `_` denotes a value we
     don't care about for the current operation.
 
-[^10]:
-    `pks` is assumed to have this arity and sequence for the remainder of
+[^10]: `pks` is assumed to have this arity and sequence for the remainder of
     this document.
 
 [0.1]: https://github.com/freedomofpress/securedrop-protocol/blob/ffc07fd85d1d43dc2796e3b63aca91298adb018e/docs/protocol.md

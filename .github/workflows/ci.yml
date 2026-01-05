@@ -15,17 +15,21 @@ jobs:
           apt-get install --yes --no-install-recommends \
             git \
             make \
-            nodejs npm \
-            python3-poetry
+            curl \
+            ca-certificates \
+            build-essential \
+            pkg-config \
+            libssl-dev
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Install Node.js dependencies
-        run: |
-          npm ci
-      - name: Install Python dependencies
-        run: |
-          poetry install --no-ansi
-      - name: Run linters
-        run: |
-          make lint
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      # (rust-toolchain@v1 latest reviewed and pinned)
+      - uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+        with:
+          toolchain: stable
+          components: clippy,rustfmt
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+      - run: make deps-lint
+      - run: make lint
