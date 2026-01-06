@@ -2,6 +2,7 @@ docs/html/
 securedrop-protocol/target/*
 securedrop-protocol/pkg/*
 securedrop-protocol/.selenium-cache
+securedrop-protocol/out
 
 lint-tools/bin*
 lint-tools/.crates.toml
