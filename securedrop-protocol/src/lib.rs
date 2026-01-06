@@ -1,6 +1,5 @@
 #![no_std]
 extern crate alloc;
-extern crate console_error_panic_hook;
 
 pub mod client;
 pub mod keys;
@@ -31,6 +30,8 @@ use bench::encrypt_decrypt::{
     compute_fetch_challenges,
 };
 use bench::{bench_decrypt, bench_encrypt, bench_fetch};
+
+use crate::bench::encrypt_decrypt::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY};
 
 #[inline]
 fn rng_from_seed(seed32: [u8; 32]) -> ChaCha20Rng {
@@ -142,9 +143,6 @@ pub fn encrypt_once(
 
     use crate::bench::encrypt_decrypt::{LEN_MLKEM_ENCAPS_KEY,LEN_DH_ITEM,LEN_XWING_ENCAPS_KEY};
 
-    // log errors
-    console_error_panic_hook::set_once();
-
     assert_eq!(seed32.len(), 32, "seed32 must be 32 bytes");
     let mut seed = [0u8; 32];
     seed.copy_from_slice(seed32);
@@ -159,6 +157,7 @@ pub fn encrypt_once(
     let mut fetch = [0u8; LEN_DH_ITEM];
     fetch.copy_from_slice(sender.inner.get_fetch_pk());
 
+    // construct a Plaintext object (previously just message bytes)
     let plaintext = Plaintext {
         sender_reply_pubkey_pq_psk: pq,
         sender_reply_pubkey_hybrid: hybrid,
@@ -176,14 +175,19 @@ pub fn encrypt_once(
     env.into()
 }
 
-/// Returns plaintext bytes.
+/// Returns message bytes from plaintext.
+/// TODO: can also return a WPlaintext object to access more fields in benchmarking
 #[wasm_bindgen]
 pub fn decrypt_once(recipient: &WJournalist, envelope: &WEnvelope) -> Vec<u8> {
-    // log errors
-    console_error_panic_hook::set_once();
 
     let pt: Plaintext = bench_decrypt(&recipient.inner, &envelope.inner);
-    pt.to_bytes()
+
+    // sanity
+    assert_eq!(pt.msg.len(), pt.len() - (LEN_DH_ITEM + LEN_MLKEM_ENCAPS_KEY + LEN_XWING_ENCAPS_KEY));
+
+    // this was just a string, now it's a plaintext struct.
+    // was hoping to avoid the entire wplaintext wrapper struct and return the message bytes and not change anything else.
+    pt.msg
 }
 
 /// Build challenges for fetch
@@ -193,8 +197,6 @@ pub fn compute_fetch_challenges_once(
     entries: Box<[WStoreEntry]>,
     total_responses: usize,
 ) -> Box<[WFetchResponse]> {
-    // log errors
-    console_error_panic_hook::set_once();
 
     assert_eq!(seed32.len(), 32);
     let mut seed = [0u8; 32];

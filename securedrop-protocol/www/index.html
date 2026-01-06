@@ -24,6 +24,12 @@
     return true;
   }
 
+  function toHex(bytes) {
+  return Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  }
+
   // -------- params (no aliases) --------
   const params = new URLSearchParams(location.search);
   const allowed = new Set(['encrypt','decrypt_journalist','decrypt_source','fetch','all']);
