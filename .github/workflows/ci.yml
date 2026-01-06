@@ -34,7 +34,10 @@ jobs:
         uses: actions/cache@v4
         id: cache-deps
         with:
-          path: lint-tools
+          path: |
+            lint-tools
+            ${{ env.CARGO_HOME }}/registry
+            ${{ env.CARGO_HOME }}/git
           key: lint-tools-${{ hashFiles('lint-tools/versions.env') }}
       - name: Install lint deps, if needed
         if: steps.cache-deps.outputs.cache-hit != 'true'
