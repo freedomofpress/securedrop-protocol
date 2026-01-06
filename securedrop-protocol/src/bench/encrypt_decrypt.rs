@@ -130,10 +130,10 @@ pub struct Envelope {
 #[derive(Debug)]
 /// Toy pt structure - provide params in order
 pub struct Plaintext {
-    sender_reply_pubkey_pq_psk: [u8; LEN_MLKEM_ENCAPS_KEY],
-    sender_reply_pubkey_hybrid: [u8; LEN_XWING_ENCAPS_KEY],
-    sender_fetch_key: [u8; LEN_DH_ITEM],
-    msg: Vec<u8>,
+    pub sender_reply_pubkey_pq_psk: [u8; LEN_MLKEM_ENCAPS_KEY],
+    pub sender_reply_pubkey_hybrid: [u8; LEN_XWING_ENCAPS_KEY],
+    pub sender_fetch_key: [u8; LEN_DH_ITEM],
+    pub msg: Vec<u8>,
 }
 
 impl Plaintext {
@@ -608,7 +608,7 @@ pub fn solve_fetch_challenges(
 }
 
 pub struct Source {
-    keys: KeyBundle,
+    pub keys: KeyBundle,
     sk_fetch: [u8; LEN_DH_ITEM],
     pk_fetch: [u8; LEN_DH_ITEM],
 }
@@ -666,7 +666,7 @@ impl User for Source {
 }
 
 pub struct Journalist {
-    keybundle: Vec<KeyBundle>,
+    pub keybundle: Vec<KeyBundle>,
 
     sk_fetch: [u8; LEN_DH_ITEM],
     pk_fetch: [u8; LEN_DH_ITEM],

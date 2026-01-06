@@ -6,9 +6,9 @@ use rand_core::{RngCore, SeedableRng};
 use serde::Serialize;
 
 use securedrop_protocol::bench::encrypt_decrypt::{
-    Envelope, FetchResponse, ServerMessageStore, User, compute_fetch_challenges,
+    Envelope, FetchResponse, Journalist, Plaintext, ServerMessageStore, Source, User,
+    compute_fetch_challenges,
 };
-use securedrop_protocol::bench::encrypt_decrypt::{Journalist, Source};
 use securedrop_protocol::bench::{bench_decrypt, bench_encrypt, bench_fetch};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -146,6 +146,13 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
         let recipient = Journalist::new(&mut prep_rng, keybundles);
         let msg = b"super secret msg".to_vec();
 
+        let plaintext = Plaintext {
+            sender_fetch_key: *sender.get_fetch_pk(),
+            sender_reply_pubkey_hybrid: sender.keys.hybrid_md_pk,
+            sender_reply_pubkey_pq_psk: sender.keys.pq_kem_psk_pk,
+            msg: msg,
+        };
+
         // Bundle index chosen outside the timed section
         let bundle_ix = if keybundles == 0 {
             0
@@ -163,7 +170,7 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
                 &sender as &dyn User,
                 &recipient as &dyn User,
                 bundle_ix,
-                &msg,
+                &plaintext.to_bytes(),
             );
             let dt = t0.elapsed();
             durations.push(dt);
@@ -179,7 +186,7 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
                 &sender as &dyn User,
                 &recipient as &dyn User,
                 bundle_ix,
-                &msg,
+                &plaintext.to_bytes(),
             );
             let dt = t0.elapsed();
             durations.push(dt);
@@ -203,6 +210,13 @@ fn bench_decrypt_loop(iterations: usize, keybundles: usize) -> Vec<Duration> {
         let recipient = Journalist::new(&mut prep_rng, keybundles);
         let msg = b"super secret msg".to_vec();
 
+        let pt = Plaintext {
+            sender_reply_pubkey_hybrid: sender.keys.hybrid_md_pk,
+            sender_fetch_key: *sender.get_fetch_pk(),
+            msg: msg,
+            sender_reply_pubkey_pq_psk: sender.keys.pq_kem_psk_pk,
+        };
+
         // Prepare envelope (not timed)
         let mut seed = [0u8; 32];
         let bundle_ix = if keybundles == 0 {
@@ -215,7 +229,7 @@ fn bench_decrypt_loop(iterations: usize, keybundles: usize) -> Vec<Duration> {
             &sender as &dyn User,
             &recipient as &dyn User,
             bundle_ix,
-            &msg,
+            &pt.to_bytes(),
         );
 
         // Time ONLY decrypt
@@ -252,12 +266,20 @@ fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> 
             } else {
                 (prep_rng.next_u32() as usize) % keybundles
             };
+
+            let pt = Plaintext {
+                msg: format!("iter{i}-msg{j}").into(),
+                sender_fetch_key: source.keys.dhakem_pk,
+                sender_reply_pubkey_hybrid: source.keys.hybrid_md_pk,
+                sender_reply_pubkey_pq_psk: source.keys.pq_kem_psk_pk,
+            };
+
             let env = bench_encrypt(
                 seed,
                 &source as &dyn User,
                 &journalist as &dyn User,
                 bundle_ix,
-                format!("iter{i}-msg{j}").as_bytes(),
+                &pt.to_bytes(),
             );
             let mut message_id = [0u8; 16];
             message_id.fill((j & 0xff) as u8);
