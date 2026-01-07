@@ -109,8 +109,6 @@ jobs:
   build_wasm:
     name: wasm build
     runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: '--cfg getrandom_backend="wasm_js"'
     steps:
       # actions/checkout@4.1.1
       - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
@@ -168,5 +166,7 @@ jobs:
           key: wasm-target-${{ runner.os }}-${{ github.run_id }}
       - name: Install wasm-bindgen cli
         run: make rust-target
+        working-directory: securedrop-protocol
       - name: Run minimal cli bench
         run: cargo bench --bench manual -- all -n 10 -k 10 -j 10
+        working-directory: securedrop-protocol
