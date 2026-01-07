@@ -56,7 +56,7 @@ impl WSource {
         WSource {
             inner: Source::new(&mut rng),
         }
-    }    
+    }
 }
 
 #[wasm_bindgen]
@@ -140,8 +140,7 @@ pub fn encrypt_once(
     recipient_bundle_index: usize,
     msg: &[u8],
 ) -> WEnvelope {
-
-    use crate::bench::encrypt_decrypt::{LEN_MLKEM_ENCAPS_KEY,LEN_DH_ITEM,LEN_XWING_ENCAPS_KEY};
+    use crate::bench::encrypt_decrypt::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY};
 
     assert_eq!(seed32.len(), 32, "seed32 must be 32 bytes");
     let mut seed = [0u8; 32];
@@ -179,11 +178,13 @@ pub fn encrypt_once(
 /// TODO: can also return a WPlaintext object to access more fields in benchmarking
 #[wasm_bindgen]
 pub fn decrypt_once(recipient: &WJournalist, envelope: &WEnvelope) -> Vec<u8> {
-
     let pt: Plaintext = bench_decrypt(&recipient.inner, &envelope.inner);
 
     // sanity
-    assert_eq!(pt.msg.len(), pt.len() - (LEN_DH_ITEM + LEN_MLKEM_ENCAPS_KEY + LEN_XWING_ENCAPS_KEY));
+    assert_eq!(
+        pt.msg.len(),
+        pt.len() - (LEN_DH_ITEM + LEN_MLKEM_ENCAPS_KEY + LEN_XWING_ENCAPS_KEY)
+    );
 
     // this was just a string, now it's a plaintext struct.
     // was hoping to avoid the entire wplaintext wrapper struct and return the message bytes and not change anything else.
@@ -197,7 +198,6 @@ pub fn compute_fetch_challenges_once(
     entries: Box<[WStoreEntry]>,
     total_responses: usize,
 ) -> Box<[WFetchResponse]> {
-
     assert_eq!(seed32.len(), 32);
     let mut seed = [0u8; 32];
     seed.copy_from_slice(seed32);
