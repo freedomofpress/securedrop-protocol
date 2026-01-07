@@ -59,8 +59,7 @@
       const sender = new WSource();
       const recipient = new WJournalist(k);
       const msg = new TextEncoder().encode('super secret msg');
-      //const bundleIx = k === 0 ? 0 : (randU32() % k);
-      const bundleIx = 10;
+      const bundleIx = k === 0 ? 0 : (randU32() % k);
 
       if (includeRngInEncrypt) {
         const [dt] = tickUs(() => {
