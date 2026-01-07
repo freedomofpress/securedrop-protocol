@@ -48,3 +48,21 @@ Lint tools are installed in the `lint-tools` directory to avoid interfering with
 ### Rust benchmarking
 
 The `securedrop-protocol/securedrop-protocol` directory contains Rust proof-of-concept code under development. Running `make bench` from within that directory allows for benchmarking the proof-of-concept implementation.
+
+#### Debugging wasm and benchmarking code
+
+[`wasm-bindgen`](https://crates.io/crates/wasm-bindgen) exposes Rust objects and functions in Javascript in the benchmarking code. If troubleshooting, ensure you are using the same version of the wasm-bindgen cli as is specified in Cargo.toml (`wasm-bindgen -V`).
+
+`wasm-bindgen` requires wrapper classes for Rust objects to marshall in and out of Javascript. If any structs or function signatures that are being used in `www/index.html` (rendering benchmarks) are changed, the corresponding wrapper structs, annotated with `#[wasm_bindgen]`, will need to change accordingly.
+
+If the wasm-compiled Rust code panics, the browser may display a fairly generic/unhelpful message with limited information (for example, `{"error":"unreachable executed"}`). Add the [`console_error_panic_hook`](https://crates.io/crates/console_error_panic_hook) crate and use the `console_error_panic_hook::set_once();` method in a common codepath annotated by `#[wasm-bindgen]` in order to log further information to the browser console. You will also need to temporarily adjust Cargo.toml:
+
+```
+[profile.release]
+panic = "unwind"
+
+[profile.dev]
+panic = "unwind"
+```
+
+You may also need to follow the console_error_panic_hook docs to increase the stacktrace lines printed by your browser.
