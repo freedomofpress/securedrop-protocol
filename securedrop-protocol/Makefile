@@ -4,9 +4,13 @@ SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 
 # ===== Config =====
-ITER ?= 100
-KEYBUNDLES ?= 500
-CHALLENGES ?= 3000
+ITER ?= 1000
+KEYBUNDLES_START ?= 50
+KEYBUNDLES_END ?= 1000
+KEYBUNDLES_STEP ?= 50
+CHALLENGES_START ?= 250
+CHALLENGES_END ?= 5000
+CHALLENGES_STEP ?= 250
 TARGET_DIR ?= target
 WASM_TARGET := wasm32-unknown-unknown
 CRATE_WASM := $(TARGET_DIR)/$(WASM_TARGET)/release/securedrop_protocol.wasm
@@ -62,7 +66,19 @@ bench: deps build
 	@echo "Running bench with ITER=$(ITER)"
 	SE_CACHE_PATH="$(abspath $(SELENIUM_CACHE))" \
 	SE_FORCE_BROWSER_DOWNLOAD=true \
+	# Benches for the operations chart
 	node bench.js -n $(ITER) --flavors firefox,chrome --mode profile
+	# Benches for the sweeps charts
+	node bench.js -n $(ITER) --sweeps-only --flavors firefox,chrome --mode profile --j-min $(CHALLENGES_START) --j-max $(CHALLENGES_END) --j-step $(CHALLENGES_STEP) --k-min $(KEYBUNDLES_MIN) --k-max $(KEYBUNDLES_MAX) --k-step $(KEYBUNDLES_STEP)
+
+quick-bench:
+	@echo "Running bench with ITER=5"
+	SE_CACHE_PATH="$(abspath $(SELENIUM_CACHE))" \
+	SE_FORCE_BROWSER_DOWNLOAD=true \
+	# Benches for the operations chart
+	node bench.js -n 5 --flavors firefox,chrome --mode profile
+	# Benches for the sweeps charts
+	node bench.js -n 5 --sweeps-only --flavors firefox,chrome --mode profile --j-min 25 --j-max 100 --j-step 25 --k-min 25 --k-max 100 --k-step 25
 
 warm-cache: selenium-cache node_modules
 	SE_CACHE_PATH="$(abspath $(SELENIUM_CACHE))" \
