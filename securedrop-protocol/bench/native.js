@@ -24,7 +24,7 @@ function statsFromUs(samplesUs) {
 async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
   const results = {
     fetch: {},
-    decrypt_journalist: {},
+    decrypt: {},
   };
 
   // --- FETCH sweep (vary j) ---
@@ -122,7 +122,7 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
     await csvWriter.writeRecords(rows);
   }
 
-  // --- DECRYPT JOURNALIST sweep (vary k) ---
+  // --- DECRYPT sweep (vary k) ---
   for (const k of kSweep) {
     const args = ['decrypt', '-n', String(baseIterations), '-k', String(k), '--raw', 'json', '--quiet'];
 
@@ -192,7 +192,7 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
 
     const stats = statsFromUs(samplesUs);
 
-    results.decrypt_journalist[k] = {
+    results.decrypt[k] = {
       k,
       iterations: baseIterations,
       samples_us: samplesUs,
@@ -200,12 +200,12 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
     };
 
     const rows = samplesUs.map((us, i) => ({
-      bench_type: 'decryptj_sweep',
+      bench_type: 'decrypt_sweep',
       family: 'native',
       label: 'native',
       browser_version: 'N/A',
       coi: true,
-      bench: 'decrypt_journalist',
+      bench: 'decrypt',
       iter_index: i,
       sample_us: us,
       iterations: baseIterations,
@@ -224,7 +224,6 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
       rows.push([
         j,
         r.iterations,
-        r.keybundles ?? '—',
         s.avg_ms.toFixed(3),
         s.p50_ms.toFixed(3),
         s.p90_ms.toFixed(3),
@@ -233,13 +232,13 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
       ]);
     }
     console.log(`\n${kleur.bold('=== Native fetch sweep ===')}`);
-    console.log(makeTable(['j', 'iters', 'k', 'avg (ms)', 'p50', 'p90', 'p99', 'max'], rows));
+    console.log(makeTable(['j', 'iters', 'avg (ms)', 'p50', 'p90', 'p99', 'max'], rows));
   }
 
-  if (Object.keys(results.decrypt_journalist).length) {
+  if (Object.keys(results.decrypt).length) {
     const rows = [];
-    for (const k of Object.keys(results.decrypt_journalist).map(Number).sort((a, b) => a - b)) {
-      const r = results.decrypt_journalist[k];
+    for (const k of Object.keys(results.decrypt).map(Number).sort((a, b) => a - b)) {
+      const r = results.decrypt[k];
       const s = prettyStatsFromUs(r.samples_us);
       rows.push([
         k,
@@ -251,7 +250,7 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
         s.max_ms.toFixed(3),
       ]);
     }
-    console.log(`\n${kleur.bold('=== Native decrypt_journalist sweep ===')}`);
+    console.log(`\n${kleur.bold('=== Native decrypt sweep ===')}`);
     console.log(makeTable(['k', 'iters', 'avg (ms)', 'p50', 'p90', 'p99', 'max'], rows));
   }
 
@@ -266,19 +265,14 @@ async function runNative(iterations, k, j, rngOn) {
       expect: { iterations, keybundles: k, challenges: null },
     },
     {
-      bench: 'decrypt_journalist',
-      args: ['decrypt', '-n', String(iterations), '-k', String(k)],
-      expect: { iterations, keybundles: k, challenges: null },
-    },
-    {
-      bench: 'decrypt_source',
+      bench: 'decrypt',
       args: ['decrypt', '-n', String(iterations), '-k', '1'],
       expect: { iterations, keybundles: 1, challenges: null },
     },
     {
       bench: 'fetch',
-      args: ['fetch', '-n', String(iterations), '-k', String(k), '-j', String(j)],
-      expect: { iterations, keybundles: k, challenges: j },
+      args: ['fetch', '-n', String(iterations), '-k', String(k), '-j', '1'],
+      expect: { iterations, keybundles: k, challenges: 1 },
     },
   ];
 

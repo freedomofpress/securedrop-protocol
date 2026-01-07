@@ -7,7 +7,7 @@ const { prettyStatsFromUs, makeTable } = require('./reporting');
 async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSweep, kSweep, csvWriter) {
   const out = {
     fetch: {},
-    decrypt_journalist: {},
+    decrypt: {},
   };
 
   // --- FETCH sweep ---
@@ -25,16 +25,8 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
         cfg.iterations,
       );
     } else {
-      // Normal or worker mode
-      const specWithMode = new BenchmarkSpec(
-        spec.name,
-        {
-          ...spec.params,
-          ...(cfg.mode === 'worker' ? { isolation: 'worker' } : {}),
-        },
-      );
-
-      const res = await runSpecOnDriver(driver, baseUrl, specWithMode);
+      // Normal mode
+      const res = await runSpecOnDriver(driver, baseUrl, new BenchmarkSpec(spec.name, { ...spec.params }));
 
       samplesUs = Array.isArray(res.samples_us)
         ? res.samples_us.map((x) => Math.round(x))
@@ -67,9 +59,9 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
     await csvWriter.writeRecords(rows);
   }
 
-  // --- DECRYPT JOURNALIST sweep ---
+  // --- DECRYPT sweep ---
   for (const k of kSweep) {
-    const spec = new BenchmarkSpec('decrypt_journalist', { n: cfg.iterations, k });
+    const spec = new BenchmarkSpec('decrypt', { n: cfg.iterations, k });
     let samplesUs;
 
     if (cfg.mode === 'profile') {
@@ -82,16 +74,8 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
         cfg.iterations,
       );
     } else {
-      // Normal or worker mode
-      const specWithMode = new BenchmarkSpec(
-        spec.name,
-        {
-          ...spec.params,
-          ...(cfg.mode === 'worker' ? { isolation: 'worker' } : {}),
-        },
-      );
-
-      const res = await runSpecOnDriver(driver, baseUrl, specWithMode);
+      // Normal mode
+      const res = await runSpecOnDriver(driver, baseUrl, new BenchmarkSpec(spec.name, { ...spec.params }));
 
       samplesUs = Array.isArray(res.samples_us)
         ? res.samples_us.map((x) => Math.round(x))
@@ -101,19 +85,19 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
     }
     const stats = prettyStatsFromUs(samplesUs);
 
-    out.decrypt_journalist[k] = {
+    out.decrypt[k] = {
       k,
       samples_us: samplesUs,
       stats,
     };
 
     const rows = samplesUs.map((us, i) => ({
-      bench_type: 'decryptj_sweep',
+      bench_type: 'decrypt_sweep',
       family: flavor.family,
       label: flavor.label,
       browser_version: version,
       coi,
-      bench: 'decrypt_journalist',
+      bench: 'decrypt',
       iter_index: i,
       sample_us: us,
       iterations: cfg.iterations,
@@ -142,10 +126,10 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
     console.log(makeTable(['j', 'avg (ms)', 'p50', 'p90', 'p99', 'max'], rows));
   }
 
-  if (Object.keys(out.decrypt_journalist).length) {
+  if (Object.keys(out.decrypt).length) {
     const rows = [];
-    for (const k of Object.keys(out.decrypt_journalist).map(Number).sort((a, b) => a - b)) {
-      const r = out.decrypt_journalist[k];
+    for (const k of Object.keys(out.decrypt).map(Number).sort((a, b) => a - b)) {
+      const r = out.decrypt[k];
       const s = r.stats;
       rows.push([
         k,
@@ -156,7 +140,7 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
         s.max_ms.toFixed(3),
       ]);
     }
-    console.log(`\n${kleur.bold(`=== ${flavor.family}:${flavor.label} — decrypt_journalist sweep ===`)}`);
+    console.log(`\n${kleur.bold(`=== ${flavor.family}:${flavor.label} — decrypt sweep ===`)}`);
     console.log(makeTable(['k', 'avg (ms)', 'p50', 'p90', 'p99', 'max'], rows));
   }
 
