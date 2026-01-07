@@ -4,7 +4,7 @@ const chrome = require('selenium-webdriver/chrome');
 const firefox = require('selenium-webdriver/firefox');
 
 const { BenchmarkSpec } = require('./specs');
-const { makeTmp } = require('./utils');
+const { logInfo, makeTmp } = require('./utils');
 
 function expandFlavors(browserSel, flavorsArg) {
   const wantChromium = browserSel === 'chromium' || browserSel === 'all';
@@ -93,6 +93,9 @@ async function runSpecOnDriver(driver, baseUrl, spec, timeoutMs = 60_000) {
 async function runSpecProfileIsolated(family, versionLabel, baseUrl, spec, iterations) {
   const combined = [];
   for (let i = 0; i < iterations; i++) {
+    logInfo(
+      `Profile ${i + 1}/${iterations} for ${family} ${versionLabel || 'stable'} (${spec.name})`,
+    );
     const tmpProfile = makeTmp(`bench-${family}-${versionLabel || 'stable'}-iter${i}-`);
     let driver;
     try {
