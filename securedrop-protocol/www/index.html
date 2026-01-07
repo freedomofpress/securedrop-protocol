@@ -32,13 +32,13 @@
 
   // -------- params (no aliases) --------
   const params = new URLSearchParams(location.search);
-  const allowed = new Set(['encrypt','decrypt_journalist','decrypt_source','fetch','all']);
+  const allowed = new Set(['encrypt','decrypt','fetch','all']);
   const which = (params.get('bench') || 'all').toLowerCase();
   if (!allowed.has(which)) throw new Error(`Unknown bench: ${which}`);
 
   const iterations = +(params.get('n') || 10);
-  const keybundles  = +(params.get('k') || 500);
-  const challenges  = +(params.get('j') || 3000);
+  const keybundles  = +(params.get('k') || 1);
+  const challenges  = +(params.get('j') || 1);
   const raw = (params.get('raw') || 'json').toLowerCase();  // json | csv
   const includeRng = params.get('include_rng') === '1';
   const label = params.get('label') || null;
@@ -136,7 +136,7 @@
   // -------- emitters (no stats) --------
   function makePayload(bench, iters, k, j, samplesUs, extra = {}) {
     return {
-      bench,                 // encrypt | decrypt_journalist | decrypt_source | fetch
+      bench,                 // encrypt | decrypt | fetch
       label: extra.label ?? null,
       iterations: iters,
       keybundles: k,
@@ -172,7 +172,7 @@
       await init(wasmUrl);
 
       const toRun = (which === 'all')
-        ? ['encrypt','decrypt_journalist','decrypt_source','fetch']
+        ? ['encrypt','decrypt','fetch']
         : [which];
 
       for (const name of toRun) {
@@ -180,13 +180,9 @@
           const samples = await benchEncryptLoop(iterations, keybundles, includeRng);
           const p = makePayload('encrypt', iterations, keybundles, null, samples, { label });
           window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
-        } else if (name === 'decrypt_journalist') {
+        } else if (name === 'decrypt') {
           const samples = await benchDecryptLoop(iterations, keybundles);
-          const p = makePayload('decrypt_journalist', iterations, keybundles, null, samples, { label });
-          window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
-        } else if (name === 'decrypt_source') {
-          const samples = await benchDecryptLoop(iterations, 1);
-          const p = makePayload('decrypt_source', iterations, 1, null, samples, { label });
+          const p = makePayload('decrypt', iterations, keybundles, null, samples, { label });
           window.benchResults.push(p); window.benchResultsByName[p.bench] = p; emit(p);
         } else if (name === 'fetch') {
           const samples = await benchFetchLoop(iterations, keybundles, challenges);

@@ -32,7 +32,7 @@ const {
 const { cfg, runFlags } = parseCli();
 const {
   RUN_FETCH_SWEEP,
-  RUN_DECRYPTJ_SWEEP,
+  RUN_DECRYPT_SWEEP,
   RUN_ANY_SWEEP,
   RUN_BASIC,
 } = runFlags;
@@ -122,7 +122,7 @@ const {
         await csvWriter.writeRecords(nativeRows);
 
         const prettyTable = [];
-        for (const op of ['encrypt', 'decrypt_journalist', 'decrypt_source', 'fetch']) {
+        for (const op of ['encrypt', 'decrypt', 'fetch']) {
           const rec = native?.[op];
           if (!rec) continue;
 
@@ -131,8 +131,6 @@ const {
           prettyTable.push([
             op,
             rec.iterations ?? cfg.iterations,
-            (op === 'decrypt_journalist' ? (rec.keybundles ?? '—') : '—'),
-            (rec.challenges ?? '—'),
             s.avg_ms.toFixed(3),
             s.p50_ms.toFixed(3),
             s.p90_ms.toFixed(3),
@@ -143,7 +141,7 @@ const {
 
         if (prettyTable.length) {
           console.log(`\n${makeTable(
-            ['op', 'iters', 'k', 'j', 'avg (ms)', 'p50', 'p90', 'p99', 'max'],
+            ['op', 'iters', 'avg (ms)', 'p50', 'p90', 'p99', 'max'],
             prettyTable,
           )}`);
         }
@@ -161,7 +159,7 @@ const {
       cfg,
       cfg.iterations,
       RUN_FETCH_SWEEP ? jSweep : [],
-      RUN_DECRYPTJ_SWEEP ? kSweep : [],
+      RUN_DECRYPT_SWEEP ? kSweep : [],
       csvWriter,
     );
 
@@ -186,7 +184,7 @@ const {
   }
 
   // store a traditional summary for per-flavor tables, and build a pivot for the final table
-  const pivot = new Map(); // flavorKey -> { encrypt: "1.234 (x2.00)", decrypt_journalist: "...", decrypt_source: "...", fetch: "..." }
+  const pivot = new Map(); // flavorKey -> { encrypt: "1.234 (x2.00)", decrypt: "...", fetch: "..." }
 
   for (const flavor of flavors) {
     const versionLabel = mapFlavorToVersion(flavor.family, flavor.label);
@@ -211,8 +209,8 @@ const {
           let samplesUs = [];
           let benchName = spec.name;
           let iterations = cfg.iterations;
-          let keybundles = (spec.name === 'decrypt_journalist') ? cfg.k : null;
-          let challenges = (spec.name === 'fetch') ? cfg.j : null;
+          let keybundles = spec.params.k ?? null;
+          let challenges = spec.params.j ?? null;
 
           if (cfg.mode === 'profile') {
             samplesUs = await runSpecProfileIsolated(
@@ -223,10 +221,7 @@ const {
               cfg.iterations,
             );
           } else {
-            const specWithMode = new BenchmarkSpec(
-              spec.name,
-              { ...spec.params, ...(cfg.mode === 'worker' ? { isolation: 'worker' } : {}) },
-            );
+            const specWithMode = new BenchmarkSpec(spec.name, { ...spec.params });
             const res = await runSpecOnDriver(driver, baseUrl, specWithMode);
 
             samplesUs = Array.isArray(res.samples_us)
@@ -284,7 +279,7 @@ const {
       // Write per-flavor JSON artifact
       fs.writeFileSync(jsonOutFile, JSON.stringify(flavorBundle, null, 2));
 
-      // SWEEP MODE (fetch-sweep-only, decryptj-sweep-only, sweeps-only)
+      // SWEEP MODE (fetch-sweep-only, decrypt-sweep-only, sweeps-only)
       if (RUN_ANY_SWEEP) {
         logInfo(`Running sweeps for ${flavor.family}:${flavor.label} ...`);
 
@@ -296,7 +291,7 @@ const {
           version,
           coi,
           RUN_FETCH_SWEEP ? jSweep : [],
-          RUN_DECRYPTJ_SWEEP ? kSweep : [],
+          RUN_DECRYPT_SWEEP ? kSweep : [],
           csvWriter,
         );
 
@@ -318,8 +313,6 @@ const {
           return [
             b.bench,
             b.iterations,
-            (b.keybundles ?? '—'),
-            (b.challenges ?? '—'),
             s.avg_ms.toFixed(3),
             s.p50_ms.toFixed(3),
             s.p90_ms.toFixed(3),
@@ -329,7 +322,7 @@ const {
           ];
         });
         console.log(makeTable(
-          ['op', 'iters', 'k', 'j', 'avg (ms)', 'p50', 'p90', 'p99', 'max', '×native'],
+          ['op', 'iters', 'avg (ms)', 'p50', 'p90', 'p99', 'max', '×native'],
           fRows,
         ));
       }
@@ -347,14 +340,13 @@ const {
 
   // Global summary (PIVOT: one row per browser, columns are ops with "avg (xSlowdown)")
   if (pivot.size) {
-    const headers = ['browser', 'encrypt', 'decrypt_journalist', 'decrypt_source', 'fetch'];
+    const headers = ['browser', 'encrypt', 'decrypt', 'fetch'];
     const rows = [];
     for (const [flavorKey, cells] of pivot.entries()) {
       rows.push([
         flavorKey,
         cells.encrypt || '—',
-        cells.decrypt_journalist || '—',
-        cells.decrypt_source || '—',
+        cells.decrypt || '—',
         cells.fetch || '—',
       ]);
     }

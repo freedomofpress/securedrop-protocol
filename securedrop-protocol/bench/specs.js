@@ -1,6 +1,6 @@
 class BenchmarkSpec {
   /**
-   * @param {string} name 'encrypt' | 'decrypt_journalist' | 'decrypt_source' | 'fetch'
+   * @param {string} name 'encrypt' | 'decrypt' | 'fetch'
    * @param {object} params { n, k, j, include_rng }
    */
   constructor(name, params) {
@@ -24,9 +24,8 @@ class BenchmarkSpec {
 function defaultSpecs(iterations, k, j, rngOn) {
   return [
     new BenchmarkSpec('encrypt', { n: iterations, k, include_rng: rngOn }),
-    new BenchmarkSpec('decrypt_journalist', { n: iterations, k }),
-    new BenchmarkSpec('decrypt_source', { n: iterations, k: 1 }),
-    new BenchmarkSpec('fetch', { n: iterations, k, j }),
+    new BenchmarkSpec('decrypt', { n: iterations, k: 1 }),
+    new BenchmarkSpec('fetch', { n: iterations, k, j: 1 }),
   ];
 }
 
