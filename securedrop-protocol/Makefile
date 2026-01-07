@@ -12,6 +12,9 @@ WASM_TARGET := wasm32-unknown-unknown
 CRATE_WASM := $(TARGET_DIR)/$(WASM_TARGET)/release/securedrop_protocol.wasm
 PKG_DIR := pkg
 
+# Keep consistent with wasm-bindgen version in Cargo.toml
+WASM_BINDGEN_CLI_VERSION := 0.2.106
+
 RUSTFLAGS := --cfg getrandom_backend="wasm_js"
 
 SELENIUM_CACHE ?= .selenium-cache
@@ -37,11 +40,13 @@ $(SELENIUM_STAMP):
 	@echo 'force-browser-download = true'            >> "$(SELENIUM_TOML)"
 	@touch "$(SELENIUM_STAMP)"
 
+# Note: this does not update an outdated wasm-bindgen-cli version if
+# already installed, but a warning is printed to the user's console
 rust-target:
 	rustup target add $(WASM_TARGET)
 	@if ! command -v wasm-bindgen >/dev/null 2>&1; then \
 	  echo "Installing wasm-bindgen-cli..."; \
-	  cargo install wasm-bindgen-cli; \
+	  cargo install wasm-bindgen-cli --version $(WASM_BINDGEN_CLI_VERSION); \
 	fi
 	@echo "Rust target and wasm-bindgen ready."
 
