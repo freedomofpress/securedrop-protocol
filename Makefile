@@ -1,8 +1,10 @@
 .DEFAULT_GOAL := help
 
-# Specify lint tooling versions here
-DPRINT_VER=0.51.0
-ZIZMOR_VER=1.19.0
+# Specify lint tooling versions in lint-tools/versions.env
+# (Allows us to hash the versions.env file and use it to
+# cache dependencies in CI)
+include lint-tools/versions.env
+export
 
 # Avoid conflicts with user's system directories
 BIN_DIR := $(CURDIR)/lint-tools/bin/

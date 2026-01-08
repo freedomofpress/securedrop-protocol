@@ -78,11 +78,37 @@ jobs:
           components: rustfmt,clippy
       - run: make clippy
 
+  check_wasm_bindgen:
+    name: Pin same version of wasm-bindgen and wasm-bindgen-cli
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
+        with:
+          persist-credentials: false
+      - name: Compare Makefile wasm-bindgen-cli and Cargo.toml wasm-bindgen versions
+        run: |
+          set -euo pipefail
+
+          CARGO_VERSION=$(grep -E '^wasm-bindgen\s*=' securedrop-protocol/Cargo.toml \
+            | sed -E 's/.*"=?([^"]+)".*/\1/')
+
+          MAKEFILE_VERSION=$(grep -E '^WASM_BINDGEN_CLI_VERSION\s*:=' securedrop-protocol/Makefile \
+            | awk '{print $3}')
+
+          echo "wasm-bindgen crate version: $CARGO_VERSION"
+          echo "wasm-bindgen CLI version:   $MAKEFILE_VERSION"
+
+          if [ "$CARGO_VERSION" != "$MAKEFILE_VERSION" ]; then
+            echo "Error: wasm-bindgen version mismatch."
+            echo "Cargo.toml uses wasm-bindgen = \"$CARGO_VERSION\""
+            echo "Makefile uses WASM_BINDGEN_CLI_VERSION := $MAKEFILE_VERSION"
+            exit 1
+          fi
+
   build_wasm:
     name: wasm build
     runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: '--cfg getrandom_backend="wasm_js"'
     steps:
       # actions/checkout@4.1.1
       - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
@@ -96,5 +122,51 @@ jobs:
       # Swatinem/rust-cache@v2.8.0
       - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
       # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
-      - run: cargo build --package securedrop-protocol --target wasm32-unknown-unknown
+      - name: Cache node and selenium dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            securedrop-protocol/.selenium-cache
+            securedrop-protocol/node_modules
+          key: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/package-lock.json') }}
+      - name: Cache wasm artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            securedrop-protocol/target
+            securedrop-protocol/pkg
+          key: wasm-target-${{ runner.os }}-${{ github.run_id }}
+      - name: Compile for wasm32-unknown-unknown with wasm-bindgen
+        run: |
+          make rust-target
+          make build
+        working-directory: securedrop-protocol
+
+  native_bench:
+    name: Run minimal benchmarks using cargo
+    runs-on: ubuntu-latest
+    needs: [build_wasm, check_wasm_bindgen]
+    steps:
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
+        with:
+          persist-credentials: false
+      - name: Restore node and selenium artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            securedrop-protocol/node_modules
+            securedrop-protocol/.selenium-cache
+          key: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/package-lock.json') }}
+      - name: Restore wasm artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            securedrop-protocol/target
+            securedrop-protocol/pkg
+          key: wasm-target-${{ runner.os }}-${{ github.run_id }}
+      - name: Install wasm-bindgen cli
+        run: make rust-target
+        working-directory: securedrop-protocol
+      - name: Run minimal cli bench
+        run: cargo bench --bench manual -- all -n 10 -k 10 -j 10
         working-directory: securedrop-protocol
