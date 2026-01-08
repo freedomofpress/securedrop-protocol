@@ -28,18 +28,18 @@ const LEN_DHKEM_ENCAPS_KEY: usize = libcrux_curve25519::EK_LEN;
 const LEN_DHKEM_DECAPS_KEY: usize = libcrux_curve25519::DK_LEN;
 const LEN_DHKEM_SHAREDSECRET_ENCAPS: usize = libcrux_curve25519::SS_LEN;
 const LEN_DHKEM_SHARED_SECRET: usize = libcrux_curve25519::SS_LEN;
-const LEN_DH_ITEM: usize = LEN_DHKEM_DECAPS_KEY;
+pub const LEN_DH_ITEM: usize = LEN_DHKEM_DECAPS_KEY;
 
 // https://openquantumsafe.org/liboqs/algorithms/kem/ml-kem.html
 // todo, source from crates instead of hardcoding
-const LEN_MLKEM_ENCAPS_KEY: usize = 1184;
+pub const LEN_MLKEM_ENCAPS_KEY: usize = 1184;
 const LEN_MLKEM_DECAPS_KEY: usize = 2400;
 const LEN_MLKEM_SHAREDSECRET_ENCAPS: usize = 1088;
 const LEN_MLKEM_SHAREDSECRET: usize = 32;
 const LEN_MLKEM_RAND_SEED_SIZE: usize = 64;
 
 // https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/#name-encoding-and-sizes
-const LEN_XWING_ENCAPS_KEY: usize = 1216;
+pub const LEN_XWING_ENCAPS_KEY: usize = 1216;
 const LEN_XWING_DECAPS_KEY: usize = 32;
 const LEN_XWING_SHAREDSECRET_ENCAPS: usize = 1120;
 const LEN_XWING_SHAREDSECRET: usize = 32;
