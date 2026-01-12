@@ -2,7 +2,7 @@
   "name": "securedrop-protol-bench",
   "version": "0.1.0",
   "private": true,
-  "description": "Benchmark securedrop-protocol in headless browsers using Playwright",
+  "description": "Benchmark securedrop-protocol in headless browsers using Selenium",
   "dependencies": {
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",

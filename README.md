@@ -81,6 +81,16 @@ Sweep benchmarks evaluate client performance as configurable system parameters g
 
 Results are saved in the `out` directory in both JSON and CSV formats. By default each benchmark iteration uses a fresh browser profile. The underlying Node script also supports a mode that runs without restarting the browser, looping over the WebAssembly functions. This mode yields extremely fast numbers in some cases because of optimisations and predictions that would not occur in real‑world usage, and therefore can produce misleading results.
 
+##### Charts
+
+A TikZ chart of the iterative benchmark can be generated with the `chart.js` script. After running the benchmark at least once, note the folder shown in the output, for example `out/20260112-222635/`. Then execute:
+
+```bash
+node chart.js out/20260112-222635/all_samples.csv
+```
+
+The script prints the TikZ code for the chart to the console, which you can copy into a LaTeX document.
+
 #### Debugging wasm and benchmarking code
 
 [`wasm-bindgen`](https://crates.io/crates/wasm-bindgen) exposes Rust objects and functions in Javascript in the benchmarking code. If troubleshooting, ensure you are using the same version of the wasm-bindgen cli as is specified in Cargo.toml (`wasm-bindgen -V`).
