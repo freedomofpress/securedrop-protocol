@@ -20,7 +20,7 @@ function computeStats(rows) {
   const map = {};
   for (const r of rows) {
     let bench = r.bench;
-    if (bench === "fetch") bench = "retrieve";
+    if (bench === "fetch") bench = "solve";
 
     const fam = r.family;
     const ms = Number(r.sample_us) / 1000;
@@ -53,7 +53,7 @@ if (!infile) {
 const rows = parseCSV(fs.readFileSync(infile, "utf8"));
 const stats = computeStats(rows);
 
-const benches = ["encrypt", "decrypt", "retrieve"];
+const benches = ["encrypt", "decrypt", "solve"];
 
 const series = [
   { fam: "native",   label: "Native",   fill: "barred"   },
@@ -69,7 +69,7 @@ console.log(`
     ylabel={Timing (ms)},
     ylabel near ticks,
     xlabel={Operation},
-    symbolic x coords={encrypt, decrypt, retrieve},
+    symbolic x coords={encrypt, decrypt, solve},
     xtick=data,
     xtick style={draw=none},
     ytick={0,1,2,3,4,5,6,7},
