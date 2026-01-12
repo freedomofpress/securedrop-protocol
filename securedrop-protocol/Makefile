@@ -33,8 +33,7 @@ deps: node_modules selenium-cache rust-target
 	@echo "Deps ok."
 
 node_modules: package.json
-	@if [ -f package-lock.json ]; then npm ci; else npm install; fi
-	@npm ls selenium-webdriver --depth=0 >/dev/null 2>&1 || npm i -D selenium-webdriver
+	@npm ci
 
 selenium-cache: $(SELENIUM_STAMP)
 
@@ -66,16 +65,14 @@ bench: deps build
 	@echo "Running bench with ITER=$(ITER)"
 	SE_CACHE_PATH="$(abspath $(SELENIUM_CACHE))" \
 	SE_FORCE_BROWSER_DOWNLOAD=true \
-	# Benches for the operations chart
 	node bench.js -n $(ITER) --flavors firefox,chrome --mode profile
 	# Benches for the sweeps charts
 	node bench.js -n $(ITER) --sweeps-only --flavors firefox,chrome --mode profile --j-min $(CHALLENGES_START) --j-max $(CHALLENGES_END) --j-step $(CHALLENGES_STEP) --k-min $(KEYBUNDLES_MIN) --k-max $(KEYBUNDLES_MAX) --k-step $(KEYBUNDLES_STEP)
 
-quick-bench:
+quick-bench: deps build
 	@echo "Running bench with ITER=5"
 	SE_CACHE_PATH="$(abspath $(SELENIUM_CACHE))" \
 	SE_FORCE_BROWSER_DOWNLOAD=true \
-	# Benches for the operations chart
 	node bench.js -n 5 --flavors firefox,chrome --mode profile
 	# Benches for the sweeps charts
 	node bench.js -n 5 --sweeps-only --flavors firefox,chrome --mode profile --j-min 25 --j-max 100 --j-step 25 --k-min 25 --k-max 100 --k-step 25
