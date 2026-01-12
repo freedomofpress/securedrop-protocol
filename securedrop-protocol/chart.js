@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import fs from "fs";
+const fs = require("fs");
 
 function parseCSV(raw) {
   const lines = raw.trim().split(/\r?\n/);
