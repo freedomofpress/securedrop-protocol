@@ -46,36 +46,38 @@ Install the Rust toolchain. To view browsable documentation, install `doxygen` a
 Lint tools are installed in the `lint-tools` directory to avoid interfering with the user's system dependencies; cargo will suggest adding the directory to your $PATH, but that's not required.
 
 ### Benchmarking
-The benchmarks were performed on an Apple MacBook Air M4 to assess the protocol's performance on typical consumer hardware. All source code and the Makefile are located in the `securedrop-protocol` subfolder.  
 
-**Dependencies** (install via Homebrew unless noted):  
-- `rustc` 1.92.0 (via rustup)  
-- Node ≥ 22  
-- GCC (required for Rust compilation)  
-- Firefox  
-- Chrome  
+The benchmarks were performed on an Apple MacBook Air M4 to assess the protocol's performance on typical consumer hardware. All source code and the Makefile are located in the `securedrop-protocol` subfolder.
 
-Run a quick sanity‑check with a few iterations:  
+**Dependencies** (install via Homebrew unless noted):
+
+- `rustc` 1.92.0 (via rustup)
+- Node ≥ 22
+- GCC (required for Rust compilation)
+- Firefox
+- Chrome
+
+Run a quick sanity‑check with a few iterations:
 
 ```bash
 make quick-bench
-```  
+```
 
-Run the full benchmark suite:  
+Run the full benchmark suite:
 
 ```bash
 make bench
-```  
+```
 
-Two benchmark types are implemented: iterative benchmarks and sweep benchmarks. The iterative benchmark measures three core protocol operations:  
+Two benchmark types are implemented: iterative benchmarks and sweep benchmarks. The iterative benchmark measures three core protocol operations:
 
-* **encrypt** – encrypt a payload  
-* **decrypt** – decrypt using a single key bundle  
-* **solve** – solve a single challenge  
+- **encrypt** – encrypt a payload
+- **decrypt** – decrypt using a single key bundle
+- **solve** – solve a single challenge
 
-These operations provide the baseline for the iterative and configurable protocol functions. For example, a *Journalist decrypt* repeatedly calls the decrypt primitive for all currently active Journalist key bundles, while a *retrieve* runs the solve function on every challenge returned by the server.  
+These operations provide the baseline for the iterative and configurable protocol functions. For example, a _Journalist decrypt_ repeatedly calls the decrypt primitive for all currently active Journalist key bundles, while a _retrieve_ runs the solve function on every challenge returned by the server.
 
-Sweep benchmarks evaluate client performance as a configurable server parameter grows. One sweep measures the journalist‑decrypt function while increasing the number of active key bundles; the other measures the retrieve operation as the maximum number of system messages grows. As expected, runtimes scale roughly linearly, but WebAssembly optimisations can become significant when the number of iterations grows and the startup cost is amortised.  
+Sweep benchmarks evaluate client performance as configurable system parameters grows. One sweep measures the journalist‑decrypt function while increasing the number of active key bundles; the other measures the retrieve operation as the maximum number of system messages grows. As expected, runtimes scale roughly linearly, but WebAssembly optimisations can become significant when the number of iterations grows and the startup cost is amortised.
 
 Results are saved in the `out` directory in both JSON and CSV formats. By default each benchmark iteration uses a fresh browser profile. The underlying Node script also supports a mode that runs without restarting the browser, looping over the WebAssembly functions. This mode yields extremely fast numbers in some cases because of optimisations and predictions that would not occur in real‑world usage, and therefore can produce misleading results.
 
