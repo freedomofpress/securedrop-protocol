@@ -340,7 +340,7 @@ step (7), in any order.
 Only a source can initiate a conversation. In other words, a source is always
 the first sender.
 
-### 5. Sender fetches keys and verifies their authenticity <!-- Figure 3 as of 243f384 -->
+### 5. Sender fetches keys and verifies their authenticity <!-- Figure 3(b) as of b1e4d41 -->
 
 Given:
 
@@ -350,15 +350,17 @@ Given:
 
 Then:
 
-| Sender                                                                                                        |                                 | Server                                                                                                                              |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-|                                                                                                               | $\longrightarrow$ `RequestKeys` |                                                                                                                                     |
-|                                                                                                               |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE})\}`$ for all $J$ and key bundles $i$[^10] |
-|                                                                                                               |                                 | $`sigs \gets \{(\sigma_{NR,J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$ and key bundles $i$                                          |
-|                                                                                                               | $`pks, sigs \longleftarrow`$    |                                                                                                                                     |
-| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, vk_J^{sig}, \sigma_{NR,J}) = 0`$ for some $J$: abort                       |                                 |                                                                                                                                     |
-| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort              |                                 |                                                                                                                                     |
-| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, \sigma_{J,i}) = 0`$ for some $J$: abort |                                 |                                                                                                                                     |
+| Sender                                                                                                            |                                 | Server                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+|                                                                                                                   | $\longrightarrow$ `RequestKeys` |                                                                                                                 |
+|                                                                                                                   |                                 | For all journalists $J$, select one key bundle $i$ at random                                                    |
+|                                                                                                                   |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE})\}`$ for all $J$[^10] |
+|                                                                                                                   |                                 | $`sigs \gets \{(\sigma_{NR,J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$                                          |
+|                                                                                                                   |                                 | For all journalists $J$, remove key bundle $i$ from storage                                                     |
+|                                                                                                                   | $`pks, sigs \longleftarrow`$    |                                                                                                                 |
+| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, vk_J^{sig}, \sigma_{NR,J}) = 0`$ for some $J$: abort                           |                                 |                                                                                                                 |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                  |                                 |                                                                                                                 |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}) = 0`$ for some $J, i$: abort |                                 |                                                                                                                 |
 
 ### 6. Sender submits a message <!-- Figure 4 as of 243f384 -->
 
