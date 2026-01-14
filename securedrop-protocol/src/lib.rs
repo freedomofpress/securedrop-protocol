@@ -3,7 +3,6 @@ extern crate alloc;
 
 pub mod primitives;
 
-
 pub mod bench;
 
 use alloc::{boxed::Box, vec::Vec};
