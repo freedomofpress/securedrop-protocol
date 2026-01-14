@@ -2,7 +2,7 @@
 name = "securedrop-protocol"
 version = "0.1.0"
 edition = "2024"
-authors = ["SecureDrop Team <securedrop@freedom.press>"]
+authors = ["anonymous"]
 description = "A wip impl of the securedrop protocol"
 license = "GPL-3.0"
 
