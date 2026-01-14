@@ -1,9 +1,6 @@
 #![no_std]
 extern crate alloc;
 
-pub mod client;
-pub use client::Client;
-pub mod messages;
 pub mod primitives;
 
 // Primitives for signing

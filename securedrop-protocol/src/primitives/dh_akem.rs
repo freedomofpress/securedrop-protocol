@@ -1,7 +1,5 @@
 use rand_core::{CryptoRng, RngCore};
 
-use crate::client::ClientPrivate;
-
 pub const DH_AKEM_PUBLIC_KEY_LEN: usize = 32;
 pub const DH_AKEM_PRIVATE_KEY_LEN: usize = 32;
 pub const DH_AKEM_SECRET_LEN: usize = 32;
