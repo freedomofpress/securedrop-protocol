@@ -21,12 +21,6 @@ lint: deps-lint lint-ci lint-docs  ## Run all linters.
 lint-ci: deps-lint  ## Lint GitHub Actions workflows.
 	@$(BIN_DIR)/zizmor .github/ || { echo "INFO: Run 'make fix-ci' to try autofix"; exit 1; }
 
-# Currently lints markdown, but can be configured to lint various formats:
-# https://dprint.dev/config/
-.PHONY: lint-docs
-lint-docs: deps-lint  ## Lint Markdown-format documentation.
-	@$(BIN_DIR)/dprint check || { echo "INFO: Run 'make fix-docs' to try autofix"; exit 1; }
-
 .PHONY: fix
 fix: fix-ci fix-docs  ## Apply all automatic formatting fixes.
 	@cargo fmt --all
@@ -53,13 +47,6 @@ deps-rust:  ## Install clippy and rustfmt.
 .PHONY: clippy
 clippy: deps-rust  ## Check Rust code with clippy
 	@cargo clippy --manifest-path=securedrop-protocol/Cargo.toml --all-targets --all-features --
-
-.PHONY: doxygen
-doxygen:  ## Generate browsable documentation and call/caller graphs (requires Doxygen and Graphviz).
-	@which doxygen >> /dev/null || { echo "doxygen(1) is not available in your \$$PATH.  Is it installed?"; exit 1; }
-	@which dot >> /dev/null || { echo "Graphviz's dot(1) is not available in your \$$PATH.  Is it installed?"; exit 1; }
-	@doxygen
-	@echo "Now open \"$(PWD)/docs/html/index.html\" in your browser."
 
 .PHONY: build-wasm
 build-wasm:  ## Compile securedrop-protocol crate for wasm32-unknown-unknown (browser compat, requires rust toolchain).
