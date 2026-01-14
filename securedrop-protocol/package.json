@@ -1,5 +1,5 @@
 {
-  "name": "securedrop-protol-bench",
+  "name": "securedrop-protocol-bench",
   "version": "0.1.0",
   "private": true,
   "description": "Benchmark securedrop-protocol in headless browsers using Selenium",

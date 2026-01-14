@@ -1,4 +1,3 @@
-docs/html/
 securedrop-protocol/target/*
 securedrop-protocol/pkg/*
 securedrop-protocol/.selenium-cache
@@ -8,13 +7,4 @@ lint-tools/bin*
 lint-tools/.crates.toml
 lint-tools/.crates2.json
 
-demo-v0.1/files/
-demo-v0.1/.venv
-demo-v0.1/__pycache*
-demo-v0.1/cryptokeys/
-demo-v0.1/downloads/
-
-# To be removed after demo-v0.1 refactor has been adopted
-__pycache*
-.venv
 node_modules/
