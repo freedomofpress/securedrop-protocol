@@ -3,9 +3,6 @@ extern crate alloc;
 
 pub mod primitives;
 
-// Primitives for signing
-pub mod sign;
-pub use sign::{SelfSignature, Signature, SigningKey, VerifyingKey};
 
 pub mod bench;
 
