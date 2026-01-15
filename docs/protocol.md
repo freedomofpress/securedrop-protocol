@@ -93,6 +93,7 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 | Scheme               | Function                                                  | Use                                                                                                             |
 | -------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+|                      | $`d \gets \text{Hash}(m)`$                                | Hash a message $m$ to digest $d$ via SHA-256                                                                    |
 |                      | $`k \gets \text{KDF}(ik, params)`$                        | Derive a key from input key $ik$ and $params$                                                                   |
 |                      | $`k \gets \text{PBKDF}(pw)`$                              | Derive a key from password $pw$ (including any parameters)                                                      |
 | `SIG`                | Signature scheme                                          |                                                                                                                 |
