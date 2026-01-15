@@ -345,7 +345,8 @@ Given:
 | ------------------- | --------------- |
 | Published by server | $vk_{NR}^{sig}$ |
 
-Then:
+Then, for some newsroom $NR = \text{Hash}(vk_{NR}^{sig})$ and all its enrolled
+journalists $J_i$:
 
 | Sender                                                                                                                                          |                                 | Server                                                                                                                              |
 | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -383,13 +384,13 @@ verification.
 [fetched]: #5-sender-fetches-keys-and-verifies-their-authenticity-
 [decrypted]: #7-receiver-fetches-and-decrypts-messages-
 
-Then:
+For some message $m$ to a newsroom $NR = \text{Hash}(vk_{NR}^{sig})$:
 
 | Sender                                                                                                                                                                                                        |                                 | Server                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
 | **Reply case:** A journalist $J$ replaces their own keys with those of the source $R$ to whom they are replying:                                                                                              |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{vk_J^{sig}, \forall i: pk_{J,i}^{APKE_E}, \forall i: pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE}\} \cup \{-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -\}`$ |                                 |                                                |
-| For some message $m$, $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                                                                                        |                                 |                                                |
+| $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                                                                                                              |                                 |                                                |
 | $`pt \gets m \Vert pk_S^{fetch} \Vert pk_S^{PKE} `$                                                                                                                                                           |                                 |                                                |
 | $`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch})`$                                                                                                            |                                 |                                                |
 | $`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                                                                                                                                       |                                 |                                                |
@@ -420,7 +421,7 @@ the $pks$ and $sigs$ they previously [fetched].
 |                                | $pk_J^{fetch}$  |                             |
 |                                | $pk_J^{APKE}$   |                             |
 
-For some newsroom $NR$:
+For some newsroom $NR = \text{Hash}(vk_{NR}^{sig})$:
 
 | Server                                                                                                          |                                                | Receiver                                                                                                            |
 | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
