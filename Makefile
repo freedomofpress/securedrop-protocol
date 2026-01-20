@@ -15,7 +15,7 @@ check: lint clippy  ## Run all lint and code checks
 
 .PHONY: lint
 lint: deps-lint lint-ci lint-docs  ## Run all linters.
-	@cargo fmt --check --manifest-path=securedrop-protocol/Cargo.toml
+	@cargo fmt --check --all --manifest-path=securedrop-protocol/Cargo.toml
 
 .PHONY: lint-ci
 lint-ci: deps-lint  ## Lint GitHub Actions workflows.
