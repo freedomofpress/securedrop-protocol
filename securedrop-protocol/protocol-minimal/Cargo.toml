@@ -1,0 +1,43 @@
+[package]
+name = "securedrop-protocol-minimal"
+version = "0.1.0"
+edition = "2024"
+authors = ["SecureDrop Team <securedrop@freedom.press>"]
+description = "A wip impl of the securedrop protocol"
+license = "GPL-3.0"
+
+[lib]
+
+[dependencies]
+# crypto stack
+libcrux-ed25519 = { features = ["rand"], version = "0.0.4" }
+libcrux-curve25519 = { version = "0.0.4" }
+libcrux-chacha20poly1305 = { version = "0.0.4" }
+libcrux-traits = { version = "0.0.4" }
+libcrux-kem = { version = "0.0.4" }
+libcrux-ml-kem = { version = "0.0.4" }
+hpke-rs = { version = "0.4.0", features = ["libcrux"] }
+rand_core = { version = "0.9" }
+getrandom = { version = "0.3", default-features = false }
+anyhow = "1.0"
+hashbrown = { version = "0.14", features = ["raw"] }
+# In theory, it should be possible to use v4 uuids with getrandom per https://docs.rs/uuid/1.18.1/uuid/#building-for-other-targets, but cargo nono complains vigorously
+uuid = { version = "1.0", default-features = false, features = ["v4", "rng-getrandom", "js"] }
+blake2 = "0.10"
+
+# pin an exact version to resolve wasm-bindgen schema compatibility issue
+rand_chacha = {  version = "0.9.0", default-features = false  }
+
+[dev-dependencies]
+proptest = "1.3"
+getrandom = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+
+[profile.release]
+opt-level = "z"     # smallest code size
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

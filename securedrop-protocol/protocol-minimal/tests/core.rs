@@ -4,19 +4,19 @@ use getrandom;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-use securedrop_protocol::Client;
-use securedrop_protocol::journalist::JournalistClient;
-use securedrop_protocol::keys::{
+use securedrop_protocol_minimal::Client;
+use securedrop_protocol_minimal::journalist::JournalistClient;
+use securedrop_protocol_minimal::keys::{
     FPFKeyPair, JournalistOneTimePublicKeys, JournalistSigningKeyPair, NewsroomKeyPair,
     SourceKeyBundle,
 };
-use securedrop_protocol::messages::setup::{
+use securedrop_protocol_minimal::messages::setup::{
     JournalistRefreshRequest, JournalistSetupRequest, NewsroomSetupRequest, NewsroomSetupResponse,
 };
-use securedrop_protocol::primitives::MESSAGE_ID_FETCH_SIZE;
-use securedrop_protocol::server::Server;
-use securedrop_protocol::source::SourceClient;
-use securedrop_protocol::storage::ServerStorage;
+use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
+use securedrop_protocol_minimal::server::Server;
+use securedrop_protocol_minimal::source::SourceClient;
+use securedrop_protocol_minimal::storage::ServerStorage;
 
 // Toy implementation purposes
 fn get_rng() -> ChaCha20Rng {

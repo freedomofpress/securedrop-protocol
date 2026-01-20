@@ -1,6 +1,5 @@
 #![no_std]
 extern crate alloc;
-use securedrop_protocol_minimal;
 
 use alloc::{boxed::Box, vec::Vec};
 use js_sys::{Array, Uint8Array};
