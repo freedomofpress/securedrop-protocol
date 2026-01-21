@@ -11,7 +11,11 @@ KEYBUNDLES_STEP ?= 50
 CHALLENGES_START ?= 250
 CHALLENGES_END ?= 5000
 CHALLENGES_STEP ?= 250
-TARGET_DIR ?= target
+
+# Get target directory path from cargo metadata
+TARGET_DIR := $(shell \
+  cargo metadata --format-version=1 -q --no-deps 2>/dev/null \
+  | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')
 WASM_TARGET := wasm32-unknown-unknown
 CRATE_WASM := $(TARGET_DIR)/$(WASM_TARGET)/release/securedrop_protocol_bench.wasm
 PKG_DIR := pkg

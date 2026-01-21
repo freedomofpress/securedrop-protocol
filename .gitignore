@@ -12,11 +12,9 @@ demo-v0.1/downloads/
 
 securedrop-protocol/target/*
 
-securedrop-protocol/bench/target/*
 securedrop-protocol/bench/pkg/*
 securedrop-protocol/bench/.selenium-cache
 securedrop-protocol/bench/out
-
 
 # To be removed after demo-v0.1 refactor has been adopted
 __pycache*
