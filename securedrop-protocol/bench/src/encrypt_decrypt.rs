@@ -7,8 +7,10 @@ use rand_core::SeedableRng;
 use wasm_bindgen::prelude::*;
 
 use securedrop_protocol_minimal::encrypt_decrypt::{
-    Envelope, FetchResponse, Journalist, Plaintext, ServerMessageStore, Source, User,
     compute_fetch_challenges, decrypt, encrypt, solve_fetch_challenges,
+};
+use securedrop_protocol_minimal::types::{
+    Envelope, FetchResponse, Journalist, Plaintext, ServerMessageStore, Source, User,
 };
 
 use securedrop_protocol_minimal::encrypt_decrypt::{

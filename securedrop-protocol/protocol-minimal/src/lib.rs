@@ -10,6 +10,7 @@ pub mod primitives;
 pub mod server;
 pub mod setup;
 pub mod source;
+pub mod types;
 
 // Primitives for signing
 pub mod sign;
