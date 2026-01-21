@@ -57,7 +57,7 @@ deactivate Journalist
 deactivate Server
 ```
 
-## Key hierarchy <!-- as of 243f384 -->
+## Key hierarchy <!-- as of b1e4d41 -->
 
 Throughout this document, keys are notated as $component_{owner}^{scheme}$, where:
 
@@ -89,7 +89,7 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
-## Building blocks[^9] <!-- Section 4 as of 243f384 -->
+## Building blocks[^9] <!-- Section 4 as of b1e4d41 -->
 
 | Scheme               | Function                                                  | Use                                                                                                                                                                                                                         |
 | -------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -120,7 +120,7 @@ The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC
 - For message encryption, `SD-APKE` wraps HPKE `AuthPSK` mode, following listing
   17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen2023].
 
-### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 8 as of 243f384 -->
+### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 6 as of b1e4d41 -->
 
 $\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
 mode][RFC 9180 §5.1.1] with:
@@ -153,7 +153,7 @@ def Dec(skR, c, cp):  # where cp = c' in (c, cp)
 
 ### Message encryption
 
-#### `AKEM`: Authenticated KEM <!-- Definition A.7 as of 243f384 -->
+#### `AKEM`: Authenticated KEM <!-- Definition A.9 as of b1e4d41 -->
 
 $\text{AKEM}$ instantiates the [DH-based KEM][RFC 9180 §4.1]
 $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
@@ -169,7 +169,7 @@ $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
 
 Concretely, these functions are used as specified in [RFC 9180 §4.1].
 
-#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 6 as of 243f384 -->
+#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 4 as of b1e4d41 -->
 
 $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 `AuthPSK` mode][RFC 9180 §5.1.4] with:
@@ -197,7 +197,7 @@ def pskADec(pkS, skR, psk, c1, cp, ad, info):  # where cp = c' in (c1, cp)
     return m
 ```
 
-#### `SD-APKE`: SecureDrop APKE <!-- Figure 7 as of 243f384 -->
+#### `SD-APKE`: SecureDrop APKE <!-- Figure 5 as of b1e4d41 -->
 
 $\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
 
@@ -250,7 +250,7 @@ def AuthDec(
 The server, the journalist client, and the source client SHOULD be built with
 FPF's signing key $vk_{FPF}^{sig}$ pinned.[^2]
 
-### 2. Newsroom signing setup <!-- Figure 1 as of 243f384 -->
+### 2. Newsroom signing setup
 
 Given:
 
@@ -274,7 +274,7 @@ pinned.[^2]
 
 ### 3. Journalist
 
-#### 3.1. Journalist initial key setup <!-- Figure 2 as of 243f384 -->
+#### 3.1. Journalist initial key setup <!-- Figure 2 as of b1e4d41 -->
 
 Given:
 
@@ -298,7 +298,7 @@ Then:
 |                                                                                  |                                                                       | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J)`$ |
 |                                                                                  |                                                                       | If $b = 1$: Store $`(\sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ for $J$           |
 
-#### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 2 as of 243f384 -->
+#### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 3(a) as of b1e4d41 -->
 
 Following [enrollment](#31-enrollment-), each journalist $J$ MUST generate and
 maintain a pool of $n$ ephemeral key bundles. For each key bundle $i$:
@@ -312,7 +312,7 @@ maintain a pool of $n$ ephemeral key bundles. For each key bundle $i$:
 |                                                                                               |                                                                         | $`b = \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, \sigma_{J,i})`$ |
 |                                                                                               |                                                                         | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ for $J$      |
 
-### 4. Source key setup <!-- Section 4 as of 243f384 -->
+### 4. Source key setup
 
 To begin each session, a source MUST enter (on their first visit) or reenter (on
 a subsequent visit) some $passphrase$:
