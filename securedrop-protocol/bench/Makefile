@@ -13,7 +13,7 @@ CHALLENGES_END ?= 5000
 CHALLENGES_STEP ?= 250
 TARGET_DIR ?= target
 WASM_TARGET := wasm32-unknown-unknown
-CRATE_WASM := $(TARGET_DIR)/$(WASM_TARGET)/release/securedrop_protocol.wasm
+CRATE_WASM := $(TARGET_DIR)/$(WASM_TARGET)/release/securedrop_protocol_bench.wasm
 PKG_DIR := pkg
 
 # Keep consistent with wasm-bindgen version in Cargo.toml
