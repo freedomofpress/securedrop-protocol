@@ -6,12 +6,12 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use wasm_bindgen::prelude::*;
 
-use securedrop_protocol_minimal::bench::encrypt_decrypt::{
+use securedrop_protocol_minimal::encrypt_decrypt::{
     Envelope, FetchResponse, Journalist, Plaintext, ServerMessageStore, Source, User,
     compute_fetch_challenges, decrypt, encrypt, solve_fetch_challenges,
 };
 
-use securedrop_protocol_minimal::bench::encrypt_decrypt::{
+use securedrop_protocol_minimal::encrypt_decrypt::{
     LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY,
 };
 

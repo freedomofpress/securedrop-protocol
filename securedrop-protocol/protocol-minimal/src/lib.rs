@@ -17,4 +17,4 @@ pub use sign::{SelfSignature, Signature, SigningKey, VerifyingKey};
 
 pub mod storage;
 
-pub mod bench;
+pub mod encrypt_decrypt;
