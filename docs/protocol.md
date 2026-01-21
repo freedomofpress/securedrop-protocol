@@ -362,7 +362,7 @@ Then:
 | If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                  |                                 |                                                                                                                 |
 | If $`\text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}) = 0`$ for some $J, i$: abort |                                 |                                                                                                                 |
 
-### 6. Sender submits a message <!-- Figure 4 as of 243f384 -->
+### 6. Sender submits a message <!-- Figure 3(c) as of b1e4d41 -->
 
 A sender knows their own keys, the newsroom's signing key $vk_{NR}^{sig}$, and
 the $pks$ and $sigs$ they previously [fetched].
@@ -371,39 +371,40 @@ In addition, in the **reply case,** if the sender is a journalist replying to a
 source, they also already know their recipient's keys without further
 verification.
 
-|                                                   | All senders     | Reply case     |
-| ------------------------------------------------- | --------------- | -------------- |
-| Published by server                               | $vk_{NR}^{sig}$ |                |
-| Holds                                             | $sk^{APKE}$     |                |
-|                                                   | $sk^{PKE}$      |                |
-|                                                   | $sk^{fetch}$    |                |
-| [Fetched][fetched] for all $J$                    | $pk_J^{APKE_E}$ |                |
-|                                                   | $pk_J^{PKE_E}$  |                |
-|                                                   | $pk_J^{fetch}$  |                |
-|                                                   | $pk_J^{APKE}$   |                |
-| [Decrypted] from previous message from source $R$ |                 | $pk_R^{APKE}$  |
-|                                                   |                 | $pk_R^{PKE}$   |
-|                                                   |                 | $pk_R^{fetch}$ |
+|                                                   | All senders         | Reply case     |
+| ------------------------------------------------- | ------------------- | -------------- |
+| Published by server                               | $vk_{NR}^{sig}$     |                |
+| Holds                                             | $sk^{APKE}$         |                |
+|                                                   | $sk^{PKE}$          |                |
+|                                                   | $sk^{fetch}$        |                |
+| [Fetched][fetched] for all $J$                    | $pk_{J,i}^{APKE_E}$ |                |
+|                                                   | $pk_{J,i}^{PKE_E}$  |                |
+|                                                   | $pk_J^{fetch}$      |                |
+|                                                   | $pk_J^{APKE}$       |                |
+| [Decrypted] from previous message from source $R$ |                     | $pk_R^{APKE}$  |
+|                                                   |                     | $pk_R^{PKE}$   |
+|                                                   |                     | $pk_R^{fetch}$ |
 
 [fetched]: #5-sender-fetches-keys-and-verifies-their-authenticity-
 [decrypted]: #7-receiver-fetches-and-decrypts-messages-
 
-Then:
+Then, for some message $m$:
 
-| Sender                                                                                                                                                                                                        |                                 | Server                                         |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
-| **Reply case:** A journalist $J$ replaces their own keys with those of the source $R$ to whom they are replying:                                                                                              |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{vk_J^{sig}, \forall i: pk_{J,i}^{APKE_E}, \forall i: pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE}\} \cup \{-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -\}`$ |                                 |                                                |
-| For some message $m$, $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                                                                                        |                                 |                                                |
-| $`pt \gets m \Vert pk_S^{fetch} \Vert pk_S^{PKE} `$                                                                                                                                                           |                                 |                                                |
-| $`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch})`$                                                                                                            |                                 |                                                |
-| $`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                                                                                                                                       |                                 |                                                |
-| $`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                                                                                                                           |                                 |                                                |
-| $`(x, X) \gets^{\$} \text{ristretto255.KGen}()`$[^8]                                                                                                                                                          |                                 |                                                |
-| $`Z \gets DH(x, pk_{R,i}^{fetch})`$                                                                                                                                                                           |                                 |                                                |
-|                                                                                                                                                                                                               | $`\longrightarrow (C_S, X, Z)`$ |                                                |
-|                                                                                                                                                                                                               |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
-|                                                                                                                                                                                                               |                                 | Store $(id, C_S, X, Z)$ in $database$          |
+| Sender                                                                                                                      |                                 | Server                                         |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
+| **Reply case:** A journalist $J$ replaces their own key bundle $i$ with that of the source $R$ to whom they are replying:   |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, \_)\}`$ |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \cup \{(-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -)\}`$                            |                                 |                                                |
+| $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                            |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pt \gets m \Vert pk_S^{fetch} \Vert pk_S^{PKE} `$                                                 |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch})`$  |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                             |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                 |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`(x, X) \gets^{\$} \text{Ristretto255.KGen}()`$[^8]                                                |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`Z \gets DH(x, pk_{R,i}^{fetch})`$                                                                 |                                 |                                                |
+|                                                                                                                             | $`\longrightarrow (C_S, X, Z)`$ |                                                |
+|                                                                                                                             |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
+|                                                                                                                             |                                 | Store $(id, C_S, X, Z)$ in $database$          |
 
 ### 7. Receiver fetches and decrypts messages <!-- Figure 5 as of 243f384 -->
 
@@ -507,7 +508,8 @@ insertion order.
 [^6]: TODO kept inline above.
 -->
 
-[^7]: The source's keys are considered "permanent" because they are derived
+[^7]:
+    The source's keys are considered "permanent" because they are derived
     deterministically from the source's passphrase, which cannot be changed.
 
 [^8]: $\mathbb{Z}_\ell \text{ (ristretto255 scalar field)}$.
@@ -515,11 +517,13 @@ insertion order.
 <!-- In protocol manuscript, $\mathcal{E}_H \subset \mathbb{Z}$ per Definition 4 of Alwen et al.
     (2020), ["Analyzing the HPKE Standard"][alwen2020]. -->
 
-[^9]: In the listings that follow, mathematical syntax uses `-` for the empty
+[^9]:
+    In the listings that follow, mathematical syntax uses `-` for the empty
     string, while Python pseudocode uses `None`. In tuples, `_` denotes a value we
     don't care about for the current operation.
 
-[^10]: `pks` is assumed to have this arity and sequence for the remainder of
+[^10]:
+    `pks` is assumed to have this arity and sequence for the remainder of
     this document.
 
 [0.1]: https://github.com/freedomofpress/securedrop-protocol/blob/ffc07fd85d1d43dc2796e3b63aca91298adb018e/docs/protocol.md
