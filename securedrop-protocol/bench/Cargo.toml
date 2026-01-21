@@ -1,0 +1,33 @@
+[package]
+name = "securedrop-protocol-bench"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors = ["SecureDrop Team <securedrop@freedom.press>"]
+description = "Benchmarking for securedrop-protocol-minimal"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+securedrop-protocol-minimal = { path = "../protocol-minimal" }
+
+getrandom = { version = "0.3", default-features = false, features = ["wasm_js"] }
+js-sys = "0.3"
+rand_chacha = { version = "0.9.0", default-features = false }
+rand_core = { version = "0.9.3" }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+
+# Keep in sync with Makefile version
+wasm-bindgen = "0.2.106"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.56"
+
+[features]
+default = []
+
+[[bench]]
+name = "manual"
+harness = false

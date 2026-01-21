@@ -1,23 +1,4 @@
-#![no_std]
 extern crate alloc;
-
-pub mod client;
-pub mod keys;
-pub use client::Client;
-pub mod journalist;
-pub mod messages;
-pub mod primitives;
-pub mod server;
-pub mod setup;
-pub mod source;
-
-// Primitives for signing
-pub mod sign;
-pub use sign::{SelfSignature, Signature, SigningKey, VerifyingKey};
-
-pub mod storage;
-
-pub mod bench;
 
 use alloc::{boxed::Box, vec::Vec};
 use js_sys::{Array, Uint8Array};
@@ -25,13 +6,14 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use wasm_bindgen::prelude::*;
 
-use bench::encrypt_decrypt::{
+use securedrop_protocol_minimal::encrypt_decrypt::{
     Envelope, FetchResponse, Journalist, Plaintext, ServerMessageStore, Source, User,
-    compute_fetch_challenges,
+    compute_fetch_challenges, decrypt, encrypt, solve_fetch_challenges,
 };
-use bench::{bench_decrypt, bench_encrypt, bench_fetch};
 
-use crate::bench::encrypt_decrypt::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY};
+use securedrop_protocol_minimal::encrypt_decrypt::{
+    LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY,
+};
 
 #[inline]
 fn rng_from_seed(seed32: [u8; 32]) -> ChaCha20Rng {
@@ -140,8 +122,6 @@ pub fn encrypt_once(
     recipient_bundle_index: usize,
     msg: &[u8],
 ) -> WEnvelope {
-    use crate::bench::encrypt_decrypt::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY};
-
     assert_eq!(seed32.len(), 32, "seed32 must be 32 bytes");
     let mut seed = [0u8; 32];
     seed.copy_from_slice(seed32);
@@ -224,4 +204,32 @@ pub fn fetch_once(recipient: &WJournalist, challenges: Box<[WFetchResponse]>) ->
         out.push(&u8arr.into());
     }
     out
+}
+
+// Benchmark functions
+
+// Begin benchmark functions
+pub fn bench_encrypt(
+    seed32: [u8; 32],
+    sender: &dyn User,
+    recipient: &dyn User,
+    recipient_bundle_index: usize,
+    plaintext: &[u8],
+) -> Envelope {
+    let mut rng = ChaCha20Rng::from_seed(seed32);
+    encrypt(
+        &mut rng,
+        sender,
+        plaintext,
+        recipient,
+        Some(recipient_bundle_index),
+    )
+}
+
+pub fn bench_decrypt(recipient: &dyn User, envelope: &Envelope) -> Plaintext {
+    decrypt(recipient, envelope)
+}
+
+pub fn bench_fetch(recipient: &dyn User, challenges: Vec<FetchResponse>) -> Vec<Vec<u8>> {
+    solve_fetch_challenges(recipient, challenges)
 }

@@ -843,29 +843,3 @@ mod tests {
         assert_eq!(solved_ids[0], message_id);
     }
 }
-
-// Begin benchmark functions
-pub fn bench_encrypt(
-    seed32: [u8; 32],
-    sender: &dyn User,
-    recipient: &dyn User,
-    recipient_bundle_index: usize,
-    plaintext: &[u8],
-) -> Envelope {
-    let mut rng = ChaCha20Rng::from_seed(seed32);
-    encrypt(
-        &mut rng,
-        sender,
-        plaintext,
-        recipient,
-        Some(recipient_bundle_index),
-    )
-}
-
-pub fn bench_decrypt(recipient: &dyn User, envelope: &Envelope) -> Plaintext {
-    decrypt(recipient, envelope)
-}
-
-pub fn bench_fetch(recipient: &dyn User, challenges: Vec<FetchResponse>) -> Vec<Vec<u8>> {
-    solve_fetch_challenges(recipient, challenges)
-}

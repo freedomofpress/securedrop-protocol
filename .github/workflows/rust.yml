@@ -90,10 +90,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          CARGO_VERSION=$(grep -E '^wasm-bindgen\s*=' securedrop-protocol/Cargo.toml \
+          CARGO_VERSION=$(grep -E '^wasm-bindgen\s*=' securedrop-protocol/bench/Cargo.toml \
             | sed -E 's/.*"=?([^"]+)".*/\1/')
 
-          MAKEFILE_VERSION=$(grep -E '^WASM_BINDGEN_CLI_VERSION\s*:=' securedrop-protocol/Makefile \
+          MAKEFILE_VERSION=$(grep -E '^WASM_BINDGEN_CLI_VERSION\s*:=' securedrop-protocol/bench/Makefile \
             | awk '{print $3}')
 
           echo "wasm-bindgen crate version: $CARGO_VERSION"
@@ -126,21 +126,21 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            securedrop-protocol/.selenium-cache
-            securedrop-protocol/node_modules
-          key: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/package-lock.json') }}
+            securedrop-protocol/bench/.selenium-cache
+            securedrop-protocol/bench/node_modules
+          key: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/bench/package-lock.json') }}
       - name: Cache wasm artifacts
         uses: actions/cache@v4
         with:
           path: |
-            securedrop-protocol/target
-            securedrop-protocol/pkg
+            securedrop-protocol/bench/target
+            securedrop-protocol/bench/pkg
           key: wasm-target-${{ runner.os }}-${{ github.run_id }}
       - name: Compile for wasm32-unknown-unknown with wasm-bindgen
         run: |
           make rust-target
           make build
-        working-directory: securedrop-protocol
+        working-directory: securedrop-protocol/bench
 
   native_bench:
     name: Run minimal benchmarks using cargo
@@ -154,19 +154,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            securedrop-protocol/node_modules
-            securedrop-protocol/.selenium-cache
-          key: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/package-lock.json') }}
+            securedrop-protocol/bench/node_modules
+            securedrop-protocol/bench/.selenium-cache
+          key: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/bench/package-lock.json') }}
       - name: Restore wasm artifacts
         uses: actions/cache@v4
         with:
           path: |
-            securedrop-protocol/target
-            securedrop-protocol/pkg
+            securedrop-protocol/bench/target
+            securedrop-protocol/bench/pkg
           key: wasm-target-${{ runner.os }}-${{ github.run_id }}
       - name: Install wasm-bindgen cli
         run: make rust-target
-        working-directory: securedrop-protocol
+        working-directory: securedrop-protocol/bench
       - name: Run minimal cli bench
         run: cargo bench --bench manual -- all -n 10 -k 10 -j 10
-        working-directory: securedrop-protocol
+        working-directory: securedrop-protocol/bench

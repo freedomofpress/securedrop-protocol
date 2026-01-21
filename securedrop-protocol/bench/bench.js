@@ -6,19 +6,19 @@ const path = require('path');
 const { createObjectCsvWriter } = require('csv-writer');
 const kleur = require('kleur');
 
-const { parseCli } = require('./bench/cli');
-const { startServer } = require('./bench/server');
-const { BenchmarkSpec, defaultSpecs } = require('./bench/specs');
+const { parseCli } = require('./js/cli');
+const { startServer } = require('./js/server');
+const { BenchmarkSpec, defaultSpecs } = require('./js/specs');
 const {
   expandFlavors,
   mapFlavorToVersion,
   buildDriver,
   runSpecOnDriver,
   runSpecProfileIsolated,
-} = require('./bench/selenium');
-const { runBrowserSweeps } = require('./bench/sweeps');
-const { runNative, runNativeSweeps } = require('./bench/native');
-const { prettyStatsFromUs, makeTable } = require('./bench/reporting');
+} = require('./js/selenium');
+const { runBrowserSweeps } = require('./js/sweeps');
+const { runNative, runNativeSweeps } = require('./js/native');
+const { prettyStatsFromUs, makeTable } = require('./js/reporting');
 const {
   rangeSweep,
   stamp,
@@ -27,7 +27,7 @@ const {
   logWarn,
   logErr,
   makeTmp,
-} = require('./bench/utils');
+} = require('./js/utils');
 
 const { cfg, runFlags } = parseCli();
 const {

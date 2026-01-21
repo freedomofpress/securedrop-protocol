@@ -5,11 +5,12 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use serde::Serialize;
 
-use securedrop_protocol::bench::encrypt_decrypt::{
+use securedrop_protocol_minimal::encrypt_decrypt::{
     Envelope, FetchResponse, Journalist, Plaintext, ServerMessageStore, Source, User,
     compute_fetch_challenges,
 };
-use securedrop_protocol::bench::{bench_decrypt, bench_encrypt, bench_fetch};
+
+use securedrop_protocol_bench::{bench_decrypt, bench_encrypt, bench_fetch};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RawFmt {

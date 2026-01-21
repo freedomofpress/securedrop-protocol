@@ -1,8 +1,4 @@
 docs/html/
-securedrop-protocol/target/*
-securedrop-protocol/pkg/*
-securedrop-protocol/.selenium-cache
-securedrop-protocol/out
 
 lint-tools/bin*
 lint-tools/.crates.toml
@@ -14,7 +10,18 @@ demo-v0.1/__pycache*
 demo-v0.1/cryptokeys/
 demo-v0.1/downloads/
 
+securedrop-protocol/target/*
+
+securedrop-protocol/bench/pkg/*
+securedrop-protocol/bench/.selenium-cache
+securedrop-protocol/bench/out
+
 # To be removed after demo-v0.1 refactor has been adopted
 __pycache*
 .venv
 node_modules/
+
+# to be removed after rust crate refactor
+securedrop-protocol/pkg/*
+securedrop-protocol/.selenium-cache
+securedrop-protocol/out

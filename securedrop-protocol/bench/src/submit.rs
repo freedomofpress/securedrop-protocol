@@ -2,7 +2,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use alloc::{format, vec, vec::Vec};
 
-use crate::{
+use securedrop_protocol_minimal::{
     journalist::JournalistClient, keys::FPFKeyPair, messages::core::SourceJournalistKeyResponse,
     server::Server, source::SourceClient,
 };
