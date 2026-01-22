@@ -1,21 +1,29 @@
+use crate::SelfSignature;
+use crate::Signature;
+use crate::SigningKey;
+use crate::VerifyingKey;
+use crate::api::Api;
+use crate::api::JournalistApi;
+use crate::api::restricted;
+use crate::primitives::dh_akem::DhAkemPrivateKey;
+use crate::primitives::dh_akem::DhAkemPublicKey;
+use crate::primitives::dh_akem::deterministic_keygen as kgen_deterministic_dhakem;
 use crate::primitives::dh_akem::generate_dh_akem_keypair;
+use crate::primitives::mlkem::MLKEM768PrivateKey;
+use crate::primitives::mlkem::MLKEM768PublicKey;
+use crate::primitives::mlkem::deterministic_keygen as kgen_deterministic_mlkem;
 use crate::primitives::mlkem::generate_mlkem768_keypair;
+use crate::primitives::x25519::DHPrivateKey;
+use crate::primitives::x25519::DHPublicKey;
+use crate::primitives::x25519::deterministic_dh_keygen;
 use crate::primitives::x25519::generate_dh_keypair;
-use crate::primitives::x25519::generate_random_scalar;
+use crate::primitives::xwing::XWingPrivateKey;
+use crate::primitives::xwing::XWingPublicKey;
+use crate::primitives::xwing::deterministic_keygen as kgen_deterministic_xwing;
 use crate::primitives::xwing::generate_xwing_keypair;
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 use anyhow::Error;
-use getrandom;
-use hpke_rs::{HpkeKeyPair, HpkePublicKey};
-use rand_chacha::ChaCha20Rng;
-use rand_core::{CryptoRng, RngCore, SeedableRng};
-
-// Mock Newsroom ID
-const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
-
-const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // authpsk only, required by spec
-const HPKE_BASE_AAD: &[u8] = b""; // base only; in authpsk mode the NR_ID is supplied
-const HPKE_BASE_INFO: &[u8] = b""; // base mode only
+use rand_core::{CryptoRng, RngCore};
 
 // Key lengths
 const LEN_DHKEM_ENCAPS_KEY: usize = libcrux_curve25519::EK_LEN;
@@ -175,12 +183,7 @@ impl Plaintext {
     }
 }
 
-/// Represent stored ciphertexts on the server
-pub struct ServerMessageStore {
-    pub(crate) message_id: [u8; LEN_MESSAGE_ID],
-    pub(crate) envelope: Envelope,
-}
-
+#[derive(Clone)]
 pub struct FetchResponse {
     pub(crate) enc_id: [u8; LEN_KMID],   // aka kmid
     pub(crate) pmgdh: [u8; LEN_DH_ITEM], // aka per-request clue
@@ -211,165 +214,516 @@ impl Envelope {
     }
 }
 
-impl ServerMessageStore {
-    pub fn new(message_id: [u8; 16], envelope: Envelope) -> Self {
-        Self {
-            message_id,
-            envelope,
+/// Generic KeyPair
+pub struct KeyPair<SK, PK> {
+    sk: SK,
+    pk: PK,
+}
+
+/// The keypairs we actually use
+pub type MlKem768KeyPair = KeyPair<MLKEM768PrivateKey, MLKEM768PublicKey>;
+pub type DhAkemKeyPair = KeyPair<DhAkemPrivateKey, DhAkemPublicKey>;
+// silly name but include "fetch" for disambiguation with dh-akem.
+// eventually: ristretto255
+pub type DhFetchKeyPair = KeyPair<DHPrivateKey, DHPublicKey>;
+pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
+pub type XWingKeyPair = KeyPair<XWingPrivateKey, XWingPublicKey>;
+
+pub type SignedKeyBundlePublic = (KeyBundlePublic, SelfSignature);
+
+#[derive(Debug, Clone)]
+pub struct KeyBundlePublic {
+    pub dhakem_pk: DhAkemPublicKey,
+    pub mlkem_pk: MLKEM768PublicKey,
+    pub xwing_pk: XWingPublicKey,
+}
+
+impl KeyBundlePublic {
+    // Serialize in a specific order, i.e. for signing
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend(self.dhakem_pk.as_bytes());
+        out.extend(self.mlkem_pk.as_bytes());
+        out.extend(self.xwing_pk.as_bytes());
+        out
+    }
+}
+
+// pub struct BorrowedKeyBundlePublic<'a> {
+//     pub dhakem_pk: &'a DhAkemPublicKey,
+//     pub mlkem_pk: &'a MLKEM768PublicKey,
+//     pub xwing_pk: &'a XWingPublicKey,
+// }
+
+// impl<'a> BorrowedKeyBundlePublic<'a> {
+//     // Serialize in a specific order, i.e. for signing
+
+//     pub(crate) fn to_owned(&self) -> KeyBundlePublic {
+//         KeyBundlePublic {
+//             dhakem_pk: self.dhakem_pk.clone(),
+//             mlkem_pk: self.mlkem_pk.clone(),
+//             xwing_pk: self.xwing_pk.clone(),
+//         }
+//     }
+// }
+
+pub(crate) struct MessageKeyBundle {
+    dh_akem: DhAkemKeyPair,
+    mlkem: MlKem768KeyPair,
+    xwing_md: XWingKeyPair,
+}
+
+impl MessageKeyBundle {
+    pub(crate) fn public(&self) -> KeyBundlePublic {
+        KeyBundlePublic {
+            dhakem_pk: self.dh_akem.pk.clone(),
+            mlkem_pk: self.mlkem.pk.clone(),
+            xwing_pk: self.xwing_md.pk.clone(),
         }
     }
+}
 
-    pub fn message_id(&self) -> [u8; 16] {
-        self.message_id
-    }
+pub(crate) struct SignedMessageKeyBundle {
+    bundle: MessageKeyBundle,
+    selfsig: SelfSignature,
+}
 
-    pub fn envelope(&self) -> &Envelope {
-        &self.envelope
+/// Users have the following (public traits) in common:
+/// They expose a fetch pubkey, a message auth pubkey
+/// (implicit authentication),
+/// and a collection of KeyBundles (tuples of keys - a keybundle contains
+/// all the key material required to send a message to a given user).
+/// A Source has a KeyBundle collection of size 1.
+/// A Journalist has KeyBundle collection of size > 1.
+/// Some users (Sources) use a key from their message bundle as
+/// their message auth key.
+
+mod private {
+    pub trait Sealed {}
+}
+
+/// Users have the following (secret traits) in common:
+/// They have a fetching keypair used to retrieve messages;
+/// They have a message authentication keypair used to implicitly
+/// authenticate their messages (via DH-AKEM);
+/// They can index a KeyBundle (tuple) and use it to attempt to
+/// decrypt a message.
+pub trait UserSecret: private::Sealed {
+    fn num_bundles(&self) -> usize;
+    fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey);
+    fn message_auth_keypair(&self) -> (&DhAkemPrivateKey, &DhAkemPublicKey);
+
+    fn message_bundle_keypairs(
+        &self,
+        index: usize,
+    ) -> (
+        (&DhAkemPrivateKey, &DhAkemPublicKey),
+        (&MLKEM768PrivateKey, &MLKEM768PublicKey),
+        (&XWingPrivateKey, &XWingPublicKey),
+    );
+    fn build_message(&self, message: Vec<u8>) -> Plaintext;
+}
+
+/// Journalists: ingredients.
+/// Journalists have a signing/verifying key, a reply key,
+/// a fetch key, and a collection of one-time signed key bundles
+pub struct Journalist {
+    signing_key: SigningKeyPair,
+    fetch_key: DhFetchKeyPair,
+    message_keys: Vec<SignedMessageKeyBundle>,
+    reply_key: DhAkemKeyPair,
+    self_signature: SelfSignature,
+    signed_longterm_key_bytes: Vec<u8>,
+    session_storage: SessionStorage,
+}
+
+pub trait Enrollable: private::Sealed {
+    fn signing_key(&self) -> &VerifyingKey;
+    fn enroll(&self) -> Enrollment;
+    fn signed_keybundles(&self) -> impl Iterator<Item = SignedKeyBundlePublic>;
+}
+
+pub struct JournalistPublicView {
+    vk: VerifyingKey,
+    fetch_pk: DHPublicKey,
+    dhakem_pk: DhAkemPublicKey,
+    selfsig: SelfSignature,
+    kb: Option<SignedKeyBundlePublic>,
+}
+
+impl JournalistPublicView {
+    pub fn new(
+        vk: VerifyingKey,
+        fetch: DHPublicKey,
+        dhakem: DhAkemPublicKey,
+        selfsig: SelfSignature,
+        kb: Option<SignedKeyBundlePublic>,
+    ) -> Self {
+        Self {
+            vk,
+            fetch_pk: fetch,
+            dhakem_pk: dhakem,
+            selfsig,
+            kb,
+        }
     }
 }
 
-// Keys used for individual messages
-pub struct KeyBundle {
-    dhakem_sk: [u8; LEN_DH_ITEM],
-    pub dhakem_pk: [u8; LEN_DH_ITEM],
-
-    pq_kem_psk_sk: [u8; LEN_MLKEM_DECAPS_KEY],
-    pub pq_kem_psk_pk: [u8; LEN_MLKEM_ENCAPS_KEY],
-
-    hybrid_md_sk: [u8; LEN_XWING_DECAPS_KEY],
-    pub hybrid_md_pk: [u8; LEN_XWING_ENCAPS_KEY],
+pub struct SourcePublicView {
+    fetch_pk: DHPublicKey,
+    dhakem_pk: DhAkemPublicKey,
+    message_pks: KeyBundlePublic,
 }
 
-impl KeyBundle {
-    // msg enc classical
-    pub(crate) fn get_dhakem_sk(&self) -> &[u8; LEN_DH_ITEM] {
-        &self.dhakem_sk
+impl<'a> UserPublic for SourcePublicView {
+    fn fetch_pk(&self) -> &DHPublicKey {
+        &self.fetch_pk
     }
-    pub(crate) fn get_dhakem_pk(&self) -> &[u8; LEN_DH_ITEM] {
+
+    fn message_auth_pk(&self) -> &DhAkemPublicKey {
         &self.dhakem_pk
     }
 
-    // msg enc pq psk
-    pub(crate) fn get_pq_kem_psk_pk(&self) -> &[u8; LEN_MLKEM_ENCAPS_KEY] {
-        &self.pq_kem_psk_pk
-    }
-
-    pub(crate) fn get_pq_kem_psk_sk(&self) -> &[u8; LEN_MLKEM_DECAPS_KEY] {
-        &self.pq_kem_psk_sk
-    }
-
-    // md enc hybrid
-    pub(crate) fn get_hybrid_md_pk(&self) -> &[u8; LEN_XWING_ENCAPS_KEY] {
-        &self.hybrid_md_pk
-    }
-
-    pub(crate) fn get_hybrid_md_sk(&self) -> &[u8; LEN_XWING_DECAPS_KEY] {
-        &self.hybrid_md_sk
-    }
-}
-
-pub trait User {
-    fn keybundle(&self, index: Option<usize>) -> &KeyBundle;
-    // fetch classical
-    fn get_fetch_sk(&self) -> &[u8; LEN_DH_ITEM];
-    fn get_fetch_pk(&self) -> &[u8; LEN_DH_ITEM];
-
-    // ~only for journalists, here for simplicity
-    fn get_all_keys(&self) -> &[KeyBundle];
-}
-
-pub fn hpke_keypair_from_bytes(sk_bytes: &[u8], pk_bytes: &[u8]) -> HpkeKeyPair {
-    HpkeKeyPair::from((sk_bytes, pk_bytes))
-}
-
-pub fn hpke_pubkey_from_bytes(pk_bytes: &[u8]) -> HpkePublicKey {
-    HpkePublicKey::from(pk_bytes)
-}
-
-pub struct Source {
-    pub keys: KeyBundle,
-    sk_fetch: [u8; LEN_DH_ITEM],
-    pub pk_fetch: [u8; LEN_DH_ITEM],
-}
-
-impl Source {
-    /// This doesn't use keys bootstrapped from a passphrase;
-    /// for now it's the same as journalist setup
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
-        let (sk_dh, pk_dh) = generate_dh_akem_keypair(rng).expect("DH keygen (DH-AKEM) failed");
-
-        let mut pk_fetch: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
-        let mut sk_fetch: [u8; LEN_DHKEM_DECAPS_KEY] =
-            generate_random_scalar(rng).expect("DH keygen (Fetching) failed!");
-        let _ = libcrux_curve25519::secret_to_public(&mut pk_fetch, &mut sk_fetch);
-
-        let (sk_pqkem_psk, pk_pqkem_psk) =
-            generate_mlkem768_keypair(rng).expect("Failed to generate ml-kem keys!");
-
-        let (sk_md, pk_md) = generate_xwing_keypair(rng).expect("Failed to generate xwing keys");
-
-        let keybundle = KeyBundle {
-            dhakem_sk: *sk_dh.as_bytes(),
-            dhakem_pk: *pk_dh.as_bytes(),
-            pq_kem_psk_sk: *sk_pqkem_psk.as_bytes(),
-            pq_kem_psk_pk: *pk_pqkem_psk.as_bytes(),
-            hybrid_md_sk: *sk_md.as_bytes(),
-            hybrid_md_pk: *pk_md.as_bytes(),
-        };
-
-        Self {
-            keys: keybundle,
-            sk_fetch: sk_fetch,
-            pk_fetch: pk_fetch,
+    fn message_pks(&self) -> KeyBundlePublic {
+        KeyBundlePublic {
+            dhakem_pk: self.dhakem_pk.clone(),
+            mlkem_pk: self.message_pks.mlkem_pk.clone(),
+            xwing_pk: self.message_pks.xwing_pk.clone(),
         }
     }
 }
 
-impl User for Source {
-    fn keybundle(&self, _: Option<usize>) -> &KeyBundle {
-        &self.keys
-    }
-    fn get_fetch_sk(&self) -> &[u8; LEN_DH_ITEM] {
-        &self.sk_fetch
-    }
-    fn get_fetch_pk(&self) -> &[u8; LEN_DH_ITEM] {
-        &self.pk_fetch
+pub trait UserPublic {
+    fn fetch_pk(&self) -> &DHPublicKey;
+    fn message_auth_pk(&self) -> &DhAkemPublicKey;
+    fn message_pks(&self) -> KeyBundlePublic;
+}
+
+pub trait JournalistPublic: UserPublic {
+    fn verifying_key(&self) -> &VerifyingKey;
+    fn self_signature(&self) -> &SelfSignature;
+    fn signed_keys(&self) -> &[u8];
+}
+
+impl<'a> UserPublic for JournalistPublicView {
+    fn fetch_pk(&self) -> &DHPublicKey {
+        &self.fetch_pk
     }
 
-    // this is silly, and is just for benchmarking simplicity to have one
-    // send/receive method that works for all sender and recipient types
-    fn get_all_keys(&self) -> &[KeyBundle] {
-        use core::slice;
-        slice::from_ref(&self.keys)
+    fn message_auth_pk(&self) -> &DhAkemPublicKey {
+        &self.dhakem_pk
+    }
+
+    fn message_pks(&self) -> KeyBundlePublic {
+        KeyBundlePublic {
+            dhakem_pk: self.dhakem_pk.clone(),
+            mlkem_pk: self.kb.as_ref().unwrap().0.mlkem_pk.clone(),
+            xwing_pk: self.kb.as_ref().unwrap().0.xwing_pk.clone(),
+        }
     }
 }
 
-pub struct Journalist {
-    pub(crate) keybundle: Vec<KeyBundle>,
+impl<'a> JournalistPublic for JournalistPublicView {
+    fn verifying_key(&self) -> &VerifyingKey {
+        &self.vk
+    }
 
-    pub(crate) sk_fetch: [u8; LEN_DH_ITEM],
-    pub(crate) pk_fetch: [u8; LEN_DH_ITEM],
+    fn self_signature(&self) -> &SelfSignature {
+        &self.selfsig
+    }
 
-    pub(crate) sk_reply: [u8; LEN_DH_ITEM],
-    pub(crate) pk_reply: [u8; LEN_DH_ITEM],
+    fn signed_keys(&self) -> &[u8] {
+        unimplemented!("todo")
+    }
+}
+
+impl Api for Journalist {
+    fn newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
+        self.session_storage.nr_key.as_ref()
+    }
+
+    fn set_newsroom_verifying_key(&mut self, key: VerifyingKey) {
+        self.session_storage.nr_key = Some(key);
+    }
+}
+
+impl restricted::RestrictedApi for Journalist {}
+impl JournalistApi for Journalist {}
+
+impl Api for Source {
+    fn newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
+        self.session.nr_key.as_ref()
+    }
+
+    fn set_newsroom_verifying_key(&mut self, key: VerifyingKey) {
+        self.session.nr_key = Some(key);
+    }
+}
+
+// in memory session storage
+pub struct SessionStorage {
+    pub fpf_key: Option<VerifyingKey>,
+    pub nr_key: Option<VerifyingKey>,
+    pub fpf_signature: Option<Signature>,
+}
+
+/// Sources: ingredients
+/// Sources have a fetch key and an unsigned key bundle.
+/// They reuse the dh-akem key within the keybundle where
+/// journalists use a "reply key".
+pub struct Source {
+    fetch_key: DhFetchKeyPair,
+    message_keys: MessageKeyBundle,
+    passphrase: Vec<u8>,
+    session: SessionStorage,
+}
+
+impl private::Sealed for Source {}
+
+/// Private, common to all users, implemented for sources
+impl UserSecret for Source {
+    fn num_bundles(&self) -> usize {
+        1
+    }
+
+    fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey) {
+        (&self.fetch_key.sk, &self.fetch_key.pk)
+    }
+
+    fn message_auth_keypair(&self) -> (&DhAkemPrivateKey, &DhAkemPublicKey) {
+        (&self.message_keys.dh_akem.sk, &self.message_keys.dh_akem.pk)
+    }
+
+    fn message_bundle_keypairs(
+        &self,
+        _: usize,
+    ) -> (
+        (&DhAkemPrivateKey, &DhAkemPublicKey),
+        (&MLKEM768PrivateKey, &MLKEM768PublicKey),
+        (&XWingPrivateKey, &XWingPublicKey),
+    ) {
+        (
+            (&self.message_keys.dh_akem.sk, &self.message_keys.dh_akem.pk),
+            (&self.message_keys.mlkem.sk, &self.message_keys.mlkem.pk),
+            (
+                &self.message_keys.xwing_md.sk,
+                &self.message_keys.xwing_md.pk,
+            ),
+        )
+    }
+    fn build_message(&self, message: Vec<u8>) -> Plaintext {
+        let mut reply_key_pq_psk = [0u8; LEN_MLKEM_ENCAPS_KEY];
+        reply_key_pq_psk.copy_from_slice(self.message_keys.mlkem.pk.as_bytes());
+
+        let mut fetch_pk = [0u8; LEN_DH_ITEM];
+        fetch_pk.copy_from_slice(&self.fetch_key.pk.clone().into_bytes());
+
+        let mut reply_key_pq_hybrid = [0u8; LEN_XWING_ENCAPS_KEY];
+        reply_key_pq_hybrid.copy_from_slice(self.message_keys.xwing_md.pk.as_bytes());
+
+        Plaintext {
+            sender_reply_pubkey_pq_psk: reply_key_pq_psk,
+            sender_fetch_key: fetch_pk,
+            sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
+            msg: message,
+        }
+    }
+}
+
+impl private::Sealed for Journalist {}
+/// Private, common to all users, implemented for Journalists
+impl UserSecret for Journalist {
+    fn num_bundles(&self) -> usize {
+        self.message_keys.len()
+    }
+
+    fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey) {
+        (&self.fetch_key.sk, &self.fetch_key.pk)
+    }
+
+    fn message_auth_keypair(&self) -> (&DhAkemPrivateKey, &DhAkemPublicKey) {
+        // "reply key" (long term dh-akem key)
+        (&self.reply_key.sk, &self.reply_key.pk)
+    }
+
+    fn message_bundle_keypairs(
+        &self,
+        index: usize,
+    ) -> (
+        (&DhAkemPrivateKey, &DhAkemPublicKey),
+        (&MLKEM768PrivateKey, &MLKEM768PublicKey),
+        (&XWingPrivateKey, &XWingPublicKey),
+    ) {
+        let b = &self
+            .message_keys
+            .get(index)
+            .expect("Bad index for private keybundle")
+            .bundle;
+        (
+            (&b.dh_akem.sk, &b.dh_akem.pk),
+            (&b.mlkem.sk, &b.mlkem.pk),
+            (&b.xwing_md.sk, &b.xwing_md.pk),
+        )
+    }
+    fn build_message(&self, message: Vec<u8>) -> Plaintext {
+        // TODO: the journalist doesn't attach their own keys,
+        // because the source pulls a fresh set of keys and verifies them
+        // in order to reply. either fill with random bytes or use
+        // another scheme (fixme)
+        Plaintext {
+            sender_reply_pubkey_pq_psk: [0u8; LEN_MLKEM_ENCAPS_KEY],
+            sender_fetch_key: [0u8; LEN_DH_ITEM],
+            sender_reply_pubkey_hybrid: [0u8; LEN_XWING_ENCAPS_KEY],
+            msg: message,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Enrollment {
+    pub bundle: Vec<u8>,
+    pub selfsig: SelfSignature,
+    pub keys: (VerifyingKey, DHPublicKey, DhAkemPublicKey),
+}
+
+impl Enrollable for Journalist {
+    fn enroll(&self) -> Enrollment {
+        Enrollment {
+            bundle: self.signed_longterm_key_bytes.clone(),
+            selfsig: self.self_signature,
+            keys: (
+                self.signing_key.pk,
+                self.fetch_key.pk.clone(),
+                self.reply_key.pk.clone(),
+            ),
+        }
+    }
+
+    fn signed_keybundles(&self) -> impl Iterator<Item = SignedKeyBundlePublic> {
+        self.message_keys
+            .iter()
+            .map(|k| (k.bundle.public(), k.selfsig))
+    }
+
+    fn signing_key(&self) -> &VerifyingKey {
+        &self.signing_key.pk
+    }
+}
+
+impl Source {
+    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> Self {
+        // Generate a random passphrase
+        let mut passphrase = [0u8; 32];
+        rng.fill_bytes(&mut passphrase);
+
+        // Derive all keys from the passphrase
+        let source = Self::from_passphrase(&passphrase);
+        source
+    }
+
+    /// Reconstruct keys from an existing passphrase
+    ///
+    /// TODO: What do we want to do here? This is not yet specified AFAICT
+    pub fn from_passphrase(passphrase: &[u8]) -> Self {
+        use blake2::{Blake2b, Digest};
+
+        // DH-AKEM key
+        let mut dh_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
+        dh_hasher.update(b"SD_DH_KEY");
+        dh_hasher.update(passphrase);
+        let dh_result = dh_hasher.finalize();
+
+        // Fetch key
+        let mut fetch_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
+        fetch_hasher.update(b"SD_FETCH_KEY");
+        fetch_hasher.update(passphrase);
+        let fetch_result = fetch_hasher.finalize();
+
+        // Metadata Key
+        let mut pke_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
+        pke_hasher.update(b"SD_PKE_KEY");
+        pke_hasher.update(passphrase);
+        let pke_result = pke_hasher.finalize();
+
+        // PQ KEM PSK key
+        let mut kem_hasher = Blake2b::<blake2::digest::typenum::U64>::new();
+        kem_hasher.update(b"SD_KEM_KEY");
+        kem_hasher.update(passphrase);
+        let kem_result = kem_hasher.finalize();
+
+        // Create key pairs
+        let (dhakem_decaps, dhakem_encaps) =
+            kgen_deterministic_dhakem(dh_result.into()).expect("Need DH-AKEM keygen");
+
+        let (fetch_sk, fetch_pk): (DHPrivateKey, DHPublicKey) =
+            deterministic_dh_keygen(fetch_result.into()).expect("Need Fetch keygen");
+
+        // TODO: review derand kgen mechanism, see mlkem.rs
+        let (mlkem_decaps, mlkem_encaps) =
+            kgen_deterministic_mlkem(kem_result.into()).expect("Need MLKEM keygen");
+
+        let (xwing_decaps, xwing_encaps) =
+            kgen_deterministic_xwing(pke_result.into()).expect("Need X-Wing keygen");
+
+        let session = SessionStorage {
+            fpf_key: None,
+            nr_key: None,
+            fpf_signature: None,
+        };
+
+        Self {
+            fetch_key: KeyPair {
+                sk: fetch_sk,
+                pk: fetch_pk,
+            },
+            message_keys: {
+                MessageKeyBundle {
+                    dh_akem: KeyPair {
+                        sk: dhakem_decaps,
+                        pk: dhakem_encaps,
+                    },
+                    mlkem: KeyPair {
+                        sk: mlkem_decaps,
+                        pk: mlkem_encaps,
+                    },
+                    xwing_md: KeyPair {
+                        sk: xwing_decaps,
+                        pk: xwing_encaps,
+                    },
+                }
+            },
+            passphrase: passphrase.to_vec(),
+            session: session,
+        }
+    }
+    pub fn public(&self) -> SourcePublicView {
+        SourcePublicView {
+            fetch_pk: self.fetch_key.pk.clone(),
+            dhakem_pk: self.message_keys.dh_akem.pk.clone(),
+            message_pks: self.message_keys.public(),
+        }
+    }
 }
 
 impl Journalist {
-    /// Set up Journalist, creating key_bundle_size short-term key bundles.
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R, num_keybundles: usize) -> Self {
-        let mut key_bundle: Vec<KeyBundle> = Vec::with_capacity(num_keybundles);
+        let mut key_bundles: Vec<SignedMessageKeyBundle> = Vec::with_capacity(num_keybundles);
 
-        let mut pk_fetch: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
-        let mut sk_fetch: [u8; LEN_DHKEM_DECAPS_KEY] =
-            generate_random_scalar(rng).expect("DH keygen (Fetching) failed!");
-        let _ = libcrux_curve25519::secret_to_public(&mut pk_fetch, &mut sk_fetch);
+        let signing_key = SigningKey::new(&mut *rng).expect("Signing keygen failed");
+        let verifying_key = signing_key.vk;
 
-        // We don't currently benchmark replies, but this key
-        // would be used by journalist for replying to sources
-        let mut pk_reply: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
-        let mut sk_reply: [u8; LEN_DHKEM_DECAPS_KEY] =
-            generate_random_scalar(rng).expect("DH keygen (Reply) failed!");
-        let _ = libcrux_curve25519::secret_to_public(&mut pk_reply, &mut sk_reply);
+        let (sk_fetch, pk_fetch) =
+            generate_dh_keypair(&mut *rng).expect("DH Keygen (Fetch) failed");
+
+        let (sk_reply, pk_reply) =
+            generate_dh_akem_keypair(&mut *rng).expect("DH-AKEM Keygen (Reply) failed");
+
+        // Self-sign long-term pubkeys (for enrollment)
+        let mut bundle: Vec<u8> = Vec::new();
+        bundle.extend_from_slice(&pk_fetch.clone().into_bytes());
+        bundle.extend_from_slice(pk_reply.as_bytes());
+
+        let s = SelfSignature(signing_key.sign(bundle.as_slice()));
 
         // Generate one-time/short-lived keybundles
         for _ in 0..num_keybundles {
@@ -381,69 +735,138 @@ impl Journalist {
             let (sk_md, pk_md) =
                 generate_xwing_keypair(rng).expect("Failed to generate xwing keys");
 
-            let bundle = KeyBundle {
-                dhakem_sk: *sk_dh.as_bytes(),
-                dhakem_pk: *pk_dh.as_bytes(),
-                pq_kem_psk_sk: *sk_pqkem_psk.as_bytes(),
-                pq_kem_psk_pk: *pk_pqkem_psk.as_bytes(),
-                hybrid_md_sk: *sk_md.as_bytes(),
-                hybrid_md_pk: *pk_md.as_bytes(),
+            let bundle = MessageKeyBundle {
+                dh_akem: KeyPair {
+                    sk: sk_dh,
+                    pk: pk_dh,
+                },
+                mlkem: KeyPair {
+                    sk: sk_pqkem_psk,
+                    pk: pk_pqkem_psk,
+                },
+                xwing_md: KeyPair {
+                    sk: sk_md,
+                    pk: pk_md,
+                },
             };
 
-            key_bundle.push(bundle);
+            let pubkey_bytes = bundle.public().as_bytes();
+            let signed = signing_key.sign(&pubkey_bytes);
+
+            key_bundles.push(SignedMessageKeyBundle {
+                bundle: bundle,
+                selfsig: SelfSignature { 0: signed.clone() },
+            });
         }
         // (sanity)
-        assert_eq!(key_bundle.len(), num_keybundles);
+        assert_eq!(key_bundles.len(), num_keybundles);
+
+        let session = SessionStorage {
+            fpf_key: None,
+            nr_key: None,
+            fpf_signature: None,
+        };
 
         Self {
-            keybundle: key_bundle,
-            sk_fetch: sk_fetch,
-            pk_fetch: pk_fetch,
-            sk_reply: sk_reply,
-            pk_reply: pk_reply,
-        }
-    }
-}
-
-impl User for Journalist {
-    // Get a specific index, or a random bundle.
-    // In reality, the server will publish pubkey bundles
-    fn keybundle(&self, index: Option<usize>) -> &KeyBundle {
-        match index {
-            Some(i) => self
-                .keybundle
-                .get(i)
-                .unwrap_or_else(|| panic!("Bad index: {}", i)),
-            None => {
-                let mut rng = setup_rng();
-                let choice = rng.next_u32() as usize % &self.keybundle.len();
-
-                self.keybundle
-                    .get(choice)
-                    .expect("Need at least one keybundle")
-            }
+            signing_key: KeyPair {
+                sk: signing_key,
+                pk: verifying_key,
+            },
+            fetch_key: KeyPair {
+                sk: sk_fetch,
+                pk: pk_fetch,
+            },
+            reply_key: KeyPair {
+                sk: sk_reply,
+                pk: pk_reply,
+            },
+            message_keys: key_bundles,
+            self_signature: s,
+            signed_longterm_key_bytes: bundle,
+            session_storage: session,
         }
     }
 
-    fn get_all_keys(&self) -> &[KeyBundle] {
-        &self.keybundle
-    }
-
-    fn get_fetch_sk(&self) -> &[u8; LEN_DH_ITEM] {
-        &self.sk_fetch
-    }
-    fn get_fetch_pk(&self) -> &[u8; LEN_DH_ITEM] {
-        &self.pk_fetch
+    pub fn public(&self, idx: usize) -> JournalistPublicView {
+        let kb = self.message_keys.get(idx).expect("Bad index");
+        JournalistPublicView::new(
+            self.signing_key.pk,
+            self.fetch_key.pk.clone(),
+            self.reply_key.pk.clone(),
+            self.self_signature,
+            Some((kb.bundle.public(), kb.selfsig)),
+        )
     }
 }
 
-// Test purposes only!
-fn setup_rng() -> (impl rand_core::CryptoRng + rand_core::RngCore) {
-    let mut seed = [0u8; 32];
-    getrandom::fill(&mut seed).expect("getrandom failed- is platform supported?");
-    ChaCha20Rng::from_seed(seed)
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
 
-fn setup_rng_deterministic(seed: [u8; 32]) -> (impl rand_core::CryptoRng + rand_core::RngCore) {
-    ChaCha20Rng::from_seed(seed)
+    #[test]
+    fn test_initialize_with_passphrase() {
+        // Fixed seed RNG
+        let mut rng = ChaCha20Rng::seed_from_u64(666);
+
+        let mut passphrase_bytes: [u8; 32] = [0u8; 32];
+        &rng.fill_bytes(&mut passphrase_bytes);
+
+        let source1 = Source::from_passphrase(&passphrase_bytes.clone());
+        let source2 = Source::from_passphrase(&passphrase_bytes);
+
+        assert_eq!(
+            source1.passphrase, source2.passphrase,
+            "Expected identical passphrase"
+        );
+
+        // DH keys
+        assert_eq!(
+            source1.message_keys.dh_akem.pk.as_bytes(),
+            source2.message_keys.dh_akem.pk.as_bytes(),
+            "DH-AKEM Pubkey should be identical"
+        );
+        assert_eq!(
+            source1.message_keys.dh_akem.sk.as_bytes(),
+            source2.message_keys.dh_akem.sk.as_bytes(),
+            "DH-AKEM Private Key should be identical"
+        );
+        assert_ne!(
+            *source1.message_keys.dh_akem.sk.as_bytes(),
+            [0u8; LEN_DHKEM_DECAPS_KEY]
+        );
+
+        // PQ KEM keys
+        assert_eq!(
+            source1.message_keys.mlkem.pk.as_bytes(),
+            source2.message_keys.mlkem.pk.as_bytes(),
+            "PQ KEM Encaps Key should be identical"
+        );
+        assert_eq!(
+            source1.message_keys.mlkem.sk.as_bytes(),
+            source2.message_keys.mlkem.sk.as_bytes(),
+            "PQ KEM Decaps Key should be identical"
+        );
+        assert_ne!(
+            *source1.message_keys.mlkem.sk.as_bytes(),
+            [0u8; LEN_MLKEM_DECAPS_KEY]
+        );
+
+        // Metadata keys
+        assert_eq!(
+            source1.message_keys.xwing_md.pk.as_bytes(),
+            source2.message_keys.xwing_md.pk.as_bytes(),
+            "XWING Encaps Key should be identical"
+        );
+        assert_eq!(
+            source1.message_keys.xwing_md.sk.as_bytes(),
+            source2.message_keys.xwing_md.sk.as_bytes(),
+            "XWING Decaps Key should be identical"
+        );
+        assert_ne!(
+            *source1.message_keys.xwing_md.sk.as_bytes(),
+            [0u8; LEN_XWING_DECAPS_KEY]
+        );
+    }
 }
