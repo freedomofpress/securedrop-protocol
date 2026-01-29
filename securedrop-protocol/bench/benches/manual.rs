@@ -162,12 +162,8 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
             let t0 = Instant::now();
             let mut seed = [0u8; 32];
             prep_rng.fill_bytes(&mut seed);
-            let env: Envelope = bench_encrypt(
-                seed,
-                &sender,
-                &recipient.public(bundle_ix),
-                &plaintext.to_bytes(),
-            );
+            let env: Envelope =
+                bench_encrypt(seed, &sender, &recipient.public(bundle_ix), plaintext);
             let dt = t0.elapsed();
             durations.push(dt);
             sink ^= env.size_hint();
@@ -177,12 +173,8 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
             prep_rng.fill_bytes(&mut seed);
 
             let t0 = Instant::now();
-            let env: Envelope = bench_encrypt(
-                seed,
-                &sender,
-                &recipient.public(bundle_ix),
-                &plaintext.to_bytes(),
-            );
+            let env: Envelope =
+                bench_encrypt(seed, &sender, &recipient.public(bundle_ix), plaintext);
             let dt = t0.elapsed();
             durations.push(dt);
             sink ^= env.size_hint();
@@ -214,8 +206,7 @@ fn bench_decrypt_loop(iterations: usize, keybundles: usize) -> Vec<Duration> {
         } else {
             (prep_rng.next_u32() as usize) % keybundles
         };
-        let env: Envelope =
-            bench_encrypt(seed, &sender, &recipient.public(bundle_ix), &pt.to_bytes());
+        let env: Envelope = bench_encrypt(seed, &sender, &recipient.public(bundle_ix), pt);
 
         // Time ONLY decrypt
         let t0 = Instant::now();
@@ -254,7 +245,7 @@ fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> 
 
             let pt = source.build_message(format!("iter{i}-msg{j}").into());
 
-            let env = bench_encrypt(seed, &source, &journalist.public(bundle_ix), &pt.to_bytes());
+            let env = bench_encrypt(seed, &source, &journalist.public(bundle_ix), pt);
             let mut message_id = [0u8; 16];
             message_id.fill((j & 0xff) as u8);
             store.insert(Uuid::from_bytes(message_id), env);

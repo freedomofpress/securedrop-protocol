@@ -63,22 +63,24 @@ pub trait Api {
     ///
     /// This is a generic method that handles both source message submission and journalist replies.
     /// The specific message structure and encryption details are provided by the implementing types.
-    fn submit_message<R>(
+    fn submit_message<R, S, P>(
         &self,
         rng: &mut R,
         message: &[u8],
-        sender: &dyn UserSecret,
-        recipient: &dyn UserPublic,
+        sender: &S,
+        recipient: &P,
     ) -> Result<Envelope, Error>
     where
         R: RngCore + CryptoRng,
+        S: UserSecret,
+        P: UserPublic,
     {
         // TODO review padding
         let padded_message = crate::primitives::pad::pad_message(&message);
 
         let plaintext = sender.build_message(padded_message);
 
-        let env = encrypt(rng, sender, &plaintext.to_bytes(), recipient);
+        let env = encrypt(rng, sender, plaintext, recipient);
 
         Ok(env)
     }
@@ -118,12 +120,12 @@ pub trait Api {
 
         // Verify the journalist's signature on their long-term key bundle
         let enrollment_signature = &response.journalist.self_signature().as_signature();
-        let enrollment_msg = response.journalist.signed_keys();
+        let enrollment_msg = response.journalist.signed_keybytes();
 
         response
             .journalist
             .verifying_key()
-            .verify(enrollment_msg, enrollment_signature)
+            .verify(&enrollment_msg.0, enrollment_signature)
             .map_err(|_| anyhow::anyhow!("Invalid self-signature on journalist lt keys"))?;
 
         // Verify the self-signature on the one-time keys
@@ -131,7 +133,7 @@ pub trait Api {
             .journalist
             .verifying_key()
             .verify(
-                &response.journalist.message_pks().as_bytes(),
+                &response.journalist.signed_keybytes().0,
                 &response.journalist.self_signature().as_signature(),
             )
             .map_err(|_| anyhow::anyhow!("Invalid journalist signature on one-time keys"))?;

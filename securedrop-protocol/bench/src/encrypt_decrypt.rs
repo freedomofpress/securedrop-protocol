@@ -141,7 +141,7 @@ pub fn encrypt_once(
         seed,
         &sender.inner,
         &recipient.inner.public(recipient_bundle_index),
-        &plaintext.to_bytes(),
+        plaintext,
     );
     env.into()
 }
@@ -208,20 +208,20 @@ pub fn fetch_once(recipient: &WJournalist, challenges: Box<[WFetchResponse]>) ->
 // Benchmark functions
 
 // Begin benchmark functions
-pub fn bench_encrypt(
+pub fn bench_encrypt<S: UserSecret, P: UserPublic>(
     seed32: [u8; 32],
-    sender: &dyn UserSecret,
-    recipient: &dyn UserPublic,
-    plaintext: &[u8],
+    sender: &S,
+    recipient: &P,
+    plaintext: Plaintext,
 ) -> Envelope {
     let mut rng = ChaCha20Rng::from_seed(seed32);
     encrypt(&mut rng, sender, plaintext, recipient)
 }
 
-pub fn bench_decrypt(recipient: &dyn UserSecret, envelope: &Envelope) -> Plaintext {
+pub fn bench_decrypt<S: UserSecret>(recipient: &S, envelope: &Envelope) -> Plaintext {
     decrypt(recipient, envelope)
 }
 
-pub fn bench_fetch(recipient: &dyn UserSecret, challenges: Vec<FetchResponse>) -> Vec<Uuid> {
+pub fn bench_fetch<S: UserSecret>(recipient: &S, challenges: Vec<FetchResponse>) -> Vec<Uuid> {
     solve_fetch_challenges(recipient, challenges)
 }

@@ -129,7 +129,7 @@ pub struct Envelope {
     pub(crate) mgdh: [u8; LEN_DH_ITEM],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Toy pt structure - provide params in order
 pub struct Plaintext {
     pub sender_reply_pubkey_pq_psk: [u8; LEN_MLKEM_ENCAPS_KEY],
