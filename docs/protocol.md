@@ -97,8 +97,8 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 |                      | $`k \gets \text{PBKDF}(pw)`$                                 | Derive a key from password $pw$ (including any parameters)                                                                                                                                                                |
 | `SIG`                | Signature scheme                                             |                                                                                                                                                                                                                           |
 |                      | $`(sk, vk) \gets^{\$} \text{KGen}()`$                        | Generate keys                                                                                                                                                                                                             |
-|                      | $`\sigma \gets^{\$} \text{Sign}(sk, tag \Vert m)`$           | Sign a message $m$ with tag $tag$ using a signing key $sk$                                                                                                                                                                |
-|                      | $`b \in \{0, 1\} \gets \text{Vfy}(vk, tag \Vert m, \sigma)`$ | Verify signature $\sigma$ over a message $m$ with tag $tag$ using a verifying key $vk$                                                                                                                                    |
+|                      | $`\sigma \gets^{\$} \text{Sign}(sk, tag \Vert m)`$           | Sign a preimage[^12] $m$ with tag $tag$ using a signing key $sk$                                                                                                                                                          |
+|                      | $`b \in \{0, 1\} \gets \text{Vfy}(vk, tag \Vert m, \sigma)`$ | Verify signature $\sigma$ over a preimage[^12] $m$ with tag $tag$ using a verifying key $vk$                                                                                                                              |
 | `AEAD`               | Nonce-based authenticated encryption with associated data    |                                                                                                                                                                                                                           |
 |                      | $`c \gets \text{Enc}(k, nonce, ad, m)`$                      | Encrypt a message $m$ using a key $k$, a nonce $nonce$, and associated data $ad$                                                                                                                                          |
 |                      | $`m \gets \text{Dec}(k, nonce, ad, c)`$                      | Decrypt a ciphertext $c$; rest as above                                                                                                                                                                                   |
@@ -517,6 +517,10 @@ insertion order.
     this document.
 
 [^11]: `i` is zero-indexed for idiomatic implementation.
+
+[^12]: We refer to the "preimage" and the "preimage tag" given as input to the
+    signature scheme in order to avoid confusion with "messages" in the sense of
+    the overall messaging protocol.
 
 [0.1]: https://github.com/freedomofpress/securedrop-protocol/blob/ffc07fd85d1d43dc2796e3b63aca91298adb018e/docs/protocol.md
 [0.2]: https://github.com/freedomofpress/securedrop-protocol/blob/9e6c165673c03e9821725f72b3df4d8292b8cabf/docs/protocol.md
