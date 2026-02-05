@@ -1,3 +1,5 @@
+use hpke_rs::{HpkePrivateKey, HpkePublicKey};
+use libcrux_kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
 
 // From: https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/
@@ -36,6 +38,18 @@ impl XWingPrivateKey {
     }
 }
 
+impl From<XWingPrivateKey> for HpkePrivateKey {
+    fn from(sk: XWingPrivateKey) -> Self {
+        HpkePrivateKey::from(sk.0.to_vec())
+    }
+}
+
+impl From<XWingPublicKey> for HpkePublicKey {
+    fn from(pk: XWingPublicKey) -> Self {
+        HpkePublicKey::from(pk.0.to_vec())
+    }
+}
+
 /// Generate XWING keypair from external randomness
 /// FOR TEST PURPOSES ONLY
 pub fn deterministic_keygen(
@@ -47,6 +61,14 @@ pub fn deterministic_keygen(
     let (sk, pk) = key_gen_derand(Algorithm::XWingKemDraft06, &randomness)
         .map_err(|e| anyhow::anyhow!("XWING deterministic key generation failed: {:?}", e))?;
 
+    typed(sk, pk)
+}
+
+/// Helper, convert libcrux type to our key types
+fn typed(
+    sk: PrivateKey,
+    pk: PublicKey,
+) -> Result<(XWingPrivateKey, XWingPublicKey), anyhow::Error> {
     // Convert to our types
     let private_key_bytes = sk.encode();
     let public_key_bytes = pk.encode();
@@ -86,33 +108,7 @@ pub fn generate_xwing_keypair<R: RngCore + CryptoRng>(
     let (sk, pk) = key_gen(Algorithm::XWingKemDraft06, rng)
         .map_err(|e| anyhow::anyhow!("XWING key generation failed: {:?}", e))?;
 
-    // Convert to our types
-    let private_key_bytes = sk.encode();
-    let public_key_bytes = pk.encode();
-
-    // Validate key sizes (XWING should have consistent sizes)
-    if private_key_bytes.len() != XWING_PRIVATE_KEY_LEN
-        || public_key_bytes.len() != XWING_PUBLIC_KEY_LEN
-    {
-        return Err(anyhow::anyhow!(
-            "Unexpected XWING key sizes: private={}, public={}",
-            private_key_bytes.len(),
-            public_key_bytes.len()
-        ));
-    }
-
-    let private_key = XWingPrivateKey::from_bytes(
-        private_key_bytes
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("Failed to convert private key bytes"))?,
-    );
-    let public_key = XWingPublicKey::from_bytes(
-        public_key_bytes
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("Failed to convert public key bytes"))?,
-    );
-
-    Ok((private_key, public_key))
+    typed(sk, pk)
 }
 
 #[cfg(test)]
