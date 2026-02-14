@@ -25,3 +25,8 @@ node_modules/
 securedrop-protocol/pkg/*
 securedrop-protocol/.selenium-cache
 securedrop-protocol/out
+
+# hax/F*
+.fstar-cache/
+.depend
+hax.fst.config.json
