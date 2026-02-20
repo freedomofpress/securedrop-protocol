@@ -9,14 +9,18 @@ license = "GPL-3.0"
 [lib]
 
 [dependencies]
-# crypto stack
-libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad", features = ["rand"] }
-libcrux-curve25519 = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad" }
-libcrux-chacha20poly1305 = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad" }
-libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad" }
-libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad" }
-libcrux-ml-kem = { git = "https://github.com/cryspen/libcrux", rev = "77f9a6783e03585cc1709840bbc23ee27a28e6ad" }
-hpke-rs = { git = "https://github.com/cfm/hpke-rs", rev = "b8fd80ef2a409b2dde4fa1430f559f23823f4920", features = ["libcrux"] }
+# crypto stack, pinned to cryspen/libcrux#1312
+libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f", features = ["rand"] }
+libcrux-curve25519 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-chacha20poly1305 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-ml-kem = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-sha2 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+
+# fork of cryspen/hpke-rs, transitively pinned to cryspen/libcrux#1312
+hpke-rs = { git = "https://github.com/cfm/hpke-rs", rev = "9325551537d642d308edc60f3b271742b3a25b00", features = ["libcrux"] }
+
 rand_core = { version = "0.9" }
 getrandom = { version = "0.3", default-features = false }
 anyhow = "1.0"
@@ -27,7 +31,6 @@ blake2 = "0.10"
 
 # pin an exact version to resolve wasm-bindgen schema compatibility issue
 rand_chacha = {  version = "0.9.0", default-features = false  }
-libcrux-sha2 = "0.0.4"
 
 [dev-dependencies]
 proptest = "1.3"
