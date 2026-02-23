@@ -95,6 +95,13 @@ define FINDLIBS
             print_if_exists "$$MAYBE_PROOF_LIBS/core" ; \
             print_if_exists "$$MAYBE_PROOF_LIBS/rust_primitives" ; \
         fi ; \
+        : "crates.io layout: proof-libs are inside the hax-lib package itself" ; \
+        MAYBE_PROOF_LIBS=$$(realpath -q "$$path/proof-libs/fstar") ; \
+        if [ $$? -eq 0 ]; then \
+            print_if_exists "$$MAYBE_PROOF_LIBS/core" ; \
+            print_if_exists "$$MAYBE_PROOF_LIBS/rust_primitives" ; \
+            print_if_exists "$$MAYBE_PROOF_LIBS/hax_lib" ; \
+        fi ; \
     } ; \
     { while IFS= read path; do \
           find_hax_libraries_at_path "$$path"; \
