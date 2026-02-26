@@ -65,6 +65,7 @@ pub fn deterministic_keygen(
 }
 
 /// Helper, convert libcrux type to our key types
+#[hax_lib::ensures(|result| result.is_ok())]
 fn typed(
     sk: PrivateKey,
     pk: PublicKey,
@@ -77,6 +78,8 @@ fn typed(
     if private_key_bytes.len() != XWING_PRIVATE_KEY_LEN
         || public_key_bytes.len() != XWING_PUBLIC_KEY_LEN
     {
+        #[cfg(hax)]
+        hax_lib::assert!(false); // unreachable
         return Err(anyhow::anyhow!(
             "Unexpected XWING key sizes: private={}, public={}",
             private_key_bytes.len(),
