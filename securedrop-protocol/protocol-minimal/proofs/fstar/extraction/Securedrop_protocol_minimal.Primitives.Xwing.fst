@@ -23,7 +23,17 @@ let impl_XWingPrivateKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_XWing
 
 /// Helper, convert libcrux type to our key types
 let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
-    : Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error =
+    : Prims.Pure (Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error)
+      Prims.l_True
+      (ensures
+        fun result ->
+          let result:Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey)
+            Anyhow.t_Error =
+            result
+          in
+          Core_models.Result.impl__is_ok #(t_XWingPrivateKey & t_XWingPublicKey)
+            #Anyhow.t_Error
+            result) =
   let private_key_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Libcrux_kem.impl_PrivateKey__encode sk
   in
@@ -36,6 +46,7 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
     (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global public_key_bytes <: usize) <>.
     v_XWING_PUBLIC_KEY_LEN
   then
+    let _:Prims.unit = Hax_lib.v_assert false in
     let args:(usize & usize) =
       Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global private_key_bytes,
       Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global public_key_bytes
