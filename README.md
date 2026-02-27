@@ -17,7 +17,7 @@
 > This repository contains proof-of-concept code and is not intended for production use. The protocol details are not yet finalized.
 
 **January 2025:** A formal analysis was performed by
-[Luca Maier](https://github.com/lumaier) in in ["A Formal Analysis of the
+[Luca Maier](https://github.com/lumaier) in ["A Formal Analysis of the
 SecureDrop Protocol"](https://doi.org/10.3929/ethz-b-000718325), supervised by
 David Basin, Felix Linker, and Shannon Veitch in the Information Security Group
 at ETH Zürich. (This work is superseded by the [specification] and [Tamarin
