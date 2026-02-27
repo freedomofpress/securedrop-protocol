@@ -95,6 +95,14 @@ impl From<DhAkemPublicKey> for HpkePublicKey {
     }
 }
 
+#[cfg_attr(hax, hax_lib::requires(
+    sk.encode().len() == DH_AKEM_PRIVATE_KEY_LEN &&
+    pk.encode().len() == DH_AKEM_PUBLIC_KEY_LEN
+))]
+// ...implies (discharged by postconditions axiomatized in the proof stub
+// `Libcrux_kem.fsti`)...
+#[cfg_attr(hax, hax_lib::ensures(|result| result.is_ok()))]
+/// Helper, convert libcrux type to our key types
 fn typed(
     sk: PrivateKey,
     pk: PublicKey,
@@ -107,6 +115,19 @@ fn typed(
     if private_key_bytes.len() != DH_AKEM_PRIVATE_KEY_LEN
         || public_key_bytes.len() != DH_AKEM_PUBLIC_KEY_LEN
     {
+        // 1. This branch is skipped if the conditions are met dynamically.
+        //
+        // 2. Implication: this branch is *unreachable* based on the
+        //    postconditions of `encode()` assumed (in the stub) or subsequently
+        //    proven (by the crate itself).
+        //
+        // 3. Implication: this conditional and the error-handling below are
+        //    unnecessary if the postconditions of `encode()` are proven (by the
+        //    crate itself), and this function can return `(private_key,
+        //    public_key)` directly, without wrapping it in a `Result`.
+        #[cfg(hax)]
+        hax_lib::assert!(false);
+
         return Err(anyhow::anyhow!(
             "Unexpected DH-AKEM key sizes: private={}, public={}",
             private_key_bytes.len(),
