@@ -1,3 +1,9 @@
+// libcrux-kem is currently "pre-verification"[^1], so for now we must provide
+// stubs for properties we want to prove on top of libcrux *assuming* that it
+// provides them.
+//
+// [^1]: https://github.com/cryspen/libcrux/blob/3ade18381ad3144d755507f97994933d8585839b/Readme.md?plain=1#L31-L33
+
 module Libcrux_kem
 
 open Rust_primitives

@@ -24,7 +24,19 @@ let impl_XWingPrivateKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_XWing
 /// Helper, convert libcrux type to our key types
 let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
     : Prims.Pure (Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error)
-      Prims.l_True
+      (requires
+        (Alloc.Vec.impl_1__len #u8
+            #Alloc.Alloc.t_Global
+            (Libcrux_kem.impl_PrivateKey__encode sk <: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+          <:
+          usize) =.
+        v_XWING_PRIVATE_KEY_LEN &&
+        (Alloc.Vec.impl_1__len #u8
+            #Alloc.Alloc.t_Global
+            (Libcrux_kem.impl_PublicKey__encode pk <: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+          <:
+          usize) =.
+        v_XWING_PUBLIC_KEY_LEN)
       (ensures
         fun result ->
           let result:Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey)
