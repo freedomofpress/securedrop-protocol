@@ -4,11 +4,12 @@ use hashbrown::HashMap;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
-use crate::keys::{JournalistEnrollmentKeyBundle, JournalistOneTimeKeyBundle};
-use crate::messages::core::Message;
 use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::x25519::DHPublicKey;
 use crate::sign::{SelfSignature, Signature, VerifyingKey};
+use crate::types::{Enrollment, Envelope, SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
+
+pub type ServerMessageStore = HashMap<Uuid, Envelope>;
 
 #[derive(Default)]
 pub struct ServerStorage {
@@ -20,16 +21,19 @@ pub struct ServerStorage {
             DHPublicKey,
             DhAkemPublicKey,
             SelfSignature,
+            SignedLongtermPubKeyBytes,
             Signature,
         ),
     >,
+
     /// Journalists ephemeral keystore
     /// Maps journalist ID to a vector of ephemeral key sets
     /// Each journalist maintains a pool of ephemeral keys that are randomly selected and removed when fetched
-    ephemeral_keys: HashMap<Uuid, Vec<JournalistOneTimeKeyBundle>>,
+    /// TODO recheck lifetime
+    ephemeral_keys: HashMap<Uuid, Vec<SignedKeyBundlePublic>>,
 
     /// Store of messages
-    messages: HashMap<Uuid, Message>,
+    messages: HashMap<Uuid, Envelope>,
 }
 
 impl ServerStorage {
@@ -39,11 +43,7 @@ impl ServerStorage {
     }
 
     /// Add ephemeral keys for a journalist
-    pub fn add_ephemeral_keys(
-        &mut self,
-        journalist_id: Uuid,
-        keys: Vec<JournalistOneTimeKeyBundle>,
-    ) {
+    pub fn add_ephemeral_keys(&mut self, journalist_id: Uuid, keys: Vec<SignedKeyBundlePublic>) {
         let journalist_keys = self
             .ephemeral_keys
             .entry(journalist_id)
@@ -60,7 +60,7 @@ impl ServerStorage {
         &mut self,
         journalist_id: Uuid,
         rng: &mut R,
-    ) -> Option<JournalistOneTimeKeyBundle> {
+    ) -> Option<SignedKeyBundlePublic> {
         if let Some(keys) = self.ephemeral_keys.get_mut(&journalist_id) {
             if keys.is_empty() {
                 return None;
@@ -85,7 +85,7 @@ impl ServerStorage {
     pub fn get_all_ephemeral_keys<R: RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,
-    ) -> Vec<(Uuid, JournalistOneTimeKeyBundle)> {
+    ) -> Vec<(Uuid, SignedKeyBundlePublic)> {
         let mut result = Vec::new();
         let journalist_ids: Vec<Uuid> = self.ephemeral_keys.keys().copied().collect();
 
@@ -120,6 +120,7 @@ impl ServerStorage {
             DHPublicKey,
             DhAkemPublicKey,
             SelfSignature,
+            SignedLongtermPubKeyBytes,
             Signature,
         ),
     > {
@@ -129,18 +130,21 @@ impl ServerStorage {
     /// Add a journalist to storage and return the generated UUID
     pub fn add_journalist(
         &mut self,
-        enrollment_bundle: JournalistEnrollmentKeyBundle,
+        journalist: Enrollment,
         newsroom_signature: Signature,
     ) -> Uuid {
         let journalist_id = Uuid::new_v4();
-        let keys = (
-            enrollment_bundle.signing_key,
-            enrollment_bundle.public_keys.fetch_key,
-            enrollment_bundle.public_keys.reply_key,
-            enrollment_bundle.self_signature,
+        // match hashmap above
+        let values = (
+            journalist.keys.0,
+            journalist.keys.1,
+            journalist.keys.2,
+            journalist.selfsig,
+            journalist.bundle,
             newsroom_signature,
         );
-        self.journalists.insert(journalist_id, keys);
+
+        self.journalists.insert(journalist_id, values);
         journalist_id
     }
 
@@ -149,7 +153,7 @@ impl ServerStorage {
     ///
     /// TODO: Remove?
     pub fn find_journalist_by_verifying_key(&self, verifying_key: &VerifyingKey) -> Option<Uuid> {
-        for (journalist_id, (stored_vk, _, _, _, _)) in &self.journalists {
+        for (journalist_id, (stored_vk, _, _, _, _, _)) in &self.journalists {
             if stored_vk.into_bytes() == verifying_key.into_bytes() {
                 return Some(*journalist_id);
             }
@@ -158,12 +162,12 @@ impl ServerStorage {
     }
 
     /// Get all messages
-    pub fn get_messages(&self) -> &HashMap<Uuid, Message> {
+    pub fn get_messages(&self) -> &HashMap<Uuid, Envelope> {
         &self.messages
     }
 
     /// Add a message to storage
-    pub fn add_message(&mut self, message_id: Uuid, message: Message) {
+    pub fn add_message(&mut self, message_id: Uuid, message: Envelope) {
         self.messages.insert(message_id, message);
     }
 }

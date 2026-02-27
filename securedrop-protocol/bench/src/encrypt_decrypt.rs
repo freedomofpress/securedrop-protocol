@@ -1,14 +1,18 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
+use hashbrown::HashMap;
 use js_sys::{Array, Uint8Array};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
+use uuid::Uuid;
 use wasm_bindgen::prelude::*;
 
 use securedrop_protocol_minimal::encrypt_decrypt::{
-    Envelope, FetchResponse, Journalist, Plaintext, ServerMessageStore, Source, User,
     compute_fetch_challenges, decrypt, encrypt, solve_fetch_challenges,
+};
+use securedrop_protocol_minimal::types::{
+    Envelope, FetchResponse, Journalist, Plaintext, Source, UserPublic, UserSecret,
 };
 
 use securedrop_protocol_minimal::encrypt_decrypt::{
@@ -61,7 +65,7 @@ impl WJournalist {
 
     #[wasm_bindgen(getter)]
     pub fn keybundles(&self) -> usize {
-        self.inner.get_all_keys().len()
+        self.inner.num_bundles()
     }
 }
 
@@ -94,21 +98,25 @@ impl From<FetchResponse> for WFetchResponse {
     }
 }
 
+// Note: this no longer wraps an inner type, but since wasm-bindgen
+// can't handle hashmaps, a k,v pair is passed using this wrapper.
 #[wasm_bindgen]
 pub struct WStoreEntry {
-    inner: ServerMessageStore,
+    pub(crate) message_id: Box<[u8]>,
+    pub(crate) envelope: WEnvelope,
 }
 
 #[wasm_bindgen]
 impl WStoreEntry {
     /// Build a server store entry from a 16-byte message_id and a WEnvelope.
     #[wasm_bindgen(constructor)]
-    pub fn new(message_id_16: &[u8], envelope: &WEnvelope) -> WStoreEntry {
+    pub fn new(message_id_16: &[u8], envelope: WEnvelope) -> WStoreEntry {
         assert_eq!(message_id_16.len(), 16, "message_id must be 16 bytes");
         let mut id = [0u8; 16];
         id.copy_from_slice(message_id_16);
-        WStoreEntry {
-            inner: ServerMessageStore::new(id, envelope.inner.clone()),
+        Self {
+            message_id: Box::new(id),
+            envelope: envelope,
         }
     }
 }
@@ -127,29 +135,13 @@ pub fn encrypt_once(
     seed.copy_from_slice(seed32);
 
     // build plaintext object
-    let mut pq = [0u8; LEN_MLKEM_ENCAPS_KEY];
-    pq.copy_from_slice(&sender.inner.keys.pq_kem_psk_pk);
-
-    let mut hybrid = [0u8; LEN_XWING_ENCAPS_KEY];
-    hybrid.copy_from_slice(&sender.inner.keys.hybrid_md_pk);
-
-    let mut fetch = [0u8; LEN_DH_ITEM];
-    fetch.copy_from_slice(sender.inner.get_fetch_pk());
-
-    // construct a Plaintext object (previously just message bytes)
-    let plaintext = Plaintext {
-        sender_reply_pubkey_pq_psk: pq,
-        sender_reply_pubkey_hybrid: hybrid,
-        sender_fetch_key: fetch,
-        msg: msg.to_vec(),
-    };
+    let plaintext = sender.inner.build_message(msg.to_vec());
 
     let env = bench_encrypt(
         seed,
         &sender.inner,
-        &recipient.inner,
-        recipient_bundle_index,
-        &plaintext.to_bytes(),
+        &recipient.inner.public(recipient_bundle_index),
+        plaintext,
     );
     env.into()
 }
@@ -183,7 +175,13 @@ pub fn compute_fetch_challenges_once(
     seed.copy_from_slice(seed32);
     let mut rng = rng_from_seed(seed);
 
-    let store: Vec<ServerMessageStore> = entries.into_vec().into_iter().map(|w| w.inner).collect();
+    let mut store: HashMap<Uuid, Envelope> = HashMap::new();
+    let _ = entries.into_vec().into_iter().map(|entry| {
+        let box_mid = entry.message_id;
+        let msg_uuid = Uuid::from_slice(&box_mid).unwrap();
+        store.insert(msg_uuid, entry.envelope.inner)
+    });
+
     compute_fetch_challenges(&mut rng, &store, total_responses)
         .into_iter()
         .map(WFetchResponse::from)
@@ -194,13 +192,14 @@ pub fn compute_fetch_challenges_once(
 #[wasm_bindgen]
 pub fn fetch_once(recipient: &WJournalist, challenges: Box<[WFetchResponse]>) -> Array {
     let inner: Vec<FetchResponse> = challenges.into_vec().into_iter().map(|w| w.inner).collect();
-    let ids: Vec<Vec<u8>> = bench_fetch(&recipient.inner, inner);
+    let ids: Vec<Uuid> = bench_fetch(&recipient.inner, inner);
 
     // Build Array<Uint8Array>
     let out = Array::new();
     for id in ids {
         // Each message_id is 16 bytes
-        let u8arr = Uint8Array::from(id.as_slice());
+        let id_bytes = id.as_bytes();
+        let u8arr = Uint8Array::from(id_bytes.as_slice());
         out.push(&u8arr.into());
     }
     out
@@ -209,27 +208,20 @@ pub fn fetch_once(recipient: &WJournalist, challenges: Box<[WFetchResponse]>) ->
 // Benchmark functions
 
 // Begin benchmark functions
-pub fn bench_encrypt(
+pub fn bench_encrypt<S: UserSecret, P: UserPublic>(
     seed32: [u8; 32],
-    sender: &dyn User,
-    recipient: &dyn User,
-    recipient_bundle_index: usize,
-    plaintext: &[u8],
+    sender: &S,
+    recipient: &P,
+    plaintext: Plaintext,
 ) -> Envelope {
     let mut rng = ChaCha20Rng::from_seed(seed32);
-    encrypt(
-        &mut rng,
-        sender,
-        plaintext,
-        recipient,
-        Some(recipient_bundle_index),
-    )
+    encrypt(&mut rng, sender, plaintext, recipient)
 }
 
-pub fn bench_decrypt(recipient: &dyn User, envelope: &Envelope) -> Plaintext {
+pub fn bench_decrypt<S: UserSecret>(recipient: &S, envelope: &Envelope) -> Plaintext {
     decrypt(recipient, envelope)
 }
 
-pub fn bench_fetch(recipient: &dyn User, challenges: Vec<FetchResponse>) -> Vec<Vec<u8>> {
+pub fn bench_fetch<S: UserSecret>(recipient: &S, challenges: Vec<FetchResponse>) -> Vec<Uuid> {
     solve_fetch_challenges(recipient, challenges)
 }

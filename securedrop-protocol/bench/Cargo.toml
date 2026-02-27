@@ -18,6 +18,9 @@ rand_chacha = { version = "0.9.0", default-features = false }
 rand_core = { version = "0.9.3" }
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+hashbrown = { version = "0.14", features = ["raw"] }
+# In theory, it should be possible to use v4 uuids with getrandom per https://docs.rs/uuid/1.18.1/uuid/#building-for-other-targets, but cargo nono complains vigorously
+uuid = { version = "1.0", default-features = false, features = ["v4", "rng-getrandom", "js"] }
 
 # Keep in sync with Makefile version
 wasm-bindgen = "0.2.106"

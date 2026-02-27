@@ -3,26 +3,25 @@
 //! This module implements the server-side handling of SecureDrop protocol steps 5-10.
 
 use alloc::vec::Vec;
-use anyhow::{Error, anyhow};
+use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
+use crate::encrypt_decrypt::compute_fetch_challenges;
 use crate::keys::NewsroomKeyPair;
 use crate::messages::core::{
-    Message, MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchRequest,
-    MessageFetchResponse, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
-    SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
+    MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchRequest,
+    SourceJournalistKeyRequest, SourceJournalistKeyResponse, SourceNewsroomKeyRequest,
+    SourceNewsroomKeyResponse,
 };
 use crate::messages::setup::{
     JournalistRefreshRequest, JournalistRefreshResponse, JournalistSetupRequest,
     JournalistSetupResponse, NewsroomSetupRequest,
 };
-use crate::primitives::{
-    MESSAGE_ID_FETCH_SIZE, encrypt_message_id,
-    x25519::{dh_public_key_from_scalar, dh_shared_secret, generate_random_scalar},
-};
+use crate::primitives;
 use crate::sign::{Signature, VerifyingKey};
 use crate::storage::ServerStorage;
+use crate::types::{Envelope, JournalistPublicView};
 
 /// Server session for handling source requests
 #[derive(Default)]
@@ -76,28 +75,19 @@ impl Server {
         &mut self,
         request: JournalistSetupRequest,
     ) -> Result<JournalistSetupResponse, Error> {
-        // Get enrollment key bundle bytes from the request
-        let enrollment_key_bundle_bytes = request
-            .enrollment_key_bundle
-            .public_keys
-            .clone()
-            .into_bytes();
-
-        let enrollment_self_signature = request
-            .enrollment_key_bundle
-            .self_signature
-            .clone()
-            .as_signature();
+        // Get enrollment key from the request
+        let journalist_signing_key = request.enrollment.keys.0;
 
         // Verify journalist signature over their own pubkeys
-        request
-            .enrollment_key_bundle
-            .signing_key
-            .verify(&enrollment_key_bundle_bytes, &enrollment_self_signature)
+        journalist_signing_key
+            .verify(
+                &request.enrollment.bundle.0,
+                &request.enrollment.selfsig.as_signature(),
+            )
             .map_err(|_| anyhow::anyhow!("Invalid signature on longterm keys"))?;
 
         // If we're happy with that, sign the journalist's VerifyingKey
-        let verifying_key_bytes = &request.enrollment_key_bundle.signing_key.into_bytes();
+        let verifying_key_bytes = &request.enrollment.keys.0.into_bytes();
 
         // Sign the journalist bundle
         let newsroom_keys = self
@@ -109,7 +99,7 @@ impl Server {
         // Insert journalist keys into storage
         let _journalist_id = self
             .storage
-            .add_journalist(request.enrollment_key_bundle, newsroom_signature.clone());
+            .add_journalist(request.enrollment, newsroom_signature.clone());
 
         Ok(JournalistSetupResponse {
             sig: newsroom_signature,
@@ -124,29 +114,23 @@ impl Server {
         &mut self,
         request: JournalistRefreshRequest,
     ) -> Result<JournalistRefreshResponse, Error> {
-        let bundle = request.ephemeral_key_bundle;
-
-        // Get the ephemeral public keys from the bundle
-        let ephemeral_public_keys = &bundle.public_keys;
-
-        // Create the message that was signed
-        let signed_message = ephemeral_public_keys.clone().into_bytes();
-
         // Look up the journalist by their verifying key
         let journalist_id = self
             .storage
-            .find_journalist_by_verifying_key(&request.journalist_verifying_key)
+            .find_journalist_by_verifying_key(&request.vk)
             .ok_or_else(|| anyhow::anyhow!("Journalist not found in storage"))?;
 
+        // TODO: more efficient way than verifying each signature!
         // Verify the signature using the journalist's verifying key
         request
-            .journalist_verifying_key
-            .verify(&signed_message, &bundle.signature)
+            .bundles
+            .iter()
+            .try_for_each(|k| request.vk.verify(&k.0.as_bytes(), &k.1.as_signature()))
             .map_err(|_| anyhow::anyhow!("Invalid signature on ephemeral keys"))?;
 
         // Store the ephemeral keys for the journalist
         self.storage
-            .add_ephemeral_keys(journalist_id, Vec::from([bundle]));
+            .add_ephemeral_keys(journalist_id, request.bundles);
 
         Ok(JournalistRefreshResponse { success: true })
     }
@@ -214,24 +198,33 @@ impl Server {
         for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys {
             // Get the journalist's long-term keys
             // TODO: Do something better than expect here
-            let (signing_key, fetching_key, reply_key, journalist_self_sig, newsroom_sig) = self
+            let (
+                signing_key,
+                fetching_key,
+                reply_key,
+                journalist_self_sig,
+                signed_pubkey_bytes,
+                newsroom_sig,
+            ) = self
                 .storage
                 .get_journalists()
                 .get(&journalist_id)
                 .expect("Journalist should exist in storage")
                 .clone();
 
+            let journo_public = JournalistPublicView::new(
+                signing_key,
+                fetching_key,
+                reply_key,
+                journalist_self_sig,
+                signed_pubkey_bytes,
+                ephemeral_bundle,
+            );
+
             // Create response for this journalist
             let response = SourceJournalistKeyResponse {
-                journalist_sig_pk: signing_key,
-                journalist_fetch_pk: fetching_key,
-                journalist_dhakem_sending_pk: reply_key,
-                newsroom_sig,
-                one_time_message_pq_pk: ephemeral_bundle.public_keys.one_time_message_pq_pk,
-                one_time_message_pk: ephemeral_bundle.public_keys.one_time_message_pk,
-                one_time_metadata_pk: ephemeral_bundle.public_keys.one_time_metadata_pk,
-                journalist_ephemeral_sig: ephemeral_bundle.signature,
-                journalist_self_sig,
+                journalist: journo_public,
+                nr_signature: newsroom_sig,
             };
 
             responses.push(response);
@@ -241,7 +234,7 @@ impl Server {
     }
 
     /// Handle message submission (step 6 for sources, step 9 for journalists)
-    pub fn handle_message_submit(&mut self, message: Message) -> Result<Uuid, Error> {
+    pub fn handle_message_submit(&mut self, message: Envelope) -> Result<Uuid, Error> {
         // Generate a random message ID
         let message_id = Uuid::new_v4();
 
@@ -251,115 +244,131 @@ impl Server {
         Ok(message_id)
     }
 
-    /// Handle message ID fetch request (step 7)
-    ///
-    /// TODO: Nothing here prevents someone from requesting messages
-    /// that aren't theirs? Should request messages have a signature?
-    pub fn handle_message_id_fetch<R: RngCore + CryptoRng>(
+    /// Compute "hints"/challenges for message id fetch request (step 7)
+    pub fn handle_request_challenges<R: RngCore + CryptoRng>(
         &self,
         _request: MessageChallengeFetchRequest,
         rng: &mut R,
     ) -> Result<MessageChallengeFetchResponse, Error> {
-        let messages = self.storage.get_messages();
-        let message_count = messages.len();
-
-        // Fixed response size to prevent traffic analysis
-
-        let mut q_entries = Vec::new();
-        let mut cid_entries = Vec::new();
-
-        // Process real messages
-        for (message_id, message) in messages.iter() {
-            let y = generate_random_scalar(rng).expect("Failed to generate random scalar");
-
-            // k_i = DH(Z_i, y)
-            let z_public_key = dh_public_key_from_scalar(
-                message.dh_share_z.clone().try_into().unwrap_or([0u8; 32]),
-            );
-            let k_i = dh_shared_secret(&z_public_key, y)?.into_bytes();
-
-            // Q_i = DH(X_i, y)
-            let x_public_key = dh_public_key_from_scalar(
-                message.dh_share_x.clone().try_into().unwrap_or([0u8; 32]),
-            );
-            let q_i = dh_shared_secret(&x_public_key, y)?.into_bytes();
-
-            // ID: cid_i = Enc(k_i, id_i)
-            let message_id_bytes = message_id.as_bytes().to_vec();
-            let cid_i =
-                encrypt_message_id(&k_i, &message_id_bytes).expect("Failed to encrypt message ID");
-
-            q_entries.push(q_i.to_vec());
-            cid_entries.push(cid_i);
-        }
-
-        // Fill remaining slots with random data
-        while q_entries.len() < MESSAGE_ID_FETCH_SIZE {
-            // Generate random Q_i that matches the structure of real Q_i
-            // Real Q_i = DH(X_i, y), so random Q_i should also be a DH shared secret
-            let random_y = generate_random_scalar(rng).expect("Failed to generate random scalar");
-            let random_x = generate_random_scalar(rng).expect("Failed to generate random scalar");
-            let random_x_pub = dh_public_key_from_scalar(random_x);
-            let random_q = dh_shared_secret(&random_x_pub, random_y)
-                .map_err(|_| anyhow!("failed to construct shared secret"))?
-                .into_bytes();
-
-            // Generate random cid by encrypting a random UUID
-            // This ensures indistinguishability from real cid_i
-            let random_uuid = Uuid::new_v4();
-            let random_key = generate_random_scalar(rng).expect("Failed to generate random key");
-            let random_cid =
-                crate::primitives::encrypt_message_id(&random_key, random_uuid.as_bytes())
-                    .expect("Failed to encrypt random UUID");
-
-            q_entries.push(random_q.to_vec());
-            cid_entries.push(random_cid);
-        }
-
-        // Shuffle the entries to hide which are real vs random
-        // Zip the arrays together, shuffle, then unzip
-        let mut pairs: Vec<_> = q_entries.into_iter().zip(cid_entries).collect();
-
-        let shuffled = Self::shuffle_not_for_prod(&mut pairs)
-            .expect("Need shuffled list")
-            .to_vec();
-
-        // Unzip back into separate arrays
-        let (q_entries, cid_entries): (Vec<_>, Vec<_>) = shuffled.into_iter().unzip();
+        let total_challenges: usize = primitives::MESSAGE_ID_FETCH_SIZE;
+        let store = self.storage.get_messages();
+        let chall = compute_fetch_challenges(rng, store, total_challenges);
 
         Ok(MessageChallengeFetchResponse {
-            count: MESSAGE_ID_FETCH_SIZE,
-            messages: q_entries.into_iter().zip(cid_entries).collect(),
+            count: total_challenges,
+            messages: chall,
         })
     }
 
-    /// Shuffle challenges so that real and decoys are interspersed.
-    /// Note: not a true random shuffle, toybox impl only
-    pub fn shuffle_not_for_prod<'a>(
-        vec: &'a mut Vec<(Vec<u8>, Vec<u8>)>,
-    ) -> Option<&'a mut [(Vec<u8>, Vec<u8>)]> {
-        if vec.is_empty() {
-            return None;
-        }
+    /// Handle message ID fetch request (step 7)
+    ///
+    /// TODO: Nothing here prevents someone from requesting messages
+    /// that aren't theirs? Should request messages have a signature?
+    // #[deprecated] // "use compute_fetch_challenges"
+    // pub fn handle_message_id_fetch<R: RngCore + CryptoRng>(
+    //     &self,
+    //     _request: MessageChallengeFetchRequest,
+    //     rng: &mut R,
+    // ) -> Result<MessageChallengeFetchResponse, Error> {
+    //     let messages = self.storage.get_messages();
+    //     let message_count = messages.len();
+    //     // Fixed response size to prevent traffic analysis
 
-        let len = vec.len();
+    //     let mut q_entries = Vec::new();
+    //     let mut cid_entries = Vec::new();
 
-        // https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
-        for i in (0..len - 1).rev() {
-            // not for prod: modulo bias
-            let new_index = getrandom::u32().unwrap() as usize % i;
-            vec.swap(i, new_index);
-        }
+    //     // Process real messages
+    //     for (message_id, message) in messages.iter() {
+    //         let y = generate_random_scalar(rng).expect("Failed to generate random scalar");
 
-        Some(vec.as_mut_slice())
-    }
+    //         // k_i = DH(Z_i, y)
+    //         let z_public_key = dh_public_key_from_scalar(
+    //             message.dh_share_z.clone().try_into().unwrap_or([0u8; 32]),
+    //         );
+    //         let k_i = dh_shared_secret(&z_public_key, y)?.into_bytes();
+
+    //         // Q_i = DH(X_i, y)
+    //         let x_public_key = dh_public_key_from_scalar(
+    //             message.dh_share_x.clone().try_into().unwrap_or([0u8; 32]),
+    //         );
+    //         let q_i = dh_shared_secret(&x_public_key, y)?.into_bytes();
+
+    //         // ID: cid_i = Enc(k_i, id_i)
+    //         let message_id_bytes = message_id.as_bytes().to_vec();
+    //         let cid_i =
+    //             encrypt_message_id(&k_i, &message_id_bytes).expect("Failed to encrypt message ID");
+
+    //         q_entries.push(q_i.to_vec());
+    //         cid_entries.push(cid_i);
+    //     }
+
+    //     // Fill remaining slots with random data
+    //     while q_entries.len() < MESSAGE_ID_FETCH_SIZE {
+    //         // Generate random Q_i that matches the structure of real Q_i
+    //         // Real Q_i = DH(X_i, y), so random Q_i should also be a DH shared secret
+    //         let random_y = generate_random_scalar(rng).expect("Failed to generate random scalar");
+    //         let random_x = generate_random_scalar(rng).expect("Failed to generate random scalar");
+    //         let random_x_pub = dh_public_key_from_scalar(random_x);
+    //         let random_q = dh_shared_secret(&random_x_pub, random_y)
+    //             .map_err(|_| anyhow!("failed to construct shared secret"))?
+    //             .into_bytes();
+
+    //         // Generate random cid by encrypting a random UUID
+    //         // This ensures indistinguishability from real cid_i
+    //         let random_uuid = Uuid::new_v4();
+    //         let random_key = generate_random_scalar(rng).expect("Failed to generate random key");
+    //         let random_cid =
+    //             crate::primitives::encrypt_message_id(&random_key, random_uuid.as_bytes())
+    //                 .expect("Failed to encrypt random UUID");
+
+    //         q_entries.push(random_q.to_vec());
+    //         cid_entries.push(random_cid);
+    //     }
+
+    //     // Shuffle the entries to hide which are real vs random
+    //     // Zip the arrays together, shuffle, then unzip
+    //     let mut pairs: Vec<_> = q_entries.into_iter().zip(cid_entries).collect();
+
+    //     let shuffled = Self::shuffle_not_for_prod(&mut pairs)
+    //         .expect("Need shuffled list")
+    //         .to_vec();
+
+    //     // Unzip back into separate arrays
+    //     let (q_entries, cid_entries): (Vec<_>, Vec<_>) = shuffled.into_iter().unzip();
+
+    //     Ok(MessageChallengeFetchResponse {
+    //         count: MESSAGE_ID_FETCH_SIZE,
+    //         messages: q_entries.into_iter().zip(cid_entries).collect(),
+    //     })
+    // }
+
+    // /// Shuffle challenges so that real and decoys are interspersed.
+    // /// Note: not a true random shuffle, toybox impl only
+    // pub fn shuffle_not_for_prod<'a>(
+    //     vec: &'a mut Vec<(Vec<u8>, Vec<u8>)>,
+    // ) -> Option<&'a mut [(Vec<u8>, Vec<u8>)]> {
+    //     if vec.is_empty() {
+    //         return None;
+    //     }
+
+    //     let len = vec.len();
+
+    //     // https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+    //     for i in (0..len - 1).rev() {
+    //         // not for prod: modulo bias
+    //         let new_index = getrandom::u32().unwrap() as usize % i;
+    //         vec.swap(i, new_index);
+    //     }
+
+    //     Some(vec.as_mut_slice())
+    // }
 
     /// Handle message fetch request (step 8/10)
-    pub fn handle_message_fetch(
-        &self,
-        _request: MessageFetchRequest,
-    ) -> Option<MessageFetchResponse> {
-        unimplemented!()
+    pub fn handle_message_fetch(&self, request: MessageFetchRequest) -> Option<Envelope> {
+        self.storage
+            .get_messages()
+            .get(&request.message_id)
+            .cloned()
     }
 
     /// Process a new refresh request from the journalist.

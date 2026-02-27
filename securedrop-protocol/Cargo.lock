@@ -796,12 +796,14 @@ name = "securedrop-protocol-bench"
 version = "0.1.0"
 dependencies = [
  "getrandom",
+ "hashbrown",
  "js-sys",
  "rand_chacha",
  "rand_core",
  "securedrop-protocol-minimal",
  "serde",
  "serde_json",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-test",
 ]
@@ -820,6 +822,7 @@ dependencies = [
  "libcrux-ed25519",
  "libcrux-kem",
  "libcrux-ml-kem",
+ "libcrux-sha2",
  "libcrux-traits",
  "proptest",
  "rand_chacha",

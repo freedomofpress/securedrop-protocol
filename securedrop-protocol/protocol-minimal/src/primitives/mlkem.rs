@@ -1,3 +1,5 @@
+use libcrux_kem::{PrivateKey, PublicKey};
+use libcrux_ml_kem::{KEY_GENERATION_SEED_SIZE, mlkem768};
 use rand_core::{CryptoRng, RngCore};
 
 // From NIST ML-KEM spec:
@@ -39,10 +41,21 @@ impl MLKEM768PrivateKey {
     }
 }
 
+// TODO: this uses generate_key_pair from mlkem768 library, the other uses keygen derand
+pub fn from_bytes(
+    seed: [u8; KEY_GENERATION_SEED_SIZE],
+) -> Result<(MLKEM768PrivateKey, MLKEM768PublicKey), anyhow::Error> {
+    let (sk, pk) = mlkem768::generate_key_pair(seed).into_parts();
+    let mlkem_encaps = MLKEM768PublicKey::from_bytes(pk.into());
+    let mlkem_decaps = MLKEM768PrivateKey::from_bytes(sk.into());
+
+    Ok((mlkem_decaps, mlkem_encaps))
+}
+
 /// Generate MLKEM-768 keypair from external randomness
 /// FOR TEST PURPOSES ONLY
 pub fn deterministic_keygen(
-    randomness: [u8; 32],
+    randomness: [u8; KEY_GENERATION_SEED_SIZE],
 ) -> Result<(MLKEM768PrivateKey, MLKEM768PublicKey), anyhow::Error> {
     use libcrux_kem::{Algorithm, key_gen_derand};
 
@@ -50,6 +63,13 @@ pub fn deterministic_keygen(
     let (sk, pk) = key_gen_derand(Algorithm::MlKem768, &randomness)
         .map_err(|e| anyhow::anyhow!("MLKEM-768 deterministic key generation failed: {:?}", e))?;
 
+    typed(sk, pk)
+}
+
+fn typed(
+    sk: PrivateKey,
+    pk: PublicKey,
+) -> Result<(MLKEM768PrivateKey, MLKEM768PublicKey), anyhow::Error> {
     // Convert to our types
     let private_key_bytes = sk.encode();
     let public_key_bytes = pk.encode();
@@ -89,33 +109,7 @@ pub fn generate_mlkem768_keypair<R: RngCore + CryptoRng>(
     let (sk, pk) = key_gen(Algorithm::MlKem768, rng)
         .map_err(|e| anyhow::anyhow!("MLKEM-768 key generation failed: {:?}", e))?;
 
-    // Convert to our types
-    let private_key_bytes = sk.encode();
-    let public_key_bytes = pk.encode();
-
-    // Validate key sizes (MLKEM-768 should have consistent sizes)
-    if private_key_bytes.len() != MLKEM768_PRIVATE_KEY_LEN
-        || public_key_bytes.len() != MLKEM768_PUBLIC_KEY_LEN
-    {
-        return Err(anyhow::anyhow!(
-            "Unexpected MLKEM-768 key sizes: private={}, public={}",
-            private_key_bytes.len(),
-            public_key_bytes.len()
-        ));
-    }
-
-    let private_key = MLKEM768PrivateKey::from_bytes(
-        private_key_bytes
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("Failed to convert private key bytes"))?,
-    );
-    let public_key = MLKEM768PublicKey::from_bytes(
-        public_key_bytes
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("Failed to convert public key bytes"))?,
-    );
-
-    Ok((private_key, public_key))
+    typed(sk, pk)
 }
 
 #[cfg(test)]

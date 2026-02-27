@@ -1,6 +1,4 @@
-mod journalist;
 mod newsroom;
-mod source;
 
 use rand_core::{CryptoRng, RngCore};
 
@@ -22,16 +20,4 @@ impl FPFKeyPair {
     }
 }
 
-pub use journalist::{
-    JournalistDHKeyPair, JournalistEnrollmentKeyBundle, JournalistEphemeralDHKeyPair,
-    JournalistEphemeralKEMKeyPair, JournalistEphemeralPKEKeyPair, JournalistFetchKeyPair,
-    JournalistLongtermPublicKeys, JournalistOneTimeKeyBundle, JournalistOneTimeKeypairs,
-    JournalistOneTimeMessageClassicalKeyPair, JournalistOneTimeMessagePQKeyPair,
-    JournalistOneTimeMetadataKeyPair, JournalistOneTimePublicKeys, JournalistReplyClassicalKeyPair,
-    JournalistSigningKeyPair,
-};
 pub use newsroom::NewsroomKeyPair;
-pub use source::{
-    SourceDHKeyPair, SourceFetchKeyPair, SourceKEMKeyPair, SourceKeyBundle, SourcePKEKeyPair,
-    SourcePassphrase, SourcePublicKeys,
-};

@@ -1,11 +1,12 @@
 use anyhow::Error;
+use libcrux_curve25519::ecdh;
 use libcrux_traits::kem::arrayref::Kem;
 use rand_core::{CryptoRng, RngCore};
 
 pub use libcrux_curve25519::{DK_LEN as SK_LEN, EK_LEN as PK_LEN};
 
 /// An X25519 public key.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct DHPublicKey([u8; PK_LEN]);
 
 impl DHPublicKey {
@@ -73,7 +74,11 @@ pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
     libcrux_curve25519::X25519::keygen(&mut public_key, &mut secret_key, &randomness)
         .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
 
-    Ok((DHPrivateKey(secret_key), DHPublicKey(public_key)))
+    typed(secret_key, public_key)
+}
+
+fn typed(sk: [u8; SK_LEN], pk: [u8; PK_LEN]) -> Result<(DHPrivateKey, DHPublicKey), Error> {
+    Ok((DHPrivateKey(sk), DHPublicKey(pk)))
 }
 
 /// Generate a random scalar for DH operations using X25519
@@ -108,20 +113,46 @@ pub fn dh_shared_secret(
     private_scalar: [u8; 32],
 ) -> Result<DHSharedSecret, Error> {
     let mut shared_secret_bytes = [0u8; 32];
-    libcrux_curve25519::ecdh(&mut shared_secret_bytes, &private_scalar, &public_key.0)
+    ecdh(&mut shared_secret_bytes, &public_key.0, &private_scalar)
         .map_err(|_| anyhow::anyhow!("X25519 DH failed"))?;
     Ok(DHSharedSecret(shared_secret_bytes))
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::encrypt_decrypt::LEN_DH_ITEM;
+
     use super::*;
     use proptest::prelude::*;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    // Toy purposes
+    fn get_rng() -> ChaCha20Rng {
+        let mut seed = [0u8; 32];
+        getrandom::fill(&mut seed).expect("OS random source failed");
+        ChaCha20Rng::from_seed(seed)
+    }
 
     #[test]
     fn test_deterministic_dh_keygen() {
         proptest!(|(randomness in proptest::array::uniform32(any::<u8>()))| {
             let (private_key, public_key) = deterministic_dh_keygen(randomness).unwrap();
         });
+    }
+
+    #[test]
+    fn test_dh_shared_secret() {
+        let mut rng = get_rng();
+
+        let (sk1, pk1) = generate_dh_keypair(&mut rng).expect("need dh keygen");
+
+        let (sk2, pk2) = generate_dh_keypair(&mut rng).expect("need dh keygen");
+
+        let ss1 = dh_shared_secret(&pk1, sk2.into_bytes()).expect("need shared secret 1");
+        let ss2 = dh_shared_secret(&pk2, sk1.into_bytes()).expect("need shared secret 2");
+
+        assert_eq!(ss1.clone().into_bytes(), ss2.into_bytes());
+        assert_ne!(ss1.into_bytes(), [0u8; LEN_DH_ITEM])
     }
 }

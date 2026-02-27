@@ -1,6 +1,8 @@
+use hpke_rs::{HpkePrivateKey, HpkePublicKey};
+use libcrux_kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
 
-use crate::client::ClientPrivate;
+// todo: deprecate all this
 
 pub const DH_AKEM_PUBLIC_KEY_LEN: usize = 32;
 pub const DH_AKEM_PRIVATE_KEY_LEN: usize = 32;
@@ -78,6 +80,25 @@ pub fn deterministic_keygen(
     let (sk, pk) = key_gen_derand(Algorithm::X25519, &clamped_randomness)
         .map_err(|e| anyhow::anyhow!("DH-AKEM deterministic key generation failed: {:?}", e))?;
 
+    typed(sk, pk)
+}
+
+impl From<DhAkemPrivateKey> for HpkePrivateKey {
+    fn from(sk: DhAkemPrivateKey) -> Self {
+        HpkePrivateKey::from(sk.0.to_vec())
+    }
+}
+
+impl From<DhAkemPublicKey> for HpkePublicKey {
+    fn from(pk: DhAkemPublicKey) -> Self {
+        HpkePublicKey::from(pk.0.to_vec())
+    }
+}
+
+fn typed(
+    sk: PrivateKey,
+    pk: PublicKey,
+) -> Result<(DhAkemPrivateKey, DhAkemPublicKey), anyhow::Error> {
     // Convert to our types
     let private_key_bytes = sk.encode();
     let public_key_bytes = pk.encode();
@@ -116,34 +137,7 @@ pub fn generate_dh_akem_keypair<R: RngCore + CryptoRng>(
     // Generate DH-AKEM keypair using libcrux_kem with X25519
     let (sk, pk) = key_gen(Algorithm::X25519, rng)
         .map_err(|e| anyhow::anyhow!("DH-AKEM key generation failed: {:?}", e))?;
-
-    // Convert to our types
-    let private_key_bytes = sk.encode();
-    let public_key_bytes = pk.encode();
-
-    // Validate key sizes (X25519 should have consistent 32-byte sizes)
-    if private_key_bytes.len() != DH_AKEM_PRIVATE_KEY_LEN
-        || public_key_bytes.len() != DH_AKEM_PUBLIC_KEY_LEN
-    {
-        return Err(anyhow::anyhow!(
-            "Unexpected DH-AKEM key sizes: private={}, public={}",
-            private_key_bytes.len(),
-            public_key_bytes.len()
-        ));
-    }
-
-    let private_key = DhAkemPrivateKey::from_bytes(
-        private_key_bytes
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("Failed to convert private key bytes"))?,
-    );
-    let public_key = DhAkemPublicKey::from_bytes(
-        public_key_bytes
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("Failed to convert public key bytes"))?,
-    );
-
-    Ok((private_key, public_key))
+    typed(sk, pk)
 }
 
 #[cfg(test)]

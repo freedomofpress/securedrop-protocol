@@ -4,19 +4,18 @@ use getrandom;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-use securedrop_protocol_minimal::Client;
-use securedrop_protocol_minimal::journalist::JournalistClient;
-use securedrop_protocol_minimal::keys::{
-    FPFKeyPair, JournalistOneTimePublicKeys, JournalistSigningKeyPair, NewsroomKeyPair,
-    SourceKeyBundle,
-};
-use securedrop_protocol_minimal::messages::setup::{
-    JournalistRefreshRequest, JournalistSetupRequest, NewsroomSetupRequest, NewsroomSetupResponse,
-};
+use securedrop_protocol_minimal::api::{Api, JournalistApi};
+use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
+
+use securedrop_protocol_minimal::messages::core::SourceJournalistKeyRequest;
 use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::server::Server;
-use securedrop_protocol_minimal::source::SourceClient;
-use securedrop_protocol_minimal::storage::ServerStorage;
+use securedrop_protocol_minimal::types::{
+    Journalist, JournalistPublic, Source, UserPublic, UserSecret,
+};
+
+// TODO: better way (eg parameterize as in benchmarks)
+pub const DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST: usize = 3;
 
 // Toy implementation purposes
 fn get_rng() -> ChaCha20Rng {
@@ -50,10 +49,11 @@ fn protocol_step_5_source_fetch_keys() {
     // Store the FPF signature in the server session for later use
     server_session.set_fpf_signature(newsroom_setup_response.sig);
 
-    // Setup journalist
-    let mut journalist_session = JournalistClient::new();
-    let journalist_setup_request = journalist_session
-        .create_setup_request(&mut rng)
+    // setup journalist (new)
+    let journalist = Journalist::new(&mut rng, DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST);
+
+    let journalist_setup_request = journalist
+        .create_setup_request()
         .expect("Can create journalist setup request");
 
     server_session
@@ -61,16 +61,21 @@ fn protocol_step_5_source_fetch_keys() {
         .expect("Can setup journalist");
 
     // Journalist provides ephemeral keys
-    let ephemeral_key_request = journalist_session
-        .create_ephemeral_key_request(&mut rng)
+    let ephemeral_key_request = journalist
+        .create_ephemeral_key_request()
         .expect("Can create ephemeral key request");
+
+    assert_eq!(
+        ephemeral_key_request.bundles.len(),
+        DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST
+    );
 
     server_session
         .handle_ephemeral_key_request(ephemeral_key_request)
         .expect("Can handle ephemeral key request");
 
     // Step 4: Generate source session from passphrase
-    let mut source_session = SourceClient::from_passphrase(&[1u8; 32]);
+    let mut source_session = Source::from_passphrase(&[1u8; 32]);
 
     // Step 5: Source fetches newsroom keys
     let newsroom_key_request = source_session.fetch_newsroom_keys();
@@ -88,6 +93,7 @@ fn protocol_step_5_source_fetch_keys() {
         server_session.handle_source_journalist_key_request(journalist_key_request, &mut rng);
 
     // We only have one journalist rn
+    assert_eq!(journalist_key_responses.len(), 1);
     let journalist_response = &journalist_key_responses[0];
 
     // Source handles and verifies the journalist key response
@@ -96,41 +102,47 @@ fn protocol_step_5_source_fetch_keys() {
         .expect("Journalist key response should be valid");
 
     // Verify the journalist's signing key matches our expectation
-    let journalist_verifying_key = journalist_session
-        .verifying_key()
-        .expect("Journalist should have verifying key");
+    // (todo improve this)
+    let journalist_public = &journalist.public(0);
+
+    let &jvk = journalist_public.verifying_key();
+
     assert_eq!(
-        journalist_response.journalist_sig_pk.into_bytes(),
-        journalist_verifying_key.into_bytes()
+        journalist_response.journalist.verifying_key().into_bytes(),
+        jvk.into_bytes()
     );
 
     // Verify the journalist's fetch key matches our expectation
-    let journalist_fetch_key = journalist_session
-        .fetching_key()
-        .expect("Journalist should have fetching key");
     assert_eq!(
-        journalist_response.journalist_fetch_pk.clone().into_bytes(),
-        journalist_fetch_key.clone().into_bytes()
+        journalist_response
+            .journalist
+            .fetch_pk()
+            .clone()
+            .into_bytes(),
+        journalist.fetch_keypair().1.clone().into_bytes()
     );
 
     // Verify the journalist's DH key matches our expectation
-    let journalist_dh_key = journalist_session
-        .dhakem_reply_key()
-        .expect("Journalist should have DH key");
     assert_eq!(
-        journalist_response
-            .journalist_dhakem_sending_pk
-            .clone()
-            .as_bytes(),
-        journalist_dh_key.clone().as_bytes()
+        journalist_response.journalist.message_auth_pk().as_bytes(),
+        journalist.message_auth_keypair().1.as_bytes()
     );
 
     // Verify that ephemeral keys were consumed (deleted from server storage)
     // After fetching, the journalist should have no ephemeral keys left
     let journalist_id = server_session
-        .find_journalist_id(journalist_verifying_key)
+        .find_journalist_id(&jvk)
         .expect("Journalist should be found");
-    assert_eq!(server_session.ephemeral_keys_count(journalist_id), 0);
+    assert_eq!(
+        server_session.ephemeral_keys_count(journalist_id),
+        DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST - 1
+    );
+
+    // Consume the remaining keys
+    for _i in 0..DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST - 1 {
+        let _ = server_session
+            .handle_source_journalist_key_request(SourceJournalistKeyRequest {}, &mut rng);
+    }
     assert!(!server_session.has_ephemeral_keys(journalist_id));
 
     // Test that subsequent requests return no keys (since they were consumed)
@@ -178,10 +190,15 @@ fn protocol_step_6_source_submits_message() {
 
     server_session.set_fpf_signature(newsroom_setup_response.sig);
 
-    // Setup journalist
-    let mut journalist_session = JournalistClient::new();
-    let journalist_setup_request = journalist_session
-        .create_setup_request(&mut rng)
+    // Setup journalist: TODO keybundles somewhere else...
+    let mut journalist = Journalist::new(&mut rng, 10);
+    // let mut journalist_session = JournalistClient::new(
+    //     journalist,
+    //     newsroom_verifying_key,
+    //     newsroom_setup_response.sig,
+    // );
+    let journalist_setup_request = journalist
+        .create_setup_request()
         .expect("Can create journalist setup request");
 
     server_session
@@ -189,11 +206,11 @@ fn protocol_step_6_source_submits_message() {
         .expect("Can setup journalist");
 
     // Store the newsroom verifying key in the journalist session
-    journalist_session.set_newsroom_verifying_key(newsroom_verifying_key);
+    journalist.set_newsroom_verifying_key(newsroom_verifying_key);
 
     // Journalist provides ephemeral keys
-    let ephemeral_key_request = journalist_session
-        .create_ephemeral_key_request(&mut rng)
+    let ephemeral_key_request = journalist
+        .create_ephemeral_key_request()
         .expect("Can create ephemeral key request");
 
     server_session
@@ -201,41 +218,35 @@ fn protocol_step_6_source_submits_message() {
         .expect("Can handle ephemeral key request");
 
     // Source setup
-    let mut source_session = SourceClient::from_passphrase(&[1u8; 32]);
+    // let source = Source::from_passphrase(&[1u8; 32]);
+    let mut source = Source::new(&mut rng);
 
     // Source fetches keys (Step 5)
-    let newsroom_key_request = source_session.fetch_newsroom_keys();
+    let newsroom_key_request = source.fetch_newsroom_keys();
     let newsroom_key_response =
         server_session.handle_source_newsroom_key_request(newsroom_key_request);
 
-    source_session
+    source
         .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.vk)
         .expect("Newsroom key response should be valid");
 
-    let journalist_key_request = source_session.fetch_journalist_keys();
+    let journalist_key_request = source.fetch_journalist_keys();
     let journalist_key_responses =
         server_session.handle_source_journalist_key_request(journalist_key_request, &mut rng);
 
     let journalist_response = &journalist_key_responses[0];
 
-    source_session
+    let journalist_public = &journalist_response.journalist;
+
+    source
         .handle_journalist_key_response(journalist_response, &newsroom_verifying_key)
         .expect("Journalist key response should be valid");
 
     // Step 6: Source submits a message
     let message_content = b"Hello, this is a test message!";
-    let messages = source_session
-        .submit_message(
-            message_content.to_vec(),
-            &journalist_key_responses,
-            &mut rng,
-        )
+    let message = source
+        .submit_message(&mut rng, message_content, &source, journalist_public)
         .expect("Can submit message");
-
-    // Verify that we got one message per journalist
-    assert_eq!(messages.len(), 1);
-
-    let message = &messages[0];
 
     // Submit the message to the server
     let message_id = server_session
@@ -246,7 +257,6 @@ fn protocol_step_6_source_submits_message() {
     assert!(server_session.has_message(&message_id));
 }
 
-#[ignore]
 /// Step 7: Privacy-preserving message ID fetch
 #[test]
 fn protocol_step_7_message_id_fetch() {
@@ -269,10 +279,15 @@ fn protocol_step_7_message_id_fetch() {
 
     server_session.set_fpf_signature(newsroom_setup_response.sig);
 
-    // Setup journalist
-    let mut journalist_session = JournalistClient::new();
-    let journalist_setup_request = journalist_session
-        .create_setup_request(&mut rng)
+    // Setup journalist : TODO keybundles
+    let mut journalist = Journalist::new(&mut rng, 10);
+    // let mut journalist_session = JournalistClient::new(
+    //     journalist,
+    //     newsroom_verifying_key,
+    //     newsroom_setup_response.sig,
+    // );
+    let journalist_setup_request = journalist
+        .create_setup_request()
         .expect("Can create journalist setup request");
 
     server_session
@@ -280,11 +295,11 @@ fn protocol_step_7_message_id_fetch() {
         .expect("Can setup journalist");
 
     // Store the newsroom verifying key in the journalist session
-    journalist_session.set_newsroom_verifying_key(newsroom_verifying_key);
+    journalist.set_newsroom_verifying_key(newsroom_verifying_key);
 
     // Journalist provides ephemeral keys
-    let ephemeral_key_request = journalist_session
-        .create_ephemeral_key_request(&mut rng)
+    let ephemeral_key_request = journalist
+        .create_ephemeral_key_request()
         .expect("Can create ephemeral key request");
 
     server_session
@@ -292,46 +307,46 @@ fn protocol_step_7_message_id_fetch() {
         .expect("Can handle ephemeral key request");
 
     // Source setup
-    let mut source_session = SourceClient::from_passphrase(&[1u8; 32]);
+    let mut source = Source::from_passphrase(&[1u8; 32]);
 
     // Source fetches keys (Step 5)
-    let newsroom_key_request = source_session.fetch_newsroom_keys();
+    let newsroom_key_request = source.fetch_newsroom_keys();
     let newsroom_key_response =
         server_session.handle_source_newsroom_key_request(newsroom_key_request);
 
-    source_session
+    source
         .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.vk)
         .expect("Newsroom key response should be valid");
 
-    let journalist_key_request = source_session.fetch_journalist_keys();
+    let journalist_key_request = source.fetch_journalist_keys();
     let journalist_key_responses =
         server_session.handle_source_journalist_key_request(journalist_key_request, &mut rng);
 
     let journalist_response = &journalist_key_responses[0];
 
-    source_session
+    source
         .handle_journalist_key_response(journalist_response, &newsroom_verifying_key)
         .expect("Journalist key response should be valid");
 
     // Submit a message (Step 6)
     let message_content = b"Hello, this is a test message!";
-    let messages = source_session
+    let message = source
         .submit_message(
-            message_content.to_vec(),
-            &journalist_key_responses,
             &mut rng,
+            message_content,
+            &source,
+            &journalist_response.journalist,
         )
         .expect("Can submit message");
 
-    let message = &messages[0];
     let message_id = server_session
         .handle_message_submit(message.clone())
         .expect("Can handle message submission");
 
     // Step 7: Test message ID fetch from journalist perspective
-    let journalist_fetch_request = journalist_session.fetch_message_ids(&mut rng);
+    let journalist_fetch_request = journalist.fetch_message_ids(&mut rng);
     let journalist_fetch_response = server_session
-        .handle_message_id_fetch(journalist_fetch_request, &mut rng)
+        .handle_request_challenges(journalist_fetch_request, &mut rng)
         .expect("should be able to fetch message IDs");
 
     // Verify response structure
@@ -342,8 +357,8 @@ fn protocol_step_7_message_id_fetch() {
     );
 
     // Process the response to extract message IDs
-    let journalist_message_ids = journalist_session
-        .process_message_id_response(&journalist_fetch_response)
+    let journalist_message_ids = journalist
+        .solve_fetch_challenges(journalist_fetch_response.messages)
         .expect("Can process message ID response");
 
     // Verify that the journalist can also find the message ID
@@ -353,9 +368,9 @@ fn protocol_step_7_message_id_fetch() {
     );
 
     // Verify privacy properties: response size is always the same
-    let empty_fetch_request = source_session.fetch_message_ids(&mut rng);
+    let empty_fetch_request = source.fetch_message_ids(&mut rng);
     let empty_fetch_response = server_session
-        .handle_message_id_fetch(empty_fetch_request, &mut rng)
+        .handle_request_challenges(empty_fetch_request, &mut rng)
         .expect("we should be able to handle message ID fetch");
     assert_eq!(empty_fetch_response.count, MESSAGE_ID_FETCH_SIZE);
     assert_eq!(empty_fetch_response.messages.len(), MESSAGE_ID_FETCH_SIZE);
