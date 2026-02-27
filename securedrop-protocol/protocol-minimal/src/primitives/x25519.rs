@@ -77,6 +77,9 @@ pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
     typed(secret_key, public_key)
 }
 
+// Fixed-sized arrays are enforced by at compile-time, so type-checking
+// implies...
+#[cfg_attr(hax, hax_lib::ensures(|result| result.is_ok()))]
 fn typed(sk: [u8; SK_LEN], pk: [u8; PK_LEN]) -> Result<(DHPrivateKey, DHPublicKey), Error> {
     Ok((DHPrivateKey(sk), DHPublicKey(pk)))
 }
