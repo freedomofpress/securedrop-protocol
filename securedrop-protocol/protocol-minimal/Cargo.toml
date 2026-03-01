@@ -9,14 +9,18 @@ license = "GPL-3.0"
 [lib]
 
 [dependencies]
-# crypto stack
-libcrux-ed25519 = { features = ["rand"], version = "0.0.4" }
-libcrux-curve25519 = { version = "0.0.4" }
-libcrux-chacha20poly1305 = { version = "0.0.4" }
-libcrux-traits = { version = "0.0.4" }
-libcrux-kem = { version = "0.0.4" }
-libcrux-ml-kem = { version = "0.0.4" }
-hpke-rs = { version = "0.4.0", features = ["libcrux"] }
+# crypto stack, pinned to cryspen/libcrux#1312
+libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f", features = ["rand"] }
+libcrux-curve25519 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-chacha20poly1305 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-ml-kem = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-sha2 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+
+# fork of cryspen/hpke-rs, transitively pinned to cryspen/libcrux#1312
+hpke-rs = { git = "https://github.com/cfm/hpke-rs", rev = "9325551537d642d308edc60f3b271742b3a25b00", features = ["libcrux"] }
+
 rand_core = { version = "0.9" }
 getrandom = { version = "0.3", default-features = false }
 anyhow = "1.0"
@@ -27,7 +31,6 @@ blake2 = "0.10"
 
 # pin an exact version to resolve wasm-bindgen schema compatibility issue
 rand_chacha = {  version = "0.9.0", default-features = false  }
-libcrux-sha2 = "0.0.4"
 
 [dev-dependencies]
 proptest = "1.3"
@@ -42,3 +45,6 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[target."cfg(hax)".dependencies]
+hax-lib = { version = "0.3.6" }
