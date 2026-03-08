@@ -9,9 +9,7 @@ use crate::primitives::xwing::XWingPublicKey;
 use alloc::vec::Vec;
 
 use crate::ciphertext::Plaintext;
-use crate::key_types::{
-    Enrollment, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermPubKeyBytes,
-};
+use crate::keys::{Enrollment, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
 
 // Seal Secret user traits behind a private module so that others can't access or implement them
 // This could be more restricted than pub(crate), except we also use it for testing

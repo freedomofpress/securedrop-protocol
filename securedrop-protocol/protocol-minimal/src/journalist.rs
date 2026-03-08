@@ -19,7 +19,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
 use crate::constants::*;
-use crate::key_types::*;
+use crate::keys::*;
 use crate::traits::private;
 use crate::traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
 
