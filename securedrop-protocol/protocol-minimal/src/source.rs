@@ -13,11 +13,11 @@ use crate::primitives::xwing::deterministic_keygen as kgen_deterministic_xwing;
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
 
-use super::ciphertext::Plaintext;
-use super::constants::*;
-use super::key_types::*;
-use super::traits::private;
-use super::traits::{UserPublic, UserSecret};
+use crate::ciphertext::Plaintext;
+use crate::constants::*;
+use crate::key_types::*;
+use crate::traits::private;
+use crate::traits::{UserPublic, UserSecret};
 
 /// Sources: ingredients
 /// Sources have a fetch key and an unsigned key bundle.
@@ -211,9 +211,7 @@ impl Source {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::constants::{
-        LEN_DHKEM_DECAPS_KEY, LEN_MLKEM_DECAPS_KEY, LEN_XWING_DECAPS_KEY,
-    };
+    use crate::constants::{LEN_DHKEM_DECAPS_KEY, LEN_MLKEM_DECAPS_KEY, LEN_XWING_DECAPS_KEY};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 

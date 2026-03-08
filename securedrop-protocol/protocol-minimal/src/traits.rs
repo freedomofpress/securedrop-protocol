@@ -8,8 +8,8 @@ use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::xwing::XWingPublicKey;
 use alloc::vec::Vec;
 
-use super::ciphertext::Plaintext;
-use super::key_types::{
+use crate::ciphertext::Plaintext;
+use crate::key_types::{
     Enrollment, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermPubKeyBytes,
 };
 

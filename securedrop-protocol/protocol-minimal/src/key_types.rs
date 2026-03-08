@@ -13,7 +13,7 @@ use crate::primitives::xwing::XWingPublicKey;
 use alloc::vec::Vec;
 use libcrux_sha2::Digest;
 
-use super::constants::*;
+use crate::constants::*;
 
 /// Generic KeyPair
 pub struct KeyPair<SK, PK> {

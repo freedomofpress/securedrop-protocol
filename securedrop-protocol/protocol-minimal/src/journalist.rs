@@ -17,11 +17,11 @@ use crate::primitives::xwing::generate_xwing_keypair;
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
 
-use super::ciphertext::Plaintext;
-use super::constants::*;
-use super::key_types::*;
-use super::traits::private;
-use super::traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
+use crate::ciphertext::Plaintext;
+use crate::constants::*;
+use crate::key_types::*;
+use crate::traits::private;
+use crate::traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
 
 /// Journalists: ingredients.
 /// Journalists have a signing/verifying key, a reply key,
@@ -269,7 +269,7 @@ impl Journalist {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Enrollable;
+    use crate::Enrollable;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 

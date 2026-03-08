@@ -7,11 +7,10 @@ use crate::primitives::x25519::generate_dh_keypair;
 use crate::primitives::x25519::generate_random_scalar;
 use crate::primitives::{decrypt_message_id, encrypt_message_id};
 use crate::storage::ServerMessageStore;
-use crate::types::CombinedCiphertext;
-use crate::types::FetchResponse;
-use crate::types::MessageKeyBundle;
-use crate::types::Plaintext;
-use crate::types::{Envelope, UserPublic, UserSecret};
+use crate::{
+    CombinedCiphertext, Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic,
+    UserSecret,
+};
 use alloc::format;
 use alloc::vec::Vec;
 use hpke_rs::HpkePrivateKey;
@@ -395,6 +394,7 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::{
+        DhAkemKeyPair, Journalist, KeyBundlePublic, KeyPair, MlKem768KeyPair, Source, XWingKeyPair,
         primitives::{
             dh_akem::DhAkemPrivateKey,
             generate_dh_akem_keypair, generate_mlkem768_keypair, generate_xwing_keypair,
@@ -402,10 +402,7 @@ mod tests {
             x25519::DHPrivateKey,
             xwing::{XWingPrivateKey, XWingPublicKey},
         },
-        types::{
-            DhAkemKeyPair, Journalist, KeyBundlePublic, KeyPair, MlKem768KeyPair, Source,
-            XWingKeyPair, private,
-        },
+        private,
     };
 
     use super::*;

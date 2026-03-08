@@ -8,7 +8,7 @@
 
 use alloc::vec::Vec;
 
-use crate::types::{Enrollment, SignedKeyBundlePublic};
+use crate::{Enrollment, SignedKeyBundlePublic};
 use crate::{Signature, VerifyingKey};
 
 /// Request from the newsroom to FPF for verification.

@@ -2,12 +2,35 @@
 extern crate alloc;
 
 pub mod api;
+mod ciphertext;
+mod constants;
+mod key_types;
 pub mod keys;
 pub mod messages;
 pub mod primitives;
 pub mod server;
 pub mod setup;
-pub mod types;
+mod traits;
+
+pub mod journalist;
+pub mod source;
+
+pub use constants::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY};
+
+pub use ciphertext::{CombinedCiphertext, Envelope, FetchResponse, Plaintext};
+
+pub use key_types::{
+    DhAkemKeyPair, DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, MlKem768KeyPair,
+    SessionStorage, SignedKeyBundlePublic, SignedLongtermPubKeyBytes, SigningKeyPair, XWingKeyPair,
+};
+
+pub use traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
+
+pub use journalist::{Journalist, JournalistPublicView};
+pub use source::{Source, SourcePublicView};
+
+pub(crate) use key_types::MessageKeyBundle;
+pub(crate) use traits::private;
 
 // Primitives for signing
 pub mod sign;

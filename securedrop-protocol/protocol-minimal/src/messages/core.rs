@@ -1,4 +1,4 @@
-use crate::types::{FetchResponse, JournalistPublicView};
+use crate::{FetchResponse, JournalistPublicView};
 use crate::{Signature, VerifyingKey};
 use alloc::vec::Vec;
 use uuid::Uuid;
