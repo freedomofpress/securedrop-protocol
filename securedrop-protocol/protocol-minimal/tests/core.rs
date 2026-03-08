@@ -356,7 +356,7 @@ fn protocol_step_7_message_id_fetch() {
 
     // Process the response to extract message IDs
     let journalist_message_ids = journalist
-        .solve_fetch_challenges(journalist_fetch_response.messages)
+        .solve_fetch_challenges(&journalist_fetch_response.messages)
         .expect("Can process message ID response");
 
     // Verify that the journalist can also find the message ID

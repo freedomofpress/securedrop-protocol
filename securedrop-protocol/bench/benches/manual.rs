@@ -257,7 +257,7 @@ fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> 
 
         // Time ONLY the solver
         let t0 = Instant::now();
-        let ids = bench_fetch(&journalist, challenges);
+        let ids = bench_fetch(&journalist, &challenges);
         let dt = t0.elapsed();
         durations.push(dt);
 

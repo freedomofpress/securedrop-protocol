@@ -192,7 +192,7 @@ pub fn compute_fetch_challenges_once(
 #[wasm_bindgen]
 pub fn fetch_once(recipient: &WJournalist, challenges: Box<[WFetchResponse]>) -> Array {
     let inner: Vec<FetchResponse> = challenges.into_vec().into_iter().map(|w| w.inner).collect();
-    let ids: Vec<Uuid> = bench_fetch(&recipient.inner, inner);
+    let ids: Vec<Uuid> = bench_fetch(&recipient.inner, &inner);
 
     // Build Array<Uint8Array>
     let out = Array::new();
@@ -222,6 +222,6 @@ pub fn bench_decrypt<S: UserSecret>(recipient: &S, envelope: &Envelope) -> Plain
     decrypt(recipient, envelope)
 }
 
-pub fn bench_fetch<S: UserSecret>(recipient: &S, challenges: Vec<FetchResponse>) -> Vec<Uuid> {
+pub fn bench_fetch<S: UserSecret>(recipient: &S, challenges: &[FetchResponse]) -> Vec<Uuid> {
     solve_fetch_challenges(recipient, challenges)
 }
