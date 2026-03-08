@@ -32,3 +32,7 @@ clean:
 	rm -rf $(REPO_ROOT)/.fstar-cache
 	rm -f $(PROOF_DIR)/.depend
 	rm -f $(PROOF_DIR)/hax.fst.config.json
+
+.PHONY: hax-lib-version
+hax-lib-version:
+	@cargo pkgid hax-lib 2>/dev/null | sed 's/.*@//'
