@@ -309,7 +309,7 @@ bundle $i$:[^11]
 | $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                      |                                                                         |                                                                                            |
 | $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                         |                                                                                            |
 |                                                                                               | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                                            |
-|                                                                                               |                                                                         | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, \sigma_{J,i})`$ |
+|                                                                                               |                                                                         | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i})`$ |
 |                                                                                               |                                                                         | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ for $J$          |
 
 ### 4. Source key setup
