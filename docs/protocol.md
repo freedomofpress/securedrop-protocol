@@ -243,12 +243,18 @@ def AuthDec(
 
 ### 1. FPF signing setup
 
+FPF (Freedom of the Press Foundation) serves as the root of trust for the
+SecureDrop ecosystem. FPF generates a long-term signing keypair whose
+verification key is pinned into client and server software. This key is used to
+sign newsroom verification keys, establishing a chain of trust: FPF signs
+newsrooms, and newsrooms sign journalists.
+
 | FPF                                                               |
 | ----------------------------------------------------------------- |
 | $`(sk_{FPF}^{sig}, vk_{FPF}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |
 
 The server, the journalist client, and the source client SHOULD be built with
-FPF's signing key $vk_{FPF}^{sig}$ pinned.[^2]
+FPF's verification key $vk_{FPF}^{sig}$ pinned.[^2]
 
 ### 2. Newsroom signing setup
 
@@ -364,7 +370,7 @@ Then:
 
 ### 6. Sender submits a message <!-- Figure 3(c) as of b1e4d41 -->
 
-A sender knows their own keys, the newsroom's signing key $vk_{NR}^{sig}$, and
+A sender knows their own keys, the newsroom's verification key $vk_{NR}^{sig}$, and
 the $pks$ and $sigs$ they previously [fetched].
 
 In addition, in the **reply case,** if the sender is a journalist replying to a
