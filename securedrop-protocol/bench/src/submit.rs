@@ -1,6 +1,6 @@
+use alloc::{format, vec, vec::Vec};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
-use alloc::{format, vec, vec::Vec};
 
 use securedrop_protocol_minimal::{
     journalist::JournalistClient, keys::FPFKeyPair, messages::core::SourceJournalistKeyResponse,
@@ -20,7 +20,8 @@ fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) 
     let newsroom_verifying_key = newsroom_setup_request.newsroom_verifying_key;
 
     // Simulate FPF signing
-    let fpf_keypair = FPFKeyPair::new(ChaCha20Rng::seed_from_u64(666));
+    let fpf_keypair =
+        FPFKeyPair::new(ChaCha20Rng::seed_from_u64(666)).expect("FPF key generation failed");
     let newsroom_setup_response = newsroom_setup_request
         .sign(&fpf_keypair)
         .expect("Can sign newsroom setup request");
@@ -55,7 +56,7 @@ fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) 
 
     // Source handles and verifies the newsroom key response
     source
-        .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.vk)
+        .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.verifying_key())
         .expect("Newsroom key response should be valid");
 
     // 7. Source fetches journalist keys

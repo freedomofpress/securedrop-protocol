@@ -137,19 +137,40 @@ pub struct SessionStorage {
     pub fpf_signature: Option<Signature>,
 }
 
-/// A key pair for FPF.
-///
-/// TODO: Make the signing key private.
+/// A key pair for FPF (Freedom of the Press Foundation).
 pub struct FPFKeyPair {
-    pub sk: SigningKey,
-    pub vk: VerifyingKey,
+    sk: SigningKey,
+    vk: VerifyingKey,
+}
+
+impl core::fmt::Debug for FPFKeyPair {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("FPFKeyPair")
+            .field("vk", &self.vk)
+            .finish_non_exhaustive()
+    }
 }
 
 impl FPFKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> FPFKeyPair {
-        let sk = SigningKey::new(&mut rng).unwrap();
+    /// Generate a new FPF key pair
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the key generation fails.
+    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> Result<Self, anyhow::Error> {
+        let sk = SigningKey::new(&mut rng)?;
         let vk = sk.vk;
-        FPFKeyPair { sk, vk }
+        Ok(Self { sk, vk })
+    }
+
+    /// Get the verification key
+    pub fn verifying_key(&self) -> VerifyingKey {
+        self.vk
+    }
+
+    /// Sign a message using the FPF signing key
+    pub fn sign(&self, msg: &[u8]) -> crate::Signature {
+        self.sk.sign(msg)
     }
 }
 

@@ -50,8 +50,8 @@ impl Server {
         &mut self,
         mut rng: R,
     ) -> Result<NewsroomSetupRequest, Error> {
-        let newsroom_keys = NewsroomKeyPair::new(&mut rng);
-        let newsroom_vk = newsroom_keys.vk;
+        let newsroom_keys = NewsroomKeyPair::new(&mut rng)?;
+        let newsroom_vk = newsroom_keys.verifying_key();
 
         // Store the newsroom keys in the session for later use (e.g., signing journalist keys)
         self.newsroom_keys = Some(newsroom_keys);
@@ -94,7 +94,7 @@ impl Server {
             .newsroom_keys
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Newsroom keys not found in session"))?;
-        let newsroom_signature = newsroom_keys.sk.sign(verifying_key_bytes);
+        let newsroom_signature = newsroom_keys.sign(verifying_key_bytes);
 
         // Insert journalist keys into storage
         let _journalist_id = self
@@ -136,8 +136,8 @@ impl Server {
     }
 
     /// Get the newsroom verifying key
-    pub fn get_newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
-        self.newsroom_keys.as_ref().map(|keys| &keys.vk)
+    pub fn get_newsroom_verifying_key(&self) -> Option<VerifyingKey> {
+        self.newsroom_keys.as_ref().map(|keys| keys.verifying_key())
     }
 
     /// Set the FPF signature for the newsroom
@@ -175,7 +175,7 @@ impl Server {
                 .newsroom_keys
                 .as_ref()
                 .expect("Newsroom keys not found")
-                .vk,
+                .verifying_key(),
             fpf_sig: self
                 .signature
                 .as_ref()

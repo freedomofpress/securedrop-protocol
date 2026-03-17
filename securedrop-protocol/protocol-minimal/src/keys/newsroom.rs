@@ -3,17 +3,34 @@ use rand_core::{CryptoRng, RngCore};
 use crate::sign::{SigningKey, VerifyingKey};
 
 /// Newsroom keypair used for signing.
-///
-/// TODO: Make the signing key private.
 pub struct NewsroomKeyPair {
-    pub vk: VerifyingKey,
-    pub sk: SigningKey,
+    vk: VerifyingKey,
+    sk: SigningKey,
+}
+
+impl core::fmt::Debug for NewsroomKeyPair {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Redacts secret key
+        f.debug_struct("NewsroomKeyPair")
+            .field("vk", &self.vk)
+            .finish_non_exhaustive()
+    }
 }
 
 impl NewsroomKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> NewsroomKeyPair {
-        let sk = SigningKey::new(&mut rng).unwrap();
+    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> Result<Self, anyhow::Error> {
+        let sk = SigningKey::new(&mut rng)?;
         let vk = sk.vk;
-        NewsroomKeyPair { sk, vk }
+        Ok(Self { sk, vk })
+    }
+
+    /// Get the verification key
+    pub fn verifying_key(&self) -> VerifyingKey {
+        self.vk
+    }
+
+    /// Sign a message using the newsroom signing key
+    pub fn sign(&self, msg: &[u8]) -> crate::Signature {
+        self.sk.sign(msg)
     }
 }

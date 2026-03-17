@@ -23,8 +23,7 @@ fn get_rng() -> ChaCha20Rng {
 }
 
 fn setup_fpf_key<R: CryptoRng + RngCore>(mut rng: R) -> FPFKeyPair {
-    // Setup: FPF generates their keys (from previous step)
-    FPFKeyPair::new(&mut rng)
+    FPFKeyPair::new(&mut rng).expect("FPF key generation failed")
 }
 
 // Helper - set up server, set up newsroom key, and return server session
@@ -48,7 +47,7 @@ fn setup_server<R: CryptoRng + RngCore>(
 
     assert!(
         fpf_keys
-            .vk
+            .verifying_key()
             .verify(&newsroom_vk.clone().into_bytes(), &setup_response.sig)
             .is_ok()
     );
@@ -86,12 +85,11 @@ fn setup_journalist<R: RngCore + CryptoRng>(
 #[test]
 fn protocol_step_1_generate_fpf_keys() {
     let mut rng = get_rng();
-    let fpf_keys = FPFKeyPair::new(&mut rng);
+    let fpf_keys = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
 
-    // Test signing/verification roundtrip
     let message = b"test message";
-    let signature = fpf_keys.sk.sign(message);
-    assert!(fpf_keys.vk.verify(message, &signature).is_ok());
+    let signature = fpf_keys.sign(message);
+    assert!(fpf_keys.verifying_key().verify(message, &signature).is_ok());
 }
 
 /// Step 2: Newsroom setup
@@ -100,13 +98,17 @@ fn protocol_step_2_generate_newsroom_keys() {
     let mut rng = get_rng();
 
     // Setup: FPF generates their keys (from previous step)
-    let fpf_keys = FPFKeyPair::new(&mut rng);
+    let fpf_keys = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
 
     let (_, newsroom_vk, fpf_sig) = setup_server(rng, &fpf_keys);
 
-    // Newsroom: Verify the FPF signature on the newsroom's public key
     let newsroom_pk_bytes = newsroom_vk.into_bytes();
-    assert!(fpf_keys.vk.verify(&newsroom_pk_bytes, &fpf_sig).is_ok());
+    assert!(
+        fpf_keys
+            .verifying_key()
+            .verify(&newsroom_pk_bytes, &fpf_sig)
+            .is_ok()
+    );
 }
 
 /// Step 3.1: Journalist enrollment
@@ -115,13 +117,13 @@ fn protocol_step_3_1_journalist_enrollment() {
     let mut rng = get_rng();
 
     // Setup: FPF generates their keys (from step 1)
-    let fpf_keys = FPFKeyPair::new(&mut rng);
+    let fpf_keys = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
 
     let (mut server_session, newsroom_vk, fpf_sig) = setup_server(&mut rng, &fpf_keys);
 
     assert!(
         fpf_keys
-            .vk
+            .verifying_key()
             .verify(&newsroom_vk.into_bytes(), &fpf_sig)
             .is_ok()
     );
@@ -133,7 +135,8 @@ fn protocol_step_3_1_journalist_enrollment() {
 
     // Journalist: Create journalist session and generate setup request
     // todo keybundles
-    let (_, journalist_setup_request) = setup_journalist(rng, 10, &vk, &fpf_keys.vk, &fpf_sig);
+    let (_, journalist_setup_request) =
+        setup_journalist(rng, 10, &vk, &fpf_keys.verifying_key(), &fpf_sig);
 
     // Extract enrollment bundle for verification before moving the request
     let enrollment_bundle = journalist_setup_request.enrollment.clone();
@@ -199,7 +202,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
     let (mut server_session, vk_nr, sig) = setup_server(&mut rng, &fpf_keys);
 
     let (journalist, journalist_setup_request) =
-        setup_journalist(&mut rng, 10, &vk_nr, &fpf_keys.vk, &sig);
+        setup_journalist(&mut rng, 10, &vk_nr, &fpf_keys.verifying_key(), &sig);
 
     // Extract enrollment bundle for verification before moving the request
     let enrollment_bundle = journalist_setup_request.enrollment.clone();
@@ -269,7 +272,9 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
 
     // Test that server rejects ephemeral keys from unknown journalist
     let unknown_journalist_request = JournalistRefreshRequest {
-        vk: FPFKeyPair::new(&mut rng).vk, // Use a different key
+        vk: FPFKeyPair::new(&mut rng)
+            .expect("key generation failed")
+            .verifying_key(),
         bundles: bundles,
         bundle_sig: ek_bundle_signature,
     };

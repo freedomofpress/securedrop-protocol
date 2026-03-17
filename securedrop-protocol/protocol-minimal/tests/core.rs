@@ -39,7 +39,7 @@ fn protocol_step_5_source_fetch_keys() {
     let newsroom_verifying_key = newsroom_setup_request.newsroom_verifying_key;
 
     // Simulate FPF signing (in real implementation, this would be done by FPF)
-    let fpf_keypair = FPFKeyPair::new(&mut rng);
+    let fpf_keypair = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
     let newsroom_setup_response = newsroom_setup_request
         .sign(&fpf_keypair)
         .expect("Can sign newsroom setup request");
@@ -82,7 +82,7 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Source handles and verifies the newsroom key response
     source_session
-        .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.vk)
+        .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.verifying_key())
         .expect("Newsroom key response should be valid");
 
     // Source fetches journalist keys
@@ -150,18 +150,25 @@ fn protocol_step_5_source_fetch_keys() {
     assert_eq!(empty_responses.len(), 0);
 
     // Test that invalid FPF signatures are rejected
-    let wrong_fpf_keypair = FPFKeyPair::new(&mut rng);
+    let wrong_fpf_keypair = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
     assert!(
         source_session
-            .handle_newsroom_key_response(&newsroom_key_response, &wrong_fpf_keypair.vk)
+            .handle_newsroom_key_response(
+                &newsroom_key_response,
+                &wrong_fpf_keypair.verifying_key()
+            )
             .is_err()
     );
 
     // Test that invalid newsroom signatures on journalist keys are rejected
-    let wrong_newsroom_keypair = NewsroomKeyPair::new(&mut rng);
+    let wrong_newsroom_keypair =
+        NewsroomKeyPair::new(&mut rng).expect("Newsroom key generation failed");
     assert!(
         source_session
-            .handle_journalist_key_response(journalist_response, &wrong_newsroom_keypair.vk)
+            .handle_journalist_key_response(
+                journalist_response,
+                &wrong_newsroom_keypair.verifying_key()
+            )
             .is_err()
     );
 }
@@ -181,7 +188,7 @@ fn protocol_step_6_source_submits_message() {
 
     let newsroom_verifying_key = newsroom_setup_request.newsroom_verifying_key;
 
-    let fpf_keypair = FPFKeyPair::new(&mut rng);
+    let fpf_keypair = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
     let newsroom_setup_response = newsroom_setup_request
         .sign(&fpf_keypair)
         .expect("Can sign newsroom setup request");
@@ -225,7 +232,7 @@ fn protocol_step_6_source_submits_message() {
         server_session.handle_source_newsroom_key_request(newsroom_key_request);
 
     source
-        .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.vk)
+        .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.verifying_key())
         .expect("Newsroom key response should be valid");
 
     let journalist_key_request = source.fetch_journalist_keys();
@@ -270,7 +277,7 @@ fn protocol_step_7_message_id_fetch() {
 
     let newsroom_verifying_key = newsroom_setup_request.newsroom_verifying_key;
 
-    let fpf_keypair = FPFKeyPair::new(&mut rng);
+    let fpf_keypair = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
     let newsroom_setup_response = newsroom_setup_request
         .sign(&fpf_keypair)
         .expect("Can sign newsroom setup request");
@@ -313,7 +320,7 @@ fn protocol_step_7_message_id_fetch() {
         server_session.handle_source_newsroom_key_request(newsroom_key_request);
 
     source
-        .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.vk)
+        .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.verifying_key())
         .expect("Newsroom key response should be valid");
 
     let journalist_key_request = source.fetch_journalist_keys();

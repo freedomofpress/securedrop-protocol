@@ -14,6 +14,7 @@ use crate::{Signature, VerifyingKey};
 /// Request from the newsroom to FPF for verification.
 ///
 /// Step 2 in the spec.
+#[derive(Debug)]
 pub struct NewsroomSetupRequest {
     pub newsroom_verifying_key: VerifyingKey,
 }
@@ -21,6 +22,7 @@ pub struct NewsroomSetupRequest {
 /// Response from FPF to the newsroom.
 ///
 /// Step 2 in the spec.
+#[derive(Debug)]
 pub struct NewsroomSetupResponse {
     /// A signature over the newsroom verifying key by the FPF signing key
     pub sig: Signature,

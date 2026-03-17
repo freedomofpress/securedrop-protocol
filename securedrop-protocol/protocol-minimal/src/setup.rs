@@ -15,14 +15,16 @@ impl NewsroomSetupRequest {
     /// which produces a signature over the newsroom verifying key using the
     /// FPF signing key.
     ///
-    /// TODO: There is a manual verification step here, so the caller should
+    /// # Security
+    ///
+    /// There is a manual verification step here: the caller should
     /// instruct the user to stop, verify the fingerprint out of band, and
     /// then proceed. The caller should also persist the fingerprint and signature
     /// in its local data store.
     ///
     pub fn sign(self, fpf_keys: &FPFKeyPair) -> Result<NewsroomSetupResponse, Error> {
         let newsroom_pk_bytes = self.newsroom_verifying_key.into_bytes();
-        let sig = fpf_keys.sk.sign(&newsroom_pk_bytes);
+        let sig = fpf_keys.sign(&newsroom_pk_bytes);
         Ok(NewsroomSetupResponse { sig })
     }
 }
