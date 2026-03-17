@@ -98,7 +98,7 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 | `SIG`                | Signature scheme                                          |                                                                                                                                                                                                                           |
 |                      | $`(sk, vk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                                                                                                                             |
 |                      | $`\sigma \gets^{\$} \text{Sign}(sk, m)`$                  | Sign a message $m$ using a signing key $sk$                                                                                                                                                                               |
-|                      | $`b \in \{0, 1\} \gets \text{Vfy}(vk, m, \sigma)`$        | Verify signature $\sigma$ over a message $m$ using a verifying key $vk$                                                                                                                                                   |
+|                      | $`b \in \{0, 1\} \gets \text{Vfy}(vk, m, \sigma)`$        | Verify signature $\sigma$ over a message $m$ using a verification key $vk$                                                                                                                                                |
 | `AEAD`               | Nonce-based authenticated encryption with associated data |                                                                                                                                                                                                                           |
 |                      | $`c \gets \text{Enc}(k, nonce, ad, m)`$                   | Encrypt a message $m$ using a key $k$, a nonce $nonce$, and associated data $ad$                                                                                                                                          |
 |                      | $`m \gets \text{Dec}(k, nonce, ad, c)`$                   | Decrypt a ciphertext $c$; rest as above                                                                                                                                                                                   |
@@ -280,8 +280,8 @@ Then:
 |                                                                 |                                   | $`\sigma_{FPF} \gets^{\$} \text{SIG.Sign}(sk_{FPF}^{sig}, vk_{NR}^{sig})`$ |
 |                                                                 | $`\sigma_{FPF} \longleftarrow`$   |                                                                            |
 
-The server MUST be deployed with the newsroom's verifying key $vk_{NR}^{sig}$
-pinned. The server MAY be deployed with FPF's verifying key $vk_{FPF}^{sig}$
+The server MUST be deployed with the newsroom's verification key $vk_{NR}^{sig}$
+pinned. The server MAY be deployed with FPF's verification key $vk_{FPF}^{sig}$
 pinned.[^2]
 
 ### 3. Journalist
@@ -315,14 +315,14 @@ Following [enrollment](#31-journalist-initial-key-setup-), each journalist $J$
 MUST generate and maintain a pool of $n$ ephemeral key bundles. For each key
 bundle $i$:[^11]
 
-| Journalist                                                                                    |                                                                         | Server                                                                                     |
-| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                   |                                                                         |                                                                                            |
-| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                      |                                                                         |                                                                                            |
-| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                         |                                                                                            |
-|                                                                                               | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                                            |
+| Journalist                                                                                    |                                                                         | Server                                                                                      |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                   |                                                                         |                                                                                             |
+| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                      |                                                                         |                                                                                             |
+| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                         |                                                                                             |
+|                                                                                               | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                                             |
 |                                                                                               |                                                                         | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i})`$ |
-|                                                                                               |                                                                         | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ for $J$          |
+|                                                                                               |                                                                         | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ for $J$           |
 
 ### 4. Source key setup
 
