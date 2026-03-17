@@ -258,6 +258,12 @@ FPF's verification key $vk_{FPF}^{sig}$ pinned.[^2]
 
 ### 2. Newsroom signing setup
 
+Each newsroom that operates a SecureDrop instance generates its own signing
+keypair. The newsroom sends its verification key to FPF, which manually verifies
+it (out of band) and signs it. The resulting signature $\sigma_{FPF}$ allows
+anyone holding FPF's pinned verification key to verify that this newsroom is
+legitimate.
+
 Given:
 
 |       | FPF              |
