@@ -12,7 +12,7 @@ use securedrop_protocol_minimal::messages::setup::{
 };
 
 use securedrop_protocol_minimal::server::Server;
-use securedrop_protocol_minimal::types::{Journalist, Source, UserPublic, UserSecret};
+use securedrop_protocol_minimal::{Journalist, Source, UserPublic, UserSecret};
 use securedrop_protocol_minimal::{Signature, VerifyingKey};
 
 // Toy implementation purposes

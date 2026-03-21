@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 use securedrop_protocol_minimal::encrypt_decrypt::{
     compute_fetch_challenges, decrypt, encrypt, solve_fetch_challenges,
 };
-use securedrop_protocol_minimal::types::{
+use securedrop_protocol_minimal::{
     Envelope, FetchResponse, Journalist, Plaintext, Source, UserPublic, UserSecret,
 };
 

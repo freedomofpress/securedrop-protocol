@@ -21,7 +21,7 @@ use crate::messages::setup::{
 use crate::primitives;
 use crate::sign::{Signature, VerifyingKey};
 use crate::storage::ServerStorage;
-use crate::types::{Envelope, JournalistPublicView};
+use crate::{Envelope, JournalistPublicView};
 
 /// Server session for handling source requests
 #[derive(Default)]

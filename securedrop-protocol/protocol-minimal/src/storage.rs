@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::x25519::DHPublicKey;
 use crate::sign::{SelfSignature, Signature, VerifyingKey};
-use crate::types::{Enrollment, Envelope, SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
+use crate::{Enrollment, Envelope, SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
 
 pub type ServerMessageStore = HashMap<Uuid, Envelope>;
 

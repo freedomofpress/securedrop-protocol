@@ -1,5 +1,6 @@
 use crate::{
-    Signature, VerifyingKey,
+    Enrollable, Envelope, FetchResponse, JournalistPublic, Signature, SignedKeyBundlePublic,
+    UserPublic, UserSecret, VerifyingKey,
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
     messages::{
         core::{
@@ -7,10 +8,6 @@ use crate::{
             SourceJournalistKeyResponse, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
         },
         setup::{JournalistRefreshRequest, JournalistSetupRequest},
-    },
-    types::{
-        Enrollable, Envelope, FetchResponse, JournalistPublic, SignedKeyBundlePublic, UserPublic,
-        UserSecret,
     },
 };
 use alloc::vec::Vec;

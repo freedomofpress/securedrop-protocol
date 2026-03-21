@@ -7,7 +7,7 @@ use rand_core::{RngCore, SeedableRng};
 use serde::Serialize;
 use uuid::Uuid;
 
-use securedrop_protocol_minimal::types::{Envelope, FetchResponse, Journalist, Source, UserSecret};
+use securedrop_protocol_minimal::{Envelope, FetchResponse, Journalist, Source, UserSecret};
 
 use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
 
