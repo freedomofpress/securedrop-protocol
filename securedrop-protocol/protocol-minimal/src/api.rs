@@ -10,7 +10,7 @@
 //!
 //! Key verification follows a chain of trust:
 //! 1. The FPF signing key is a trust anchor (pre-distributed out of band).
-//! 2. The newsroom's verifying key is signed by FPF.
+//! 2. The newsroom's verifying key is signed by FPF.  (This is not yet verified by `handle_journalist_key_response()`.)
 //! 3. Each journalist's signing key is signed by the newsroom.
 //! 4. Each journalist's key bundles are self-signed.
 
