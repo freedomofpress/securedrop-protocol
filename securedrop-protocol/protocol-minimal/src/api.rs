@@ -169,24 +169,19 @@ pub trait Api {
             .map_err(|_| anyhow::anyhow!("invalid newsroom signature on journalist signing key"))?;
 
         // 2. Verify journalist's self-signature on long-term key bundle
-        let enrollment_signature = &response.journalist.self_signature().as_signature();
-        let enrollment_msg = response.journalist.signed_keybytes();
+        let vk = response.journalist.verifying_key();
+        vk.verify(
+            &response.journalist.signed_keybytes().0,
+            &response.journalist.self_signature().as_signature(),
+        )
+        .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
 
-        response
-            .journalist
-            .verifying_key()
-            .verify(&enrollment_msg.0, enrollment_signature)
-            .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
-
-        // 3. Verify journalist's self-signature on one-time keys
-        response
-            .journalist
-            .verifying_key()
-            .verify(
-                &response.journalist.signed_keybytes().0,
-                &response.journalist.self_signature().as_signature(),
-            )
-            .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on one-time keys"))?;
+        // 3. Verify journalist's self-signature on one-time ephemeral key bundle
+        vk.verify(
+            &response.journalist.ephemeral_bundle().as_bytes(),
+            &response.journalist.ephemeral_signature().as_signature(),
+        )
+        .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on one-time keys"))?;
 
         Ok(())
     }
