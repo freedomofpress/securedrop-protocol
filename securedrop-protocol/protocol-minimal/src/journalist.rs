@@ -101,6 +101,14 @@ impl JournalistPublic for JournalistPublicView {
     fn signed_keybytes(&self) -> &SignedLongtermPubKeyBytes {
         &self.signed_longterm_key_bytes
     }
+
+    fn ephemeral_bundle(&self) -> &KeyBundlePublic {
+        &self.kb.0
+    }
+
+    fn ephemeral_signature(&self) -> &SelfSignature {
+        &self.kb.1
+    }
 }
 
 impl Api for Journalist {

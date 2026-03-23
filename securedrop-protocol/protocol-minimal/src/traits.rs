@@ -9,7 +9,9 @@ use crate::primitives::xwing::XWingPublicKey;
 use alloc::vec::Vec;
 
 use crate::ciphertext::Plaintext;
-use crate::keys::{Enrollment, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
+use crate::keys::{
+    Enrollment, KeyBundlePublic, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermPubKeyBytes,
+};
 
 // Seal Secret user traits behind a private module so that others can't access or implement them
 // This could be more restricted than pub(crate), except we also use it for testing
@@ -40,6 +42,8 @@ pub trait JournalistPublic: UserPublic {
     fn verifying_key(&self) -> &VerifyingKey;
     fn self_signature(&self) -> &SelfSignature;
     fn signed_keybytes(&self) -> &SignedLongtermPubKeyBytes;
+    fn ephemeral_bundle(&self) -> &KeyBundlePublic;
+    fn ephemeral_signature(&self) -> &SelfSignature;
 }
 
 pub trait Enrollable: private::Sealed {

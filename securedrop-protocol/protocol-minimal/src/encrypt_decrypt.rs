@@ -335,7 +335,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 /// TODO: For simplicity, serialize/deserialize is skipped
 pub fn solve_fetch_challenges<S: UserSecret>(
     recipient: &S,
-    challenges: Vec<FetchResponse>,
+    challenges: &[FetchResponse],
 ) -> Vec<Uuid> {
     let mut message_ids: Vec<Uuid> = Vec::new();
 
@@ -508,7 +508,7 @@ mod tests {
 
         let challenges = compute_fetch_challenges(&mut rng, &store, 2);
 
-        let solved_ids = solve_fetch_challenges(&journalist, challenges);
+        let solved_ids = solve_fetch_challenges(&journalist, &challenges);
 
         assert_eq!(solved_ids.len(), 1);
         assert_eq!(solved_ids[0], message_id);
@@ -538,11 +538,9 @@ mod tests {
 
         let challenges = compute_fetch_challenges(&mut rng, &store, 2);
 
-        let chall = challenges.clone();
+        let solved_ids = solve_fetch_challenges(&journalist, &challenges);
 
-        let solved_ids = solve_fetch_challenges(&journalist, chall);
-
-        let solved_ids_miss = solve_fetch_challenges(&wrong_journalist, challenges);
+        let solved_ids_miss = solve_fetch_challenges(&wrong_journalist, &challenges);
 
         assert_eq!(solved_ids.len(), 1);
         assert_eq!(solved_ids[0], message_id);
