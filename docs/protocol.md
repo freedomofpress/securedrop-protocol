@@ -98,7 +98,7 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 | `SIG`                | Signature scheme                                          |                                                                                                                                                                                                                           |
 |                      | $`(sk, vk) \gets^{\$} \text{KGen}()`$                     | Generate keys                                                                                                                                                                                                             |
 |                      | $`\sigma \gets^{\$} \text{Sign}(sk, m)`$                  | Sign a message $m$ using a signing key $sk$                                                                                                                                                                               |
-|                      | $`b \in \{0, 1\} \gets \text{Vfy}(vk, m, \sigma)`$        | Verify signature $\sigma$ over a message $m$ using a verifying key $vk$                                                                                                                                                   |
+|                      | $`b \in \{0, 1\} \gets \text{Vfy}(vk, m, \sigma)`$        | Verify signature $\sigma$ over a message $m$ using a verification key $vk$                                                                                                                                                |
 | `AEAD`               | Nonce-based authenticated encryption with associated data |                                                                                                                                                                                                                           |
 |                      | $`c \gets \text{Enc}(k, nonce, ad, m)`$                   | Encrypt a message $m$ using a key $k$, a nonce $nonce$, and associated data $ad$                                                                                                                                          |
 |                      | $`m \gets \text{Dec}(k, nonce, ad, c)`$                   | Decrypt a ciphertext $c$; rest as above                                                                                                                                                                                   |
@@ -243,14 +243,26 @@ def AuthDec(
 
 ### 1. FPF signing setup
 
+FPF (Freedom of the Press Foundation) serves as the root of trust for the
+SecureDrop ecosystem. FPF generates a long-term signing keypair whose
+verification key is pinned into client and server software. This key is used to
+sign newsroom verification keys, establishing a chain of trust: FPF signs
+newsrooms, and newsrooms sign journalists.
+
 | FPF                                                               |
 | ----------------------------------------------------------------- |
 | $`(sk_{FPF}^{sig}, vk_{FPF}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |
 
 The server, the journalist client, and the source client SHOULD be built with
-FPF's signing key $vk_{FPF}^{sig}$ pinned.[^2]
+FPF's verification key $vk_{FPF}^{sig}$ pinned.[^2]
 
 ### 2. Newsroom signing setup
+
+Each newsroom that operates a SecureDrop instance generates its own signing
+keypair. The newsroom sends its verification key to FPF, which manually verifies
+it (out of band) and signs it. The resulting signature $\sigma_{FPF}$ allows
+anyone holding FPF's pinned verification key to verify that this newsroom is
+legitimate.
 
 Given:
 
@@ -268,8 +280,8 @@ Then:
 |                                                                 |                                   | $`\sigma_{FPF} \gets^{\$} \text{SIG.Sign}(sk_{FPF}^{sig}, vk_{NR}^{sig})`$ |
 |                                                                 | $`\sigma_{FPF} \longleftarrow`$   |                                                                            |
 
-The server MUST be deployed with the newsroom's verifying key $vk_{NR}^{sig}$
-pinned. The server MAY be deployed with FPF's verifying key $vk_{FPF}^{sig}$
+The server MUST be deployed with the newsroom's verification key $vk_{NR}^{sig}$
+pinned. The server MAY be deployed with FPF's verification key $vk_{FPF}^{sig}$
 pinned.[^2]
 
 ### 3. Journalist
@@ -303,14 +315,14 @@ Following [enrollment](#31-journalist-initial-key-setup-), each journalist $J$
 MUST generate and maintain a pool of $n$ ephemeral key bundles. For each key
 bundle $i$:[^11]
 
-| Journalist                                                                                    |                                                                         | Server                                                                                     |
-| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                   |                                                                         |                                                                                            |
-| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                      |                                                                         |                                                                                            |
-| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                         |                                                                                            |
-|                                                                                               | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                                            |
-|                                                                                               |                                                                         | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, \sigma_{J,i})`$ |
-|                                                                                               |                                                                         | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ for $J$          |
+| Journalist                                                                                    |                                                                         | Server                                                                                      |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                   |                                                                         |                                                                                             |
+| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                      |                                                                         |                                                                                             |
+| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                         |                                                                                             |
+|                                                                                               | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                                             |
+|                                                                                               |                                                                         | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i})`$ |
+|                                                                                               |                                                                         | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ for $J$           |
 
 ### 4. Source key setup
 
@@ -364,7 +376,7 @@ Then:
 
 ### 6. Sender submits a message <!-- Figure 3(c) as of b1e4d41 -->
 
-A sender knows their own keys, the newsroom's signing key $vk_{NR}^{sig}$, and
+A sender knows their own keys, the newsroom's verification key $vk_{NR}^{sig}$, and
 the $pks$ and $sigs$ they previously [fetched].
 
 In addition, in the **reply case,** if the sender is a journalist replying to a

@@ -8,9 +8,26 @@ pub struct SigningKey {
     sk: LibCruxSigningKey,
 }
 
+impl core::fmt::Debug for SigningKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Redacts secret key
+        f.debug_struct("SigningKey")
+            .field("vk", &self.vk)
+            .finish_non_exhaustive()
+    }
+}
+
 /// An Ed25519 verification key.
 #[derive(Copy, Clone)]
 pub struct VerifyingKey(LibCruxVerifyingKey);
+
+impl core::fmt::Debug for VerifyingKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("VerifyingKey")
+            .field(&self.into_bytes())
+            .finish()
+    }
+}
 
 // TODO (avoid confusion between journalist self-signature and newsroom signature)
 #[derive(Debug, Clone, Copy)]
