@@ -20,6 +20,12 @@ pub(crate) const LEN_XWING_SHAREDSECRET_ENCAPS: usize = 1120;
 pub(crate) const LEN_XWING_SHAREDSECRET: usize = 32;
 pub(crate) const LEN_XWING_RAND_SEED_SIZE: usize = 96;
 
+// Domain separation tags for signatures (step 3.1 and step 5)
+/// Tag for journalist self-signature over long-term public keys (step 3.1)
+pub const J_SIG_LTK_TAG: &[u8] = b"j-sig-ltk";
+/// Tag for newsroom signature over journalist verifying key (step 3.1)
+pub const NR_SIG_TAG: &[u8] = b"nr-sig";
+
 // Message ID (uuid) and KMID
 pub(crate) const LEN_MESSAGE_ID: usize = 16;
 // TODO: this will be aes-gcm and use AES GCM TagSize

@@ -14,7 +14,7 @@ mod traits;
 pub mod journalist;
 pub mod source;
 
-pub use constants::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY};
+pub use constants::{J_SIG_LTK_TAG, LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY, NR_SIG_TAG};
 
 pub use ciphertext::{CombinedCiphertext, Envelope, FetchResponse, Plaintext};
 
@@ -33,7 +33,7 @@ pub(crate) use traits::private;
 
 // Primitives for signing
 pub mod sign;
-pub use sign::{SelfSignature, Signature, SigningKey, VerifyingKey};
+pub use sign::{SelfSignature, Signature, SigningKey, VerifyingKey, tagged_preimage};
 
 pub mod storage;
 

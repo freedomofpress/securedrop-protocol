@@ -19,6 +19,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
 use crate::constants::*;
+use crate::sign::tagged_preimage;
 use crate::keys::*;
 use crate::traits::private;
 use crate::traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
@@ -196,8 +197,10 @@ impl Journalist {
             generate_dh_akem_keypair(&mut *rng).expect("DH-AKEM Keygen (Reply) failed");
 
         // Self-sign long-term pubkeys (for enrollment)
+        // Preimage: len("j-sig-ltk") || "j-sig-ltk" || (pk_J^APKE || pk_J^fetch)
         let selfsigned_pubkeys = SignedLongtermPubKeyBytes::from_keys(&pk_fetch, &pk_reply);
-        let s = SelfSignature(signing_key.sign(selfsigned_pubkeys.0.as_slice()));
+        let preimage = tagged_preimage(J_SIG_LTK_TAG, selfsigned_pubkeys.as_bytes());
+        let s = SelfSignature(signing_key.sign(&preimage));
 
         // Generate one-time/short-lived keybundles
         for _ in 0..num_keybundles {
@@ -228,8 +231,8 @@ impl Journalist {
             let signed = signing_key.sign(&pubkey_bytes);
 
             key_bundles.push(SignedMessageKeyBundle {
-                bundle: bundle,
-                selfsig: SelfSignature { 0: signed.clone() },
+                bundle,
+                selfsig: SelfSignature(signed),
             });
         }
         // (sanity)
@@ -328,9 +331,10 @@ mod tests {
         let journalist = Journalist::new(&mut rng, 5);
 
         let e = journalist.enroll();
+        let preimage = crate::sign::tagged_preimage(J_SIG_LTK_TAG, e.bundle.as_bytes());
         journalist
             .signing_key()
-            .verify(&e.bundle.0, &e.selfsig.0)
+            .verify(&preimage, &e.selfsig.0)
             .expect("Need correct enrollment sig");
     }
 }

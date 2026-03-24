@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use anyhow::Error;
 use libcrux_ed25519::{SigningKey as LibCruxSigningKey, VerificationKey as LibCruxVerifyingKey};
 use rand_core::CryptoRng;
@@ -61,6 +62,18 @@ impl SigningKey {
             .expect("Signing should not fail with valid key");
         Signature(signature_bytes)
     }
+}
+
+/// Construct the tagged signing preimage: `len(tag) || tag || msg`.
+///
+/// Per the protocol spec footnote [^12]: `tag` is ASCII bytes, `len(tag)` is
+/// a single byte, and `msg` is the preimage bytes.
+pub fn tagged_preimage(tag: &[u8], msg: &[u8]) -> Vec<u8> {
+    let mut preimage = Vec::with_capacity(1 + tag.len() + msg.len());
+    preimage.push(tag.len() as u8);
+    preimage.extend_from_slice(tag);
+    preimage.extend_from_slice(msg);
+    preimage
 }
 
 impl VerifyingKey {

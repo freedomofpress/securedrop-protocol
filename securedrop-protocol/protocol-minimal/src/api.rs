@@ -17,6 +17,7 @@
 use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublic, Signature, SignedKeyBundlePublic,
     UserPublic, UserSecret, VerifyingKey,
+    constants::{J_SIG_LTK_TAG, NR_SIG_TAG},
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
     messages::{
         core::{
@@ -25,6 +26,7 @@ use crate::{
         },
         setup::{JournalistRefreshRequest, JournalistSetupRequest},
     },
+    sign::tagged_preimage,
 };
 use alloc::vec::Vec;
 use anyhow::Error;
@@ -160,18 +162,21 @@ pub trait Api {
         response: &SourceJournalistKeyResponse,
         newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
-        // 1. Verify newsroom signature on journalist's verifying key
+        // 1. Verify newsroom signature on journalist's verifying key.
+        // Preimage: len("nr-sig") || "nr-sig" || vk_J^sig
+        let nr_preimage =
+            tagged_preimage(NR_SIG_TAG, &response.journalist.verifying_key().into_bytes());
         newsroom_verifying_key
-            .verify(
-                &response.journalist.verifying_key().into_bytes(),
-                &response.nr_signature,
-            )
+            .verify(&nr_preimage, &response.nr_signature)
             .map_err(|_| anyhow::anyhow!("invalid newsroom signature on journalist signing key"))?;
 
-        // 2. Verify journalist's self-signature on long-term key bundle
+        // 2. Verify journalist's self-signature on long-term key bundle.
+        // Preimage: len("j-sig-ltk") || "j-sig-ltk" || (pk_J^APKE || pk_J^fetch)
         let vk = response.journalist.verifying_key();
+        let j_ltk_preimage =
+            tagged_preimage(J_SIG_LTK_TAG, &response.journalist.signed_keybytes().0);
         vk.verify(
-            &response.journalist.signed_keybytes().0,
+            &j_ltk_preimage,
             &response.journalist.self_signature().as_signature(),
         )
         .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;

@@ -18,8 +18,9 @@ use crate::messages::setup::{
     JournalistRefreshRequest, JournalistRefreshResponse, JournalistSetupRequest,
     JournalistSetupResponse, NewsroomSetupRequest,
 };
+use crate::constants::{J_SIG_LTK_TAG, NR_SIG_TAG};
 use crate::primitives;
-use crate::sign::{Signature, VerifyingKey};
+use crate::sign::{Signature, VerifyingKey, tagged_preimage};
 use crate::storage::ServerStorage;
 use crate::{Envelope, JournalistPublicView};
 
@@ -78,23 +79,24 @@ impl Server {
         // Get enrollment key from the request
         let journalist_signing_key = request.enrollment.keys.0;
 
-        // Verify journalist signature over their own pubkeys
+        // Verify journalist self-signature over their own pubkeys.
+        // Preimage: len("j-sig-ltk") || "j-sig-ltk" || (pk_J^APKE || pk_J^fetch)
+        let j_sig_preimage =
+            tagged_preimage(J_SIG_LTK_TAG, request.enrollment.bundle.as_bytes());
         journalist_signing_key
-            .verify(
-                &request.enrollment.bundle.0,
-                &request.enrollment.selfsig.as_signature(),
-            )
+            .verify(&j_sig_preimage, &request.enrollment.selfsig.as_signature())
             .map_err(|_| anyhow::anyhow!("Invalid signature on longterm keys"))?;
 
-        // If we're happy with that, sign the journalist's VerifyingKey
-        let verifying_key_bytes = &request.enrollment.keys.0.into_bytes();
+        // Sign the journalist's verifying key.
+        // Preimage: len("nr-sig") || "nr-sig" || vk_J^sig
+        let verifying_key_bytes = request.enrollment.keys.0.into_bytes();
+        let nr_sig_preimage = tagged_preimage(NR_SIG_TAG, &verifying_key_bytes);
 
-        // Sign the journalist bundle
         let newsroom_keys = self
             .newsroom_keys
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Newsroom keys not found in session"))?;
-        let newsroom_signature = newsroom_keys.sign(verifying_key_bytes);
+        let newsroom_signature = newsroom_keys.sign(&nr_sig_preimage);
 
         // Insert journalist keys into storage
         let _journalist_id = self
@@ -135,8 +137,8 @@ impl Server {
         Ok(JournalistRefreshResponse { success: true })
     }
 
-    /// Get the newsroom verifying key
-    pub fn get_newsroom_verifying_key(&self) -> Option<VerifyingKey> {
+    /// Returns the newsroom verifying key, if one has been generated.
+    pub fn newsroom_verifying_key(&self) -> Option<VerifyingKey> {
         self.newsroom_keys.as_ref().map(|keys| keys.verifying_key())
     }
 

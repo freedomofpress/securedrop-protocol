@@ -111,19 +111,27 @@ pub(crate) struct SignedMessageKeyBundle {
 }
 
 #[derive(Debug, Clone)]
-pub struct SignedLongtermPubKeyBytes(pub [u8; LEN_DH_ITEM + LEN_DHKEM_ENCAPS_KEY]);
+pub struct SignedLongtermPubKeyBytes(pub [u8; LEN_DHKEM_ENCAPS_KEY + LEN_DH_ITEM]);
 
 impl SignedLongtermPubKeyBytes {
+    /// Serialize long-term public keys into the canonical byte encoding.
+    ///
+    /// Byte layout (per spec §3.1): `pk_J^APKE || pk_J^fetch`
     pub(crate) fn from_keys(fetch_pk: &DHPublicKey, reply_dhakem: &DhAkemPublicKey) -> Self {
-        let mut pubkey_bytes = [0u8; LEN_DH_ITEM + LEN_DHKEM_ENCAPS_KEY];
-        pubkey_bytes[0..LEN_DH_ITEM].copy_from_slice(&fetch_pk.into_bytes());
-        pubkey_bytes[LEN_DH_ITEM..].copy_from_slice(reply_dhakem.as_bytes());
+        let mut pubkey_bytes = [0u8; LEN_DHKEM_ENCAPS_KEY + LEN_DH_ITEM];
+        pubkey_bytes[0..LEN_DHKEM_ENCAPS_KEY].copy_from_slice(reply_dhakem.as_bytes());
+        pubkey_bytes[LEN_DHKEM_ENCAPS_KEY..].copy_from_slice(&fetch_pk.into_bytes());
 
-        Self { 0: pubkey_bytes }
+        Self(pubkey_bytes)
+    }
+
+    /// Return the canonical byte encoding of the long-term public keys.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Enrollment {
     pub bundle: SignedLongtermPubKeyBytes,
     pub selfsig: SelfSignature,
