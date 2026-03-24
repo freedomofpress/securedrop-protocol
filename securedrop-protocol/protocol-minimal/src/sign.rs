@@ -3,6 +3,53 @@ use anyhow::Error;
 use libcrux_ed25519::{SigningKey as LibCruxSigningKey, VerificationKey as LibCruxVerifyingKey};
 use rand_core::CryptoRng;
 
+/// Domain separation tag for protocol signatures.
+///
+/// Every signature in the protocol covers a tagged preimage
+/// `len(tag) || tag || msg` (spec §Building blocks, footnote [^12]).
+/// Passing a `Domain` to [`SigningKey::sign`] or [`VerifyingKey::verify`]
+/// ensures the correct tag is applied and makes it impossible to accidentally
+/// omit or mix up domain separation at call sites.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Domain {
+    /// Journalist self-signature over long-term public keys (step 3.1).
+    /// Tag: `j-sig-ltk`
+    JournalistLongTermKey,
+    /// Journalist self-signature over ephemeral key bundles (step 3.2).
+    /// Tag: `j-sig-eph`
+    JournalistEphemeralKey,
+    /// Newsroom signature over a journalist's verifying key (step 3.1, step 5).
+    /// Tag: `nr-sig`
+    NewsroomOnJournalist,
+    /// FPF signature over the newsroom's verifying key (step 2).
+    /// Tag: `fpf-sig-nr`
+    FpfOnNewsroom,
+}
+
+impl Domain {
+    fn as_tag(self) -> &'static [u8] {
+        match self {
+            Domain::JournalistLongTermKey => b"j-sig-ltk",
+            Domain::JournalistEphemeralKey => b"j-sig-eph",
+            Domain::NewsroomOnJournalist => b"nr-sig",
+            Domain::FpfOnNewsroom => b"fpf-sig-nr",
+        }
+    }
+}
+
+/// Construct the tagged signing preimage: `len(tag) || tag || msg`.
+///
+/// Per the protocol spec footnote [^12]: `tag` is ASCII bytes, `len(tag)` is
+/// a single byte, and `msg` is the preimage bytes.
+fn tagged_preimage(domain: Domain, msg: &[u8]) -> Vec<u8> {
+    let tag = domain.as_tag();
+    let mut preimage = Vec::with_capacity(1 + tag.len() + msg.len());
+    preimage.push(tag.len() as u8);
+    preimage.extend_from_slice(tag);
+    preimage.extend_from_slice(msg);
+    preimage
+}
+
 /// An Ed25519 signing key.
 pub struct SigningKey {
     pub vk: VerifyingKey,
@@ -56,35 +103,30 @@ impl SigningKey {
         })
     }
 
-    /// Create a signature on `msg` using this `SigningKey`.
-    pub fn sign(&self, msg: &[u8]) -> Signature {
-        let signature_bytes = libcrux_ed25519::sign(msg, self.sk.as_ref())
+    /// Create a signature over `msg` in the given [`Domain`].
+    ///
+    /// The actual preimage signed is `len(tag) || tag || msg` where `tag` is
+    /// the domain separation tag (see spec footnote [^12]).
+    pub fn sign(&self, domain: Domain, msg: &[u8]) -> Signature {
+        let preimage = tagged_preimage(domain, msg);
+        let signature_bytes = libcrux_ed25519::sign(&preimage, self.sk.as_ref())
             .expect("Signing should not fail with valid key");
         Signature(signature_bytes)
     }
 }
 
-/// Construct the tagged signing preimage: `len(tag) || tag || msg`.
-///
-/// Per the protocol spec footnote [^12]: `tag` is ASCII bytes, `len(tag)` is
-/// a single byte, and `msg` is the preimage bytes.
-pub fn tagged_preimage(tag: &[u8], msg: &[u8]) -> Vec<u8> {
-    let mut preimage = Vec::with_capacity(1 + tag.len() + msg.len());
-    preimage.push(tag.len() as u8);
-    preimage.extend_from_slice(tag);
-    preimage.extend_from_slice(msg);
-    preimage
-}
-
 impl VerifyingKey {
-    /// Get the raw bytes of this verification key
+    /// Get the raw bytes of this verification key.
     pub fn into_bytes(self) -> [u8; 32] {
         self.0.into_bytes()
     }
 
-    /// Verify a signature on `msg` using this `VerifyingKey`
-    pub fn verify(&self, msg: &[u8], signature: &Signature) -> Result<(), Error> {
-        libcrux_ed25519::verify(msg, self.0.as_ref(), &signature.0)
+    /// Verify a signature over `msg` in the given [`Domain`].
+    ///
+    /// Returns an error if the signature is invalid or was made in a different domain.
+    pub fn verify(&self, domain: Domain, msg: &[u8], signature: &Signature) -> Result<(), Error> {
+        let preimage = tagged_preimage(domain, msg);
+        libcrux_ed25519::verify(&preimage, self.0.as_ref(), &signature.0)
             .map_err(|_| anyhow::anyhow!("Signature verification failed"))
     }
 }
@@ -107,12 +149,11 @@ mod tests {
     proptest! {
         #[test]
         fn test_sign_verify_roundtrip(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
-
             let mut rng = get_rng();
             let signing_key = SigningKey::new(&mut rng).unwrap();
-            let signature = signing_key.sign(&msg);
+            let signature = signing_key.sign(Domain::JournalistLongTermKey, &msg);
 
-            assert!(signing_key.vk.verify(&msg, &signature).is_ok());
+            assert!(signing_key.vk.verify(Domain::JournalistLongTermKey, &msg, &signature).is_ok());
         }
     }
 
@@ -128,9 +169,9 @@ mod tests {
 
             let mut rng = get_rng();
             let signing_key = SigningKey::new(&mut rng).unwrap();
-            let signature = signing_key.sign(&msg1);
+            let signature = signing_key.sign(Domain::JournalistLongTermKey, &msg1);
 
-            assert!(signing_key.vk.verify(&msg2, &signature).is_err());
+            assert!(signing_key.vk.verify(Domain::JournalistLongTermKey, &msg2, &signature).is_err());
         }
     }
 
@@ -140,9 +181,9 @@ mod tests {
             let mut rng = get_rng();
             let key1 = SigningKey::new(&mut rng).unwrap();
             let key2 = SigningKey::new(&mut rng).unwrap();
-            let signature = key1.sign(&msg);
+            let signature = key1.sign(Domain::JournalistLongTermKey, &msg);
 
-            assert!(key2.vk.verify(&msg, &signature).is_err());
+            assert!(key2.vk.verify(Domain::JournalistLongTermKey, &msg, &signature).is_err());
         }
     }
 }

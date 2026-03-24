@@ -10,7 +10,7 @@ use securedrop_protocol_minimal::keys::FPFKeyPair;
 use securedrop_protocol_minimal::messages::setup::{
     JournalistRefreshRequest, JournalistSetupRequest,
 };
-use securedrop_protocol_minimal::{J_SIG_LTK_TAG, NR_SIG_TAG, tagged_preimage};
+use securedrop_protocol_minimal::sign::Domain;
 
 use securedrop_protocol_minimal::server::Server;
 use securedrop_protocol_minimal::{Journalist, Source, UserPublic, UserSecret};
@@ -49,7 +49,7 @@ fn setup_server<R: CryptoRng + RngCore>(
     assert!(
         fpf_keys
             .verifying_key()
-            .verify(&newsroom_vk.clone().into_bytes(), &setup_response.sig)
+            .verify(Domain::FpfOnNewsroom, &newsroom_vk.clone().into_bytes(), &setup_response.sig)
             .is_ok()
     );
 
@@ -70,7 +70,7 @@ fn setup_journalist<R: RngCore + CryptoRng>(
     // Then request enrollment
     assert!(
         fpf_pubkey
-            .verify(&newsroom_pubkey.into_bytes(), fpf_signature)
+            .verify(Domain::FpfOnNewsroom, &newsroom_pubkey.into_bytes(), fpf_signature)
             .is_ok()
     );
     journalist.set_newsroom_verifying_key(*newsroom_pubkey);
@@ -89,8 +89,8 @@ fn protocol_step_1_generate_fpf_keys() {
     let fpf_keys = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
 
     let message = b"test message";
-    let signature = fpf_keys.sign(message);
-    assert!(fpf_keys.verifying_key().verify(message, &signature).is_ok());
+    let signature = fpf_keys.sign(Domain::FpfOnNewsroom, message);
+    assert!(fpf_keys.verifying_key().verify(Domain::FpfOnNewsroom, message, &signature).is_ok());
 }
 
 /// Step 2: Newsroom setup
@@ -107,7 +107,7 @@ fn protocol_step_2_generate_newsroom_keys() {
     assert!(
         fpf_keys
             .verifying_key()
-            .verify(&newsroom_pk_bytes, &fpf_sig)
+            .verify(Domain::FpfOnNewsroom, &newsroom_pk_bytes, &fpf_sig)
             .is_ok()
     );
 }
@@ -125,7 +125,7 @@ fn protocol_step_3_1_journalist_enrollment() {
     assert!(
         fpf_keys
             .verifying_key()
-            .verify(&newsroom_vk.into_bytes(), &fpf_sig)
+            .verify(Domain::FpfOnNewsroom, &newsroom_vk.into_bytes(), &fpf_sig)
             .is_ok()
     );
 
@@ -147,33 +147,29 @@ fn protocol_step_3_1_journalist_enrollment() {
         .setup_journalist(journalist_setup_request)
         .expect("Can setup journalist");
 
-    // Journalist: Verify newsroom signature on journalist signing pubkey.
-    // Preimage: len("nr-sig") || "nr-sig" || vk_J^sig
+    // Journalist: Verify newsroom signature on journalist signing pubkey (Domain: NewsroomOnJournalist).
     let pubkey_bytes = enrollment_bundle.keys.0.into_bytes();
-    let nr_sig_preimage = tagged_preimage(NR_SIG_TAG, &pubkey_bytes);
     let newsroom_vk = server_session
         .newsroom_verifying_key()
         .expect("Newsroom keys should be available");
     assert!(
         newsroom_vk
-            .verify(&nr_sig_preimage, &journalist_setup_response.sig)
+            .verify(Domain::NewsroomOnJournalist, &pubkey_bytes, &journalist_setup_response.sig)
             .is_ok()
     );
 
-    // Test that wrong bundle bytes fail verification
+    // Test that wrong bundle bytes fail verification.
     let wrong_bundle_bytes = [0u8; 96];
-    let wrong_nr_sig_preimage = tagged_preimage(NR_SIG_TAG, &wrong_bundle_bytes);
     assert!(
         newsroom_vk
-            .verify(&wrong_nr_sig_preimage, &journalist_setup_response.sig)
+            .verify(Domain::NewsroomOnJournalist, &wrong_bundle_bytes, &journalist_setup_response.sig)
             .is_err()
     );
 
-    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle.
-    // Preimage: len("j-sig-ltk") || "j-sig-ltk" || (pk_J^APKE || pk_J^fetch)
+    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle
+    // (Domain: JournalistLongTermKey).
     let enrollment_bundle_bytes = enrollment_bundle.bundle;
     let self_signature = enrollment_bundle.selfsig.clone();
-    let j_ltk_preimage = tagged_preimage(J_SIG_LTK_TAG, enrollment_bundle_bytes.as_bytes());
 
     let _ = server_session
         .find_journalist_id(&enrollment_bundle.keys.0)
@@ -182,17 +178,16 @@ fn protocol_step_3_1_journalist_enrollment() {
         &enrollment_bundle
             .keys
             .0
-            .verify(&j_ltk_preimage, &self_signature.as_signature())
+            .verify(Domain::JournalistLongTermKey, enrollment_bundle_bytes.as_bytes(), &self_signature.as_signature())
             .is_ok()
     );
 
-    // Test that wrong journalist signature bytes fail self-sig verification
-    let wrong_j_ltk_preimage = tagged_preimage(J_SIG_LTK_TAG, &wrong_bundle_bytes);
+    // Test that wrong journalist signature bytes fail self-sig verification.
     assert!(
         &enrollment_bundle
             .keys
             .0
-            .verify(&wrong_j_ltk_preimage, &self_signature.as_signature())
+            .verify(Domain::JournalistLongTermKey, &wrong_bundle_bytes, &self_signature.as_signature())
             .is_err()
     );
 }
@@ -219,24 +214,21 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
         .setup_journalist(journalist_setup_request)
         .expect("Can setup journalist");
 
-    // Journalist: Verify newsroom signature on journalist signing pubkey.
-    // Preimage: len("nr-sig") || "nr-sig" || vk_J^sig
+    // Journalist: Verify newsroom signature on journalist signing pubkey (Domain: NewsroomOnJournalist).
     let pubkey_bytes = enrollment_bundle.keys.0.into_bytes();
-    let nr_sig_preimage = tagged_preimage(NR_SIG_TAG, &pubkey_bytes);
     let newsroom_vk = server_session
         .newsroom_verifying_key()
         .expect("Newsroom keys should be available");
     assert!(
         newsroom_vk
-            .verify(&nr_sig_preimage, &journalist_setup_response.sig)
+            .verify(Domain::NewsroomOnJournalist, &pubkey_bytes, &journalist_setup_response.sig)
             .is_ok()
     );
 
-    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle.
-    // Preimage: len("j-sig-ltk") || "j-sig-ltk" || (pk_J^APKE || pk_J^fetch)
+    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle
+    // (Domain: JournalistLongTermKey).
     let enrollment_bundle_bytes = enrollment_bundle.bundle;
     let self_signature = enrollment_bundle.selfsig.clone();
-    let j_ltk_preimage = tagged_preimage(J_SIG_LTK_TAG, enrollment_bundle_bytes.as_bytes());
 
     let _ = server_session
         .find_journalist_id(&enrollment_bundle.keys.0)
@@ -245,7 +237,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
         &enrollment_bundle
             .keys
             .0
-            .verify(&j_ltk_preimage, &self_signature.as_signature())
+            .verify(Domain::JournalistLongTermKey, enrollment_bundle_bytes.as_bytes(), &self_signature.as_signature())
             .is_ok()
     );
 
@@ -273,11 +265,11 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
     //         .is_ok()
     // );
 
-    // Test that wrong ephemeral keys bytes fail verification
+    // Test that wrong ephemeral keys bytes fail verification (Domain: JournalistEphemeralKey).
     let wrong_ephemeral_bytes = [0u8; 96];
     assert!(
         journalist_vk
-            .verify(&wrong_ephemeral_bytes, &ek_bundle_signature)
+            .verify(Domain::JournalistEphemeralKey, &wrong_ephemeral_bytes, &ek_bundle_signature)
             .is_err()
     );
 

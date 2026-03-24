@@ -19,7 +19,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
 use crate::constants::*;
-use crate::sign::tagged_preimage;
+use crate::sign::Domain;
 use crate::keys::*;
 use crate::traits::private;
 use crate::traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
@@ -196,11 +196,10 @@ impl Journalist {
         let (sk_reply, pk_reply) =
             generate_dh_akem_keypair(&mut *rng).expect("DH-AKEM Keygen (Reply) failed");
 
-        // Self-sign long-term pubkeys (for enrollment)
-        // Preimage: len("j-sig-ltk") || "j-sig-ltk" || (pk_J^APKE || pk_J^fetch)
+        // Self-sign long-term pubkeys (for enrollment).
+        // Domain: JournalistLongTermKey ("j-sig-ltk")
         let selfsigned_pubkeys = SignedLongtermPubKeyBytes::from_keys(&pk_fetch, &pk_reply);
-        let preimage = tagged_preimage(J_SIG_LTK_TAG, selfsigned_pubkeys.as_bytes());
-        let s = SelfSignature(signing_key.sign(&preimage));
+        let s = SelfSignature(signing_key.sign(Domain::JournalistLongTermKey, selfsigned_pubkeys.as_bytes()));
 
         // Generate one-time/short-lived keybundles
         for _ in 0..num_keybundles {
@@ -228,7 +227,7 @@ impl Journalist {
             );
 
             let pubkey_bytes = bundle.public().as_bytes();
-            let signed = signing_key.sign(&pubkey_bytes);
+            let signed = signing_key.sign(Domain::JournalistEphemeralKey, &pubkey_bytes);
 
             key_bundles.push(SignedMessageKeyBundle {
                 bundle,
@@ -331,10 +330,9 @@ mod tests {
         let journalist = Journalist::new(&mut rng, 5);
 
         let e = journalist.enroll();
-        let preimage = crate::sign::tagged_preimage(J_SIG_LTK_TAG, e.bundle.as_bytes());
         journalist
             .signing_key()
-            .verify(&preimage, &e.selfsig.0)
+            .verify(Domain::JournalistLongTermKey, e.bundle.as_bytes(), &e.selfsig.0)
             .expect("Need correct enrollment sig");
     }
 }

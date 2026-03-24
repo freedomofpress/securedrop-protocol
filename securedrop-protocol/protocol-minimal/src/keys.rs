@@ -2,6 +2,7 @@ mod newsroom;
 
 use rand_core::{CryptoRng, RngCore};
 
+use crate::sign::Domain;
 use crate::{SigningKey, VerifyingKey};
 
 use crate::SelfSignature;
@@ -176,9 +177,9 @@ impl FPFKeyPair {
         self.vk
     }
 
-    /// Sign a message using the FPF signing key
-    pub fn sign(&self, msg: &[u8]) -> crate::Signature {
-        self.sk.sign(msg)
+    /// Sign `msg` in the given [`Domain`] using the FPF signing key.
+    pub fn sign(&self, domain: Domain, msg: &[u8]) -> crate::Signature {
+        self.sk.sign(domain, msg)
     }
 }
 

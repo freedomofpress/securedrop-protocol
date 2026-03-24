@@ -1,6 +1,6 @@
 use rand_core::{CryptoRng, RngCore};
 
-use crate::sign::{SigningKey, VerifyingKey};
+use crate::sign::{Domain, SigningKey, VerifyingKey};
 
 /// Newsroom keypair used for signing.
 pub struct NewsroomKeyPair {
@@ -29,8 +29,8 @@ impl NewsroomKeyPair {
         self.vk
     }
 
-    /// Sign a message using the newsroom signing key
-    pub fn sign(&self, msg: &[u8]) -> crate::Signature {
-        self.sk.sign(msg)
+    /// Sign `msg` in the given [`Domain`] using the newsroom signing key.
+    pub fn sign(&self, domain: Domain, msg: &[u8]) -> crate::Signature {
+        self.sk.sign(domain, msg)
     }
 }

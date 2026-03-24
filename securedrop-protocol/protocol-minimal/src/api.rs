@@ -17,7 +17,6 @@
 use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublic, Signature, SignedKeyBundlePublic,
     UserPublic, UserSecret, VerifyingKey,
-    constants::{J_SIG_LTK_TAG, NR_SIG_TAG},
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
     messages::{
         core::{
@@ -26,7 +25,7 @@ use crate::{
         },
         setup::{JournalistRefreshRequest, JournalistSetupRequest},
     },
-    sign::tagged_preimage,
+    sign::Domain,
 };
 use alloc::vec::Vec;
 use anyhow::Error;
@@ -140,7 +139,7 @@ pub trait Api {
     ) -> Result<(), Error> {
         let newsroom_vk_bytes = response.newsroom_verifying_key.into_bytes();
         fpf_verifying_key
-            .verify(&newsroom_vk_bytes, &response.fpf_sig)
+            .verify(Domain::FpfOnNewsroom, &newsroom_vk_bytes, &response.fpf_sig)
             .map_err(|_| anyhow::anyhow!("invalid FPF signature on newsroom verifying key"))?;
 
         self.set_newsroom_verifying_key(response.newsroom_verifying_key);
@@ -162,27 +161,27 @@ pub trait Api {
         response: &SourceJournalistKeyResponse,
         newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
-        // 1. Verify newsroom signature on journalist's verifying key.
-        // Preimage: len("nr-sig") || "nr-sig" || vk_J^sig
-        let nr_preimage =
-            tagged_preimage(NR_SIG_TAG, &response.journalist.verifying_key().into_bytes());
+        // 1. Verify newsroom signature on journalist's verifying key (Domain: NewsroomOnJournalist).
         newsroom_verifying_key
-            .verify(&nr_preimage, &response.nr_signature)
+            .verify(
+                Domain::NewsroomOnJournalist,
+                &response.journalist.verifying_key().into_bytes(),
+                &response.nr_signature,
+            )
             .map_err(|_| anyhow::anyhow!("invalid newsroom signature on journalist signing key"))?;
 
-        // 2. Verify journalist's self-signature on long-term key bundle.
-        // Preimage: len("j-sig-ltk") || "j-sig-ltk" || (pk_J^APKE || pk_J^fetch)
+        // 2. Verify journalist's self-signature on long-term key bundle (Domain: JournalistLongTermKey).
         let vk = response.journalist.verifying_key();
-        let j_ltk_preimage =
-            tagged_preimage(J_SIG_LTK_TAG, &response.journalist.signed_keybytes().0);
         vk.verify(
-            &j_ltk_preimage,
+            Domain::JournalistLongTermKey,
+            &response.journalist.signed_keybytes().0,
             &response.journalist.self_signature().as_signature(),
         )
         .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
 
-        // 3. Verify journalist's self-signature on one-time ephemeral key bundle
+        // 3. Verify journalist's self-signature on one-time ephemeral key bundle (Domain: JournalistEphemeralKey).
         vk.verify(
+            Domain::JournalistEphemeralKey,
             &response.journalist.ephemeral_bundle().as_bytes(),
             &response.journalist.ephemeral_signature().as_signature(),
         )

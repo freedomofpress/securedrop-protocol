@@ -18,9 +18,8 @@ use crate::messages::setup::{
     JournalistRefreshRequest, JournalistRefreshResponse, JournalistSetupRequest,
     JournalistSetupResponse, NewsroomSetupRequest,
 };
-use crate::constants::{J_SIG_LTK_TAG, NR_SIG_TAG};
 use crate::primitives;
-use crate::sign::{Signature, VerifyingKey, tagged_preimage};
+use crate::sign::{Domain, Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 use crate::{Envelope, JournalistPublicView};
 
@@ -79,24 +78,23 @@ impl Server {
         // Get enrollment key from the request
         let journalist_signing_key = request.enrollment.keys.0;
 
-        // Verify journalist self-signature over their own pubkeys.
-        // Preimage: len("j-sig-ltk") || "j-sig-ltk" || (pk_J^APKE || pk_J^fetch)
-        let j_sig_preimage =
-            tagged_preimage(J_SIG_LTK_TAG, request.enrollment.bundle.as_bytes());
+        // Verify journalist self-signature over their own pubkeys (Domain: JournalistLongTermKey).
         journalist_signing_key
-            .verify(&j_sig_preimage, &request.enrollment.selfsig.as_signature())
+            .verify(
+                Domain::JournalistLongTermKey,
+                request.enrollment.bundle.as_bytes(),
+                &request.enrollment.selfsig.as_signature(),
+            )
             .map_err(|_| anyhow::anyhow!("Invalid signature on longterm keys"))?;
 
-        // Sign the journalist's verifying key.
-        // Preimage: len("nr-sig") || "nr-sig" || vk_J^sig
+        // Sign the journalist's verifying key (Domain: NewsroomOnJournalist).
         let verifying_key_bytes = request.enrollment.keys.0.into_bytes();
-        let nr_sig_preimage = tagged_preimage(NR_SIG_TAG, &verifying_key_bytes);
-
         let newsroom_keys = self
             .newsroom_keys
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Newsroom keys not found in session"))?;
-        let newsroom_signature = newsroom_keys.sign(&nr_sig_preimage);
+        let newsroom_signature =
+            newsroom_keys.sign(Domain::NewsroomOnJournalist, &verifying_key_bytes);
 
         // Insert journalist keys into storage
         let _journalist_id = self
@@ -123,11 +121,15 @@ impl Server {
             .ok_or_else(|| anyhow::anyhow!("Journalist not found in storage"))?;
 
         // TODO: more efficient way than verifying each signature!
-        // Verify the signature using the journalist's verifying key
+        // Verify each ephemeral bundle signature (Domain: JournalistEphemeralKey).
         request
             .bundles
             .iter()
-            .try_for_each(|k| request.vk.verify(&k.0.as_bytes(), &k.1.as_signature()))
+            .try_for_each(|k| {
+                request
+                    .vk
+                    .verify(Domain::JournalistEphemeralKey, &k.0.as_bytes(), &k.1.as_signature())
+            })
             .map_err(|_| anyhow::anyhow!("Invalid signature on ephemeral keys"))?;
 
         // Store the ephemeral keys for the journalist
