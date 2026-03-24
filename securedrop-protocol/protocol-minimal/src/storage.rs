@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::x25519::DHPublicKey;
-use crate::sign::{SelfSignature, Signature, VerifyingKey};
+use crate::sign::{JournalistLongTermKey, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::{Enrollment, Envelope, SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
 
 pub type ServerMessageStore = HashMap<Uuid, Envelope>;
@@ -20,9 +20,9 @@ pub struct ServerStorage {
             VerifyingKey,
             DHPublicKey,
             DhAkemPublicKey,
-            SelfSignature,
+            Signature<JournalistLongTermKey>,
             SignedLongtermPubKeyBytes,
-            Signature,
+            Signature<NewsroomOnJournalist>,
         ),
     >,
 
@@ -119,9 +119,9 @@ impl ServerStorage {
             VerifyingKey,
             DHPublicKey,
             DhAkemPublicKey,
-            SelfSignature,
+            Signature<JournalistLongTermKey>,
             SignedLongtermPubKeyBytes,
-            Signature,
+            Signature<NewsroomOnJournalist>,
         ),
     > {
         &self.journalists
@@ -131,7 +131,7 @@ impl ServerStorage {
     pub fn add_journalist(
         &mut self,
         journalist: Enrollment,
-        newsroom_signature: Signature,
+        newsroom_signature: Signature<NewsroomOnJournalist>,
     ) -> Uuid {
         let journalist_id = Uuid::new_v4();
         // match hashmap above

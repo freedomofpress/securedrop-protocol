@@ -19,7 +19,7 @@ use crate::messages::setup::{
     JournalistSetupResponse, NewsroomSetupRequest,
 };
 use crate::primitives;
-use crate::sign::{Domain, Signature, VerifyingKey};
+use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 use crate::{Envelope, JournalistPublicView};
 
@@ -29,7 +29,7 @@ pub struct Server {
     storage: ServerStorage,
     newsroom_keys: Option<NewsroomKeyPair>,
     /// Signature from FPF over the newsroom keys
-    signature: Option<Signature>,
+    signature: Option<Signature<FpfOnNewsroom>>,
 }
 
 impl Server {
@@ -78,23 +78,22 @@ impl Server {
         // Get enrollment key from the request
         let journalist_signing_key = request.enrollment.keys.0;
 
-        // Verify journalist self-signature over their own pubkeys (Domain: JournalistLongTermKey).
+        // Verify journalist self-signature over their own pubkeys.
         journalist_signing_key
             .verify(
-                Domain::JournalistLongTermKey,
                 request.enrollment.bundle.as_bytes(),
-                &request.enrollment.selfsig.as_signature(),
+                &request.enrollment.selfsig,
             )
             .map_err(|_| anyhow::anyhow!("Invalid signature on longterm keys"))?;
 
-        // Sign the journalist's verifying key (Domain: NewsroomOnJournalist).
+        // Sign the journalist's verifying key.
         let verifying_key_bytes = request.enrollment.keys.0.into_bytes();
         let newsroom_keys = self
             .newsroom_keys
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Newsroom keys not found in session"))?;
-        let newsroom_signature =
-            newsroom_keys.sign(Domain::NewsroomOnJournalist, &verifying_key_bytes);
+        let newsroom_signature: Signature<NewsroomOnJournalist> =
+            newsroom_keys.sign(&verifying_key_bytes);
 
         // Insert journalist keys into storage
         let _journalist_id = self
@@ -121,15 +120,11 @@ impl Server {
             .ok_or_else(|| anyhow::anyhow!("Journalist not found in storage"))?;
 
         // TODO: more efficient way than verifying each signature!
-        // Verify each ephemeral bundle signature (Domain: JournalistEphemeralKey).
+        // Verify each ephemeral bundle signature.
         request
             .bundles
             .iter()
-            .try_for_each(|k| {
-                request
-                    .vk
-                    .verify(Domain::JournalistEphemeralKey, &k.0.as_bytes(), &k.1.as_signature())
-            })
+            .try_for_each(|k| request.vk.verify(&k.0.as_bytes(), &k.1))
             .map_err(|_| anyhow::anyhow!("Invalid signature on ephemeral keys"))?;
 
         // Store the ephemeral keys for the journalist
@@ -145,7 +140,7 @@ impl Server {
     }
 
     /// Set the FPF signature for the newsroom
-    pub fn set_fpf_signature(&mut self, signature: Signature) {
+    pub fn set_fpf_signature(&mut self, signature: Signature<FpfOnNewsroom>) {
         self.signature = Some(signature);
     }
 

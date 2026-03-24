@@ -33,7 +33,10 @@ pub(crate) use traits::private;
 
 // Primitives for signing
 pub mod sign;
-pub use sign::{Domain, SelfSignature, Signature, SigningKey, VerifyingKey};
+pub use sign::{
+    DomainTag, FpfOnNewsroom, JournalistEphemeralKey, JournalistLongTermKey, NewsroomOnJournalist,
+    Signature, SigningKey, VerifyingKey,
+};
 
 pub mod storage;
 

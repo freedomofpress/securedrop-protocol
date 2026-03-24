@@ -10,11 +10,11 @@ use securedrop_protocol_minimal::keys::FPFKeyPair;
 use securedrop_protocol_minimal::messages::setup::{
     JournalistRefreshRequest, JournalistSetupRequest,
 };
-use securedrop_protocol_minimal::sign::Domain;
+use securedrop_protocol_minimal::sign::{FpfOnNewsroom, Signature};
 
+use securedrop_protocol_minimal::VerifyingKey;
 use securedrop_protocol_minimal::server::Server;
 use securedrop_protocol_minimal::{Journalist, Source, UserPublic, UserSecret};
-use securedrop_protocol_minimal::{Signature, VerifyingKey};
 
 // Toy implementation purposes
 fn get_rng() -> ChaCha20Rng {
@@ -31,7 +31,7 @@ fn setup_fpf_key<R: CryptoRng + RngCore>(mut rng: R) -> FPFKeyPair {
 fn setup_server<R: CryptoRng + RngCore>(
     mut rng: R,
     fpf_keys: &FPFKeyPair,
-) -> (Server, VerifyingKey, Signature) {
+) -> (Server, VerifyingKey, Signature<FpfOnNewsroom>) {
     // Newsroom: Create server session and generate setup request (pubkey)
     let mut server_session = Server::new();
     let newsroom_setup = server_session
@@ -49,7 +49,7 @@ fn setup_server<R: CryptoRng + RngCore>(
     assert!(
         fpf_keys
             .verifying_key()
-            .verify(Domain::FpfOnNewsroom, &newsroom_vk.clone().into_bytes(), &setup_response.sig)
+            .verify(&newsroom_vk.clone().into_bytes(), &setup_response.sig)
             .is_ok()
     );
 
@@ -62,7 +62,7 @@ fn setup_journalist<R: RngCore + CryptoRng>(
     num_keybundles: usize,
     newsroom_pubkey: &VerifyingKey,
     fpf_pubkey: &VerifyingKey,
-    fpf_signature: &Signature,
+    fpf_signature: &Signature<FpfOnNewsroom>,
 ) -> (Journalist, JournalistSetupRequest) {
     let mut journalist = Journalist::new(&mut rng, num_keybundles);
 
@@ -70,7 +70,7 @@ fn setup_journalist<R: RngCore + CryptoRng>(
     // Then request enrollment
     assert!(
         fpf_pubkey
-            .verify(Domain::FpfOnNewsroom, &newsroom_pubkey.into_bytes(), fpf_signature)
+            .verify(&newsroom_pubkey.into_bytes(), fpf_signature)
             .is_ok()
     );
     journalist.set_newsroom_verifying_key(*newsroom_pubkey);
@@ -89,8 +89,8 @@ fn protocol_step_1_generate_fpf_keys() {
     let fpf_keys = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
 
     let message = b"test message";
-    let signature = fpf_keys.sign(Domain::FpfOnNewsroom, message);
-    assert!(fpf_keys.verifying_key().verify(Domain::FpfOnNewsroom, message, &signature).is_ok());
+    let signature = fpf_keys.sign::<FpfOnNewsroom>(message);
+    assert!(fpf_keys.verifying_key().verify(message, &signature).is_ok());
 }
 
 /// Step 2: Newsroom setup
@@ -107,7 +107,7 @@ fn protocol_step_2_generate_newsroom_keys() {
     assert!(
         fpf_keys
             .verifying_key()
-            .verify(Domain::FpfOnNewsroom, &newsroom_pk_bytes, &fpf_sig)
+            .verify(&newsroom_pk_bytes, &fpf_sig)
             .is_ok()
     );
 }
@@ -125,7 +125,7 @@ fn protocol_step_3_1_journalist_enrollment() {
     assert!(
         fpf_keys
             .verifying_key()
-            .verify(Domain::FpfOnNewsroom, &newsroom_vk.into_bytes(), &fpf_sig)
+            .verify(&newsroom_vk.into_bytes(), &fpf_sig)
             .is_ok()
     );
 
@@ -147,14 +147,14 @@ fn protocol_step_3_1_journalist_enrollment() {
         .setup_journalist(journalist_setup_request)
         .expect("Can setup journalist");
 
-    // Journalist: Verify newsroom signature on journalist signing pubkey (Domain: NewsroomOnJournalist).
+    // Journalist: Verify newsroom signature on journalist signing pubkey.
     let pubkey_bytes = enrollment_bundle.keys.0.into_bytes();
     let newsroom_vk = server_session
         .newsroom_verifying_key()
         .expect("Newsroom keys should be available");
     assert!(
         newsroom_vk
-            .verify(Domain::NewsroomOnJournalist, &pubkey_bytes, &journalist_setup_response.sig)
+            .verify(&pubkey_bytes, &journalist_setup_response.sig)
             .is_ok()
     );
 
@@ -162,32 +162,31 @@ fn protocol_step_3_1_journalist_enrollment() {
     let wrong_bundle_bytes = [0u8; 96];
     assert!(
         newsroom_vk
-            .verify(Domain::NewsroomOnJournalist, &wrong_bundle_bytes, &journalist_setup_response.sig)
+            .verify(&wrong_bundle_bytes, &journalist_setup_response.sig)
             .is_err()
     );
 
-    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle
-    // (Domain: JournalistLongTermKey).
+    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle.
     let enrollment_bundle_bytes = enrollment_bundle.bundle;
-    let self_signature = enrollment_bundle.selfsig.clone();
+    let self_signature = enrollment_bundle.selfsig;
 
     let _ = server_session
         .find_journalist_id(&enrollment_bundle.keys.0)
         .expect("Journalist id should be available for erolled signing key");
     assert!(
-        &enrollment_bundle
+        enrollment_bundle
             .keys
             .0
-            .verify(Domain::JournalistLongTermKey, enrollment_bundle_bytes.as_bytes(), &self_signature.as_signature())
+            .verify(enrollment_bundle_bytes.as_bytes(), &self_signature)
             .is_ok()
     );
 
     // Test that wrong journalist signature bytes fail self-sig verification.
     assert!(
-        &enrollment_bundle
+        enrollment_bundle
             .keys
             .0
-            .verify(Domain::JournalistLongTermKey, &wrong_bundle_bytes, &self_signature.as_signature())
+            .verify(&wrong_bundle_bytes, &self_signature)
             .is_err()
     );
 }
@@ -214,30 +213,29 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
         .setup_journalist(journalist_setup_request)
         .expect("Can setup journalist");
 
-    // Journalist: Verify newsroom signature on journalist signing pubkey (Domain: NewsroomOnJournalist).
+    // Journalist: Verify newsroom signature on journalist signing pubkey.
     let pubkey_bytes = enrollment_bundle.keys.0.into_bytes();
     let newsroom_vk = server_session
         .newsroom_verifying_key()
         .expect("Newsroom keys should be available");
     assert!(
         newsroom_vk
-            .verify(Domain::NewsroomOnJournalist, &pubkey_bytes, &journalist_setup_response.sig)
+            .verify(&pubkey_bytes, &journalist_setup_response.sig)
             .is_ok()
     );
 
     // Journalist: Verify the journalist self-signature on pubkey enrollment bundle
-    // (Domain: JournalistLongTermKey).
     let enrollment_bundle_bytes = enrollment_bundle.bundle;
-    let self_signature = enrollment_bundle.selfsig.clone();
+    let self_signature = enrollment_bundle.selfsig;
 
     let _ = server_session
         .find_journalist_id(&enrollment_bundle.keys.0)
         .expect("Journalist id should be available for erolled signing key");
     assert!(
-        &enrollment_bundle
+        enrollment_bundle
             .keys
             .0
-            .verify(Domain::JournalistLongTermKey, enrollment_bundle_bytes.as_bytes(), &self_signature.as_signature())
+            .verify(enrollment_bundle_bytes.as_bytes(), &self_signature)
             .is_ok()
     );
 
@@ -265,11 +263,11 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
     //         .is_ok()
     // );
 
-    // Test that wrong ephemeral keys bytes fail verification (Domain: JournalistEphemeralKey).
+    // Test that wrong ephemeral keys bytes fail verification.
     let wrong_ephemeral_bytes = [0u8; 96];
     assert!(
         journalist_vk
-            .verify(Domain::JournalistEphemeralKey, &wrong_ephemeral_bytes, &ek_bundle_signature)
+            .verify(&wrong_ephemeral_bytes, &ek_bundle_signature)
             .is_err()
     );
 

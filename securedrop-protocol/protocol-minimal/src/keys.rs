@@ -2,11 +2,11 @@ mod newsroom;
 
 use rand_core::{CryptoRng, RngCore};
 
-use crate::sign::Domain;
-use crate::{SigningKey, VerifyingKey};
+use crate::sign::{
+    DomainTag, FpfOnNewsroom, JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey,
+    VerifyingKey,
+};
 
-use crate::SelfSignature;
-use crate::Signature;
 use crate::primitives::dh_akem::DhAkemPrivateKey;
 use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::mlkem::MLKEM768PrivateKey;
@@ -35,7 +35,7 @@ pub type DhFetchKeyPair = KeyPair<DHPrivateKey, DHPublicKey>;
 pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
 pub type XWingKeyPair = KeyPair<XWingPrivateKey, XWingPublicKey>;
 
-pub type SignedKeyBundlePublic = (KeyBundlePublic, SelfSignature);
+pub type SignedKeyBundlePublic = (KeyBundlePublic, Signature<JournalistEphemeralKey>);
 
 #[derive(Debug, Clone)]
 pub struct KeyBundlePublic {
@@ -97,6 +97,7 @@ impl MessageKeyBundle {
             xwing_md,
         }
     }
+
     pub(crate) fn public(&self) -> KeyBundlePublic {
         KeyBundlePublic {
             dhakem_pk: self.dh_akem.pk.clone(),
@@ -108,7 +109,7 @@ impl MessageKeyBundle {
 
 pub(crate) struct SignedMessageKeyBundle {
     pub(crate) bundle: MessageKeyBundle,
-    pub(crate) selfsig: SelfSignature,
+    pub(crate) selfsig: Signature<JournalistEphemeralKey>,
 }
 
 #[derive(Debug, Clone)]
@@ -135,7 +136,7 @@ impl SignedLongtermPubKeyBytes {
 #[derive(Clone, Debug)]
 pub struct Enrollment {
     pub bundle: SignedLongtermPubKeyBytes,
-    pub selfsig: SelfSignature,
+    pub selfsig: Signature<JournalistLongTermKey>,
     pub keys: (VerifyingKey, DHPublicKey, DhAkemPublicKey),
 }
 
@@ -143,7 +144,7 @@ pub struct Enrollment {
 pub struct SessionStorage {
     pub fpf_key: Option<VerifyingKey>,
     pub nr_key: Option<VerifyingKey>,
-    pub fpf_signature: Option<Signature>,
+    pub fpf_signature: Option<Signature<FpfOnNewsroom>>,
 }
 
 /// A key pair for FPF (Freedom of the Press Foundation).
@@ -161,7 +162,7 @@ impl core::fmt::Debug for FPFKeyPair {
 }
 
 impl FPFKeyPair {
-    /// Generate a new FPF key pair
+    /// Generate a new FPF key pair.
     ///
     /// # Errors
     ///
@@ -172,14 +173,14 @@ impl FPFKeyPair {
         Ok(Self { sk, vk })
     }
 
-    /// Get the verification key
+    /// Returns the verification key.
     pub fn verifying_key(&self) -> VerifyingKey {
         self.vk
     }
 
-    /// Sign `msg` in the given [`Domain`] using the FPF signing key.
-    pub fn sign(&self, domain: Domain, msg: &[u8]) -> crate::Signature {
-        self.sk.sign(domain, msg)
+    /// Sign `msg` in domain `D` using the FPF signing key.
+    pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
+        self.sk.sign(msg)
     }
 }
 

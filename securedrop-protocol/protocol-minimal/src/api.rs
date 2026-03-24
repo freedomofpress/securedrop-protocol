@@ -15,8 +15,8 @@
 //! 4. Each journalist's key bundles are self-signed.
 
 use crate::{
-    Enrollable, Envelope, FetchResponse, JournalistPublic, Signature, SignedKeyBundlePublic,
-    UserPublic, UserSecret, VerifyingKey,
+    Enrollable, Envelope, FetchResponse, JournalistPublic, SignedKeyBundlePublic, UserPublic,
+    UserSecret, VerifyingKey,
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
     messages::{
         core::{
@@ -25,7 +25,7 @@ use crate::{
         },
         setup::{JournalistRefreshRequest, JournalistSetupRequest},
     },
-    sign::Domain,
+    sign::{JournalistEphemeralKey, Signature},
 };
 use alloc::vec::Vec;
 use anyhow::Error;
@@ -139,7 +139,7 @@ pub trait Api {
     ) -> Result<(), Error> {
         let newsroom_vk_bytes = response.newsroom_verifying_key.into_bytes();
         fpf_verifying_key
-            .verify(Domain::FpfOnNewsroom, &newsroom_vk_bytes, &response.fpf_sig)
+            .verify(&newsroom_vk_bytes, &response.fpf_sig)
             .map_err(|_| anyhow::anyhow!("invalid FPF signature on newsroom verifying key"))?;
 
         self.set_newsroom_verifying_key(response.newsroom_verifying_key);
@@ -161,29 +161,26 @@ pub trait Api {
         response: &SourceJournalistKeyResponse,
         newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
-        // 1. Verify newsroom signature on journalist's verifying key (Domain: NewsroomOnJournalist).
+        // 1. Verify newsroom signature on journalist's verifying key.
         newsroom_verifying_key
             .verify(
-                Domain::NewsroomOnJournalist,
                 &response.journalist.verifying_key().into_bytes(),
                 &response.nr_signature,
             )
             .map_err(|_| anyhow::anyhow!("invalid newsroom signature on journalist signing key"))?;
 
-        // 2. Verify journalist's self-signature on long-term key bundle (Domain: JournalistLongTermKey).
+        // 2. Verify journalist's self-signature on long-term key bundle.
         let vk = response.journalist.verifying_key();
         vk.verify(
-            Domain::JournalistLongTermKey,
             &response.journalist.signed_keybytes().0,
-            &response.journalist.self_signature().as_signature(),
+            response.journalist.self_signature(),
         )
         .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
 
-        // 3. Verify journalist's self-signature on one-time ephemeral key bundle (Domain: JournalistEphemeralKey).
+        // 3. Verify journalist's self-signature on one-time ephemeral key bundle.
         vk.verify(
-            Domain::JournalistEphemeralKey,
             &response.journalist.ephemeral_bundle().as_bytes(),
-            &response.journalist.ephemeral_signature().as_signature(),
+            response.journalist.ephemeral_signature(),
         )
         .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on one-time keys"))?;
 
@@ -240,7 +237,7 @@ pub trait JournalistApi: Api + restricted::RestrictedApi {
             vk: self.signing_key().clone(),
             bundles,
             // TODO: sign the full bundle collection rather than individual bundles
-            bundle_sig: Signature([0u8; 64]),
+            bundle_sig: Signature::<JournalistEphemeralKey>::from_bytes([0u8; 64]),
         })
     }
 }
