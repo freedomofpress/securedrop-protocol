@@ -6,15 +6,18 @@
 
 ## PKI: the status quo
 
-The readme sketches the following PKI scheme for use with the SecureDrop Protocol:
+The [specification] sketches the following PKI scheme for use with the
+SecureDrop Protocol:
 
-| The party... | ...has the secret key... | ...with the public key... | ...with the signature[^1]... | ...so that...                                       |
-| ------------ | ------------------------ | ------------------------- | ---------------------------- | --------------------------------------------------- |
-| FPF          | $FPF_{SK}$               | $FPF_{PK}$                | $\bot$                       |                                                     |
-| Newsroom     | $NR_{SK}$                | $NR_{PK}$                 | $sig^{FPF_{SK}}(NR_{PK})$    | FPF can attest to an instance's legitimacy.[^2]     |
-| Journalist   | $J_{SK}$                 | $J_{PK}$                  | $sig^{NR_{SK}}(J_{PK})$      | a source can verify a journalist's enrollment.      |
-| Journalist   | $JC_{SK}$                | $JC_{PK}$                 | $sig^{J_{SK}}(JC_{PK})$      | the server can verify a journalist's fetching key.  |
-| Journalist   | $JE_{SK}$                | $JE_{PK}$                 | $sig^{J_{SK}}(JE_{PK})$      | a source can verify a journalist's per-message key. |
+| The party... | ...has the private key... | ...with the public key... | ...with the signature[^1]... | ...so that...                                                |
+| ------------ | ------------------------- | ------------------------- | ---------------------------- | ------------------------------------------------------------ |
+| FPF          | $sk_{FPF}^{sig}$          | $vk_{FPF}^{sig}$          | $\bot$                       |                                                              |
+| Newsroom     | $sk_{NR}^{sig}$           | $vk_{NR}^{sig}$           | $\sigma_{FPF}$               | FPF can attest to an instance's legitimacy.[^2]              |
+| Journalist   | $sk_J^{sig}$              | $vk_J^{sig}$              | $\sigma_{NR,J}$              | a source can verify a journalist's enrollment.               |
+| Journalist   | $sk_J^{fetch}$            | $pk_J^{fetch}$            | $\sigma_J$                   | the server can verify a journalist's fetching key.           |
+| Journalist   | $sk_J^{APKE}$             | $pk_J^{APKE}$             | $\sigma_J$                   | a source can verify a journalist's long-term message key.    |
+| Journalist   | $sk_{J,i}^{APKE_E}$       | $pk_{J,i}^{APKE_E}$       | $\sigma_{J,i}$               | a source can verify a journalist's per-message key.          |
+| Journalist   | $sk_{J,i}^{PKE_E}$        | $pk_{J,i}^{PKE_E}$        | $\sigma_{J,i}$               | a source can verify a journalist's per-message metadata key. |
 
 @mmaker described the need for
 
@@ -77,12 +80,15 @@ The disadvantages of KT are:
 2. **Operational implications:** KT is another service to run, with new failure
    modes to reason about and manage.
 
-[^1]: See
-    <https://github.com/freedomofpress/securedrop-protocol?tab=readme-ov-file#functions>
-    for the notation used here.
+[^1]: See the ["Key Hierarchy"][key-hierarchy] and ["Building
+    Blocks"][building-blocks] sections of `docs/protocol.md` for the notation used
+    here.
+
+[key-hierarchy]: protocol.md#key-hierarchy-
+[building-blocks]: protocol.md#building-blocks3-
 
 [^2]: One reviewer has suggested including a countersignature
-    $sig^{NR_{SK}}(FPF_{PK})$.
+    $\sigma_{NR}$.
 
 [^3]: https://github.com/freedomofpress/securedrop-poc/files/14903819/securedrop.report.pdf
 
@@ -91,3 +97,4 @@ The disadvantages of KT are:
 [#32]: https://github.com/freedomofpress/securedrop-protocol/issues/32
 [#54]: https://github.com/freedomofpress/securedrop-protocol/issues/54
 [sdher]: https://github.com/freedomofpress/securedrop-https-everywhere-ruleset
+[specification]: protocol.md
