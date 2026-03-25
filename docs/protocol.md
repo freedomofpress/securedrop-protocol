@@ -260,7 +260,7 @@ FPF's verification key $vk_{FPF}^{sig}$ pinned.
 
 Each newsroom that operates a SecureDrop instance generates its own signing
 keypair. The newsroom sends its verification key to FPF, which manually verifies
-it (out of band) and signs it.[^2] The resulting signature $\sigma_{FPF}$ allows
+it (out of band) and signs it.[^2] The resulting signature $\sigma_{FPF}^{NR}$ allows
 anyone holding FPF's pinned verification key to verify that this newsroom is
 legitimate.
 
@@ -273,12 +273,12 @@ Given:
 
 Then:
 
-| Newsroom                                                        |                                   | FPF                                                                                                  |
-| --------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| $`(sk_{NR}^{sig}, vk_{NR}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |                                   |                                                                                                      |
-|                                                                 | $`\longrightarrow vk_{NR}^{sig}`$ | Verify manually                                                                                      |
-|                                                                 |                                   | $`\sigma_{FPF} \gets^{\$} \text{SIG.Sign}(sk_{FPF}^{sig}, \texttt{fpf-sig-nr} \Vert vk_{NR}^{sig})`$ |
-|                                                                 | $`\sigma_{FPF} \longleftarrow`$   |                                                                                                      |
+| Newsroom                                                        |                                      | FPF                                                                                                       |
+| --------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| $`(sk_{NR}^{sig}, vk_{NR}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |                                      |                                                                                                           |
+|                                                                 | $`\longrightarrow vk_{NR}^{sig}`$    | Verify manually                                                                                           |
+|                                                                 |                                      | $`\sigma_{FPF}^{NR} \gets^{\$} \text{SIG.Sign}(sk_{FPF}^{sig}, \texttt{fpf-sig-nr} \Vert vk_{NR}^{sig})`$ |
+|                                                                 | $`\sigma_{FPF}^{NR} \longleftarrow`$ |                                                                                                           |
 
 The server MUST be deployed with the newsroom's verification key $vk_{NR}^{sig}$
 pinned. The server MAY be deployed with FPF's verification key $vk_{FPF}^{sig}$
@@ -305,9 +305,9 @@ Then:
 | $`\sigma_J \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}))`$ |                                                                       |                                                                                                        |
 |                                                                                                           | $`\longrightarrow (vk_J^{sig}, \sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ |                                                                                                        |
 |                                                                                                           |                                                                       | Verify $vk_J^{sig}$ manually, then store for $J$                                                       |
-|                                                                                                           |                                                                       | $`\sigma_{NR,J} \gets^{\$} \text{SIG.Sign}(sk_{NR}^{sig}, \texttt{nr-sig} \Vert vk_J^{sig})`$          |
+|                                                                                                           |                                                                       | $`\sigma_{NR}^{J} \gets^{\$} \text{SIG.Sign}(sk_{NR}^{sig}, \texttt{nr-sig} \Vert vk_J^{sig})`$        |
 |                                                                                                           |                                                                       | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J)`$ |
-|                                                                                                           |                                                                       | If $b = 1$: Store $`(\sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ and $\sigma_{NR,J}$ for $J$                |
+|                                                                                                           |                                                                       | If $b = 1$: Store $`(\sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ and $\sigma_{NR}^{J}$ for $J$              |
 
 #### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 3(a) as of b1e4d41 -->
 
@@ -367,10 +367,10 @@ Then:
 |                                                                                                                                            | $\longrightarrow$ `RequestKeys` |                                                                                                                 |
 |                                                                                                                                            |                                 | For all journalists $J$, select one key bundle $i$ at random                                                    |
 |                                                                                                                                            |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE})\}`$ for all $J$[^10] |
-|                                                                                                                                            |                                 | $`sigs \gets \{(\sigma_{NR,J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$                                          |
+|                                                                                                                                            |                                 | $`sigs \gets \{(\sigma_{NR}^{J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$                                        |
 |                                                                                                                                            |                                 | For all journalists $J$, remove key bundle $i$ from storage                                                     |
 |                                                                                                                                            | $`pks, sigs \longleftarrow`$    |                                                                                                                 |
-| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, \texttt{nr-sig} \Vert vk_J^{sig}, \sigma_{NR,J}) = 0`$ for some $J$: abort                              |                                 |                                                                                                                 |
+| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, \texttt{nr-sig} \Vert vk_J^{sig}, \sigma_{NR}^{J}) = 0`$ for some $J$: abort                            |                                 |                                                                                                                 |
 | If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                  |                                 |                                                                                                                 |
 | If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}) = 0`$ for some $J, i$: abort |                                 |                                                                                                                 |
 

@@ -12,8 +12,8 @@ SecureDrop Protocol:
 | The party... | ...has the private key... | ...with the public key... | ...with the signature[^1]... | ...so that...                                                |
 | ------------ | ------------------------- | ------------------------- | ---------------------------- | ------------------------------------------------------------ |
 | FPF          | $sk_{FPF}^{sig}$          | $vk_{FPF}^{sig}$          | $\bot$                       |                                                              |
-| Newsroom     | $sk_{NR}^{sig}$           | $vk_{NR}^{sig}$           | $\sigma_{FPF}$               | FPF can attest to an instance's legitimacy.[^2]              |
-| Journalist   | $sk_J^{sig}$              | $vk_J^{sig}$              | $\sigma_{NR,J}$              | a source can verify a journalist's enrollment.               |
+| Newsroom     | $sk_{NR}^{sig}$           | $vk_{NR}^{sig}$           | $\sigma_{FPF}^{NR}$          | FPF can attest to an instance's legitimacy.[^2]              |
+| Journalist   | $sk_J^{sig}$              | $vk_J^{sig}$              | $\sigma_{NR}^{J}$            | a source can verify a journalist's enrollment.               |
 | Journalist   | $sk_J^{fetch}$            | $pk_J^{fetch}$            | $\sigma_J$                   | the server can verify a journalist's fetching key.           |
 | Journalist   | $sk_J^{APKE}$             | $pk_J^{APKE}$             | $\sigma_J$                   | a source can verify a journalist's long-term message key.    |
 | Journalist   | $sk_{J,i}^{APKE_E}$       | $pk_{J,i}^{APKE_E}$       | $\sigma_{J,i}$               | a source can verify a journalist's per-message key.          |
@@ -88,7 +88,7 @@ The disadvantages of KT are:
 [building-blocks]: protocol.md#building-blocks3-
 
 [^2]: One reviewer has suggested including a countersignature
-    $\sigma_{NR}$.
+    $\sigma_{NR}^{FPF}$.
 
 [^3]: https://github.com/freedomofpress/securedrop-poc/files/14903819/securedrop.report.pdf
 
