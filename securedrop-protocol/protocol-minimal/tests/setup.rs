@@ -172,7 +172,7 @@ fn protocol_step_3_1_journalist_enrollment() {
 
     let _ = server_session
         .find_journalist_id(&enrollment_bundle.keys.0)
-        .expect("Journalist id should be available for erolled signing key");
+        .expect("Journalist id should be available for enrolled signing key");
     assert!(
         enrollment_bundle
             .keys
@@ -230,7 +230,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
 
     let _ = server_session
         .find_journalist_id(&enrollment_bundle.keys.0)
-        .expect("Journalist id should be available for erolled signing key");
+        .expect("Journalist id should be available for enrolled signing key");
     assert!(
         enrollment_bundle
             .keys

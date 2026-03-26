@@ -195,7 +195,7 @@ impl Journalist {
             generate_dh_akem_keypair(&mut *rng).expect("DH-AKEM Keygen (Reply) failed");
 
         // Self-sign long-term pubkeys (for enrollment).
-        let selfsigned_pubkeys = SignedLongtermPubKeyBytes::from_keys(&pk_fetch, &pk_reply);
+        let selfsigned_pubkeys = SignedLongtermPubKeyBytes::from_keys(&pk_reply, &pk_fetch);
         let self_signature: Signature<JournalistLongTermKey> =
             signing_key.sign(selfsigned_pubkeys.as_bytes());
 

@@ -172,7 +172,7 @@ pub trait Api {
         // 2. Verify journalist's self-signature on long-term key bundle.
         let vk = response.journalist.verifying_key();
         vk.verify(
-            &response.journalist.signed_keybytes().0,
+            response.journalist.signed_keybytes().as_bytes(),
             response.journalist.self_signature(),
         )
         .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
