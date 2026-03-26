@@ -295,9 +295,8 @@ key and sends the verification key, signature, and public keys to the newsroom.
 
 The newsroom manually verifies the journalist's verification key (out of band),
 then signs it with the newsroom signing key to produce $\sigma_{NR,J}$. The
-newsroom then verifies the journalist's signature over their public keys - if
-valid, it stores the journalist's public keys and signatures for use in the
-protocol.
+newsroom then verifies the journalist's signature over their public keys.  If the signature is
+valid, the server stores the journalist's public keys and signatures, and the journalist is considered enrolled.
 
 Given:
 
