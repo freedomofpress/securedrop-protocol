@@ -93,6 +93,8 @@ impl<D: DomainTag> Signature<D> {
 /// Construct the tagged signing preimage: `len(tag) || tag || msg`.
 fn tagged_preimage<D: DomainTag>(msg: &[u8]) -> Vec<u8> {
     let tag = D::TAG;
+    debug_assert!(tag.len() <= 255, "tag length exceeds u8::MAX");
+    debug_assert!(tag.is_ascii(), "tag contains non-ASCII bytes");
     let mut preimage = Vec::with_capacity(1 + tag.len() + msg.len());
     preimage.push(tag.len() as u8);
     preimage.extend_from_slice(tag);
