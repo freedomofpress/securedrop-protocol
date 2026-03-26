@@ -1,5 +1,5 @@
+use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::{FetchResponse, JournalistPublicView};
-use crate::{Signature, VerifyingKey};
 use alloc::vec::Vec;
 use uuid::Uuid;
 
@@ -13,7 +13,7 @@ pub struct SourceNewsroomKeyRequest {}
 /// This is the first response in step 5 of the spec.
 pub struct SourceNewsroomKeyResponse {
     pub newsroom_verifying_key: VerifyingKey,
-    pub fpf_sig: Signature,
+    pub fpf_sig: Signature<FpfOnNewsroom>,
 }
 
 /// Source fetches journalist keys for the newsroom
@@ -37,7 +37,7 @@ pub struct SourceJournalistKeyRequest {}
 /// static keys and one that contains one-time keys
 pub struct SourceJournalistKeyResponse {
     pub journalist: JournalistPublicView,
-    pub nr_signature: Signature,
+    pub nr_signature: Signature<NewsroomOnJournalist>,
 }
 
 /// User (source or journalist) fetches message IDs

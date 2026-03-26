@@ -8,8 +8,10 @@
 
 use alloc::vec::Vec;
 
+use crate::sign::{
+    FpfOnNewsroom, JournalistEphemeralKey, NewsroomOnJournalist, Signature, VerifyingKey,
+};
 use crate::{Enrollment, SignedKeyBundlePublic};
-use crate::{Signature, VerifyingKey};
 
 /// Request from the newsroom to FPF for verification.
 ///
@@ -25,12 +27,13 @@ pub struct NewsroomSetupRequest {
 #[derive(Debug)]
 pub struct NewsroomSetupResponse {
     /// A signature over the newsroom verifying key by the FPF signing key
-    pub sig: Signature,
+    pub sig: Signature<FpfOnNewsroom>,
 }
 
 /// Request from the journalist to the newsroom for initial onboarding.
 ///
 /// Step 3.1 in the spec.
+#[derive(Debug)]
 pub struct JournalistSetupRequest {
     pub enrollment: Enrollment,
 }
@@ -38,9 +41,10 @@ pub struct JournalistSetupRequest {
 /// Response from the newsroom to the journalist for initial onboarding.
 ///
 /// Step 3.1 in the spec.
+#[derive(Debug)]
 pub struct JournalistSetupResponse {
     /// A signature over the journalist enrollment bundle by the newsroom signing key
-    pub sig: Signature,
+    pub sig: Signature<NewsroomOnJournalist>,
 }
 
 /// Request from the journalist to the SecureDrop server for ephemeral key replenishment.
@@ -50,7 +54,7 @@ pub struct JournalistRefreshRequest {
     /// TODO: discuss vk
     pub vk: VerifyingKey,
     pub bundles: Vec<SignedKeyBundlePublic>,
-    pub bundle_sig: Signature, // todo/to discuss
+    pub bundle_sig: Signature<JournalistEphemeralKey>, // todo/to discuss
 }
 
 /// Response from the server to the journalist for ephemeral key replenishment.

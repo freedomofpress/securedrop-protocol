@@ -10,10 +10,11 @@ use securedrop_protocol_minimal::keys::FPFKeyPair;
 use securedrop_protocol_minimal::messages::setup::{
     JournalistRefreshRequest, JournalistSetupRequest,
 };
+use securedrop_protocol_minimal::sign::{FpfOnNewsroom, Signature};
 
+use securedrop_protocol_minimal::VerifyingKey;
 use securedrop_protocol_minimal::server::Server;
 use securedrop_protocol_minimal::{Journalist, Source, UserPublic, UserSecret};
-use securedrop_protocol_minimal::{Signature, VerifyingKey};
 
 // Toy implementation purposes
 fn get_rng() -> ChaCha20Rng {
@@ -30,7 +31,7 @@ fn setup_fpf_key<R: CryptoRng + RngCore>(mut rng: R) -> FPFKeyPair {
 fn setup_server<R: CryptoRng + RngCore>(
     mut rng: R,
     fpf_keys: &FPFKeyPair,
-) -> (Server, VerifyingKey, Signature) {
+) -> (Server, VerifyingKey, Signature<FpfOnNewsroom>) {
     // Newsroom: Create server session and generate setup request (pubkey)
     let mut server_session = Server::new();
     let newsroom_setup = server_session
@@ -61,7 +62,7 @@ fn setup_journalist<R: RngCore + CryptoRng>(
     num_keybundles: usize,
     newsroom_pubkey: &VerifyingKey,
     fpf_pubkey: &VerifyingKey,
-    fpf_signature: &Signature,
+    fpf_signature: &Signature<FpfOnNewsroom>,
 ) -> (Journalist, JournalistSetupRequest) {
     let mut journalist = Journalist::new(&mut rng, num_keybundles);
 
@@ -88,7 +89,7 @@ fn protocol_step_1_generate_fpf_keys() {
     let fpf_keys = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
 
     let message = b"test message";
-    let signature = fpf_keys.sign(message);
+    let signature = fpf_keys.sign::<FpfOnNewsroom>(message);
     assert!(fpf_keys.verifying_key().verify(message, &signature).is_ok());
 }
 
@@ -146,10 +147,10 @@ fn protocol_step_3_1_journalist_enrollment() {
         .setup_journalist(journalist_setup_request)
         .expect("Can setup journalist");
 
-    // Journalist: Verify newsroom signature on journalist signing pubkey
+    // Journalist: Verify newsroom signature on journalist signing pubkey.
     let pubkey_bytes = enrollment_bundle.keys.0.into_bytes();
     let newsroom_vk = server_session
-        .get_newsroom_verifying_key()
+        .newsroom_verifying_key()
         .expect("Newsroom keys should be available");
     assert!(
         newsroom_vk
@@ -157,7 +158,7 @@ fn protocol_step_3_1_journalist_enrollment() {
             .is_ok()
     );
 
-    // Test that wrong bundle bytes fail verification
+    // Test that wrong bundle bytes fail verification.
     let wrong_bundle_bytes = [0u8; 96];
     assert!(
         newsroom_vk
@@ -165,27 +166,27 @@ fn protocol_step_3_1_journalist_enrollment() {
             .is_err()
     );
 
-    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle
+    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle.
     let enrollment_bundle_bytes = enrollment_bundle.bundle;
-    let self_signature = enrollment_bundle.selfsig.clone();
+    let self_signature = enrollment_bundle.selfsig;
 
     let _ = server_session
         .find_journalist_id(&enrollment_bundle.keys.0)
-        .expect("Journalist id should be available for erolled signing key");
+        .expect("Journalist id should be available for enrolled signing key");
     assert!(
-        &enrollment_bundle
+        enrollment_bundle
             .keys
             .0
-            .verify(&enrollment_bundle_bytes.0, &self_signature.as_signature())
+            .verify(enrollment_bundle_bytes.as_bytes(), &self_signature)
             .is_ok()
     );
 
-    // Test that wrong journalist signature bytes fail self-sig verification
+    // Test that wrong journalist signature bytes fail self-sig verification.
     assert!(
-        &enrollment_bundle
+        enrollment_bundle
             .keys
             .0
-            .verify(&wrong_bundle_bytes, &self_signature.as_signature())
+            .verify(&wrong_bundle_bytes, &self_signature)
             .is_err()
     );
 }
@@ -212,10 +213,10 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
         .setup_journalist(journalist_setup_request)
         .expect("Can setup journalist");
 
-    // Journalist: Verify newsroom signature on journalist signing pubkey
+    // Journalist: Verify newsroom signature on journalist signing pubkey.
     let pubkey_bytes = enrollment_bundle.keys.0.into_bytes();
     let newsroom_vk = server_session
-        .get_newsroom_verifying_key()
+        .newsroom_verifying_key()
         .expect("Newsroom keys should be available");
     assert!(
         newsroom_vk
@@ -225,16 +226,16 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
 
     // Journalist: Verify the journalist self-signature on pubkey enrollment bundle
     let enrollment_bundle_bytes = enrollment_bundle.bundle;
-    let self_signature = enrollment_bundle.selfsig.clone();
+    let self_signature = enrollment_bundle.selfsig;
 
     let _ = server_session
         .find_journalist_id(&enrollment_bundle.keys.0)
-        .expect("Journalist id should be available for erolled signing key");
+        .expect("Journalist id should be available for enrolled signing key");
     assert!(
-        &enrollment_bundle
+        enrollment_bundle
             .keys
             .0
-            .verify(&enrollment_bundle_bytes.0, &self_signature.as_signature())
+            .verify(enrollment_bundle_bytes.as_bytes(), &self_signature)
             .is_ok()
     );
 
@@ -262,7 +263,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
     //         .is_ok()
     // );
 
-    // Test that wrong ephemeral keys bytes fail verification
+    // Test that wrong ephemeral keys bytes fail verification.
     let wrong_ephemeral_bytes = [0u8; 96];
     assert!(
         journalist_vk

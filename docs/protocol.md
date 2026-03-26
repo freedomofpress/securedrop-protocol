@@ -288,6 +288,13 @@ pinned.[^2]
 
 #### 3.1. Journalist initial key setup <!-- Figure 2 as of b1e4d41 -->
 
+Each journalist generates three long-term keypairs: $sig$ for signing, $APKE$ for message encryption, and $fetch$ for message fetching. The journalist signs their $APKE$ and $fetch$ public keys with their new $sig$ signing key and sends the public keys to the newsroom along with the signature and verification key.
+
+The newsroom manually verifies the journalist's verification key (out of band),
+then signs it with the newsroom signing key to produce $\sigma_{NR,J}$. The
+newsroom then verifies the journalist's signature over their public keys. If the signature is
+valid, the server stores the journalist's public keys and signatures, and the journalist is considered enrolled.
+
 Given:
 
 |       | Newsroom        |

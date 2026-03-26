@@ -1,4 +1,3 @@
-use crate::SelfSignature;
 use crate::VerifyingKey;
 use crate::primitives::dh_akem::DhAkemPrivateKey;
 use crate::primitives::dh_akem::DhAkemPublicKey;
@@ -6,6 +5,7 @@ use crate::primitives::mlkem::MLKEM768PublicKey;
 use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::xwing::XWingPublicKey;
+use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature};
 use alloc::vec::Vec;
 
 use crate::ciphertext::Plaintext;
@@ -40,10 +40,10 @@ pub trait UserPublic {
 
 pub trait JournalistPublic: UserPublic {
     fn verifying_key(&self) -> &VerifyingKey;
-    fn self_signature(&self) -> &SelfSignature;
+    fn self_signature(&self) -> &Signature<JournalistLongTermKey>;
     fn signed_keybytes(&self) -> &SignedLongtermPubKeyBytes;
     fn ephemeral_bundle(&self) -> &KeyBundlePublic;
-    fn ephemeral_signature(&self) -> &SelfSignature;
+    fn ephemeral_signature(&self) -> &Signature<JournalistEphemeralKey>;
 }
 
 pub trait Enrollable: private::Sealed {

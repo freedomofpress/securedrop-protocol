@@ -1,5 +1,3 @@
-use crate::SelfSignature;
-use crate::SigningKey;
 use crate::VerifyingKey;
 use crate::api::Api;
 use crate::api::JournalistApi;
@@ -14,6 +12,7 @@ use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::x25519::generate_dh_keypair;
 use crate::primitives::xwing::XWingPublicKey;
 use crate::primitives::xwing::generate_xwing_keypair;
+use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey};
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
 
@@ -31,7 +30,7 @@ pub struct Journalist {
     fetch_key: DhFetchKeyPair,
     message_keys: Vec<SignedMessageKeyBundle>,
     reply_key: DhAkemKeyPair,
-    self_signature: SelfSignature,
+    self_signature: Signature<JournalistLongTermKey>,
     signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
     session_storage: SessionStorage,
 }
@@ -43,7 +42,7 @@ pub struct JournalistPublicView {
     fetch_pk: DHPublicKey,
     dhakem_pk_reply: DhAkemPublicKey,
     signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
-    selfsig: SelfSignature,
+    selfsig: Signature<JournalistLongTermKey>,
     kb: SignedKeyBundlePublic,
 }
 
@@ -52,7 +51,7 @@ impl JournalistPublicView {
         vk: VerifyingKey,
         fetch: DHPublicKey,
         dhakem: DhAkemPublicKey,
-        selfsig: SelfSignature,
+        selfsig: Signature<JournalistLongTermKey>,
         signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
         kb: SignedKeyBundlePublic,
     ) -> Self {
@@ -94,7 +93,7 @@ impl JournalistPublic for JournalistPublicView {
         &self.vk
     }
 
-    fn self_signature(&self) -> &SelfSignature {
+    fn self_signature(&self) -> &Signature<JournalistLongTermKey> {
         &self.selfsig
     }
 
@@ -106,7 +105,7 @@ impl JournalistPublic for JournalistPublicView {
         &self.kb.0
     }
 
-    fn ephemeral_signature(&self) -> &SelfSignature {
+    fn ephemeral_signature(&self) -> &Signature<JournalistEphemeralKey> {
         &self.kb.1
     }
 }
@@ -195,11 +194,12 @@ impl Journalist {
         let (sk_reply, pk_reply) =
             generate_dh_akem_keypair(&mut *rng).expect("DH-AKEM Keygen (Reply) failed");
 
-        // Self-sign long-term pubkeys (for enrollment)
-        let selfsigned_pubkeys = SignedLongtermPubKeyBytes::from_keys(&pk_fetch, &pk_reply);
-        let s = SelfSignature(signing_key.sign(selfsigned_pubkeys.0.as_slice()));
+        // Self-sign long-term pubkeys (for enrollment).
+        let selfsigned_pubkeys = SignedLongtermPubKeyBytes::from_keys(&pk_reply, &pk_fetch);
+        let self_signature: Signature<JournalistLongTermKey> =
+            signing_key.sign(selfsigned_pubkeys.as_bytes());
 
-        // Generate one-time/short-lived keybundles
+        // Generate one-time/short-lived keybundles.
         for _ in 0..num_keybundles {
             let (sk_dh, pk_dh) = generate_dh_akem_keypair(rng).expect("DH keygen (DH-AKEM) failed");
 
@@ -225,17 +225,13 @@ impl Journalist {
             );
 
             let pubkey_bytes = bundle.public().as_bytes();
-            let signed = signing_key.sign(&pubkey_bytes);
+            let selfsig: Signature<JournalistEphemeralKey> = signing_key.sign(&pubkey_bytes);
 
-            key_bundles.push(SignedMessageKeyBundle {
-                bundle: bundle,
-                selfsig: SelfSignature { 0: signed.clone() },
-            });
+            key_bundles.push(SignedMessageKeyBundle { bundle, selfsig });
         }
-        // (sanity)
         assert_eq!(key_bundles.len(), num_keybundles);
 
-        let session = SessionStorage {
+        let session_storage = SessionStorage {
             fpf_key: None,
             nr_key: None,
             fpf_signature: None,
@@ -255,9 +251,9 @@ impl Journalist {
                 pk: pk_reply,
             },
             message_keys: key_bundles,
-            self_signature: s,
+            self_signature,
             signed_longterm_key_bytes: selfsigned_pubkeys,
-            session_storage: session,
+            session_storage,
         }
     }
 
@@ -326,11 +322,11 @@ mod tests {
         let mut rng = ChaCha20Rng::seed_from_u64(666);
 
         let journalist = Journalist::new(&mut rng, 5);
-
         let e = journalist.enroll();
+
         journalist
             .signing_key()
-            .verify(&e.bundle.0, &e.selfsig.0)
+            .verify(e.bundle.as_bytes(), &e.selfsig)
             .expect("Need correct enrollment sig");
     }
 }

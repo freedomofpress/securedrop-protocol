@@ -4,6 +4,7 @@
 
 use crate::keys::FPFKeyPair;
 use crate::messages::setup::{NewsroomSetupRequest, NewsroomSetupResponse};
+use crate::sign::{FpfOnNewsroom, Signature};
 use anyhow::Error;
 
 impl NewsroomSetupRequest {
@@ -24,7 +25,7 @@ impl NewsroomSetupRequest {
     ///
     pub fn sign(self, fpf_keys: &FPFKeyPair) -> Result<NewsroomSetupResponse, Error> {
         let newsroom_pk_bytes = self.newsroom_verifying_key.into_bytes();
-        let sig = fpf_keys.sign(&newsroom_pk_bytes);
+        let sig: Signature<FpfOnNewsroom> = fpf_keys.sign(&newsroom_pk_bytes);
         Ok(NewsroomSetupResponse { sig })
     }
 }
