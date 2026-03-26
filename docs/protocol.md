@@ -288,10 +288,7 @@ pinned.[^2]
 
 #### 3.1. Journalist initial key setup <!-- Figure 2 as of b1e4d41 -->
 
-Each journalist generates three keypairs: a long-term signing keypair, an
-SD-APKE keypair (for message encryption), and a ristretto255 keypair (for
-message fetching). The journalist signs their public keys with their new signing
-key and sends the verification key, signature, and public keys to the newsroom.
+Each journalist generates three long-term keypairs: $sig$ for signing, $APKE$ for message encryption, and $fetch$ for message fetching.  The journalist signs their $APKE$ and $fetch$ public keys with their new $sig$ signing key and sends the public keys to the newsroom along with the signature and verification key.
 
 The newsroom manually verifies the journalist's verification key (out of band),
 then signs it with the newsroom signing key to produce $\sigma_{NR,J}$. The
