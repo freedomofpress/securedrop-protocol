@@ -214,4 +214,16 @@ mod tests {
             assert!(key2.vk.verify(&msg, &sig).is_err());
         }
     }
+
+    proptest! {
+        #[test]
+        fn test_domain_separation(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
+            let mut rng = get_rng();
+            let signing_key = SigningKey::new(&mut rng).unwrap();
+            let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg);
+            let cross_domain_sig: Signature<JournalistEphemeralKey> =
+                Signature::from_bytes(sig.bytes);
+            assert!(signing_key.vk.verify(&msg, &cross_domain_sig).is_err());
+        }
+    }
 }
