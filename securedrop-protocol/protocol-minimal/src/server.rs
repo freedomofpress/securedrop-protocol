@@ -109,6 +109,11 @@ impl Server {
     ///
     /// The journalist sends ephemeral keys signed by their signing key, and the server
     /// verifies the signature and stores the ephemeral keys.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the journalist is not found in storage, or if any bundle
+    /// signature fails verification.
     pub fn handle_ephemeral_key_request(
         &mut self,
         request: JournalistEphemeralKeyRequest,

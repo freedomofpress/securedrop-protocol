@@ -241,9 +241,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
 
     // Step 3.2: Journalist generates ephemeral keys and signs them
     // Journalist creates ephemeral key request
-    let ephemeral_key_request = journalist
-        .create_ephemeral_key_request()
-        .expect("Can create ephemeral key request");
+    let ephemeral_key_request = journalist.create_ephemeral_key_request();
 
     let bundles = ephemeral_key_request.bundles.clone();
 
