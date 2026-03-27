@@ -340,7 +340,12 @@ For each key bundle $i$:[^11]
 ### 4. Source key setup
 
 To begin each session, a source MUST enter (on their first visit) or reenter (on
-a subsequent visit) some $passphrase$:
+a subsequent visit) some $passphrase$. A master key $mk$ is derived from the
+passphrase using a password-based KDF.
+
+Three private keys are then derived from $mk$ using a
+domain-separated KDF: one for message fetching and two for encryption (APKE and
+PKE). All source keys are long-term and fully determined by the passphrase.
 
 | Source                                                         |
 | -------------------------------------------------------------- |
