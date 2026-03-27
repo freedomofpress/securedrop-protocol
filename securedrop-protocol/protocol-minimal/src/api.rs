@@ -222,19 +222,15 @@ pub trait JournalistApi: Api + restricted::RestrictedApi {
     ///
     /// Collects all current signed key bundles and packages them into a
     /// [`JournalistEphemeralKeyRequest`] for upload to the server (step 3.2).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request cannot be constructed.
-    fn create_ephemeral_key_request(&self) -> Result<JournalistEphemeralKeyRequest, Error>
+    fn create_ephemeral_key_request(&self) -> JournalistEphemeralKeyRequest
     where
         Self: Enrollable,
     {
         let bundles: Vec<SignedKeyBundlePublic> = self.signed_keybundles().collect();
 
-        Ok(JournalistEphemeralKeyRequest {
+        JournalistEphemeralKeyRequest {
             verifying_key: self.signing_key().clone(),
             bundles,
-        })
+        }
     }
 }
