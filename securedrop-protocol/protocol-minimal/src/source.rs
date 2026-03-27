@@ -20,15 +20,17 @@ use crate::keys::*;
 use crate::traits::private;
 use crate::traits::{UserPublic, UserSecret};
 
-// Fixed public salt for domain separation. Argon2id requires a salt;
-// since source keys must be deterministic from the passphrase alone,
-// we use a fixed application-specific value rather than a random one.
+/// Fixed public salt for Argon2id. Argon2id requires a salt; since source
+/// keys must be deterministic from the passphrase alone, we use a fixed
+/// application-specific value rather than a random one.
 const SOURCE_PBKDF_SALT: &[u8] = b"securedrop-source-v1";
 
-/// Sources: ingredients
-/// Sources have a fetch key and an unsigned key bundle.
-/// They reuse the dh-akem key within the keybundle where
-/// journalists use a "reply key".
+/// A source and their long-term key material (step 4).
+///
+/// A source's keys are fully determined by their passphrase: the fetch key,
+/// APKE key, and PKE key are all derived from a master key via Argon2id and
+/// a domain-separated KDF. Returning sources reconstruct the same keys by
+/// calling [`Source::from_passphrase`] with the same passphrase.
 pub struct Source {
     fetch_key: DhFetchKeyPair,
     message_keys: MessageKeyBundle,
@@ -36,8 +38,15 @@ pub struct Source {
     session: SessionStorage,
 }
 
-// Public-facing representation of a source,
-// i.e., for receiving messages
+impl core::fmt::Debug for Source {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Using non-exhaustive to avoid leaking source keys.
+        f.debug_struct("Source").finish_non_exhaustive()
+    }
+}
+
+/// The public key material of a source, used by journalists to send replies.
+#[derive(Debug, Clone)]
 pub struct SourcePublicView {
     fetch_pk: DHPublicKey,
     dhakem_pk: DhAkemPublicKey,
@@ -116,16 +125,22 @@ impl UserSecret for Source {
 }
 
 impl Source {
+    /// Create a new source with a randomly generated passphrase.
+    ///
+    /// TODO / For testing only - in production the passphrase must be a mnemonic
+    /// of sufficient entropy generated and displayed to the source.
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> Self {
-        // Generate a random passphrase
         let mut passphrase = [0u8; 32];
         rng.fill_bytes(&mut passphrase);
-
-        // Derive all keys from the passphrase
-        let source = Self::from_passphrase(&passphrase);
-        source
+        Self::from_passphrase(&passphrase)
     }
 
+    /// Returns the source's passphrase.
+    ///
+    /// # Security
+    ///
+    /// The passphrase is the root secret from which all source keys are
+    /// derived. It MUST be stored and transmitted only over secure channels.
     pub fn passphrase(&self) -> &[u8] {
         &self.passphrase
     }
@@ -204,29 +219,29 @@ impl Source {
                 sk: fetch_sk,
                 pk: fetch_pk,
             },
-            message_keys: {
-                MessageKeyBundle::new(
-                    KeyPair {
-                        sk: dhakem_decaps,
-                        pk: dhakem_encaps,
-                    },
-                    KeyPair {
-                        sk: mlkem_decaps,
-                        pk: mlkem_encaps,
-                    },
-                    KeyPair {
-                        sk: xwing_decaps,
-                        pk: xwing_encaps,
-                    },
-                )
-            },
+            message_keys: MessageKeyBundle::new(
+                KeyPair {
+                    sk: dhakem_decaps,
+                    pk: dhakem_encaps,
+                },
+                KeyPair {
+                    sk: mlkem_decaps,
+                    pk: mlkem_encaps,
+                },
+                KeyPair {
+                    sk: xwing_decaps,
+                    pk: xwing_encaps,
+                },
+            ),
             passphrase: passphrase.to_vec(),
-            session: session,
+            session,
         }
     }
+
+    /// Returns the public key material for this source.
     pub fn public(&self) -> SourcePublicView {
         SourcePublicView {
-            fetch_pk: self.fetch_key.pk.clone(),
+            fetch_pk: self.fetch_key.pk,
             dhakem_pk: self.message_keys.dh_akem.pk.clone(),
             message_pks: self.message_keys.public(),
         }

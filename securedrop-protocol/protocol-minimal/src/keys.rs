@@ -16,7 +16,6 @@ use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::xwing::XWingPrivateKey;
 use crate::primitives::xwing::XWingPublicKey;
 use alloc::vec::Vec;
-use libcrux_sha2::Digest;
 
 use crate::constants::*;
 
