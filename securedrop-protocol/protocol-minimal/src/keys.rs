@@ -16,7 +16,6 @@ use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::xwing::XWingPrivateKey;
 use crate::primitives::xwing::XWingPublicKey;
 use alloc::vec::Vec;
-use libcrux_sha2::Digest;
 
 use crate::constants::*;
 
@@ -35,17 +34,30 @@ pub type DhFetchKeyPair = KeyPair<DHPrivateKey, DHPublicKey>;
 pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
 pub type XWingKeyPair = KeyPair<XWingPrivateKey, XWingPublicKey>;
 
+/// The public half of an ephemeral key bundle together with the journalist's
+/// self-signature over it.
 pub type SignedKeyBundlePublic = (KeyBundlePublic, Signature<JournalistEphemeralKey>);
 
+/// The public keys that make up one ephemeral key bundle (step 3.2).
+///
+/// Each bundle contains one key for each cryptographic role:
+/// - `dhakem_pk`: SD-APKE ephemeral key (`pk_{J,i}^{APKE_E}`), DHKEM(X25519) component
+/// - `mlkem_pk`: SD-APKE ephemeral key (`pk_{J,i}^{APKE_E}`), ML-KEM-768 component
+/// - `xwing_pk`: SD-PKE ephemeral key (`pk_{J,i}^{PKE_E}`), X-Wing
 #[derive(Debug, Clone)]
 pub struct KeyBundlePublic {
+    /// DHKEM(X25519) component of the ephemeral SD-APKE key.
     pub dhakem_pk: DhAkemPublicKey,
+    /// ML-KEM-768 component of the ephemeral SD-APKE key.
     pub mlkem_pk: MLKEM768PublicKey,
+    /// X-Wing ephemeral SD-PKE key, used for metadata protection.
     pub xwing_pk: XWingPublicKey,
 }
 
 impl KeyBundlePublic {
-    // Serialize in a specific order, i.e. for signing
+    /// Serialize the bundle public keys in canonical byte order for signing.
+    ///
+    /// Layout: `pk_{J,i}^{APKE_E}(DHKEM) || pk_{J,i}^{APKE_E}(ML-KEM) || pk_{J,i}^{PKE_E}(X-Wing)`
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend(self.dhakem_pk.as_bytes());
@@ -54,24 +66,6 @@ impl KeyBundlePublic {
         out
     }
 }
-
-// pub struct BorrowedKeyBundlePublic<'a> {
-//     pub dhakem_pk: &'a DhAkemPublicKey,
-//     pub mlkem_pk: &'a MLKEM768PublicKey,
-//     pub xwing_pk: &'a XWingPublicKey,
-// }
-
-// impl<'a> BorrowedKeyBundlePublic<'a> {
-//     // Serialize in a specific order, i.e. for signing
-
-//     pub(crate) fn to_owned(&self) -> KeyBundlePublic {
-//         KeyBundlePublic {
-//             dhakem_pk: self.dhakem_pk.clone(),
-//             mlkem_pk: self.mlkem_pk.clone(),
-//             xwing_pk: self.xwing_pk.clone(),
-//         }
-//     }
-// }
 
 pub(crate) struct MessageKeyBundle {
     pub(crate) dh_akem: DhAkemKeyPair,
