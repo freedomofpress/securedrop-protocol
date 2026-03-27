@@ -16,26 +16,17 @@ pub struct NewsroomKeyResponse {
     pub fpf_sig: Signature<FpfOnNewsroom>,
 }
 
-/// Source fetches journalist keys for the newsroom
+/// Request to fetch journalist keys from the server (`RequestKeys` in the spec).
 ///
-/// This is part of step 5 in the spec.
-///
-/// Note: This isn't currently written down in the spec, but
-/// should occur right before the server provides a long-term
-/// key and an ephmeral key bundle for the journalist.
-pub struct SourceJournalistKeyRequest {}
+/// This is step 5 in the spec. The server responds with long-term keys and a
+/// one-time ephemeral key bundle for each available journalist.
+pub struct KeyRequest {}
 
-/// Server returns journalist long-term keys and ephemeral keys
+/// Server response to a `KeyRequest` (`pks, sigs` in the spec).
 ///
-/// This is the second part of step 5 in the spec.
-///
-/// Updated for 0.3 spec with new key types:
-/// - ephemeral_dh_pk: MLKEM-768 for message enc PSK (one-time)
-/// - ephemeral_kem_pk: DH-AKEM for message enc (one-time)
-/// - ephemeral_pke_pk: XWING for metadata enc (one-time)
-/// TODO: this may be split into 2 responses, one that contains
-/// static keys and one that contains one-time keys
-pub struct SourceJournalistKeyResponse {
+/// Contains one entry per journalist with their long-term keys, a one-time
+/// ephemeral key bundle, and the associated signatures.
+pub struct KeyResponse {
     pub journalist: JournalistPublicView,
     pub nr_signature: Signature<NewsroomOnJournalist>,
 }

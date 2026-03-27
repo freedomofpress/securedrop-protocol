@@ -7,7 +7,7 @@ use rand_core::SeedableRng;
 use securedrop_protocol_minimal::api::{Api, JournalistApi};
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 
-use securedrop_protocol_minimal::messages::core::SourceJournalistKeyRequest;
+use securedrop_protocol_minimal::messages::core::KeyRequest;
 use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::server::Server;
 use securedrop_protocol_minimal::{Journalist, JournalistPublic, Source, UserPublic, UserSecret};
@@ -84,9 +84,9 @@ fn protocol_step_5_source_fetch_keys() {
         .expect("Newsroom key response should be valid");
 
     // Source fetches journalist keys
-    let journalist_key_request = source_session.fetch_journalist_keys();
+    let journalist_key_request = source_session.request_keys();
     let journalist_key_responses =
-        server_session.handle_source_journalist_key_request(journalist_key_request, &mut rng);
+        server_session.handle_key_request(journalist_key_request, &mut rng);
 
     // We only have one journalist rn
     assert_eq!(journalist_key_responses.len(), 1);
@@ -94,7 +94,7 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Source handles and verifies the journalist key response
     source_session
-        .handle_journalist_key_response(journalist_response, &newsroom_verifying_key)
+        .handle_key_response(journalist_response, &newsroom_verifying_key)
         .expect("Journalist key response should be valid");
 
     // Verify the journalist's signing key matches our expectation
@@ -137,14 +137,14 @@ fn protocol_step_5_source_fetch_keys() {
     // Consume the remaining keys
     for _i in 0..DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST - 1 {
         let _ = server_session
-            .handle_source_journalist_key_request(SourceJournalistKeyRequest {}, &mut rng);
+            .handle_key_request(KeyRequest {}, &mut rng);
     }
     assert!(!server_session.has_ephemeral_keys(journalist_id));
 
     // Test that subsequent requests return no keys (since they were consumed)
-    let empty_journalist_key_request = source_session.fetch_journalist_keys();
+    let empty_journalist_key_request = source_session.request_keys();
     let empty_responses =
-        server_session.handle_source_journalist_key_request(empty_journalist_key_request, &mut rng);
+        server_session.handle_key_request(empty_journalist_key_request, &mut rng);
     assert_eq!(empty_responses.len(), 0);
 
     // Test that invalid FPF signatures are rejected
@@ -163,7 +163,7 @@ fn protocol_step_5_source_fetch_keys() {
         NewsroomKeyPair::new(&mut rng).expect("Newsroom key generation failed");
     assert!(
         source_session
-            .handle_journalist_key_response(
+            .handle_key_response(
                 journalist_response,
                 &wrong_newsroom_keypair.verifying_key()
             )
@@ -231,16 +231,16 @@ fn protocol_step_6_source_submits_message() {
         .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.verifying_key())
         .expect("Newsroom key response should be valid");
 
-    let journalist_key_request = source.fetch_journalist_keys();
+    let journalist_key_request = source.request_keys();
     let journalist_key_responses =
-        server_session.handle_source_journalist_key_request(journalist_key_request, &mut rng);
+        server_session.handle_key_request(journalist_key_request, &mut rng);
 
     let journalist_response = &journalist_key_responses[0];
 
     let journalist_public = &journalist_response.journalist;
 
     source
-        .handle_journalist_key_response(journalist_response, &newsroom_verifying_key)
+        .handle_key_response(journalist_response, &newsroom_verifying_key)
         .expect("Journalist key response should be valid");
 
     // Step 6: Source submits a message
@@ -317,14 +317,14 @@ fn protocol_step_7_message_id_fetch() {
         .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.verifying_key())
         .expect("Newsroom key response should be valid");
 
-    let journalist_key_request = source.fetch_journalist_keys();
+    let journalist_key_request = source.request_keys();
     let journalist_key_responses =
-        server_session.handle_source_journalist_key_request(journalist_key_request, &mut rng);
+        server_session.handle_key_request(journalist_key_request, &mut rng);
 
     let journalist_response = &journalist_key_responses[0];
 
     source
-        .handle_journalist_key_response(journalist_response, &newsroom_verifying_key)
+        .handle_key_response(journalist_response, &newsroom_verifying_key)
         .expect("Journalist key response should be valid");
 
     // Submit a message (Step 6)
