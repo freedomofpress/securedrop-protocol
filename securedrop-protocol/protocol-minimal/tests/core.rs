@@ -74,7 +74,7 @@ fn protocol_step_5_source_fetch_keys() {
     let mut source_session = Source::from_passphrase(&[1u8; 32]);
 
     // Step 5: Source fetches newsroom keys
-    let newsroom_key_request = source_session.fetch_newsroom_keys();
+    let newsroom_key_request = source_session.newsroom_key_request();
     let newsroom_key_response =
         server_session.handle_newsroom_key_request(newsroom_key_request);
 
@@ -104,14 +104,14 @@ fn protocol_step_5_source_fetch_keys() {
     let &jvk = journalist_public.verifying_key();
 
     assert_eq!(
-        journalist_response.journalist.verifying_key().into_bytes(),
+        journalist_response.journalist().verifying_key().into_bytes(),
         jvk.into_bytes()
     );
 
     // Verify the journalist's fetch key matches our expectation
     assert_eq!(
         journalist_response
-            .journalist
+            .journalist()
             .fetch_pk()
             .clone()
             .into_bytes(),
@@ -120,7 +120,7 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Verify the journalist's DH key matches our expectation
     assert_eq!(
-        journalist_response.journalist.message_auth_pk().as_bytes(),
+        journalist_response.journalist().message_auth_pk().as_bytes(),
         journalist.message_auth_keypair().1.as_bytes()
     );
 
@@ -218,7 +218,7 @@ fn protocol_step_6_source_submits_message() {
     let mut source = Source::new(&mut rng);
 
     // Source fetches keys (Step 5)
-    let newsroom_key_request = source.fetch_newsroom_keys();
+    let newsroom_key_request = source.newsroom_key_request();
     let newsroom_key_response =
         server_session.handle_newsroom_key_request(newsroom_key_request);
 
@@ -232,7 +232,7 @@ fn protocol_step_6_source_submits_message() {
 
     let journalist_response = &journalist_key_responses[0];
 
-    let journalist_public = &journalist_response.journalist;
+    let journalist_public = journalist_response.journalist();
 
     source
         .handle_key_response(journalist_response)
@@ -304,7 +304,7 @@ fn protocol_step_7_message_id_fetch() {
     let mut source = Source::from_passphrase(&[1u8; 32]);
 
     // Source fetches keys (Step 5)
-    let newsroom_key_request = source.fetch_newsroom_keys();
+    let newsroom_key_request = source.newsroom_key_request();
     let newsroom_key_response =
         server_session.handle_newsroom_key_request(newsroom_key_request);
 
@@ -329,7 +329,7 @@ fn protocol_step_7_message_id_fetch() {
             &mut rng,
             message_content,
             &source,
-            &journalist_response.journalist,
+            journalist_response.journalist(),
         )
         .expect("Can submit message");
 

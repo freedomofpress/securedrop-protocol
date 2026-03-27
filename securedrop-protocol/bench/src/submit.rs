@@ -48,7 +48,7 @@ fn setup_test_environment() -> (SourceClient, Vec<KeyResponse>) {
     let mut source = SourceClient::from_passphrase(&[1u8; 32]);
 
     // 6. Source fetches newsroom keys
-    let newsroom_key_request = source.fetch_newsroom_keys();
+    let newsroom_key_request = source.newsroom_key_request();
     let newsroom_key_response = server.handle_newsroom_key_request(newsroom_key_request);
 
     // Source handles and verifies the newsroom key response

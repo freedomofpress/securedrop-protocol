@@ -44,10 +44,10 @@ pub trait Api {
     /// Stores a verified newsroom verifying key.
     fn set_newsroom_verifying_key(&mut self, key: VerifyingKey);
 
-    /// Creates a request to fetch the newsroom's public keys from the server.
+    /// Creates a `NewsroomKeyRequest` to fetch the newsroom's public keys from the server.
     ///
     /// This is the first part of step 5 in the protocol spec.
-    fn fetch_newsroom_keys(&self) -> NewsroomKeyRequest {
+    fn newsroom_key_request(&self) -> NewsroomKeyRequest {
         NewsroomKeyRequest {}
     }
 
@@ -135,12 +135,12 @@ pub trait Api {
         response: &NewsroomKeyResponse,
         fpf_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
-        let newsroom_vk_bytes = response.newsroom_verifying_key.into_bytes();
+        let newsroom_vk_bytes = response.newsroom_verifying_key().into_bytes();
         fpf_verifying_key
-            .verify(&newsroom_vk_bytes, &response.fpf_sig)
+            .verify(&newsroom_vk_bytes, response.fpf_sig())
             .map_err(|_| anyhow::anyhow!("invalid FPF signature on newsroom verifying key"))?;
 
-        self.set_newsroom_verifying_key(response.newsroom_verifying_key);
+        self.set_newsroom_verifying_key(*response.newsroom_verifying_key());
         Ok(())
     }
 
@@ -165,23 +165,23 @@ pub trait Api {
         // 1. Verify newsroom signature on journalist's verifying key.
         newsroom_verifying_key
             .verify(
-                &response.journalist.verifying_key().into_bytes(),
-                &response.nr_signature,
+                &response.journalist().verifying_key().into_bytes(),
+                response.nr_signature(),
             )
             .map_err(|_| anyhow::anyhow!("invalid newsroom signature on journalist signing key"))?;
 
         // 2. Verify journalist's self-signature on long-term key bundle.
-        let vk = response.journalist.verifying_key();
+        let vk = response.journalist().verifying_key();
         vk.verify(
-            response.journalist.signed_keybytes().as_bytes(),
-            response.journalist.self_signature(),
+            response.journalist().signed_keybytes().as_bytes(),
+            response.journalist().self_signature(),
         )
         .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
 
         // 3. Verify journalist's self-signature on one-time ephemeral key bundle.
         vk.verify(
-            &response.journalist.ephemeral_bundle().as_bytes(),
-            response.journalist.ephemeral_signature(),
+            &response.journalist().ephemeral_bundle().as_bytes(),
+            response.journalist().ephemeral_signature(),
         )
         .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on one-time keys"))?;
 
