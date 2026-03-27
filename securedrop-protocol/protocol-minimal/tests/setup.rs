@@ -246,8 +246,6 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
         .expect("Can create ephemeral key request");
 
     let bundles = ephemeral_key_request.bundles.clone();
-    let ek_bundle_signature = ephemeral_key_request.bundle_sig.clone();
-    let journalist_vk = &ephemeral_key_request.vk.clone();
 
     // Server: Process ephemeral key request, including verification
     let ephemeral_key_response = server_session
@@ -256,28 +254,12 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
 
     assert!(ephemeral_key_response.success);
 
-    // TODO: Right now each keybundle is signed, but the whole thing needs a signature
-    // assert!(
-    //     journalist_vk
-    //         .verify(&ephemeral_key_request.bundles.as_bytes(), &ek_bundle_signature)
-    //         .is_ok()
-    // );
-
-    // Test that wrong ephemeral keys bytes fail verification.
-    let wrong_ephemeral_bytes = [0u8; 96];
-    assert!(
-        journalist_vk
-            .verify(&wrong_ephemeral_bytes, &ek_bundle_signature)
-            .is_err()
-    );
-
     // Test that server rejects ephemeral keys from unknown journalist
     let unknown_journalist_request = JournalistRefreshRequest {
         vk: FPFKeyPair::new(&mut rng)
             .expect("key generation failed")
             .verifying_key(),
         bundles: bundles,
-        bundle_sig: ek_bundle_signature,
     };
     assert!(
         server_session
