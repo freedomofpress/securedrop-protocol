@@ -52,7 +52,7 @@ fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) 
 
     // 6. Source fetches newsroom keys
     let newsroom_key_request = source.fetch_newsroom_keys();
-    let newsroom_key_response = server.handle_source_newsroom_key_request(newsroom_key_request);
+    let newsroom_key_response = server.handle_newsroom_key_request(newsroom_key_request);
 
     // Source handles and verifies the newsroom key response
     source

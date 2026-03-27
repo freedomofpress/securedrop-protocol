@@ -11,8 +11,8 @@ use crate::encrypt_decrypt::compute_fetch_challenges;
 use crate::keys::NewsroomKeyPair;
 use crate::messages::core::{
     MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchRequest,
-    SourceJournalistKeyRequest, SourceJournalistKeyResponse, SourceNewsroomKeyRequest,
-    SourceNewsroomKeyResponse,
+    NewsroomKeyRequest, NewsroomKeyResponse, SourceJournalistKeyRequest,
+    SourceJournalistKeyResponse,
 };
 use crate::messages::setup::{
     JournalistEphemeralKeyRequest, JournalistSetupRequest, JournalistSetupResponse,
@@ -169,12 +169,12 @@ impl Server {
         self.storage.get_messages().contains_key(message_id)
     }
 
-    /// Handle source newsroom key request (step 5)
-    pub fn handle_source_newsroom_key_request(
+    /// Handle newsroom key request (step 5)
+    pub fn handle_newsroom_key_request(
         &self,
-        _request: SourceNewsroomKeyRequest,
-    ) -> SourceNewsroomKeyResponse {
-        SourceNewsroomKeyResponse {
+        _request: NewsroomKeyRequest,
+    ) -> NewsroomKeyResponse {
+        NewsroomKeyResponse {
             newsroom_verifying_key: self
                 .newsroom_keys
                 .as_ref()

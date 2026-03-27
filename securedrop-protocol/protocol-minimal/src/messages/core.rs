@@ -3,15 +3,15 @@ use crate::{FetchResponse, JournalistPublicView};
 use alloc::vec::Vec;
 use uuid::Uuid;
 
-/// Source fetches keys for the newsroom
+/// Request to fetch the newsroom's public keys from the server.
 ///
-/// This is the first request in step 5 of the spec.
-pub struct SourceNewsroomKeyRequest {}
+/// Used by both sources and journalists as the first request in step 5 of the spec.
+pub struct NewsroomKeyRequest {}
 
 /// Newsroom returns their keys and proof of onboarding.
 ///
 /// This is the first response in step 5 of the spec.
-pub struct SourceNewsroomKeyResponse {
+pub struct NewsroomKeyResponse {
     pub newsroom_verifying_key: VerifyingKey,
     pub fpf_sig: Signature<FpfOnNewsroom>,
 }
