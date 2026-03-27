@@ -3,11 +3,11 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 use securedrop_protocol_minimal::{
-    journalist::JournalistClient, keys::FPFKeyPair, messages::core::SourceJournalistKeyResponse,
-    server::Server, source::SourceClient,
+    journalist::JournalistClient, keys::FPFKeyPair, messages::core::KeyResponse, server::Server,
+    source::SourceClient,
 };
 
-fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) {
+fn setup_test_environment() -> (SourceClient, Vec<KeyResponse>) {
     // 1. Create server with newsroom and journalist
     let mut server = Server::new();
 
@@ -60,15 +60,15 @@ fn setup_test_environment() -> (SourceClient, Vec<SourceJournalistKeyResponse>) 
         .expect("Newsroom key response should be valid");
 
     // 7. Source fetches journalist keys
-    let journalist_key_request = source.fetch_journalist_keys();
-    let journalist_key_responses = server.handle_source_journalist_key_request(
+    let journalist_key_request = source.request_keys();
+    let journalist_key_responses = server.handle_key_request(
         journalist_key_request,
         &mut ChaCha20Rng::seed_from_u64(666),
     );
 
     // Source handles and verifies the journalist key response
     source
-        .handle_journalist_key_response(&journalist_key_responses[0], &newsroom_verifying_key)
+        .handle_key_response(&journalist_key_responses[0], &newsroom_verifying_key)
         .expect("Journalist key response should be valid");
 
     (source, journalist_key_responses)

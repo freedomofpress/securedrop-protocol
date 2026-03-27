@@ -11,8 +11,7 @@ use crate::encrypt_decrypt::compute_fetch_challenges;
 use crate::keys::NewsroomKeyPair;
 use crate::messages::core::{
     MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchRequest,
-    NewsroomKeyRequest, NewsroomKeyResponse, SourceJournalistKeyRequest,
-    SourceJournalistKeyResponse,
+    KeyRequest, KeyResponse, NewsroomKeyRequest, NewsroomKeyResponse,
 };
 use crate::messages::setup::{
     JournalistEphemeralKeyRequest, JournalistSetupRequest, JournalistSetupResponse,
@@ -188,12 +187,12 @@ impl Server {
         }
     }
 
-    /// Handle source journalist key request (step 5)
-    pub fn handle_source_journalist_key_request<R: RngCore + CryptoRng>(
+    /// Handle `RequestKeys` (step 5)
+    pub fn handle_key_request<R: RngCore + CryptoRng>(
         &mut self,
-        _request: SourceJournalistKeyRequest,
+        _request: KeyRequest,
         rng: &mut R,
-    ) -> Vec<SourceJournalistKeyResponse> {
+    ) -> Vec<KeyResponse> {
         let mut responses = Vec::new();
 
         // Get all journalists and their ephemeral keys
@@ -228,7 +227,7 @@ impl Server {
             );
 
             // Create response for this journalist
-            let response = SourceJournalistKeyResponse {
+            let response = KeyResponse {
                 journalist: journo_public,
                 nr_signature: newsroom_sig,
             };

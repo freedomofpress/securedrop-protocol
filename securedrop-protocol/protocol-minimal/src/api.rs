@@ -10,7 +10,7 @@
 //!
 //! Key verification follows a chain of trust:
 //! 1. The FPF signing key is a trust anchor (pre-distributed out of band).
-//! 2. The newsroom's verifying key is signed by FPF.  (This is not yet verified by `handle_journalist_key_response()`.)
+//! 2. The newsroom's verifying key is signed by FPF.  (This is not yet verified by `handle_key_response()`.)
 //! 3. Each journalist's signing key is signed by the newsroom.
 //! 4. Each journalist's key bundles are self-signed.
 
@@ -20,8 +20,8 @@ use crate::{
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
     messages::{
         core::{
-            MessageChallengeFetchRequest, MessageFetchRequest, NewsroomKeyRequest,
-            NewsroomKeyResponse, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
+            KeyRequest, KeyResponse, MessageChallengeFetchRequest, MessageFetchRequest,
+            NewsroomKeyRequest, NewsroomKeyResponse,
         },
         setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest},
     },
@@ -51,13 +51,12 @@ pub trait Api {
         NewsroomKeyRequest {}
     }
 
-    /// Creates a request to fetch journalist public keys from the server.
+    /// Creates a `RequestKeys` request (step 5 in the spec).
     ///
-    /// This is the second part of step 5 in the protocol spec. The server
-    /// responds with long-term keys and a one-time ephemeral key bundle
-    /// for each available journalist.
-    fn fetch_journalist_keys(&self) -> SourceJournalistKeyRequest {
-        SourceJournalistKeyRequest {}
+    /// The server responds with long-term keys and a one-time ephemeral key
+    /// bundle for each available journalist.
+    fn request_keys(&self) -> KeyRequest {
+        KeyRequest {}
     }
 
     /// Creates a request to fetch encrypted message IDs from the server.
@@ -155,9 +154,9 @@ pub trait Api {
     /// # Errors
     ///
     /// Returns an error if any signature check fails.
-    fn handle_journalist_key_response(
+    fn handle_key_response(
         &self,
-        response: &SourceJournalistKeyResponse,
+        response: &KeyResponse,
         newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
         // 1. Verify newsroom signature on journalist's verifying key.
