@@ -16,9 +16,6 @@ fn setup_test_environment() -> (SourceClient, Vec<KeyResponse>) {
         .create_newsroom_setup_request(ChaCha20Rng::seed_from_u64(666))
         .expect("Can create newsroom setup request");
 
-    // Store the newsroom verifying key before moving the request
-    let newsroom_verifying_key = newsroom_setup_request.newsroom_verifying_key;
-
     // Simulate FPF signing
     let fpf_keypair =
         FPFKeyPair::new(ChaCha20Rng::seed_from_u64(666)).expect("FPF key generation failed");
@@ -68,7 +65,7 @@ fn setup_test_environment() -> (SourceClient, Vec<KeyResponse>) {
 
     // Source handles and verifies the journalist key response
     source
-        .handle_key_response(&journalist_key_responses[0], &newsroom_verifying_key)
+        .handle_key_response(&journalist_key_responses[0])
         .expect("Journalist key response should be valid");
 
     (source, journalist_key_responses)

@@ -94,7 +94,7 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Source handles and verifies the journalist key response
     source_session
-        .handle_key_response(journalist_response, &newsroom_verifying_key)
+        .handle_key_response(journalist_response)
         .expect("Journalist key response should be valid");
 
     // Verify the journalist's signing key matches our expectation
@@ -161,14 +161,9 @@ fn protocol_step_5_source_fetch_keys() {
     // Test that invalid newsroom signatures on journalist keys are rejected
     let wrong_newsroom_keypair =
         NewsroomKeyPair::new(&mut rng).expect("Newsroom key generation failed");
-    assert!(
-        source_session
-            .handle_key_response(
-                journalist_response,
-                &wrong_newsroom_keypair.verifying_key()
-            )
-            .is_err()
-    );
+    let mut source_wrong_nr = Source::from_passphrase(&[2u8; 32]);
+    source_wrong_nr.set_newsroom_verifying_key(wrong_newsroom_keypair.verifying_key());
+    assert!(source_wrong_nr.handle_key_response(journalist_response).is_err());
 }
 
 /// Step 6: Source submits a message
@@ -240,7 +235,7 @@ fn protocol_step_6_source_submits_message() {
     let journalist_public = &journalist_response.journalist;
 
     source
-        .handle_key_response(journalist_response, &newsroom_verifying_key)
+        .handle_key_response(journalist_response)
         .expect("Journalist key response should be valid");
 
     // Step 6: Source submits a message
@@ -324,7 +319,7 @@ fn protocol_step_7_message_id_fetch() {
     let journalist_response = &journalist_key_responses[0];
 
     source
-        .handle_key_response(journalist_response, &newsroom_verifying_key)
+        .handle_key_response(journalist_response)
         .expect("Journalist key response should be valid");
 
     // Submit a message (Step 6)

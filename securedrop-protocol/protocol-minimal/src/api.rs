@@ -157,8 +157,11 @@ pub trait Api {
     fn handle_key_response(
         &self,
         response: &KeyResponse,
-        newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
+        let newsroom_verifying_key = self
+            .newsroom_verifying_key()
+            .ok_or_else(|| anyhow::anyhow!("newsroom verifying key not set; call handle_newsroom_key_response first"))?;
+
         // 1. Verify newsroom signature on journalist's verifying key.
         newsroom_verifying_key
             .verify(
