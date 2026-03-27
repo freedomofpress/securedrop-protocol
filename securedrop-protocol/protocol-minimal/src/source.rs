@@ -11,6 +11,7 @@ use crate::primitives::x25519::deterministic_dh_keygen;
 use crate::primitives::xwing::XWingPublicKey;
 use crate::primitives::xwing::deterministic_keygen as kgen_deterministic_xwing;
 use alloc::vec::Vec;
+use argon2::{Algorithm, Argon2, Params, Version};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
@@ -18,6 +19,11 @@ use crate::constants::*;
 use crate::keys::*;
 use crate::traits::private;
 use crate::traits::{UserPublic, UserSecret};
+
+// Fixed public salt for domain separation. Argon2id requires a salt;
+// since source keys must be deterministic from the passphrase alone,
+// we use a fixed application-specific value rather than a random one.
+const SOURCE_PBKDF_SALT: &[u8] = b"securedrop-source-v1";
 
 /// Sources: ingredients
 /// Sources have a fetch key and an unsigned key bundle.
@@ -124,34 +130,54 @@ impl Source {
         &self.passphrase
     }
 
-    /// Reconstruct keys from an existing passphrase
+    /// Derive the master key from a passphrase using Argon2id (step 4).
     ///
-    /// TODO: What do we want to do here? This is not yet specified AFAICT
+    /// Uses a fixed, public, domain-specific salt. The security of the master
+    /// key rests entirely on the entropy of the passphrase.
+    fn derive_master_key(passphrase: &[u8]) -> [u8; 64] {
+        // OWASP minimum recommended parameters for Argon2id from here:
+        // https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id
+        let params = Params::new(19456, 2, 1, Some(64)).expect("valid Argon2id params");
+        let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+
+        let mut mk = [0u8; 64];
+        argon2
+            .hash_password_into(passphrase, SOURCE_PBKDF_SALT, &mut mk)
+            .expect("Argon2id master key derivation failed");
+        mk
+    }
+
+    /// Reconstruct source keys from a passphrase (step 4).
+    ///
+    /// Derives a master key via [`Source::derive_master_key`], then derives
+    /// each private key from the master key using a domain-separated KDF.
     pub fn from_passphrase(passphrase: &[u8]) -> Self {
         use blake2::{Blake2b, Digest};
+
+        let mk = Self::derive_master_key(passphrase);
 
         // DH-AKEM key
         let mut dh_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
         dh_hasher.update(b"SD_DH_KEY");
-        dh_hasher.update(passphrase);
+        dh_hasher.update(&mk);
         let dh_result = dh_hasher.finalize();
 
         // Fetch key
         let mut fetch_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
         fetch_hasher.update(b"SD_FETCH_KEY");
-        fetch_hasher.update(passphrase);
+        fetch_hasher.update(&mk);
         let fetch_result = fetch_hasher.finalize();
 
         // Metadata Key
         let mut pke_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
         pke_hasher.update(b"SD_PKE_KEY");
-        pke_hasher.update(passphrase);
+        pke_hasher.update(&mk);
         let pke_result = pke_hasher.finalize();
 
         // PQ KEM PSK key
         let mut kem_hasher = Blake2b::<blake2::digest::typenum::U64>::new();
         kem_hasher.update(b"SD_KEM_KEY");
-        kem_hasher.update(passphrase);
+        kem_hasher.update(&mk);
         let kem_result = kem_hasher.finalize();
 
         // Create key pairs
