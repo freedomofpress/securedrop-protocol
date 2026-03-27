@@ -7,8 +7,9 @@ HAX_TARGETS += +securedrop_protocol_minimal::primitives::x25519::typed
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 PROOF_DIR = proofs/fstar/extraction
 
-FSTAR_EXPECTED_VERSION := F* 2025.12.15
-FSTAR_ACTUAL_VERSION   := $(shell fstar.exe --version 2>/dev/null | head -1)
+# Keep in sync with ".github/workflows/hax.yml":
+FSTAR_EXPECTED_VERSION = F* 2025.12.15
+FSTAR_ACTUAL_VERSION   = $(shell fstar.exe --version 2>/dev/null | head -1)
 .PHONY: compat-fstar
 compat-fstar:
 	@[ "$(FSTAR_ACTUAL_VERSION)" = "$(FSTAR_EXPECTED_VERSION)" ] || \
@@ -21,9 +22,9 @@ compat: compat-fstar
 hax: compat
 
 	rm -f $(PROOF_DIR)/*.fst
-	cargo hax into -i '$(HAX_TARGETS)' fstar
-	OTHERFLAGS="--lax" $(MAKE) -C $(PROOF_DIR)
-	make -C $(PROOF_DIR)
+	cargo hax into -i '$(HAX_TARGETS)' fstar  # extract
+	OTHERFLAGS="--lax" $(MAKE) -C $(PROOF_DIR)  # type-check
+	$(MAKE) -C $(PROOF_DIR)  # verify
 
 .PHONY: clean
 clean:

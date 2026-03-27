@@ -1,0 +1,27 @@
+name: hax
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # v4.1.1
+        with:
+          persist-credentials: false
+
+      - name: Set up hax
+        uses: hacspec/hax-actions@6c734302f9a0434cf590e0ba18c9dd9b28fc6659
+        with:
+          fstar: v2025.12.15 # keep in sync with "securedrop-protocol/protocol-minimal/Makefile"
+          hax_reference: cargo-hax-v0.3.6 # keep in sync with "securedrop-protocol/protocol-minimal/Cargo.toml"
+
+      - name: Extract F*, type-check, and verify
+        run: make hax
+        working-directory: securedrop-protocol/protocol-minimal
