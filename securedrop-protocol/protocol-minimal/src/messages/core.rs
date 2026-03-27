@@ -57,8 +57,14 @@ pub struct KeyResponse {
 
 impl KeyResponse {
     /// Construct a new `KeyResponse`.
-    pub fn new(journalist: JournalistPublicView, nr_signature: Signature<NewsroomOnJournalist>) -> Self {
-        Self { journalist, nr_signature }
+    pub fn new(
+        journalist: JournalistPublicView,
+        nr_signature: Signature<NewsroomOnJournalist>,
+    ) -> Self {
+        Self {
+            journalist,
+            nr_signature,
+        }
     }
 
     /// The journalist's public keys.
