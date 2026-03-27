@@ -173,18 +173,16 @@ impl Server {
         &self,
         _request: NewsroomKeyRequest,
     ) -> NewsroomKeyResponse {
-        NewsroomKeyResponse {
-            newsroom_verifying_key: self
-                .newsroom_keys
+        NewsroomKeyResponse::new(
+            self.newsroom_keys
                 .as_ref()
                 .expect("Newsroom keys not found")
                 .verifying_key(),
-            fpf_sig: self
+            *self
                 .signature
                 .as_ref()
-                .expect("FPF signature not found")
-                .clone(),
-        }
+                .expect("FPF signature not found"),
+        )
     }
 
     /// Handle `RequestKeys` (step 5)
@@ -227,10 +225,7 @@ impl Server {
             );
 
             // Create response for this journalist
-            let response = KeyResponse {
-                journalist: journo_public,
-                nr_signature: newsroom_sig,
-            };
+            let response = KeyResponse::new(journo_public, newsroom_sig);
 
             responses.push(response);
         }
