@@ -375,6 +375,8 @@ the first sender.
 
 ### 5. Sender fetches keys and verifies their authenticity <!-- Figure 3(b) as of b1e4d41 -->
 
+Senders must fetch recipient keys from the server. For ephemeral key bundles, the server selects one at random and then deletes it such that each key bundle is used once.
+
 Given:
 
 |                     | Anyone          |
