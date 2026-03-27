@@ -347,12 +347,16 @@ Three private keys are then derived from $mk$ using a
 domain-separated KDF: one for message fetching and two for encryption (APKE and
 PKE). All source keys are long-term and fully determined by the passphrase.
 
-| Source                                                         |
-| -------------------------------------------------------------- |
-| $`mk \gets \text{PBKDF}(passphrase)`$                          |
-| $`sk_S^{fetch} \gets \text{KDF}(mk, \texttt{sourcefetchkey})`$ |
-| $`sk_S^{APKE} \gets \text{KDF}(mk, \texttt{sourceAPKEkey})`$   |
-| $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$     |
+| Source                                                                            |
+| --------------------------------------------------------------------------------- |
+| $`mk \gets \text{PBKDF}(passphrase)`$                                             |
+| $`sk_S^{fetch} \gets \text{KDF}(mk, \texttt{sourcefetchkey})`$                    |
+| $`sk_S^{APKE}(\text{DH}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-dh})`$        |
+| $`sk_S^{APKE}(\text{ML-KEM}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-mlkem})`$ |
+| $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$                        |
+
+Note that $sk_S^{APKE}$ is a hybrid key: SD-APKE requires separate DH-AKEM and ML-KEM-768
+components, each derived independently using their own label.
 
 As with the journalist, $`(sk_S^{fetch}, pk_S^{fetch})`$ key generation uses the ristretto255 prime order group.
 
