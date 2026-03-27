@@ -8,9 +8,7 @@
 
 use alloc::vec::Vec;
 
-use crate::sign::{
-    FpfOnNewsroom, JournalistEphemeralKey, NewsroomOnJournalist, Signature, VerifyingKey,
-};
+use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::{Enrollment, SignedKeyBundlePublic};
 
 /// Request from the newsroom to FPF for verification.
@@ -54,7 +52,6 @@ pub struct JournalistRefreshRequest {
     /// TODO: discuss vk
     pub vk: VerifyingKey,
     pub bundles: Vec<SignedKeyBundlePublic>,
-    pub bundle_sig: Signature<JournalistEphemeralKey>, // todo/to discuss
 }
 
 /// Response from the server to the journalist for ephemeral key replenishment.

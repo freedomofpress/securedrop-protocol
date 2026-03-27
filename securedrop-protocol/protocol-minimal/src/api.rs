@@ -25,7 +25,6 @@ use crate::{
         },
         setup::{JournalistRefreshRequest, JournalistSetupRequest},
     },
-    sign::{JournalistEphemeralKey, Signature},
 };
 use alloc::vec::Vec;
 use anyhow::Error;
@@ -236,8 +235,6 @@ pub trait JournalistApi: Api + restricted::RestrictedApi {
         Ok(JournalistRefreshRequest {
             vk: self.signing_key().clone(),
             bundles,
-            // TODO: sign the full bundle collection rather than individual bundles
-            bundle_sig: Signature::<JournalistEphemeralKey>::from_bytes([0u8; 64]),
         })
     }
 }
