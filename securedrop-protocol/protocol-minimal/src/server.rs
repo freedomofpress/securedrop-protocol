@@ -15,8 +15,8 @@ use crate::messages::core::{
     SourceNewsroomKeyResponse,
 };
 use crate::messages::setup::{
-    JournalistRefreshRequest, JournalistRefreshResponse, JournalistSetupRequest,
-    JournalistSetupResponse, NewsroomSetupRequest,
+    JournalistEphemeralKeyRequest, JournalistSetupRequest, JournalistSetupResponse,
+    NewsroomSetupRequest,
 };
 use crate::primitives;
 use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
@@ -111,12 +111,12 @@ impl Server {
     /// verifies the signature and stores the ephemeral keys.
     pub fn handle_ephemeral_key_request(
         &mut self,
-        request: JournalistRefreshRequest,
-    ) -> Result<JournalistRefreshResponse, Error> {
+        request: JournalistEphemeralKeyRequest,
+    ) -> Result<(), Error> {
         // Look up the journalist by their verifying key
         let journalist_id = self
             .storage
-            .find_journalist_by_verifying_key(&request.vk)
+            .find_journalist_by_verifying_key(&request.verifying_key)
             .ok_or_else(|| anyhow::anyhow!("Journalist not found in storage"))?;
 
         // TODO: more efficient way than verifying each signature!
@@ -124,14 +124,14 @@ impl Server {
         request
             .bundles
             .iter()
-            .try_for_each(|k| request.vk.verify(&k.0.as_bytes(), &k.1))
+            .try_for_each(|k| request.verifying_key.verify(&k.0.as_bytes(), &k.1))
             .map_err(|_| anyhow::anyhow!("Invalid signature on ephemeral keys"))?;
 
         // Store the ephemeral keys for the journalist
         self.storage
             .add_ephemeral_keys(journalist_id, request.bundles);
 
-        Ok(JournalistRefreshResponse { success: true })
+        Ok(())
     }
 
     /// Returns the newsroom verifying key, if one has been generated.

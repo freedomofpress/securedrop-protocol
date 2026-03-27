@@ -8,7 +8,7 @@ use securedrop_protocol_minimal::api::{Api, JournalistApi};
 use securedrop_protocol_minimal::encrypt_decrypt::LEN_DH_ITEM;
 use securedrop_protocol_minimal::keys::FPFKeyPair;
 use securedrop_protocol_minimal::messages::setup::{
-    JournalistRefreshRequest, JournalistSetupRequest,
+    JournalistEphemeralKeyRequest, JournalistSetupRequest,
 };
 use securedrop_protocol_minimal::sign::{FpfOnNewsroom, Signature};
 
@@ -248,15 +248,13 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
     let bundles = ephemeral_key_request.bundles.clone();
 
     // Server: Process ephemeral key request, including verification
-    let ephemeral_key_response = server_session
+    server_session
         .handle_ephemeral_key_request(ephemeral_key_request)
         .expect("Can handle ephemeral key request");
 
-    assert!(ephemeral_key_response.success);
-
     // Test that server rejects ephemeral keys from unknown journalist
-    let unknown_journalist_request = JournalistRefreshRequest {
-        vk: FPFKeyPair::new(&mut rng)
+    let unknown_journalist_request = JournalistEphemeralKeyRequest {
+        verifying_key: FPFKeyPair::new(&mut rng)
             .expect("key generation failed")
             .verifying_key(),
         bundles: bundles,
