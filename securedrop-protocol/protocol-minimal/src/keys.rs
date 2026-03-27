@@ -140,7 +140,12 @@ impl SignedLongtermPubKeyBytes {
 pub struct Enrollment {
     pub bundle: SignedLongtermPubKeyBytes,
     pub selfsig: Signature<JournalistLongTermKey>,
-    pub keys: (VerifyingKey, DHPublicKey, DhAkemPublicKey, MLKEM768PublicKey),
+    pub keys: (
+        VerifyingKey,
+        DHPublicKey,
+        DhAkemPublicKey,
+        MLKEM768PublicKey,
+    ),
 }
 
 // in memory session storage

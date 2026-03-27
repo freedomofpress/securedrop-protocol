@@ -10,8 +10,8 @@ use uuid::Uuid;
 use crate::encrypt_decrypt::compute_fetch_challenges;
 use crate::keys::NewsroomKeyPair;
 use crate::messages::core::{
-    MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchRequest,
-    KeyRequest, KeyResponse, NewsroomKeyRequest, NewsroomKeyResponse,
+    KeyRequest, KeyResponse, MessageChallengeFetchRequest, MessageChallengeFetchResponse,
+    MessageFetchRequest, NewsroomKeyRequest, NewsroomKeyResponse,
 };
 use crate::messages::setup::{
     JournalistEphemeralKeyRequest, JournalistSetupRequest, JournalistSetupResponse,
@@ -169,23 +169,29 @@ impl Server {
     }
 
     /// Handle newsroom key request (step 5)
-    pub fn handle_newsroom_key_request(
-        &self,
-        _request: NewsroomKeyRequest,
-    ) -> NewsroomKeyResponse {
+    ///
+    /// # Panics
+    ///
+    /// Panics if the newsroom keys have not been generated (call
+    /// [`create_newsroom_setup_request`](Server::create_newsroom_setup_request) first)
+    /// or if the FPF signature has not been set (call [`set_fpf_signature`](Server::set_fpf_signature) first).
+    pub fn handle_newsroom_key_request(&self, _request: NewsroomKeyRequest) -> NewsroomKeyResponse {
         NewsroomKeyResponse::new(
             self.newsroom_keys
                 .as_ref()
                 .expect("Newsroom keys not found")
                 .verifying_key(),
-            *self
-                .signature
-                .as_ref()
-                .expect("FPF signature not found"),
+            *self.signature.as_ref().expect("FPF signature not found"),
         )
     }
 
     /// Handle `RequestKeys` (step 5)
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ephemeral key store contains a journalist ID with no
+    /// corresponding long-term key entry, which would indicate internal storage
+    /// inconsistency.
     pub fn handle_key_request<R: RngCore + CryptoRng>(
         &mut self,
         _request: KeyRequest,

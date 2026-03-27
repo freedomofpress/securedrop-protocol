@@ -35,9 +35,6 @@ fn protocol_step_5_source_fetch_keys() {
         .create_newsroom_setup_request(&mut rng)
         .expect("Can create newsroom setup request");
 
-    // Store the newsroom verifying key for verification
-    let newsroom_verifying_key = newsroom_setup_request.newsroom_verifying_key;
-
     // Simulate FPF signing (in real implementation, this would be done by FPF)
     let fpf_keypair = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
     let newsroom_setup_response = newsroom_setup_request
@@ -75,8 +72,7 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Step 5: Source fetches newsroom keys
     let newsroom_key_request = source_session.newsroom_key_request();
-    let newsroom_key_response =
-        server_session.handle_newsroom_key_request(newsroom_key_request);
+    let newsroom_key_response = server_session.handle_newsroom_key_request(newsroom_key_request);
 
     // Source handles and verifies the newsroom key response
     source_session
@@ -104,7 +100,10 @@ fn protocol_step_5_source_fetch_keys() {
     let &jvk = journalist_public.verifying_key();
 
     assert_eq!(
-        journalist_response.journalist().verifying_key().into_bytes(),
+        journalist_response
+            .journalist()
+            .verifying_key()
+            .into_bytes(),
         jvk.into_bytes()
     );
 
@@ -120,7 +119,10 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Verify the journalist's DH key matches our expectation
     assert_eq!(
-        journalist_response.journalist().message_auth_pk().as_bytes(),
+        journalist_response
+            .journalist()
+            .message_auth_pk()
+            .as_bytes(),
         journalist.message_auth_keypair().1.as_bytes()
     );
 
@@ -136,15 +138,13 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Consume the remaining keys
     for _i in 0..DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST - 1 {
-        let _ = server_session
-            .handle_key_request(KeyRequest {}, &mut rng);
+        let _ = server_session.handle_key_request(KeyRequest {}, &mut rng);
     }
     assert!(!server_session.has_ephemeral_keys(journalist_id));
 
     // Test that subsequent requests return no keys (since they were consumed)
     let empty_journalist_key_request = source_session.request_keys();
-    let empty_responses =
-        server_session.handle_key_request(empty_journalist_key_request, &mut rng);
+    let empty_responses = server_session.handle_key_request(empty_journalist_key_request, &mut rng);
     assert_eq!(empty_responses.len(), 0);
 
     // Test that invalid FPF signatures are rejected
@@ -163,7 +163,11 @@ fn protocol_step_5_source_fetch_keys() {
         NewsroomKeyPair::new(&mut rng).expect("Newsroom key generation failed");
     let mut source_wrong_nr = Source::from_passphrase(&[2u8; 32]);
     source_wrong_nr.set_newsroom_verifying_key(wrong_newsroom_keypair.verifying_key());
-    assert!(source_wrong_nr.handle_key_response(journalist_response).is_err());
+    assert!(
+        source_wrong_nr
+            .handle_key_response(journalist_response)
+            .is_err()
+    );
 }
 
 /// Step 6: Source submits a message
@@ -219,8 +223,7 @@ fn protocol_step_6_source_submits_message() {
 
     // Source fetches keys (Step 5)
     let newsroom_key_request = source.newsroom_key_request();
-    let newsroom_key_response =
-        server_session.handle_newsroom_key_request(newsroom_key_request);
+    let newsroom_key_response = server_session.handle_newsroom_key_request(newsroom_key_request);
 
     source
         .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.verifying_key())
@@ -305,8 +308,7 @@ fn protocol_step_7_message_id_fetch() {
 
     // Source fetches keys (Step 5)
     let newsroom_key_request = source.newsroom_key_request();
-    let newsroom_key_response =
-        server_session.handle_newsroom_key_request(newsroom_key_request);
+    let newsroom_key_response = server_session.handle_newsroom_key_request(newsroom_key_request);
 
     source
         .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.verifying_key())

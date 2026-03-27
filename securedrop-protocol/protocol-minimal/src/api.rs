@@ -10,7 +10,7 @@
 //!
 //! Key verification follows a chain of trust:
 //! 1. The FPF signing key is a trust anchor (pre-distributed out of band).
-//! 2. The newsroom's verifying key is signed by FPF.  (This is not yet verified by `handle_key_response()`.)
+//! 2. The newsroom's verifying key is signed by FPF and stored by [`Api::handle_newsroom_key_response`].
 //! 3. Each journalist's signing key is signed by the newsroom.
 //! 4. Each journalist's key bundles are self-signed.
 
@@ -41,7 +41,11 @@ pub trait Api {
     /// Returns the stored newsroom verifying key, if one has been verified.
     fn newsroom_verifying_key(&self) -> Option<&VerifyingKey>;
 
-    /// Stores a verified newsroom verifying key.
+    /// Stores a newsroom verifying key.
+    ///
+    /// The caller is responsible for ensuring the key has been verified before
+    /// storing it. Prefer [`handle_newsroom_key_response`](Api::handle_newsroom_key_response),
+    /// which verifies the FPF signature before storing.
     fn set_newsroom_verifying_key(&mut self, key: VerifyingKey);
 
     /// Creates a `NewsroomKeyRequest` to fetch the newsroom's public keys from the server.
@@ -153,14 +157,15 @@ pub trait Api {
     ///
     /// # Errors
     ///
-    /// Returns an error if any signature check fails.
-    fn handle_key_response(
-        &self,
-        response: &KeyResponse,
-    ) -> Result<(), Error> {
-        let newsroom_verifying_key = self
-            .newsroom_verifying_key()
-            .ok_or_else(|| anyhow::anyhow!("newsroom verifying key not set; call handle_newsroom_key_response first"))?;
+    /// Returns an error if:
+    /// - The newsroom verifying key has not been set (call [`handle_newsroom_key_response`](Api::handle_newsroom_key_response) first).
+    /// - Any of the three signature checks fail.
+    fn handle_key_response(&self, response: &KeyResponse) -> Result<(), Error> {
+        let newsroom_verifying_key = self.newsroom_verifying_key().ok_or_else(|| {
+            anyhow::anyhow!(
+                "newsroom verifying key not set; call handle_newsroom_key_response first"
+            )
+        })?;
 
         // 1. Verify newsroom signature on journalist's verifying key.
         newsroom_verifying_key
