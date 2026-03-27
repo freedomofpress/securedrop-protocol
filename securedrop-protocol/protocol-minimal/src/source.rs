@@ -156,29 +156,28 @@ impl Source {
 
         let mk = Self::derive_master_key(passphrase);
 
-        // DH-AKEM key
-        let mut dh_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        dh_hasher.update(b"SD_DH_KEY");
-        dh_hasher.update(&mk);
-        let dh_result = dh_hasher.finalize();
-
-        // Fetch key
         let mut fetch_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        fetch_hasher.update(b"SD_FETCH_KEY");
-        fetch_hasher.update(&mk);
+        fetch_hasher.update(b"sourcefetchkey");
+        fetch_hasher.update(mk);
         let fetch_result = fetch_hasher.finalize();
 
-        // Metadata Key
-        let mut pke_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        pke_hasher.update(b"SD_PKE_KEY");
-        pke_hasher.update(&mk);
-        let pke_result = pke_hasher.finalize();
+        // sk_S^APKE is a hybrid key requiring two sub-derivations:
+        // the DH-AKEM and ML-KEM components are each derived with their own
+        // label under the "sourceAPKEkey" namespace.
+        let mut dh_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
+        dh_hasher.update(b"sourceAPKEkey-dh");
+        dh_hasher.update(mk);
+        let dh_result = dh_hasher.finalize();
 
-        // PQ KEM PSK key
         let mut kem_hasher = Blake2b::<blake2::digest::typenum::U64>::new();
-        kem_hasher.update(b"SD_KEM_KEY");
-        kem_hasher.update(&mk);
+        kem_hasher.update(b"sourceAPKEkey-mlkem");
+        kem_hasher.update(mk);
         let kem_result = kem_hasher.finalize();
+
+        let mut pke_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
+        pke_hasher.update(b"sourcePKEkey");
+        pke_hasher.update(mk);
+        let pke_result = pke_hasher.finalize();
 
         // Create key pairs
         let (dhakem_decaps, dhakem_encaps) =
