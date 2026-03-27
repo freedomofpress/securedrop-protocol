@@ -369,19 +369,4 @@ impl Server {
             .get(&request.message_id)
             .cloned()
     }
-
-    /// Process a new refresh request from the journalist.
-    ///
-    /// TODO: The caller should persist the keys for J.
-    ///
-    /// Step 3.2 in the 0.2 spec.
-    ///
-    /// TODO(later): How to handle signing when offline? (Not relevant for benchmarking)
-    pub fn handle_journalist_refresh(
-        &mut self,
-        _request: JournalistRefreshRequest,
-    ) -> Result<(), Error> {
-        // TODO: Check signature and store ephemeral keys
-        unimplemented!()
-    }
 }
