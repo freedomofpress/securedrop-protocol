@@ -76,7 +76,7 @@ fn protocol_step_5_source_fetch_keys() {
     // Step 5: Source fetches newsroom keys
     let newsroom_key_request = source_session.fetch_newsroom_keys();
     let newsroom_key_response =
-        server_session.handle_source_newsroom_key_request(newsroom_key_request);
+        server_session.handle_newsroom_key_request(newsroom_key_request);
 
     // Source handles and verifies the newsroom key response
     source_session
@@ -225,7 +225,7 @@ fn protocol_step_6_source_submits_message() {
     // Source fetches keys (Step 5)
     let newsroom_key_request = source.fetch_newsroom_keys();
     let newsroom_key_response =
-        server_session.handle_source_newsroom_key_request(newsroom_key_request);
+        server_session.handle_newsroom_key_request(newsroom_key_request);
 
     source
         .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.verifying_key())
@@ -311,7 +311,7 @@ fn protocol_step_7_message_id_fetch() {
     // Source fetches keys (Step 5)
     let newsroom_key_request = source.fetch_newsroom_keys();
     let newsroom_key_response =
-        server_session.handle_source_newsroom_key_request(newsroom_key_request);
+        server_session.handle_newsroom_key_request(newsroom_key_request);
 
     source
         .handle_newsroom_key_response(&newsroom_key_response, &fpf_keypair.verifying_key())

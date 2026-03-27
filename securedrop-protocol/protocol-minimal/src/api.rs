@@ -20,8 +20,8 @@ use crate::{
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
     messages::{
         core::{
-            MessageChallengeFetchRequest, MessageFetchRequest, SourceJournalistKeyRequest,
-            SourceJournalistKeyResponse, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
+            MessageChallengeFetchRequest, MessageFetchRequest, NewsroomKeyRequest,
+            NewsroomKeyResponse, SourceJournalistKeyRequest, SourceJournalistKeyResponse,
         },
         setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest},
     },
@@ -47,8 +47,8 @@ pub trait Api {
     /// Creates a request to fetch the newsroom's public keys from the server.
     ///
     /// This is the first part of step 5 in the protocol spec.
-    fn fetch_newsroom_keys(&self) -> SourceNewsroomKeyRequest {
-        SourceNewsroomKeyRequest {}
+    fn fetch_newsroom_keys(&self) -> NewsroomKeyRequest {
+        NewsroomKeyRequest {}
     }
 
     /// Creates a request to fetch journalist public keys from the server.
@@ -133,7 +133,7 @@ pub trait Api {
     /// Returns an error if the FPF signature is invalid.
     fn handle_newsroom_key_response(
         &mut self,
-        response: &SourceNewsroomKeyResponse,
+        response: &NewsroomKeyResponse,
         fpf_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
         let newsroom_vk_bytes = response.newsroom_verifying_key.into_bytes();
