@@ -22,6 +22,16 @@ jobs:
           fstar: v2025.12.15 # keep in sync with "securedrop-protocol/protocol-minimal/Makefile"
           hax_reference: cargo-hax-v0.3.6 # keep in sync with "securedrop-protocol/protocol-minimal/Cargo.toml"
 
-      - name: Extract F*, type-check, and verify
-        run: make hax
+      - name: Extract F*
+        run: make extract
+        working-directory: securedrop-protocol/protocol-minimal
+
+      - name: Confirm no diff from committed proofs
+        run: |
+          git status --porcelain .
+          test -z "$(git status --porcelain .)"
+        working-directory: securedrop-protocol/protocol-minimal/proofs
+
+      - name: Type-check and verify
+        run: make verify
         working-directory: securedrop-protocol/protocol-minimal
