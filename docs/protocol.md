@@ -320,7 +320,7 @@ Then:
 
 Following [enrollment](#31-journalist-initial-key-setup-), each journalist $J$
 MUST generate and maintain a pool of $n$ signed key bundles. Each key bundle
-consists of an ephemeral APKE public key and an ephemeral PKE public key.  A signed key bundle is accompanied by a signature by the journalist's long-term signing key.
+consists of an ephemeral APKE public key and an ephemeral PKE public key. A signed key bundle is accompanied by a signature by the journalist's long-term signing key.
 
 The server verifies the signature, and stores these public keys and the
 corresponding signature. The journalist maintains the corresponding ephemeral private keys.
@@ -355,7 +355,7 @@ PKE). All source keys are long-term and fully determined by the passphrase.
 | $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$                        |
 
 Note that $sk_S^{APKE}$ is a hybrid key: SD-APKE requires separate DH-AKEM and ML-KEM-768
-components, each derived independently using their own label.
+components, each derived independently using its own label.
 
 As with the journalist, $`(sk_S^{fetch}, pk_S^{fetch})`$ key generation uses the ristretto255 prime order group.
 
