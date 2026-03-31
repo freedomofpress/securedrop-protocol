@@ -319,9 +319,8 @@ Then:
 #### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 3(a) as of b1e4d41 -->
 
 Following [enrollment](#31-journalist-initial-key-setup-), each journalist $J$
-MUST generate and maintain a pool of $n$ ephemeral key bundles. The key bundles
-consist of an ephemeral APKE public key and an ephemeral PKE public key, which get signed by the
-journalist using their long-term signing key.
+MUST generate and maintain a pool of $n$ signed key bundles. Each key bundle
+consists of an ephemeral APKE public key and an ephemeral PKE public key.  A signed key bundle is accompanied by a signature by the journalist's long-term signing key.
 
 The server verifies the signature, and stores these public keys and the
 corresponding signature. The journalist maintains the corresponding ephemeral private keys.
