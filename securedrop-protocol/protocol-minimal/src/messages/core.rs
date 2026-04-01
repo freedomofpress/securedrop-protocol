@@ -45,10 +45,10 @@ impl NewsroomKeyResponse {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct KeyRequest {}
 
-/// Server response to a `KeyRequest` (`pks, sigs` in the spec).
+/// Server response to a `KeyRequest` for a single journalist (`pks, sigs` in the spec).
 ///
-/// Contains one entry per journalist with their long-term keys, a one-time
-/// ephemeral key bundle, and the associated signatures.
+/// Contains one journalist's long-term keys, a one-time ephemeral key bundle,
+/// and the associated signatures.
 #[derive(Debug)]
 pub struct KeyResponse {
     journalist: JournalistPublicView,

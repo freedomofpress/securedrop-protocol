@@ -38,7 +38,7 @@ use uuid::Uuid;
 /// [`set_newsroom_verifying_key`](Api::set_newsroom_verifying_key).
 /// All other methods have default implementations.
 pub trait Api {
-    /// Returns the stored newsroom verifying key, if one has been verified.
+    /// Returns the stored newsroom verifying key.
     fn newsroom_verifying_key(&self) -> Option<&VerifyingKey>;
 
     /// Stores a newsroom verifying key.
