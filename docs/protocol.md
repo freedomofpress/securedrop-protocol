@@ -343,8 +343,8 @@ a subsequent visit) some $passphrase$. A master key $mk$ is derived from the
 passphrase using a password-based KDF.
 
 Three private keys are then derived from $mk$ using a
-domain-separated KDF: one for message fetching and two for encryption (APKE and
-PKE). All source keys are long-term and fully determined by the passphrase.
+domain-separated KDF: one for message fetching and three for encryption (two for the APKE key tuple and
+one for PKE). All source keys are long-term and fully determined by the passphrase.
 
 | Source                                                                            |
 | --------------------------------------------------------------------------------- |
@@ -354,7 +354,7 @@ PKE). All source keys are long-term and fully determined by the passphrase.
 | $`sk_S^{APKE}(\text{ML-KEM}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-mlkem})`$ |
 | $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$                        |
 
-Note that $sk_S^{APKE}$ is a hybrid key: SD-APKE requires separate DH-AKEM and ML-KEM-768
+Note that $sk_S^{APKE}$ is a key tuple: SD-APKE requires separate DH-AKEM and ML-KEM-768
 components, each derived independently using its own label.
 
 As with the journalist, $`(sk_S^{fetch}, pk_S^{fetch})`$ key generation uses the ristretto255 prime order group.
