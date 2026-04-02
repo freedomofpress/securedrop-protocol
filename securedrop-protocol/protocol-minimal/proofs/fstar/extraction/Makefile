@@ -164,7 +164,7 @@ include-dirs:
 	$(Q)bash -c '${FINDLIBS}'
 
 FSTAR_FLAGS = \
-  --warn_error -321-331-241-274-239-271 \
+  --warn_error -321-331-241-247-274-239-271 \
   --cache_checked_modules --cache_dir $(CACHE_DIR) \
   --already_cached "+Prims+FStar+LowStar+C+Spec.Loops+TestLib" \
   $(addprefix --include ,$(FSTAR_INCLUDE_DIRS))
