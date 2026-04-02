@@ -23,9 +23,8 @@ use crate::{
             MessageChallengeFetchRequest, MessageFetchRequest, SourceJournalistKeyRequest,
             SourceJournalistKeyResponse, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
         },
-        setup::{JournalistRefreshRequest, JournalistSetupRequest},
+        setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest},
     },
-    sign::{JournalistEphemeralKey, Signature},
 };
 use alloc::vec::Vec;
 use anyhow::Error;
@@ -222,22 +221,16 @@ pub trait JournalistApi: Api + restricted::RestrictedApi {
     /// Creates a request to replenish ephemeral key bundles on the server.
     ///
     /// Collects all current signed key bundles and packages them into a
-    /// [`JournalistRefreshRequest`] for upload to the server (step 3.2).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the request cannot be constructed.
-    fn create_ephemeral_key_request(&self) -> Result<JournalistRefreshRequest, Error>
+    /// [`JournalistEphemeralKeyRequest`] for upload to the server (step 3.2).
+    fn create_ephemeral_key_request(&self) -> JournalistEphemeralKeyRequest
     where
         Self: Enrollable,
     {
         let bundles: Vec<SignedKeyBundlePublic> = self.signed_keybundles().collect();
 
-        Ok(JournalistRefreshRequest {
-            vk: self.signing_key().clone(),
+        JournalistEphemeralKeyRequest {
+            verifying_key: self.signing_key().clone(),
             bundles,
-            // TODO: sign the full bundle collection rather than individual bundles
-            bundle_sig: Signature::<JournalistEphemeralKey>::from_bytes([0u8; 64]),
-        })
+        }
     }
 }

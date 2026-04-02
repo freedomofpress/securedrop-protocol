@@ -59,9 +59,7 @@ fn protocol_step_5_source_fetch_keys() {
         .expect("Can setup journalist");
 
     // Journalist provides ephemeral keys
-    let ephemeral_key_request = journalist
-        .create_ephemeral_key_request()
-        .expect("Can create ephemeral key request");
+    let ephemeral_key_request = journalist.create_ephemeral_key_request();
 
     assert_eq!(
         ephemeral_key_request.bundles.len(),
@@ -214,9 +212,7 @@ fn protocol_step_6_source_submits_message() {
     journalist.set_newsroom_verifying_key(newsroom_verifying_key);
 
     // Journalist provides ephemeral keys
-    let ephemeral_key_request = journalist
-        .create_ephemeral_key_request()
-        .expect("Can create ephemeral key request");
+    let ephemeral_key_request = journalist.create_ephemeral_key_request();
 
     server_session
         .handle_ephemeral_key_request(ephemeral_key_request)
@@ -303,9 +299,7 @@ fn protocol_step_7_message_id_fetch() {
     journalist.set_newsroom_verifying_key(newsroom_verifying_key);
 
     // Journalist provides ephemeral keys
-    let ephemeral_key_request = journalist
-        .create_ephemeral_key_request()
-        .expect("Can create ephemeral key request");
+    let ephemeral_key_request = journalist.create_ephemeral_key_request();
 
     server_session
         .handle_ephemeral_key_request(ephemeral_key_request)

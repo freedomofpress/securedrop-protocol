@@ -11,6 +11,7 @@ use crate::primitives::x25519::deterministic_dh_keygen;
 use crate::primitives::xwing::XWingPublicKey;
 use crate::primitives::xwing::deterministic_keygen as kgen_deterministic_xwing;
 use alloc::vec::Vec;
+use argon2::{Algorithm, Argon2, Params, Version};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
@@ -19,10 +20,17 @@ use crate::keys::*;
 use crate::traits::private;
 use crate::traits::{UserPublic, UserSecret};
 
-/// Sources: ingredients
-/// Sources have a fetch key and an unsigned key bundle.
-/// They reuse the dh-akem key within the keybundle where
-/// journalists use a "reply key".
+/// Fixed public salt for Argon2id. Argon2id requires a salt; since source
+/// keys must be deterministic from the passphrase alone, we use a fixed
+/// application-specific value rather than a random one.
+const SOURCE_PBKDF_SALT: &[u8] = b"securedrop-source-v1";
+
+/// A source and their long-term key material (step 4).
+///
+/// A source's keys are fully determined by their passphrase: the fetch key,
+/// APKE key, and PKE key are all derived from a master key via Argon2id and
+/// a domain-separated KDF. Returning sources reconstruct the same keys by
+/// calling [`Source::from_passphrase`] with the same passphrase.
 pub struct Source {
     fetch_key: DhFetchKeyPair,
     message_keys: MessageKeyBundle,
@@ -30,8 +38,15 @@ pub struct Source {
     session: SessionStorage,
 }
 
-// Public-facing representation of a source,
-// i.e., for receiving messages
+impl core::fmt::Debug for Source {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Using non-exhaustive to avoid leaking source keys.
+        f.debug_struct("Source").finish_non_exhaustive()
+    }
+}
+
+/// The public key material of a source, used by journalists to send replies.
+#[derive(Debug, Clone)]
 pub struct SourcePublicView {
     fetch_pk: DHPublicKey,
     dhakem_pk: DhAkemPublicKey,
@@ -110,49 +125,74 @@ impl UserSecret for Source {
 }
 
 impl Source {
+    /// Create a new source with a randomly generated passphrase.
+    ///
+    /// TODO / For testing only - in production the passphrase must be a mnemonic
+    /// of sufficient entropy generated and displayed to the source.
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> Self {
-        // Generate a random passphrase
         let mut passphrase = [0u8; 32];
         rng.fill_bytes(&mut passphrase);
-
-        // Derive all keys from the passphrase
-        let source = Self::from_passphrase(&passphrase);
-        source
+        Self::from_passphrase(&passphrase)
     }
 
+    /// Returns the source's passphrase.
+    ///
+    /// # Security
+    ///
+    /// The passphrase is the root secret from which all source keys are
+    /// derived. It MUST be stored and transmitted only over secure channels.
     pub fn passphrase(&self) -> &[u8] {
         &self.passphrase
     }
 
-    /// Reconstruct keys from an existing passphrase
+    /// Derive the master key from a passphrase using Argon2id (step 4).
     ///
-    /// TODO: What do we want to do here? This is not yet specified AFAICT
+    /// Uses a fixed, public, domain-specific salt. The security of the master
+    /// key rests entirely on the entropy of the passphrase.
+    fn derive_master_key(passphrase: &[u8]) -> [u8; 64] {
+        // OWASP minimum recommended parameters for Argon2id from here:
+        // https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id
+        let params = Params::new(19456, 2, 1, Some(64)).expect("valid Argon2id params");
+        let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+
+        let mut mk = [0u8; 64];
+        argon2
+            .hash_password_into(passphrase, SOURCE_PBKDF_SALT, &mut mk)
+            .expect("Argon2id master key derivation failed");
+        mk
+    }
+
+    /// Reconstruct source keys from a passphrase (step 4).
+    ///
+    /// Derives a master key via [`Source::derive_master_key`], then derives
+    /// each private key from the master key using a domain-separated KDF.
     pub fn from_passphrase(passphrase: &[u8]) -> Self {
         use blake2::{Blake2b, Digest};
 
-        // DH-AKEM key
-        let mut dh_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        dh_hasher.update(b"SD_DH_KEY");
-        dh_hasher.update(passphrase);
-        let dh_result = dh_hasher.finalize();
+        let mk = Self::derive_master_key(passphrase);
 
-        // Fetch key
         let mut fetch_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        fetch_hasher.update(b"SD_FETCH_KEY");
-        fetch_hasher.update(passphrase);
+        fetch_hasher.update(b"sourcefetchkey");
+        fetch_hasher.update(mk);
         let fetch_result = fetch_hasher.finalize();
 
-        // Metadata Key
-        let mut pke_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        pke_hasher.update(b"SD_PKE_KEY");
-        pke_hasher.update(passphrase);
-        let pke_result = pke_hasher.finalize();
+        // sk_S^APKE is a hybrid key requiring two sub-derivations:
+        // the DH-AKEM and ML-KEM components are each derived with their own
+        // label under the "sourceAPKEkey" namespace.
+        let mut dh_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
+        dh_hasher.update(b"sourceAPKEkey-dh");
+        dh_hasher.update(mk);
+        let dh_result = dh_hasher.finalize();
 
-        // PQ KEM PSK key
         let mut kem_hasher = Blake2b::<blake2::digest::typenum::U64>::new();
-        kem_hasher.update(b"SD_KEM_KEY");
-        kem_hasher.update(passphrase);
+        kem_hasher.update(b"sourceAPKEkey-mlkem");
+        kem_hasher.update(mk);
         let kem_result = kem_hasher.finalize();
+
+        let mut pke_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
+        pke_hasher.update(b"sourcePKEkey");
+        pke_hasher.update(mk);
+        let pke_result = pke_hasher.finalize();
 
         // Create key pairs
         let (dhakem_decaps, dhakem_encaps) =
@@ -179,29 +219,29 @@ impl Source {
                 sk: fetch_sk,
                 pk: fetch_pk,
             },
-            message_keys: {
-                MessageKeyBundle::new(
-                    KeyPair {
-                        sk: dhakem_decaps,
-                        pk: dhakem_encaps,
-                    },
-                    KeyPair {
-                        sk: mlkem_decaps,
-                        pk: mlkem_encaps,
-                    },
-                    KeyPair {
-                        sk: xwing_decaps,
-                        pk: xwing_encaps,
-                    },
-                )
-            },
+            message_keys: MessageKeyBundle::new(
+                KeyPair {
+                    sk: dhakem_decaps,
+                    pk: dhakem_encaps,
+                },
+                KeyPair {
+                    sk: mlkem_decaps,
+                    pk: mlkem_encaps,
+                },
+                KeyPair {
+                    sk: xwing_decaps,
+                    pk: xwing_encaps,
+                },
+            ),
             passphrase: passphrase.to_vec(),
-            session: session,
+            session,
         }
     }
+
+    /// Returns the public key material for this source.
     pub fn public(&self) -> SourcePublicView {
         SourcePublicView {
-            fetch_pk: self.fetch_key.pk.clone(),
+            fetch_pk: self.fetch_key.pk,
             dhakem_pk: self.message_keys.dh_akem.pk.clone(),
             message_pks: self.message_keys.public(),
         }

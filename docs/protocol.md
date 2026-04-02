@@ -319,8 +319,13 @@ Then:
 #### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 3(a) as of b1e4d41 -->
 
 Following [enrollment](#31-journalist-initial-key-setup-), each journalist $J$
-MUST generate and maintain a pool of $n$ ephemeral key bundles. For each key
-bundle $i$:[^11]
+MUST generate and maintain a pool of $n$ signed key bundles. Each key bundle
+consists of an ephemeral APKE public key and an ephemeral PKE public key. A signed key bundle is accompanied by a signature by the journalist's long-term signing key.
+
+The server verifies the signature, and stores these public keys and the
+corresponding signature. The journalist maintains the corresponding ephemeral private keys.
+
+For each key bundle $i$:[^11]
 
 | Journalist                                                                                                              |                                                                         | Server                                                                                                               |
 | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -334,14 +339,23 @@ bundle $i$:[^11]
 ### 4. Source key setup
 
 To begin each session, a source MUST enter (on their first visit) or reenter (on
-a subsequent visit) some $passphrase$:
+a subsequent visit) some $passphrase$. A master key $mk$ is derived from the
+passphrase using a password-based KDF.
 
-| Source                                                         |
-| -------------------------------------------------------------- |
-| $`mk \gets \text{PBKDF}(passphrase)`$                          |
-| $`sk_S^{fetch} \gets \text{KDF}(mk, \texttt{sourcefetchkey})`$ |
-| $`sk_S^{APKE} \gets \text{KDF}(mk, \texttt{sourceAPKEkey})`$   |
-| $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$     |
+Three private keys are then derived from $mk$ using a
+domain-separated KDF: one for message fetching and three for encryption (two for the APKE key tuple and
+one for PKE). All source keys are long-term and fully determined by the passphrase.
+
+| Source                                                                            |
+| --------------------------------------------------------------------------------- |
+| $`mk \gets \text{PBKDF}(passphrase)`$                                             |
+| $`sk_S^{fetch} \gets \text{KDF}(mk, \texttt{sourcefetchkey})`$                    |
+| $`sk_S^{APKE}(\text{DH}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-dh})`$        |
+| $`sk_S^{APKE}(\text{ML-KEM}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-mlkem})`$ |
+| $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$                        |
+
+Note that $sk_S^{APKE}$ is a key tuple: SD-APKE requires separate DH-AKEM and ML-KEM-768
+components, each derived independently using its own label.
 
 As with the journalist, $`(sk_S^{fetch}, pk_S^{fetch})`$ key generation uses the ristretto255 prime order group.
 

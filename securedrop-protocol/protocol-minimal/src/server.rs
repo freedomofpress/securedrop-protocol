@@ -15,8 +15,8 @@ use crate::messages::core::{
     SourceNewsroomKeyResponse,
 };
 use crate::messages::setup::{
-    JournalistRefreshRequest, JournalistRefreshResponse, JournalistSetupRequest,
-    JournalistSetupResponse, NewsroomSetupRequest,
+    JournalistEphemeralKeyRequest, JournalistSetupRequest, JournalistSetupResponse,
+    NewsroomSetupRequest,
 };
 use crate::primitives;
 use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
@@ -109,14 +109,19 @@ impl Server {
     ///
     /// The journalist sends ephemeral keys signed by their signing key, and the server
     /// verifies the signature and stores the ephemeral keys.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the journalist is not found in storage, or if any bundle
+    /// signature fails verification.
     pub fn handle_ephemeral_key_request(
         &mut self,
-        request: JournalistRefreshRequest,
-    ) -> Result<JournalistRefreshResponse, Error> {
+        request: JournalistEphemeralKeyRequest,
+    ) -> Result<(), Error> {
         // Look up the journalist by their verifying key
         let journalist_id = self
             .storage
-            .find_journalist_by_verifying_key(&request.vk)
+            .find_journalist_by_verifying_key(&request.verifying_key)
             .ok_or_else(|| anyhow::anyhow!("Journalist not found in storage"))?;
 
         // TODO: more efficient way than verifying each signature!
@@ -124,14 +129,14 @@ impl Server {
         request
             .bundles
             .iter()
-            .try_for_each(|k| request.vk.verify(&k.0.as_bytes(), &k.1))
+            .try_for_each(|k| request.verifying_key.verify(&k.0.as_bytes(), &k.1))
             .map_err(|_| anyhow::anyhow!("Invalid signature on ephemeral keys"))?;
 
         // Store the ephemeral keys for the journalist
         self.storage
             .add_ephemeral_keys(journalist_id, request.bundles);
 
-        Ok(JournalistRefreshResponse { success: true })
+        Ok(())
     }
 
     /// Returns the newsroom verifying key, if one has been generated.
@@ -368,20 +373,5 @@ impl Server {
             .get_messages()
             .get(&request.message_id)
             .cloned()
-    }
-
-    /// Process a new refresh request from the journalist.
-    ///
-    /// TODO: The caller should persist the keys for J.
-    ///
-    /// Step 3.2 in the 0.2 spec.
-    ///
-    /// TODO(later): How to handle signing when offline? (Not relevant for benchmarking)
-    pub fn handle_journalist_refresh(
-        &mut self,
-        _request: JournalistRefreshRequest,
-    ) -> Result<(), Error> {
-        // TODO: Check signature and store ephemeral keys
-        unimplemented!()
     }
 }

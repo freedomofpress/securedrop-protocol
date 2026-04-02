@@ -8,7 +8,7 @@ use securedrop_protocol_minimal::api::{Api, JournalistApi};
 use securedrop_protocol_minimal::encrypt_decrypt::LEN_DH_ITEM;
 use securedrop_protocol_minimal::keys::FPFKeyPair;
 use securedrop_protocol_minimal::messages::setup::{
-    JournalistRefreshRequest, JournalistSetupRequest,
+    JournalistEphemeralKeyRequest, JournalistSetupRequest,
 };
 use securedrop_protocol_minimal::sign::{FpfOnNewsroom, Signature};
 
@@ -241,43 +241,21 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
 
     // Step 3.2: Journalist generates ephemeral keys and signs them
     // Journalist creates ephemeral key request
-    let ephemeral_key_request = journalist
-        .create_ephemeral_key_request()
-        .expect("Can create ephemeral key request");
+    let ephemeral_key_request = journalist.create_ephemeral_key_request();
 
     let bundles = ephemeral_key_request.bundles.clone();
-    let ek_bundle_signature = ephemeral_key_request.bundle_sig.clone();
-    let journalist_vk = &ephemeral_key_request.vk.clone();
 
     // Server: Process ephemeral key request, including verification
-    let ephemeral_key_response = server_session
+    server_session
         .handle_ephemeral_key_request(ephemeral_key_request)
         .expect("Can handle ephemeral key request");
 
-    assert!(ephemeral_key_response.success);
-
-    // TODO: Right now each keybundle is signed, but the whole thing needs a signature
-    // assert!(
-    //     journalist_vk
-    //         .verify(&ephemeral_key_request.bundles.as_bytes(), &ek_bundle_signature)
-    //         .is_ok()
-    // );
-
-    // Test that wrong ephemeral keys bytes fail verification.
-    let wrong_ephemeral_bytes = [0u8; 96];
-    assert!(
-        journalist_vk
-            .verify(&wrong_ephemeral_bytes, &ek_bundle_signature)
-            .is_err()
-    );
-
     // Test that server rejects ephemeral keys from unknown journalist
-    let unknown_journalist_request = JournalistRefreshRequest {
-        vk: FPFKeyPair::new(&mut rng)
+    let unknown_journalist_request = JournalistEphemeralKeyRequest {
+        verifying_key: FPFKeyPair::new(&mut rng)
             .expect("key generation failed")
             .verifying_key(),
         bundles: bundles,
-        bundle_sig: ek_bundle_signature,
     };
     assert!(
         server_session

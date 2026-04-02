@@ -49,6 +49,10 @@ pub trait JournalistPublic: UserPublic {
 pub trait Enrollable: private::Sealed {
     fn signing_key(&self) -> &VerifyingKey;
     fn enroll(&self) -> Enrollment;
+    /// Returns an iterator over all signed ephemeral key bundles held by this journalist.
+    ///
+    /// Each item is a [`SignedKeyBundlePublic`]: the public keys together with the
+    /// journalist's self-signature over them.
     fn signed_keybundles(&self) -> impl Iterator<Item = SignedKeyBundlePublic>;
 }
 
