@@ -107,16 +107,25 @@ pub(crate) struct SignedMessageKeyBundle {
 }
 
 #[derive(Debug, Clone)]
-pub struct SignedLongtermPubKeyBytes(pub [u8; LEN_DHKEM_ENCAPS_KEY + LEN_DH_ITEM]);
+pub struct SignedLongtermPubKeyBytes(
+    pub [u8; LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_ENCAPS_KEY + LEN_DH_ITEM],
+);
 
 impl SignedLongtermPubKeyBytes {
     /// Serialize long-term public keys into the canonical byte encoding.
     ///
-    /// Byte layout (per spec §3.1): `pk_J^APKE || pk_J^fetch`
-    pub(crate) fn from_keys(reply_dhakem: &DhAkemPublicKey, fetch_pk: &DHPublicKey) -> Self {
-        let mut pubkey_bytes = [0u8; LEN_DHKEM_ENCAPS_KEY + LEN_DH_ITEM];
+    /// Byte layout (per spec §3.1): `pk_J^APKE(DHKEM) || pk_J^APKE(ML-KEM) || pk_J^fetch`
+    pub(crate) fn from_keys(
+        reply_dhakem: &DhAkemPublicKey,
+        reply_mlkem: &MLKEM768PublicKey,
+        fetch_pk: &DHPublicKey,
+    ) -> Self {
+        let mut pubkey_bytes = [0u8; LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_ENCAPS_KEY + LEN_DH_ITEM];
         pubkey_bytes[0..LEN_DHKEM_ENCAPS_KEY].copy_from_slice(reply_dhakem.as_bytes());
-        pubkey_bytes[LEN_DHKEM_ENCAPS_KEY..].copy_from_slice(&fetch_pk.into_bytes());
+        pubkey_bytes[LEN_DHKEM_ENCAPS_KEY..LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_ENCAPS_KEY]
+            .copy_from_slice(reply_mlkem.as_bytes());
+        pubkey_bytes[LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_ENCAPS_KEY..]
+            .copy_from_slice(&fetch_pk.into_bytes());
 
         Self(pubkey_bytes)
     }
@@ -131,7 +140,12 @@ impl SignedLongtermPubKeyBytes {
 pub struct Enrollment {
     pub bundle: SignedLongtermPubKeyBytes,
     pub selfsig: Signature<JournalistLongTermKey>,
-    pub keys: (VerifyingKey, DHPublicKey, DhAkemPublicKey),
+    pub keys: (
+        VerifyingKey,
+        DHPublicKey,
+        DhAkemPublicKey,
+        MLKEM768PublicKey,
+    ),
 }
 
 // in memory session storage

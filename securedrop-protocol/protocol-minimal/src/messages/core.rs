@@ -3,41 +3,79 @@ use crate::{FetchResponse, JournalistPublicView};
 use alloc::vec::Vec;
 use uuid::Uuid;
 
-/// Source fetches keys for the newsroom
+/// Request to fetch the newsroom's public keys from the server.
 ///
-/// This is the first request in step 5 of the spec.
-pub struct SourceNewsroomKeyRequest {}
+/// Used by both sources and journalists as the first request in step 5 of the spec.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NewsroomKeyRequest {}
 
 /// Newsroom returns their keys and proof of onboarding.
 ///
 /// This is the first response in step 5 of the spec.
-pub struct SourceNewsroomKeyResponse {
-    pub newsroom_verifying_key: VerifyingKey,
-    pub fpf_sig: Signature<FpfOnNewsroom>,
+#[derive(Debug)]
+pub struct NewsroomKeyResponse {
+    newsroom_verifying_key: VerifyingKey,
+    fpf_sig: Signature<FpfOnNewsroom>,
 }
 
-/// Source fetches journalist keys for the newsroom
-///
-/// This is part of step 5 in the spec.
-///
-/// Note: This isn't currently written down in the spec, but
-/// should occur right before the server provides a long-term
-/// key and an ephmeral key bundle for the journalist.
-pub struct SourceJournalistKeyRequest {}
+impl NewsroomKeyResponse {
+    /// Construct a new `NewsroomKeyResponse`.
+    pub fn new(newsroom_verifying_key: VerifyingKey, fpf_sig: Signature<FpfOnNewsroom>) -> Self {
+        Self {
+            newsroom_verifying_key,
+            fpf_sig,
+        }
+    }
 
-/// Server returns journalist long-term keys and ephemeral keys
+    /// The newsroom's Ed25519 verifying key.
+    pub fn newsroom_verifying_key(&self) -> &VerifyingKey {
+        &self.newsroom_verifying_key
+    }
+
+    /// FPF's signature over the newsroom verifying key.
+    pub fn fpf_sig(&self) -> &Signature<FpfOnNewsroom> {
+        &self.fpf_sig
+    }
+}
+
+/// Request to fetch journalist keys from the server (`RequestKeys` in the spec).
 ///
-/// This is the second part of step 5 in the spec.
+/// This is step 5 in the spec. The server responds with long-term keys and a
+/// one-time ephemeral key bundle for each available journalist.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct KeyRequest {}
+
+/// Server response to a `KeyRequest` for a single journalist (`pks, sigs` in the spec).
 ///
-/// Updated for 0.3 spec with new key types:
-/// - ephemeral_dh_pk: MLKEM-768 for message enc PSK (one-time)
-/// - ephemeral_kem_pk: DH-AKEM for message enc (one-time)
-/// - ephemeral_pke_pk: XWING for metadata enc (one-time)
-/// TODO: this may be split into 2 responses, one that contains
-/// static keys and one that contains one-time keys
-pub struct SourceJournalistKeyResponse {
-    pub journalist: JournalistPublicView,
-    pub nr_signature: Signature<NewsroomOnJournalist>,
+/// Contains one journalist's long-term keys, a one-time ephemeral key bundle,
+/// and the associated signatures.
+#[derive(Debug)]
+pub struct KeyResponse {
+    journalist: JournalistPublicView,
+    nr_signature: Signature<NewsroomOnJournalist>,
+}
+
+impl KeyResponse {
+    /// Construct a new `KeyResponse`.
+    pub fn new(
+        journalist: JournalistPublicView,
+        nr_signature: Signature<NewsroomOnJournalist>,
+    ) -> Self {
+        Self {
+            journalist,
+            nr_signature,
+        }
+    }
+
+    /// The journalist's public keys.
+    pub fn journalist(&self) -> &JournalistPublicView {
+        &self.journalist
+    }
+
+    /// The newsroom's signature over the journalist's verifying key.
+    pub fn nr_signature(&self) -> &Signature<NewsroomOnJournalist> {
+        &self.nr_signature
+    }
 }
 
 /// User (source or journalist) fetches message IDs

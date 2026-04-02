@@ -375,6 +375,8 @@ the first sender.
 
 ### 5. Sender fetches keys and verifies their authenticity <!-- Figure 3(b) as of b1e4d41 -->
 
+Senders must fetch recipient keys from the server. For each journalist, the server MUST select one key bundle at random and then delete it; a given key bundle MUST NOT be returned more than once.
+
 Given:
 
 |                     | Anyone          |

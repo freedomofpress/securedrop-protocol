@@ -10,7 +10,7 @@
 //!
 //! Key verification follows a chain of trust:
 //! 1. The FPF signing key is a trust anchor (pre-distributed out of band).
-//! 2. The newsroom's verifying key is signed by FPF.  (This is not yet verified by `handle_journalist_key_response()`.)
+//! 2. The newsroom's verifying key is signed by FPF and stored by [`Api::handle_newsroom_key_response`].
 //! 3. Each journalist's signing key is signed by the newsroom.
 //! 4. Each journalist's key bundles are self-signed.
 
@@ -20,8 +20,8 @@ use crate::{
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
     messages::{
         core::{
-            MessageChallengeFetchRequest, MessageFetchRequest, SourceJournalistKeyRequest,
-            SourceJournalistKeyResponse, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
+            KeyRequest, KeyResponse, MessageChallengeFetchRequest, MessageFetchRequest,
+            NewsroomKeyRequest, NewsroomKeyResponse,
         },
         setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest},
     },
@@ -38,26 +38,29 @@ use uuid::Uuid;
 /// [`set_newsroom_verifying_key`](Api::set_newsroom_verifying_key).
 /// All other methods have default implementations.
 pub trait Api {
-    /// Returns the stored newsroom verifying key, if one has been verified.
+    /// Returns the stored newsroom verifying key.
     fn newsroom_verifying_key(&self) -> Option<&VerifyingKey>;
 
-    /// Stores a verified newsroom verifying key.
+    /// Stores a newsroom verifying key.
+    ///
+    /// The caller is responsible for ensuring the key has been verified before
+    /// storing it. Prefer [`handle_newsroom_key_response`](Api::handle_newsroom_key_response),
+    /// which verifies the FPF signature before storing.
     fn set_newsroom_verifying_key(&mut self, key: VerifyingKey);
 
-    /// Creates a request to fetch the newsroom's public keys from the server.
+    /// Creates a `NewsroomKeyRequest` to fetch the newsroom's public keys from the server.
     ///
     /// This is the first part of step 5 in the protocol spec.
-    fn fetch_newsroom_keys(&self) -> SourceNewsroomKeyRequest {
-        SourceNewsroomKeyRequest {}
+    fn newsroom_key_request(&self) -> NewsroomKeyRequest {
+        NewsroomKeyRequest {}
     }
 
-    /// Creates a request to fetch journalist public keys from the server.
+    /// Creates a `RequestKeys` request (step 5 in the spec).
     ///
-    /// This is the second part of step 5 in the protocol spec. The server
-    /// responds with long-term keys and a one-time ephemeral key bundle
-    /// for each available journalist.
-    fn fetch_journalist_keys(&self) -> SourceJournalistKeyRequest {
-        SourceJournalistKeyRequest {}
+    /// The server responds with long-term keys and a one-time ephemeral key
+    /// bundle for each available journalist.
+    fn request_keys(&self) -> KeyRequest {
+        KeyRequest {}
     }
 
     /// Creates a request to fetch encrypted message IDs from the server.
@@ -133,15 +136,15 @@ pub trait Api {
     /// Returns an error if the FPF signature is invalid.
     fn handle_newsroom_key_response(
         &mut self,
-        response: &SourceNewsroomKeyResponse,
+        response: &NewsroomKeyResponse,
         fpf_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
-        let newsroom_vk_bytes = response.newsroom_verifying_key.into_bytes();
+        let newsroom_vk_bytes = response.newsroom_verifying_key().into_bytes();
         fpf_verifying_key
-            .verify(&newsroom_vk_bytes, &response.fpf_sig)
+            .verify(&newsroom_vk_bytes, response.fpf_sig())
             .map_err(|_| anyhow::anyhow!("invalid FPF signature on newsroom verifying key"))?;
 
-        self.set_newsroom_verifying_key(response.newsroom_verifying_key);
+        self.set_newsroom_verifying_key(*response.newsroom_verifying_key());
         Ok(())
     }
 
@@ -154,32 +157,36 @@ pub trait Api {
     ///
     /// # Errors
     ///
-    /// Returns an error if any signature check fails.
-    fn handle_journalist_key_response(
-        &self,
-        response: &SourceJournalistKeyResponse,
-        newsroom_verifying_key: &VerifyingKey,
-    ) -> Result<(), Error> {
+    /// Returns an error if:
+    /// - The newsroom verifying key has not been set (call [`handle_newsroom_key_response`](Api::handle_newsroom_key_response) first).
+    /// - Any of the three signature checks fail.
+    fn handle_key_response(&self, response: &KeyResponse) -> Result<(), Error> {
+        let newsroom_verifying_key = self.newsroom_verifying_key().ok_or_else(|| {
+            anyhow::anyhow!(
+                "newsroom verifying key not set; call handle_newsroom_key_response first"
+            )
+        })?;
+
         // 1. Verify newsroom signature on journalist's verifying key.
         newsroom_verifying_key
             .verify(
-                &response.journalist.verifying_key().into_bytes(),
-                &response.nr_signature,
+                &response.journalist().verifying_key().into_bytes(),
+                response.nr_signature(),
             )
             .map_err(|_| anyhow::anyhow!("invalid newsroom signature on journalist signing key"))?;
 
         // 2. Verify journalist's self-signature on long-term key bundle.
-        let vk = response.journalist.verifying_key();
+        let vk = response.journalist().verifying_key();
         vk.verify(
-            response.journalist.signed_keybytes().as_bytes(),
-            response.journalist.self_signature(),
+            response.journalist().signed_keybytes().as_bytes(),
+            response.journalist().self_signature(),
         )
         .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
 
         // 3. Verify journalist's self-signature on one-time ephemeral key bundle.
         vk.verify(
-            &response.journalist.ephemeral_bundle().as_bytes(),
-            response.journalist.ephemeral_signature(),
+            &response.journalist().ephemeral_bundle().as_bytes(),
+            response.journalist().ephemeral_signature(),
         )
         .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on one-time keys"))?;
 
