@@ -404,6 +404,22 @@ In addition, in the **reply case,** if the sender is a journalist replying to a
 source, they also already know their recipient's keys without further
 verification.
 
+For each recipient, the sender produces two ciphertexts. The SD-APKE ciphertext
+carries the message itself along with the sender's long-term $fetch$ and $PKE$
+public keys. The SD-PKE ciphertext carries the
+sender's long-term APKE public key, encrypted to the recipient's $PKE$
+key.
+
+The sender also computes a hint from the recipient's fetching key: a fresh
+ephemeral DH public key $X = g^x$ and a Diffie–Hellman share $Z =
+(pk_R^{fetch})^x$. This lets the recipient privately scan for their messages in
+step 7 without disclosing their identity to the server. The server stores the two
+ciphertexts and hint under a randomly generated message ID.
+
+When a journalist is sending a reply, they substitute the source's long-term keys
+for their own in the recipient list, and address the remaining slots to all other
+enrolled journalists.
+
 |                                                   | All senders         | Reply case     |
 | ------------------------------------------------- | ------------------- | -------------- |
 | Published by server                               | $vk_{NR}^{sig}$     |                |
