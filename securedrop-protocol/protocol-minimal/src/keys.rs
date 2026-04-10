@@ -126,8 +126,7 @@ impl SignedLongtermPubKeyBytes {
         pubkey_bytes[offset..offset + LEN_DHKEM_ENCAPS_KEY]
             .copy_from_slice(reply_dhakem.as_bytes());
         offset += LEN_DHKEM_ENCAPS_KEY;
-        pubkey_bytes[offset..offset + LEN_MLKEM_ENCAPS_KEY]
-            .copy_from_slice(reply_mlkem.as_bytes());
+        pubkey_bytes[offset..offset + LEN_MLKEM_ENCAPS_KEY].copy_from_slice(reply_mlkem.as_bytes());
         offset += LEN_MLKEM_ENCAPS_KEY;
         pubkey_bytes[offset..].copy_from_slice(&fetch_pk.into_bytes());
 
@@ -144,7 +143,12 @@ impl SignedLongtermPubKeyBytes {
 pub struct Enrollment {
     pub bundle: SignedLongtermPubKeyBytes,
     pub selfsig: Signature<JournalistLongTermKey>,
-    pub keys: (VerifyingKey, DHPublicKey, DhAkemPublicKey, MLKEM768PublicKey),
+    pub keys: (
+        VerifyingKey,
+        DHPublicKey,
+        DhAkemPublicKey,
+        MLKEM768PublicKey,
+    ),
 }
 
 // in memory session storage

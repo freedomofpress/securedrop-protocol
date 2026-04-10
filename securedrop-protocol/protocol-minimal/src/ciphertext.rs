@@ -34,7 +34,7 @@ impl CombinedCiphertext {
     }
 
     // TOY ONLY
-    pub fn from_bytes(ct_bytes: &Vec<u8>) -> Result<Self, Error> {
+    pub fn from_bytes(ct_bytes: &[u8]) -> Result<Self, Error> {
         let mut dhakem_ss_encaps: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] =
             [0u8; LEN_DHKEM_SHAREDSECRET_ENCAPS];
 
@@ -120,7 +120,7 @@ impl Plaintext {
     }
 
     // Toy parsing only
-    pub fn from_bytes(pt_bytes: &Vec<u8>) -> Result<Self, Error> {
+    pub fn from_bytes(pt_bytes: &[u8]) -> Result<Self, Error> {
         let mut offset = 0;
 
         let mut sender_reply_pubkey_hybrid = [0u8; LEN_XWING_ENCAPS_KEY];
@@ -142,7 +142,7 @@ impl Plaintext {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FetchResponse {
     pub(crate) enc_id: [u8; LEN_KMID],   // aka kmid
     pub(crate) pmgdh: [u8; LEN_DH_ITEM], // aka per-request clue
@@ -150,9 +150,6 @@ pub struct FetchResponse {
 
 impl FetchResponse {
     pub fn new(enc_id: [u8; LEN_KMID], pmgdh: [u8; LEN_DH_ITEM]) -> Self {
-        Self {
-            enc_id: enc_id,
-            pmgdh: pmgdh,
-        }
+        Self { enc_id, pmgdh }
     }
 }

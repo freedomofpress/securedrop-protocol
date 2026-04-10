@@ -141,7 +141,7 @@ pub fn encrypt_once(
         seed,
         &sender.inner,
         &recipient.inner.public(recipient_bundle_index),
-        plaintext,
+        &plaintext,
     );
     env.into()
 }
@@ -212,7 +212,7 @@ pub fn bench_encrypt<S: UserSecret, P: UserPublic>(
     seed32: [u8; 32],
     sender: &S,
     recipient: &P,
-    plaintext: Plaintext,
+    plaintext: &Plaintext,
 ) -> Envelope {
     let mut rng = ChaCha20Rng::from_seed(seed32);
     encrypt(&mut rng, sender, plaintext, recipient)
