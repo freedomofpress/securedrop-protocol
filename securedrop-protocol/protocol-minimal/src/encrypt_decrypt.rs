@@ -1,3 +1,4 @@
+use crate::constants::LEN_XWING_ENCAPS_KEY;
 use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
 use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::x25519::DHPublicKey;
@@ -17,7 +18,7 @@ use hpke_rs::HpkePrivateKey;
 use hpke_rs::HpkePublicKey;
 use hpke_rs::hpke_types::AeadAlgorithm::Aes256Gcm;
 use hpke_rs::hpke_types::KdfAlgorithm::HkdfSha256;
-use hpke_rs::hpke_types::KemAlgorithm::{DhKem25519, XWingDraft06};
+use hpke_rs::hpke_types::KemAlgorithm::DhKem25519;
 use hpke_rs::libcrux::HpkeLibcrux;
 use hpke_rs::{Hpke, Mode};
 use libcrux_kem::MlKem768;
@@ -29,8 +30,6 @@ use uuid::Uuid;
 const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
 
 const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // authpsk only, required by spec
-const HPKE_BASE_AAD: &[u8] = b""; // base only; in authpsk mode the NR_ID is supplied
-const HPKE_BASE_INFO: &[u8] = b""; // base mode only
 
 // Key lengths
 const LEN_DHKEM_ENCAPS_KEY: usize = libcrux_curve25519::EK_LEN;
@@ -46,13 +45,6 @@ const LEN_MLKEM_DECAPS_KEY: usize = 2400;
 const LEN_MLKEM_SHAREDSECRET_ENCAPS: usize = 1088;
 const LEN_MLKEM_SHAREDSECRET: usize = 32;
 const LEN_MLKEM_RAND_SEED_SIZE: usize = 64;
-
-// https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/#name-encoding-and-sizes
-pub const LEN_XWING_ENCAPS_KEY: usize = 1216;
-const LEN_XWING_DECAPS_KEY: usize = 32;
-const LEN_XWING_SHAREDSECRET_ENCAPS: usize = 1120;
-const LEN_XWING_SHAREDSECRET: usize = 32;
-const LEN_XWING_RAND_SEED_SIZE: usize = 96;
 
 // Message ID (uuid) and KMID
 const LEN_MESSAGE_ID: usize = 16;
@@ -78,9 +70,6 @@ where
 {
     let mut hpke_authenc: Hpke<HpkeLibcrux> =
         Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, Aes256Gcm);
-
-    let mut hpke_metadata: Hpke<HpkeLibcrux> =
-        Hpke::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
 
     // spec: pk_R^AKEM: the DH-AKEM component of the recipient's APKE key bundle
     let recipient_message_enc_dhakem_pub = recipient.message_enc_pk().clone().into();
@@ -145,31 +134,8 @@ where
     sender_apke_bytes.extend_from_slice(sender.message_auth_keypair().1.as_bytes()); // pk_S^AKEM (DH-AKEM)
     sender_apke_bytes.extend_from_slice(sender.message_psk_pk().as_bytes()); // pk_S^PQ (ML-KEM)
 
-    // Encapsulate the full sender APKE public key tuple to the recipient's metadata key
-    // (xwing) in HPKE Base mode:
-    // https://www.rfc-editor.org/rfc/rfc9180.html#name-metadata-protection
-    // Although we do use a PSK and PSK_ID in the message, we don't need to
-    // encrypt the message PSK_ID, because it is a hard-coded string
-    let recipient_md_pubkey = recipient.message_metadata_pk().clone().into();
-
-    // spec: SD-PKE.Enc
-    let (md_ss_encaps_vec, metadata_ciphertext) = hpke_metadata
-        .seal(
-            &recipient_md_pubkey,
-            HPKE_BASE_INFO, // b""
-            HPKE_BASE_AAD,  // b""
-            &sender_apke_bytes,
-            None,
-            None,
-            None,
-        )
-        .expect("Expected Hpke.BaseMode sealed ciphertext");
-
-    let metadata_ss_encaps: [u8; LEN_XWING_SHAREDSECRET_ENCAPS] =
-        md_ss_encaps_vec.try_into().expect(&format!(
-            "Need {} byte encapsulated shared secret",
-            LEN_XWING_SHAREDSECRET_ENCAPS
-        ));
+    // spec: ct^PKE = SD-PKE.Enc(pk_R^PKE, pk_S^APKE)
+    let ct_pke = recipient.message_metadata_pk().encrypt(&sender_apke_bytes);
 
     let cmessage = CombinedCiphertext {
         message_dhakem_ss_encap: dhakem_ss_encaps_bytes,
@@ -181,57 +147,31 @@ where
     // Send (C_S, X, Z) to server
     Envelope {
         cmessage: cmessage.to_bytes(),        // ct^APKE
-        cmetadata: metadata_ciphertext,       // ct^PKE ciphertext
-        metadata_encap: metadata_ss_encaps,   // ct^PKE encapsulation
+        ct_pke,                               // ct^PKE
         mgdh_pubkey: hint_epk.into_bytes(),   // X = g^x
         mgdh: hint_sharedsecret.into_bytes(), // Z = (pk_R^fetch)^x
     }
 }
 
 pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Plaintext {
-    use hpke_rs::hpke_types::AeadAlgorithm::Aes256Gcm;
-    use hpke_rs::hpke_types::KdfAlgorithm::HkdfSha256;
-    use hpke_rs::hpke_types::KemAlgorithm::{DhKem25519, XWingDraft06};
-    use hpke_rs::{Hpke, Mode};
-
     let hpke_authenc: Hpke<HpkeLibcrux> =
         Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, Aes256Gcm);
 
-    let hpke_base: Hpke<HpkeLibcrux> = Hpke::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
-
-    // Receiver needs to know which keybundle to use, so they have to trial decrypt
-    // metadata.
-    // Explanation of what's happening:
-    // - for each keybundle, trial-decrypt the metadata using
-    // hpke_base::open (yields Result<metadata_bytes, HpkeError>)
-    // - filter only the successful ones (Ok) and
-    // - collect the successful decryptions (Vec<u8>) mapped to the
-    // correct keybundle, and
-    // - return the results of that collection.
-    // There should be exactly 1 result.
+    // Trial-decrypt ct^PKE with each keybundle's metadata private key to find
+    // the intended recipient's bundle. There should be exactly 1 result.
     let results: Vec<(&MessageKeyBundle, Vec<u8>)> = receiver
         .keybundles()
         .filter_map(|bundle| {
-            {
-                let md_key = bundle.xwing_md.sk.clone().into();
-
-                hpke_base.open(
-                    &envelope.metadata_encap,
-                    &md_key,
-                    HPKE_BASE_INFO,
-                    HPKE_BASE_AAD,
-                    &envelope.cmetadata,
-                    None,
-                    None,
-                    None,
-                )
-            }
-            .ok()
-            .map(|decrypted_metadata| (bundle, decrypted_metadata))
+            bundle
+                .metadata_kp
+                .private_key()
+                .decrypt(&envelope.ct_pke)
+                .ok()
+                .map(|m| (bundle, m))
         })
         .collect();
 
-    // Sanity
+    // Sanity check
     debug_assert_eq!(results.len(), 1);
 
     // Unpack the results of the trial decryption, yielding metadata and correct decryption keys
@@ -400,13 +340,12 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::{
-        DhAkemKeyPair, Journalist, KeyBundlePublic, KeyPair, MlKem768KeyPair, Source, XWingKeyPair,
+        DhAkemKeyPair, Journalist, KeyBundlePublic, KeyPair, MlKem768KeyPair, Source,
         primitives::{
             dh_akem::DhAkemPrivateKey,
-            generate_dh_akem_keypair, generate_mlkem768_keypair, generate_xwing_keypair,
+            generate_dh_akem_keypair, generate_mlkem768_keypair,
             mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey},
             x25519::DHPrivateKey,
-            xwing::{XWingPrivateKey, XWingPublicKey},
         },
         private,
     };

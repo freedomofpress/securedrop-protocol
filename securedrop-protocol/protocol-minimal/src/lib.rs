@@ -20,7 +20,7 @@ pub use ciphertext::{CombinedCiphertext, Envelope, FetchResponse, Plaintext};
 
 pub use keys::{
     DhAkemKeyPair, DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, MlKem768KeyPair,
-    SessionStorage, SignedKeyBundlePublic, SignedLongtermPubKeyBytes, SigningKeyPair, XWingKeyPair,
+    SessionStorage, SignedKeyBundlePublic, SignedLongtermPubKeyBytes, SigningKeyPair,
 };
 
 pub use traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
@@ -41,3 +41,4 @@ pub use sign::{
 pub mod storage;
 
 pub mod encrypt_decrypt;
+pub mod metadata;
