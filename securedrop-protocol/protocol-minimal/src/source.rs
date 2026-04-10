@@ -101,10 +101,11 @@ impl UserSecret for Source {
         (&self.message_keys.dh_akem.sk, &self.message_keys.dh_akem.pk)
     }
 
-    fn build_message(&self, message: Vec<u8>) -> Plaintext {
-        let mut reply_key_pq_psk = [0u8; LEN_MLKEM_ENCAPS_KEY];
-        reply_key_pq_psk.copy_from_slice(self.message_keys.mlkem.pk.as_bytes());
+    fn message_psk_pk(&self) -> &MLKEM768PublicKey {
+        &self.message_keys.mlkem.pk
+    }
 
+    fn build_message(&self, message: Vec<u8>) -> Plaintext {
         let mut fetch_pk = [0u8; LEN_DH_ITEM];
         fetch_pk.copy_from_slice(&self.fetch_key.pk.clone().into_bytes());
 
@@ -112,7 +113,6 @@ impl UserSecret for Source {
         reply_key_pq_hybrid.copy_from_slice(self.message_keys.xwing_md.pk.as_bytes());
 
         Plaintext {
-            sender_reply_pubkey_pq_psk: reply_key_pq_psk,
             sender_fetch_key: fetch_pk,
             sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
             msg: message,
