@@ -1,4 +1,8 @@
-use crate::constants::*;
+use crate::constants::{
+    LEN_DH_ITEM, LEN_DHKEM_SHAREDSECRET_ENCAPS, LEN_KMID, LEN_MLKEM_SHAREDSECRET_ENCAPS,
+    LEN_XWING_ENCAPS_KEY,
+};
+use crate::metadata::MetadataCiphertext;
 use alloc::vec::Vec;
 use anyhow::Error;
 
@@ -65,11 +69,8 @@ pub struct Envelope {
     // see CombinedCiphertext
     pub(crate) cmessage: Vec<u8>,
 
-    // baseenc "metadata", aka sender pubkey
-    pub(crate) cmetadata: Vec<u8>,
-
-    // "metadata" encaps shared secret
-    pub(crate) metadata_encap: [u8; LEN_XWING_SHAREDSECRET_ENCAPS],
+    // SD-PKE ciphertext (c, c'): encrypted sender APKE public key tuple
+    pub(crate) ct_pke: MetadataCiphertext,
 
     // clue material
     pub(crate) mgdh_pubkey: [u8; LEN_DH_ITEM],
@@ -79,16 +80,16 @@ pub struct Envelope {
 impl Envelope {
     // Used for benchmarks - see wasm_bindgen
     pub fn size_hint(&self) -> usize {
-        self.cmessage.len() + self.cmetadata.len()
+        self.cmessage.len() + self.cmetadata_len()
     }
 
     pub fn cmessage_len(&self) -> usize {
         self.cmessage.len()
     }
 
-    // sender dh-akem pubkey bytes
+    // SD-PKE ciphertext byte length: encapsulation c + AEAD ciphertext c'
     pub fn cmetadata_len(&self) -> usize {
-        self.cmetadata.len()
+        self.ct_pke.len()
     }
 }
 
