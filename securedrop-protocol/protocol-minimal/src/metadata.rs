@@ -17,12 +17,10 @@
 
 use alloc::vec::Vec;
 use anyhow::Error;
-use hpke_rs::Hpke;
-use hpke_rs::Mode;
-use hpke_rs::hpke_types::AeadAlgorithm::Aes256Gcm;
-use hpke_rs::hpke_types::KdfAlgorithm::HkdfSha256;
-use hpke_rs::hpke_types::KemAlgorithm::XWingDraft06;
-use hpke_rs::libcrux::HpkeLibcrux;
+use hpke_rs::{
+    Hpke, Mode, hpke_types::AeadAlgorithm::Aes256Gcm, hpke_types::KdfAlgorithm::HkdfSha256,
+    hpke_types::KemAlgorithm::XWingDraft06, libcrux::HpkeLibcrux,
+};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::constants::LEN_XWING_SHAREDSECRET_ENCAPS;
@@ -124,24 +122,32 @@ impl MetadataPrivateKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    #[test]
-    fn test_metadata_encrypt_decrypt_roundtrip() {
-        let mut rng = ChaCha20Rng::seed_from_u64(42);
-        let kp = keygen(&mut rng).expect("KGen failed");
+    fn get_rng() -> ChaCha20Rng {
+        let mut seed = [0u8; 32];
+        getrandom::fill(&mut seed).expect("OS random source failed");
+        ChaCha20Rng::from_seed(seed)
+    }
 
-        let m = b"pk_S^AKEM || pk_S^PQ";
-        let ct = kp.public_key().encrypt(m);
-        let decrypted = kp.private_key().decrypt(&ct).expect("Decryption failed");
+    proptest! {
+        #[test]
+        fn test_metadata_encrypt_decrypt_roundtrip(m in proptest::collection::vec(any::<u8>(), 0..200)) {
+            let mut rng = get_rng();
+            let kp = keygen(&mut rng).expect("KGen failed");
 
-        assert_eq!(m.as_slice(), decrypted.as_slice());
+            let ct = kp.public_key().encrypt(&m);
+            let decrypted = kp.private_key().decrypt(&ct).expect("Decryption failed");
+
+            prop_assert_eq!(m, decrypted);
+        }
     }
 
     #[test]
     fn test_metadata_decrypt_wrong_key_fails() {
-        let mut rng = ChaCha20Rng::seed_from_u64(42);
+        let mut rng = get_rng();
         let kp = keygen(&mut rng).expect("KGen failed");
         let wrong_kp = keygen(&mut rng).expect("KGen failed");
 
