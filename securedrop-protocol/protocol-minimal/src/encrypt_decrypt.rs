@@ -63,9 +63,8 @@ const LEN_KMID: usize =
     libcrux_chacha20poly1305::TAG_LEN + libcrux_chacha20poly1305::NONCE_LEN + LEN_MESSAGE_ID;
 
 /// Encrypt a message from a sender to a receiver.
-/// A sender holds access to UserPublic + UserSecret, i.e. kepyair access.
+/// A sender holds access to UserPublic + UserSecret, i.e. keypair access.
 /// A receiver holds access to UserPublic, i.e. pubkey access.
-/// TODO: pass Plaintext instead of &[u8]
 pub fn encrypt<Rng, Sndr, Rcvr>(
     rng: &mut Rng,
     sender: &Sndr,
@@ -83,8 +82,9 @@ where
     let mut hpke_metadata: Hpke<HpkeLibcrux> =
         Hpke::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
 
+    // spec: pk_R^AKEM: the DH-AKEM component of the recipient's APKE key bundle
     let recipient_message_enc_dhakem_pub = recipient.message_enc_pk().clone().into();
-
+    // spec: sk_S^AKEM: the DH-AKEM component of the sender's long-term APKE key tuple (sk_S^APKE)
     let hpke_sender_key = sender.message_auth_keypair().0.clone().into();
 
     // Note: Don't need SEED_GEN len randomness (64), just SHARED_SECRET len (32),
@@ -97,6 +97,7 @@ where
         .expect("PSK encaps failed");
 
     // Info parameter is pq_psk_encaps_bytes || receiver_fetch_pubkey_bytes
+    // spec: SD-APKE AuthEnc sets info = c2 || pk_R^fetch
     let mut info = Vec::new();
     info.extend_from_slice(&psk_ct);
     info.extend_from_slice(&recipient.fetch_pk().clone().into_bytes());
@@ -106,6 +107,7 @@ where
     // for sending replies, key identifiers, newsroom key/identifier, etc.)
     // At the moment the message being passed here is just the plaintext, but it will have a message structure.
 
+    // spec: ct^APKE = SD-APKE.AuthEnc(sk_S^APKE, pk_R^APKE, pt, NR_ID, pk_R^fetch)
     // HPKE AuthPSK message encryption
     let (mesage_dhakem_shared_secret_encaps, message_ciphertext) = hpke_authenc
         .seal(
@@ -126,30 +128,37 @@ where
         [0u8; LEN_DHKEM_SHAREDSECRET_ENCAPS];
     dhakem_ss_encaps_bytes.copy_from_slice(mesage_dhakem_shared_secret_encaps.as_slice());
 
+    // Hint (X, Z): X = g^x, Z = (pk_R^fetch)^x for a fresh ephemeral scalar x
     // Create mgdh (message clue) with a DH agreement between an ephemeral curve25519 keypair
     // and the recipient's Fetching key
+    // spec: `hint_esk` = x
+    // spec: `hint_epk` = X
     let (hint_esk, hint_epk) = generate_dh_keypair(rng).expect("Dh Keygen (fetch) failed");
 
+    // spec: `hint_sharedsecret` = Z = (pk_R^fetch)^x
     let hint_sharedsecret: DHSharedSecret =
         dh_shared_secret(recipient.fetch_pk(), hint_esk.into_bytes())
             .expect("Failed to generate shared secret");
 
-    // Serialize sender DH-AKEM pubkey
-    let sender_pubkey_bytes = sender.message_auth_keypair().1.as_bytes();
+    // Serialize the full sender APKE public key tuple: pk_S^AKEM || pk_S^PQ
+    let mut sender_apke_bytes = Vec::new();
+    sender_apke_bytes.extend_from_slice(sender.message_auth_keypair().1.as_bytes()); // pk_S^AKEM (DH-AKEM)
+    sender_apke_bytes.extend_from_slice(sender.message_psk_pk().as_bytes()); // pk_S^PQ (ML-KEM)
 
-    // Serialize then encapsulate sender pubkey to recipient metadata key
-    // (xwing) in Hpke Base mode:
+    // Encapsulate the full sender APKE public key tuple to the recipient's metadata key
+    // (xwing) in HPKE Base mode:
     // https://www.rfc-editor.org/rfc/rfc9180.html#name-metadata-protection
     // Although we do use a PSK and PSK_ID in the message, we don't need to
     // encrypt the message PSK_ID, because it is a hard-coded string
     let recipient_md_pubkey = recipient.message_metadata_pk().clone().into();
 
+    // spec: SD-PKE.Enc
     let (md_ss_encaps_vec, metadata_ciphertext) = hpke_metadata
         .seal(
             &recipient_md_pubkey,
             HPKE_BASE_INFO, // b""
             HPKE_BASE_AAD,  // b""
-            sender_pubkey_bytes,
+            &sender_apke_bytes,
             None,
             None,
             None,
@@ -167,20 +176,15 @@ where
         message_pqpsk_ss_encap: psk_ct,
         ct_message: message_ciphertext,
     };
+    // TODO: define C_S as in the spec
 
+    // Send (C_S, X, Z) to server
     Envelope {
-        // authenc ciphertext
-        cmessage: cmessage.to_bytes(),
-
-        // sender pubkey ciphertext
-        cmetadata: metadata_ciphertext,
-
-        // sender pubkey ss encaps
-        metadata_encap: metadata_ss_encaps,
-
-        // clue stuff
-        mgdh_pubkey: hint_epk.into_bytes(),
-        mgdh: hint_sharedsecret.into_bytes(),
+        cmessage: cmessage.to_bytes(),        // ct^APKE
+        cmetadata: metadata_ciphertext,       // ct^PKE ciphertext
+        metadata_encap: metadata_ss_encaps,   // ct^PKE encapsulation
+        mgdh_pubkey: hint_epk.into_bytes(),   // X = g^x
+        mgdh: hint_sharedsecret.into_bytes(), // Z = (pk_R^fetch)^x
     }
 }
 
@@ -235,14 +239,20 @@ pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Pla
     let receiver_dhakem: &HpkePrivateKey = &bundle.dh_akem.sk.clone().into();
     let receiver_pqkem_bytes: &[u8; LEN_MLKEM_DECAPS_KEY] = bundle.mlkem.sk.as_bytes();
 
-    // kind of silly, but just enforcing expected length of metadata
-    let raw_md_bytes: [u8; DH_AKEM_PUBLIC_KEY_LEN] = raw_metadata
-        .as_slice()
+    // we should have the full APKE public key tuple: pk_S^AKEM (DH-AKEM) || pk_S^PQ (ML-KEM)
+    assert_eq!(
+        raw_metadata.len(),
+        DH_AKEM_PUBLIC_KEY_LEN + LEN_MLKEM_ENCAPS_KEY,
+        "Metadata must contain the full sender APKE key tuple"
+    );
+    let sender_dhakem_bytes: [u8; DH_AKEM_PUBLIC_KEY_LEN] = raw_metadata[..DH_AKEM_PUBLIC_KEY_LEN]
         .try_into()
-        .expect("Need {DH_AKEM_PUBLIC_KEY_LEN} array");
+        .expect("Need DH_AKEM_PUBLIC_KEY_LEN bytes for sender DH-AKEM key");
+    let _sender_mlkem_bytes: [u8; LEN_MLKEM_ENCAPS_KEY] = raw_metadata[DH_AKEM_PUBLIC_KEY_LEN..]
+        .try_into()
+        .expect("Need LEN_MLKEM_ENCAPS_KEY bytes for sender ML-KEM key");
 
-    // Sender DH-AKEM pubkey required to decrypt ciphertext
-    let sender_dhakem: HpkePublicKey = DhAkemPublicKey::from_bytes(raw_md_bytes).into();
+    let sender_dhakem: HpkePublicKey = DhAkemPublicKey::from_bytes(sender_dhakem_bytes).into();
 
     // toy (unsafe) parse combined ciphertext
     let combined_ct = CombinedCiphertext::from_bytes(&envelope.cmessage).unwrap();
@@ -368,9 +378,6 @@ pub fn solve_fetch_challenges<S: UserSecret>(
 /// TODO: only sources need to attach their pubkeys (for replies),
 /// but for toy purposes, everyone builds a Plaintext message the same way
 pub fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
-    let mut reply_key_pq_psk = [0u8; LEN_MLKEM_ENCAPS_KEY];
-    reply_key_pq_psk.copy_from_slice(sender.message_psk_pk().as_bytes());
-
     let mut fetch_pk = [0u8; LEN_DH_ITEM];
     fetch_pk.copy_from_slice(&sender.fetch_pk().clone().into_bytes());
 
@@ -378,7 +385,6 @@ pub fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
     reply_key_pq_hybrid.copy_from_slice(sender.message_metadata_pk().as_bytes());
 
     Plaintext {
-        sender_reply_pubkey_pq_psk: reply_key_pq_psk,
         sender_fetch_key: fetch_pk,
         sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
         msg: message,
@@ -441,12 +447,8 @@ mod tests {
             sender_public.message_metadata_pk().as_bytes()
         );
         assert_eq!(
-            &pt_ref.sender_reply_pubkey_pq_psk,
-            sender_public.message_psk_pk().as_bytes()
-        );
-        assert_eq!(
             pt.len(),
-            &pt_ref.msg.len() + LEN_DH_ITEM + LEN_MLKEM_ENCAPS_KEY + LEN_XWING_ENCAPS_KEY
+            &pt_ref.msg.len() + LEN_DH_ITEM + LEN_XWING_ENCAPS_KEY
         );
     }
 

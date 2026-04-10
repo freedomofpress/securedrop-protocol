@@ -29,7 +29,10 @@ pub struct Journalist {
     signing_key: SigningKeyPair,
     fetch_key: DhFetchKeyPair,
     message_keys: Vec<SignedMessageKeyBundle>,
+    /// DH-AKEM component of the long-term APKE key tuple (pk_J^APKE)
     reply_key: DhAkemKeyPair,
+    /// ML-KEM component of the long-term APKE key tuple (pk_J^APKE)
+    reply_mlkem_key: MlKem768KeyPair,
     self_signature: Signature<JournalistLongTermKey>,
     signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
     session_storage: SessionStorage,
@@ -139,13 +142,17 @@ impl UserSecret for Journalist {
         (&self.reply_key.sk, &self.reply_key.pk)
     }
 
+    fn message_psk_pk(&self) -> &MLKEM768PublicKey {
+        // ML-KEM component of the journalist's long-term APKE key tuple (pk_J^PQ)
+        &self.reply_mlkem_key.pk
+    }
+
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
         // TODO: the journalist doesn't attach their own keys,
         // because the source pulls a fresh set of keys and verifies them
         // in order to reply. either fill with random bytes or use
         // another scheme (fixme)
         Plaintext {
-            sender_reply_pubkey_pq_psk: [0u8; LEN_MLKEM_ENCAPS_KEY],
             sender_fetch_key: [0u8; LEN_DH_ITEM],
             sender_reply_pubkey_hybrid: [0u8; LEN_XWING_ENCAPS_KEY],
             msg: message,
@@ -166,6 +173,7 @@ impl Enrollable for Journalist {
                 self.signing_key.pk,
                 self.fetch_key.pk.clone(),
                 self.reply_key.pk.clone(),
+                self.reply_mlkem_key.pk.clone(),
             ),
         }
     }
@@ -194,8 +202,13 @@ impl Journalist {
         let (sk_reply, pk_reply) =
             generate_dh_akem_keypair(&mut *rng).expect("DH-AKEM Keygen (Reply) failed");
 
+        let (sk_reply_mlkem, pk_reply_mlkem) =
+            generate_mlkem768_keypair(rng).expect("ML-KEM Keygen (Reply) failed");
+
         // Self-sign long-term pubkeys (for enrollment).
-        let selfsigned_pubkeys = SignedLongtermPubKeyBytes::from_keys(&pk_reply, &pk_fetch);
+        // Covers pk_J^APKE = (pk_J^AKEM, pk_J^PQ) and pk_J^fetch
+        let selfsigned_pubkeys =
+            SignedLongtermPubKeyBytes::from_keys(&pk_reply, &pk_reply_mlkem, &pk_fetch);
         let self_signature: Signature<JournalistLongTermKey> =
             signing_key.sign(selfsigned_pubkeys.as_bytes());
 
@@ -249,6 +262,10 @@ impl Journalist {
             reply_key: KeyPair {
                 sk: sk_reply,
                 pk: pk_reply,
+            },
+            reply_mlkem_key: KeyPair {
+                sk: sk_reply_mlkem,
+                pk: pk_reply_mlkem,
             },
             message_keys: key_bundles,
             self_signature,
