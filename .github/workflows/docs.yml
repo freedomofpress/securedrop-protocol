@@ -1,0 +1,56 @@
+name: Rust documentation
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Rustdocs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Keep setup synced with `rust.yml`:
+      # actions/checkout@v4.1.1
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
+        with:
+          persist-credentials: false
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      - uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+        with:
+          toolchain: stable
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+
+      - run: cargo doc --no-deps
+        working-directory: securedrop-protocol
+
+      # actions/configure-pages@v6.0.0
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
+
+      # actions/upload-pages-artifact@v5.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
+        with:
+          path: securedrop-protocol/target/doc
+
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # actions/deploy-pages@v5.0.0
+      - id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128

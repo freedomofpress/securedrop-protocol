@@ -530,7 +530,7 @@ render them numbered by reference order, so it's okay to keep this list in
 insertion order.
 -->
 
-[^1]: See ["Configuration"](../README.md#config).
+[^1]: See ["Configuration"][v0.1-config].
 
 [^2]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
 
@@ -576,3 +576,4 @@ insertion order.
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
 [RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
 [semantic versioning]: https://semver.org
+[v0.1-config]: https://github.com/freedomofpress/securedrop-protocol/blob/d512528f42760f7ccb5205291ba11a377333cc0e/README.md?plain=1#L29
