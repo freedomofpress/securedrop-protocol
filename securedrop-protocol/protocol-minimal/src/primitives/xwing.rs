@@ -3,37 +3,37 @@ use libcrux_kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
 
 // From: https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/
-pub const XWING_PUBLIC_KEY_LEN: usize = 1216;
-pub const XWING_PRIVATE_KEY_LEN: usize = 32;
+pub(crate) const XWING_PUBLIC_KEY_LEN: usize = 1216;
+pub(crate) const XWING_PRIVATE_KEY_LEN: usize = 32;
 
 /// XWING public key.
 #[derive(Debug, Clone)]
-pub struct XWingPublicKey([u8; XWING_PUBLIC_KEY_LEN]);
+pub(crate) struct XWingPublicKey([u8; XWING_PUBLIC_KEY_LEN]);
 
 /// XWING private key.
 #[derive(Debug, Clone)]
-pub struct XWingPrivateKey([u8; XWING_PRIVATE_KEY_LEN]);
+pub(crate) struct XWingPrivateKey([u8; XWING_PRIVATE_KEY_LEN]);
 
 impl XWingPublicKey {
     /// Get the public key as bytes
-    pub fn as_bytes(&self) -> &[u8; XWING_PUBLIC_KEY_LEN] {
+    pub(crate) fn as_bytes(&self) -> &[u8; XWING_PUBLIC_KEY_LEN] {
         &self.0
     }
 
     /// Create from bytes
-    pub fn from_bytes(bytes: [u8; XWING_PUBLIC_KEY_LEN]) -> Self {
+    pub(crate) fn from_bytes(bytes: [u8; XWING_PUBLIC_KEY_LEN]) -> Self {
         Self(bytes)
     }
 }
 
 impl XWingPrivateKey {
     /// Get the private key as bytes
-    pub fn as_bytes(&self) -> &[u8; XWING_PRIVATE_KEY_LEN] {
+    pub(crate) fn as_bytes(&self) -> &[u8; XWING_PRIVATE_KEY_LEN] {
         &self.0
     }
 
     /// Create from bytes
-    pub fn from_bytes(bytes: [u8; XWING_PRIVATE_KEY_LEN]) -> Self {
+    pub(crate) fn from_bytes(bytes: [u8; XWING_PRIVATE_KEY_LEN]) -> Self {
         Self(bytes)
     }
 }
@@ -52,7 +52,7 @@ impl From<XWingPublicKey> for HpkePublicKey {
 
 /// Generate XWING keypair from external randomness
 /// FOR TEST PURPOSES ONLY
-pub fn deterministic_keygen(
+pub(crate) fn deterministic_keygen(
     randomness: [u8; 32],
 ) -> Result<(XWingPrivateKey, XWingPublicKey), anyhow::Error> {
     use libcrux_kem::{Algorithm, key_gen_derand};
@@ -119,7 +119,7 @@ fn typed(
 }
 
 /// Generate a new XWING keypair using libcrux_kem
-pub fn generate_xwing_keypair<R: RngCore + CryptoRng>(
+pub(crate) fn generate_xwing_keypair<R: RngCore + CryptoRng>(
     rng: &mut R,
 ) -> Result<(XWingPrivateKey, XWingPublicKey), anyhow::Error> {
     use libcrux_kem::{Algorithm, key_gen};

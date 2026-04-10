@@ -2,6 +2,7 @@ use crate::VerifyingKey;
 use crate::api::Api;
 use crate::api::JournalistApi;
 use crate::api::restricted;
+use crate::metadata::{MetadataPublicKey, keygen as metadata_keygen};
 use crate::primitives::dh_akem::DhAkemPrivateKey;
 use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::dh_akem::generate_dh_akem_keypair;
@@ -10,8 +11,6 @@ use crate::primitives::mlkem::generate_mlkem768_keypair;
 use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::x25519::generate_dh_keypair;
-use crate::primitives::xwing::XWingPublicKey;
-use crate::primitives::xwing::generate_xwing_keypair;
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey};
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
@@ -82,8 +81,8 @@ impl UserPublic for JournalistPublicView {
         &self.kb.0.mlkem_pk
     }
 
-    fn message_metadata_pk(&self) -> &XWingPublicKey {
-        &self.kb.0.xwing_pk
+    fn message_metadata_pk(&self) -> &MetadataPublicKey {
+        &self.kb.0.metadata_pk
     }
 
     fn message_enc_pk(&self) -> &DhAkemPublicKey {
@@ -219,8 +218,7 @@ impl Journalist {
             let (sk_pqkem_psk, pk_pqkem_psk) =
                 generate_mlkem768_keypair(rng).expect("Failed to generate ml-kem keys!");
 
-            let (sk_md, pk_md) =
-                generate_xwing_keypair(rng).expect("Failed to generate xwing keys");
+            let metadata_kp = metadata_keygen(rng).expect("Failed to generate metadata keys");
 
             let bundle = MessageKeyBundle::new(
                 KeyPair {
@@ -231,10 +229,7 @@ impl Journalist {
                     sk: sk_pqkem_psk,
                     pk: pk_pqkem_psk,
                 },
-                KeyPair {
-                    sk: sk_md,
-                    pk: pk_md,
-                },
+                metadata_kp,
             );
 
             let pubkey_bytes = bundle.public().as_bytes();
@@ -324,12 +319,20 @@ mod tests {
                 kbs[i].mlkem.pk.as_bytes()
             );
             assert_eq!(
-                journalist.message_keys[i].bundle.xwing_md.sk.as_bytes(),
-                kbs[i].xwing_md.sk.as_bytes()
+                journalist.message_keys[i]
+                    .bundle
+                    .metadata_kp
+                    .private_key()
+                    .as_bytes(),
+                kbs[i].metadata_kp.private_key().as_bytes()
             );
             assert_eq!(
-                journalist.message_keys[i].bundle.xwing_md.pk.as_bytes(),
-                kbs[i].xwing_md.pk.as_bytes()
+                journalist.message_keys[i]
+                    .bundle
+                    .metadata_kp
+                    .public_key()
+                    .as_bytes(),
+                kbs[i].metadata_kp.public_key().as_bytes()
             );
         }
     }

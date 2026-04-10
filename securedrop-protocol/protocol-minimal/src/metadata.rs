@@ -27,6 +27,7 @@ use crate::constants::LEN_XWING_SHAREDSECRET_ENCAPS;
 use crate::primitives::xwing::{XWingPrivateKey, XWingPublicKey, generate_xwing_keypair};
 
 /// The recipient's metadata public key (`pk_R^PKE` in the spec).
+#[derive(Debug, Clone)]
 pub struct MetadataPublicKey(pub(crate) XWingPublicKey);
 
 /// The recipient's metadata private key (`sk_R^PKE` in the spec).
@@ -52,6 +53,7 @@ impl MetadataKeyPair {
 
 /// SD-PKE ciphertext `(c, c')`: X-Wing encapsulation `c` together with HPKE
 /// ciphertext `c'`.
+#[derive(Debug, Clone)]
 pub struct MetadataCiphertext {
     /// HPKE encapsulation output (`c` in the spec)
     pub(crate) c: [u8; LEN_XWING_SHAREDSECRET_ENCAPS],
@@ -59,15 +61,10 @@ pub struct MetadataCiphertext {
     pub(crate) cp: Vec<u8>,
 }
 
-impl From<XWingPublicKey> for MetadataPublicKey {
-    fn from(key: XWingPublicKey) -> Self {
-        Self(key)
-    }
-}
-
-impl From<XWingPrivateKey> for MetadataPrivateKey {
-    fn from(key: XWingPrivateKey) -> Self {
-        Self(key)
+impl MetadataCiphertext {
+    /// Total byte length of the ciphertext: encapsulation `c` + AEAD ciphertext `c'`.
+    pub fn len(&self) -> usize {
+        self.c.len() + self.cp.len()
     }
 }
 
@@ -84,7 +81,29 @@ pub fn keygen<R: RngCore + CryptoRng>(rng: &mut R) -> Result<MetadataKeyPair, an
     })
 }
 
+/// SD-PKE.KGen (deterministic): derive a `MetadataKeyPair` from 32 bytes of seed material.
+///
+/// For use in passphrase-derived key generation only; do not use with random bytes
+/// from a live RNG (use [`keygen`] instead).
+///
+/// # Errors
+///
+/// Returns an error if X-Wing key generation fails.
+pub(crate) fn deterministic_keygen(randomness: [u8; 32]) -> Result<MetadataKeyPair, anyhow::Error> {
+    use crate::primitives::xwing::deterministic_keygen as xwing_derand;
+    let (sk_s, pk_s) = xwing_derand(randomness)?;
+    Ok(MetadataKeyPair {
+        sk: MetadataPrivateKey(sk_s),
+        pk: MetadataPublicKey(pk_s),
+    })
+}
+
 impl MetadataPublicKey {
+    /// Returns the public key as bytes.
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+
     /// SD-PKE.Enc: encrypt message `m` to this key, returning `(c, c')`.
     pub fn encrypt(&self, m: &[u8]) -> MetadataCiphertext {
         let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
@@ -105,6 +124,12 @@ impl MetadataPublicKey {
 }
 
 impl MetadataPrivateKey {
+    /// Returns the private key as bytes.
+    #[cfg(test)]
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+
     /// SD-PKE.Dec: decrypt `(c, c')` using this key, returning message `m`.
     ///
     /// # Errors
