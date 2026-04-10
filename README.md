@@ -43,7 +43,7 @@ To better understand the context of this research and the previous steps that le
 
 ## Setup instructions
 
-Install the Rust toolchain. To view browsable documentation, install `doxygen` and `dot` (Graphviz). Use `make help` from the project root to see available make targets, e.g. to install lint tools, run formatting checks, or build crates.
+Install the Rust toolchain. Use `make help` from the project root to see available make targets, e.g. to install lint tools, run formatting checks, or build crates.
 
 Lint tools are installed in the `lint-tools` directory to avoid interfering with the user's system dependencies; cargo will suggest adding the directory to your $PATH, but that's not required.
 

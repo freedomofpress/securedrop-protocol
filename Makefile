@@ -54,13 +54,6 @@ deps-rust:  ## Install clippy and rustfmt.
 clippy: deps-rust  ## Check Rust code with clippy
 	@cargo clippy --manifest-path=securedrop-protocol/Cargo.toml --all-targets --all-features --
 
-.PHONY: doxygen
-doxygen:  ## Generate browsable documentation and call/caller graphs (requires Doxygen and Graphviz).
-	@which doxygen >> /dev/null || { echo "doxygen(1) is not available in your \$$PATH.  Is it installed?"; exit 1; }
-	@which dot >> /dev/null || { echo "Graphviz's dot(1) is not available in your \$$PATH.  Is it installed?"; exit 1; }
-	@doxygen
-	@echo "Now open \"$(PWD)/docs/html/index.html\" in your browser."
-
 .PHONY: build-wasm
 build-wasm:  ## Compile securedrop-protocol crate for wasm32-unknown-unknown (browser compat, requires rust toolchain).
 	@which cargo >> /dev/null || { echo "Please install the Rust toolchain"; exit 1; }
