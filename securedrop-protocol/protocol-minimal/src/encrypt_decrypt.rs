@@ -65,16 +65,16 @@ const LEN_KMID: usize =
 /// Encrypt a message from a sender to a receiver.
 /// A sender holds access to UserPublic + UserSecret, i.e. keypair access.
 /// A receiver holds access to UserPublic, i.e. pubkey access.
-pub fn encrypt<Rng, Sndr, Rcvr>(
-    rng: &mut Rng,
-    sender: &Sndr,
-    plaintext: Plaintext,
-    recipient: &Rcvr,
+pub fn encrypt<R, Sender, Recipient>(
+    rng: &mut R,
+    sender: &Sender,
+    plaintext: &Plaintext,
+    recipient: &Recipient,
 ) -> Envelope
 where
-    Rng: RngCore + CryptoRng,
-    Sndr: UserSecret + ?Sized,
-    Rcvr: UserPublic + ?Sized,
+    R: RngCore + CryptoRng,
+    Sender: UserSecret + ?Sized,
+    Recipient: UserPublic + ?Sized,
 {
     let mut hpke_authenc: Hpke<HpkeLibcrux> =
         Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, Aes256Gcm);
@@ -109,7 +109,7 @@ where
 
     // spec: ct^APKE = SD-APKE.AuthEnc(sk_S^APKE, pk_R^APKE, pt, NR_ID, pk_R^fetch)
     // HPKE AuthPSK message encryption
-    let (mesage_dhakem_shared_secret_encaps, message_ciphertext) = hpke_authenc
+    let (message_dhakem_shared_secret_encaps, message_ciphertext) = hpke_authenc
         .seal(
             &recipient_message_enc_dhakem_pub,
             // psk_encaps_ct as authenticated (info).
@@ -126,7 +126,7 @@ where
 
     let mut dhakem_ss_encaps_bytes: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] =
         [0u8; LEN_DHKEM_SHAREDSECRET_ENCAPS];
-    dhakem_ss_encaps_bytes.copy_from_slice(mesage_dhakem_shared_secret_encaps.as_slice());
+    dhakem_ss_encaps_bytes.copy_from_slice(message_dhakem_shared_secret_encaps.as_slice());
 
     // Hint (X, Z): X = g^x, Z = (pk_R^fetch)^x for a fresh ephemeral scalar x
     // Create mgdh (message clue) with a DH agreement between an ephemeral curve25519 keypair
@@ -430,10 +430,10 @@ mod tests {
     ) {
         let pt = build_message(sender_public, msg);
 
-        let envelope = encrypt(&mut rng, sender_secret, pt.clone(), rcvr_public);
+        let envelope = encrypt(&mut rng, sender_secret, &pt, rcvr_public);
         let decrypted = decrypt(rcvr_secret, &envelope);
 
-        let pt_ref = &pt.clone();
+        let pt_ref = &pt;
 
         assert_eq!(pt_ref.msg, decrypted.msg);
         assert_eq!(pt_ref.len(), decrypted.to_bytes().len());
@@ -500,7 +500,7 @@ mod tests {
 
         let msg = b"Fetch this message";
         let plaintext = build_message(&source.public(), msg.to_vec());
-        let envelope = encrypt(&mut rng, &source, plaintext, &journalist_public);
+        let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
         // On server. TODO: in helper function
         let mut store = ServerMessageStore::new();
@@ -530,7 +530,7 @@ mod tests {
 
         let msg = b"Fetch this message";
         let plaintext = build_message(&source.public(), msg.to_vec());
-        let envelope = encrypt(&mut rng, &source, plaintext, &journalist_public);
+        let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
         // On server. TODO: in helper function
         let mut store = ServerMessageStore::new();
