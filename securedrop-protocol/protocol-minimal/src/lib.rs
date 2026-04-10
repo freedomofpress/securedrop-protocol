@@ -41,3 +41,4 @@ pub use sign::{
 pub mod storage;
 
 pub mod encrypt_decrypt;
+pub mod metadata;
