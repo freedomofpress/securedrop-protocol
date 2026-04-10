@@ -1,12 +1,13 @@
 # SecureDrop Protocol
 
-|                                   | Version           |
-| --------------------------------- | ----------------- |
-| [Proof-of-concept implementation] | 0.3               |
-| [Specification]                   | 0.3 ([changelog]) |
-| [Tamarin models]                  | 0.3               |
+|                                   | Version               |
+| --------------------------------- | --------------------- |
+| [Proof-of-concept implementation] | 0.3 ([documentation]) |
+| [Specification]                   | 0.3 ([changelog])     |
+| [Tamarin models]                  | 0.3                   |
 
 [changelog]: ./docs/protocol.md#changelog
+[documentation]: https://freedomofpress.github.io/securedrop-protocol/securedrop_protocol_minimal/
 [Proof-of-concept implementation]: https://github.com/freedomofpress/securedrop-protocol/tree/main/securedrop-protocol/protocol-minimal
 [specification]: ./docs/protocol.md
 [Tamarin models]: https://github.com/freedomofpress/securedrop-protocol-models
