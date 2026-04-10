@@ -206,6 +206,7 @@ impl Server {
                 signing_key,
                 fetching_key,
                 reply_key,
+                _reply_mlkem_key,
                 journalist_self_sig,
                 signed_pubkey_bytes,
                 newsroom_sig,
