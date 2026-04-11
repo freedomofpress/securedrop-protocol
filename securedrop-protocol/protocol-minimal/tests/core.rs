@@ -118,10 +118,10 @@ fn protocol_step_5_source_fetch_keys() {
         journalist.fetch_keypair().1.clone().into_bytes()
     );
 
-    // Verify the journalist's DH key matches our expectation
+    // Verify the journalist's message (APKE) key matches our expectation
     assert_eq!(
         journalist_response.journalist.message_auth_pk().as_bytes(),
-        journalist.message_auth_keypair().1.as_bytes()
+        journalist.message_auth_pk().as_bytes()
     );
 
     // Verify that ephemeral keys were consumed (deleted from server storage)

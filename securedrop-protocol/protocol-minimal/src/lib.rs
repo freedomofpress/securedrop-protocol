@@ -16,7 +16,7 @@ pub mod source;
 
 pub use constants::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY};
 
-pub use ciphertext::{CombinedCiphertext, Envelope, FetchResponse, Plaintext};
+pub use ciphertext::{Envelope, FetchResponse, Plaintext};
 
 pub use keys::{
     DhAkemKeyPair, DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, MlKem768KeyPair,
