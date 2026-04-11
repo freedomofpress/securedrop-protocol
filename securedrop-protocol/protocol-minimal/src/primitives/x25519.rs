@@ -123,7 +123,7 @@ pub fn dh_shared_secret(
 
 #[cfg(test)]
 mod tests {
-    use crate::encrypt_decrypt::LEN_DH_ITEM;
+    use crate::constants::LEN_DH_ITEM;
 
     use super::*;
     use proptest::prelude::*;

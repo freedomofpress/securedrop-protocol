@@ -1,7 +1,6 @@
-use crate::constants::LEN_XWING_ENCAPS_KEY;
+use crate::constants::{LEN_DH_ITEM, LEN_KMID, LEN_XWING_ENCAPS_KEY};
+use crate::message::MessagePublicKey;
 use crate::metadata;
-use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
-use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::x25519::DHSharedSecret;
 use crate::primitives::x25519::dh_shared_secret;
@@ -9,55 +8,21 @@ use crate::primitives::x25519::generate_dh_keypair;
 use crate::primitives::x25519::generate_random_scalar;
 use crate::primitives::{decrypt_message_id, encrypt_message_id};
 use crate::storage::ServerMessageStore;
-use crate::{
-    CombinedCiphertext, Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic,
-    UserSecret,
-};
+use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, UserSecret};
 use alloc::format;
 use alloc::vec::Vec;
-use hpke_rs::HpkePrivateKey;
-use hpke_rs::HpkePublicKey;
-use hpke_rs::hpke_types::AeadAlgorithm::Aes256Gcm;
-use hpke_rs::hpke_types::KdfAlgorithm::HkdfSha256;
-use hpke_rs::hpke_types::KemAlgorithm::DhKem25519;
-use hpke_rs::libcrux::HpkeLibcrux;
-use hpke_rs::{Hpke, Mode};
-use libcrux_kem::MlKem768;
-use libcrux_traits::kem::owned::Kem;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
 // Mock Newsroom ID
 const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
 
-const HPKE_PSK_ID: &[u8] = b"PSK_INFO_ID_TAG"; // authpsk only, required by spec
-
-// Key lengths
-const LEN_DHKEM_ENCAPS_KEY: usize = libcrux_curve25519::EK_LEN;
-const LEN_DHKEM_DECAPS_KEY: usize = libcrux_curve25519::DK_LEN;
-const LEN_DHKEM_SHAREDSECRET_ENCAPS: usize = libcrux_curve25519::SS_LEN;
-const LEN_DHKEM_SHARED_SECRET: usize = libcrux_curve25519::SS_LEN;
-pub const LEN_DH_ITEM: usize = LEN_DHKEM_DECAPS_KEY;
-
-// https://openquantumsafe.org/liboqs/algorithms/kem/ml-kem.html
-// todo, source from crates instead of hardcoding
-pub const LEN_MLKEM_ENCAPS_KEY: usize = 1184;
-const LEN_MLKEM_DECAPS_KEY: usize = 2400;
-const LEN_MLKEM_SHAREDSECRET_ENCAPS: usize = 1088;
-const LEN_MLKEM_SHAREDSECRET: usize = 32;
-const LEN_MLKEM_RAND_SEED_SIZE: usize = 64;
-
-// Message ID (uuid) and KMID
-const LEN_MESSAGE_ID: usize = 16;
-// TODO: this will be aes-gcm and use AES GCM TagSize
-// TODO: current implementation prepends the nonce to the encrypted message.
-// Recheck this when switching implementations.
-const LEN_KMID: usize =
-    libcrux_chacha20poly1305::TAG_LEN + libcrux_chacha20poly1305::NONCE_LEN + LEN_MESSAGE_ID;
-
-/// Encrypt a message from a sender to a receiver.
-/// A sender holds access to UserPublic + UserSecret, i.e. keypair access.
-/// A receiver holds access to UserPublic, i.e. pubkey access.
+/// Encrypt a message from a sender to a recipient (step 6).
+///
+/// Produces an [`Envelope`] containing:
+/// - `ct^APKE`: SD-APKE ciphertext (encrypted message)
+/// - `ct^PKE`: SD-PKE ciphertext (encrypted sender APKE public key)
+/// - `(X, Z)`: hint for privacy-preserving message fetching
 pub fn encrypt<R, Sender, Recipient>(
     rng: &mut R,
     sender: &Sender,
@@ -69,95 +34,41 @@ where
     Sender: UserSecret + ?Sized,
     Recipient: UserPublic + ?Sized,
 {
-    let mut hpke_authenc: Hpke<HpkeLibcrux> =
-        Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, Aes256Gcm);
+    // spec: sk_S^APKE - sender's long-term APKE private key
+    let sk_s = sender.message_auth_key();
+    // spec: pk_R^APKE - recipient's APKE public key
+    let pk_r = recipient.message_enc_pk();
+    // spec: pk_R^fetch
+    let pk_r_fetch = recipient.fetch_pk().into_bytes();
 
-    // spec: pk_R^AKEM: the DH-AKEM component of the recipient's APKE key bundle
-    let recipient_message_enc_dhakem_pub = recipient.message_enc_pk().clone().into();
-    // spec: sk_S^AKEM: the DH-AKEM component of the sender's long-term APKE key tuple (sk_S^APKE)
-    let hpke_sender_key = sender.message_auth_keypair().0.clone().into();
-
-    // Note: Don't need SEED_GEN len randomness (64), just SHARED_SECRET len (32),
-    // according to MLK-KEM source code.
-    let mut randomness: [u8; LEN_MLKEM_SHAREDSECRET] = [0u8; LEN_MLKEM_SHAREDSECRET];
-    rng.fill_bytes(&mut randomness);
-
-    // Calculate PQ PSK - encapsulate to the recipient's key
-    let (psk, psk_ct) = MlKem768::encaps(&recipient.message_psk_pk().as_bytes(), &randomness)
-        .expect("PSK encaps failed");
-
-    // Info parameter is pq_psk_encaps_bytes || receiver_fetch_pubkey_bytes
-    // spec: SD-APKE AuthEnc sets info = c2 || pk_R^fetch
-    let mut info = Vec::new();
-    info.extend_from_slice(&psk_ct);
-    info.extend_from_slice(&recipient.fetch_pk().clone().into_bytes());
-
-    // TODO: message serialization and format
-    // (include any message metadata, the sender serialized XWING pubkey
-    // for sending replies, key identifiers, newsroom key/identifier, etc.)
-    // At the moment the message being passed here is just the plaintext, but it will have a message structure.
-
-    // spec: ct^APKE = SD-APKE.AuthEnc(sk_S^APKE, pk_R^APKE, pt, NR_ID, pk_R^fetch)
-    // HPKE AuthPSK message encryption
-    let (message_dhakem_shared_secret_encaps, message_ciphertext) = hpke_authenc
-        .seal(
-            &recipient_message_enc_dhakem_pub,
-            // psk_encaps_ct as authenticated (info).
-            // In single-shot mode this is how authenticated data is passed:
-            // https://www.rfc-editor.org/rfc/rfc9180.html#section-8.1-2
-            &info,
-            NR_ID, // Newsroom ID is associated data
-            &plaintext.to_bytes(),
-            Some(&psk),
-            Some(HPKE_PSK_ID),      // Fixed PSK ID
-            Some(&hpke_sender_key), // sender DH-AKEM private key
-        )
-        .unwrap();
-
-    let mut dhakem_ss_encaps_bytes: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] =
-        [0u8; LEN_DHKEM_SHAREDSECRET_ENCAPS];
-    dhakem_ss_encaps_bytes.copy_from_slice(message_dhakem_shared_secret_encaps.as_slice());
+    // spec: ct^APKE = SD-APKE.AuthEnc(sk_S^APKE, pk_R^APKE, pt, NR, pk_R^fetch)
+    let ct_apke =
+        crate::message::auth_enc(rng, sk_s, pk_r, &plaintext.to_bytes(), NR_ID, &pk_r_fetch)
+            .expect("SD-APKE AuthEnc failed");
 
     // Hint (X, Z): X = g^x, Z = (pk_R^fetch)^x for a fresh ephemeral scalar x
-    // Create mgdh (message clue) with a DH agreement between an ephemeral curve25519 keypair
-    // and the recipient's Fetching key
-    // spec: `hint_esk` = x
-    // spec: `hint_epk` = X
-    let (hint_esk, hint_epk) = generate_dh_keypair(rng).expect("Dh Keygen (fetch) failed");
-
-    // spec: `hint_sharedsecret` = Z = (pk_R^fetch)^x
+    // spec: x (hint_esk), X (hint_epk)
+    let (hint_esk, hint_epk) = generate_dh_keypair(rng).expect("DH Keygen (hint) failed");
+    // spec: Z = (pk_R^fetch)^x
     let hint_sharedsecret: DHSharedSecret =
         dh_shared_secret(recipient.fetch_pk(), hint_esk.into_bytes())
             .expect("Failed to generate shared secret");
 
-    // Serialize the full sender APKE public key tuple: pk_S^AKEM || pk_S^PQ
-    let mut sender_apke_bytes = Vec::new();
-    sender_apke_bytes.extend_from_slice(sender.message_auth_keypair().1.as_bytes()); // pk_S^AKEM (DH-AKEM)
-    sender_apke_bytes.extend_from_slice(sender.message_psk_pk().as_bytes()); // pk_S^PQ (ML-KEM)
+    // spec: pk_S^APKE - sender's long-term APKE public key
+    let sender_apke_bytes = sender.message_auth_pk().as_bytes();
 
     // spec: ct^PKE = SD-PKE.Enc(pk_R^PKE, pk_S^APKE)
     let ct_pke = metadata::encrypt(recipient.message_metadata_pk(), &sender_apke_bytes);
 
-    let cmessage = CombinedCiphertext {
-        message_dhakem_ss_encap: dhakem_ss_encaps_bytes,
-        message_pqpsk_ss_encap: psk_ct,
-        ct_message: message_ciphertext,
-    };
-    // TODO: define C_S as in the spec
-
-    // Send (C_S, X, Z) to server
     Envelope {
-        cmessage: cmessage.to_bytes(),        // ct^APKE
-        ct_pke,                               // ct^PKE
-        mgdh_pubkey: hint_epk.into_bytes(),   // X = g^x
-        mgdh: hint_sharedsecret.into_bytes(), // Z = (pk_R^fetch)^x
+        ct_apke,                              // spec: ct^APKE
+        ct_pke,                               // spec: ct^PKE
+        mgdh_pubkey: hint_epk.into_bytes(),   // spec: X = g^x
+        mgdh: hint_sharedsecret.into_bytes(), // spec: Z = (pk_R^fetch)^x
     }
 }
 
 pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Plaintext {
-    let hpke_authenc: Hpke<HpkeLibcrux> =
-        Hpke::new(Mode::AuthPsk, DhKem25519, HkdfSha256, Aes256Gcm);
-
     // Trial-decrypt ct^PKE with each keybundle's metadata private key to find
     // the intended recipient's bundle. There should be exactly 1 result.
     let results: Vec<(&MessageKeyBundle, Vec<u8>)> = receiver
@@ -169,52 +80,26 @@ pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Pla
         })
         .collect();
 
-    // Sanity check
     debug_assert_eq!(results.len(), 1);
 
-    // Unpack the results of the trial decryption, yielding metadata and correct decryption keys
-    let (bundle, raw_metadata) = results.first().unwrap();
-    let receiver_dhakem: &HpkePrivateKey = &bundle.dh_akem.sk.clone().into();
-    let receiver_pqkem_bytes: &[u8; LEN_MLKEM_DECAPS_KEY] = bundle.mlkem.sk.as_bytes();
+    let (bundle, raw_metadata) = results.first().expect("we should find exactly 1 result");
 
-    // we should have the full APKE public key tuple: pk_S^AKEM (DH-AKEM) || pk_S^PQ (ML-KEM)
-    assert_eq!(
-        raw_metadata.len(),
-        DH_AKEM_PUBLIC_KEY_LEN + LEN_MLKEM_ENCAPS_KEY,
-        "Metadata must contain the full sender APKE key tuple"
-    );
-    let sender_dhakem_bytes: [u8; DH_AKEM_PUBLIC_KEY_LEN] = raw_metadata[..DH_AKEM_PUBLIC_KEY_LEN]
-        .try_into()
-        .expect("Need DH_AKEM_PUBLIC_KEY_LEN bytes for sender DH-AKEM key");
-    let _sender_mlkem_bytes: [u8; LEN_MLKEM_ENCAPS_KEY] = raw_metadata[DH_AKEM_PUBLIC_KEY_LEN..]
-        .try_into()
-        .expect("Need LEN_MLKEM_ENCAPS_KEY bytes for sender ML-KEM key");
+    // spec: pk_S^APKE - reconstruct sender's APKE public key from decrypted metadata
+    let sender_pk = MessagePublicKey::from_bytes(raw_metadata)
+        .expect("Metadata must contain valid sender APKE key tuple");
 
-    let sender_dhakem: HpkePublicKey = DhAkemPublicKey::from_bytes(sender_dhakem_bytes).into();
+    // spec: pk_R^fetch
+    let pk_r_fetch = receiver.fetch_keypair().1.into_bytes();
 
-    // toy (unsafe) parse combined ciphertext
-    let combined_ct = CombinedCiphertext::from_bytes(&envelope.cmessage).unwrap();
-
-    // Construct 'info' parameter (authenticated data)
-    // Info is c2 || receiver_fetch_pubkey
-    let mut info = Vec::new();
-    info.extend_from_slice(&combined_ct.message_pqpsk_ss_encap);
-    info.extend_from_slice(&receiver.fetch_keypair().1.clone().into_bytes());
-
-    let psk = MlKem768::decaps(&combined_ct.message_pqpsk_ss_encap, receiver_pqkem_bytes).unwrap();
-
-    let pt = hpke_authenc
-        .open(
-            &combined_ct.message_dhakem_ss_encap,
-            &receiver_dhakem,
-            &info,
-            NR_ID, // Recipient supplies NR_ID to decrypt
-            &combined_ct.ct_message,
-            Some(&psk),
-            Some(HPKE_PSK_ID),
-            Some(&sender_dhakem),
-        )
-        .expect("Decryption failed");
+    // spec: pt = SD-APKE.AuthDec(sk_R^APKE, pk_S^APKE, ct^APKE, NR, pk_R^fetch)
+    let pt = crate::message::auth_dec(
+        bundle.apke.private_key(), // spec: sk_R^APKE
+        &sender_pk,                // spec: pk_S^APKE
+        &envelope.ct_apke,         // spec: ct^APKE
+        NR_ID,                     // spec: NR
+        &pk_r_fetch,               // spec: pk_R^fetch
+    )
+    .expect("SD-APKE AuthDec failed");
 
     Plaintext::from_bytes(&pt).unwrap()
 }
@@ -332,21 +217,10 @@ pub fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
 // Begin unit tests
 #[cfg(test)]
 mod tests {
-    use libcrux_kem::MlKemKeyPair;
-    use proptest::prelude::Rng;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::{
-        DhAkemKeyPair, Journalist, KeyBundlePublic, KeyPair, MlKem768KeyPair, Source,
-        primitives::{
-            dh_akem::DhAkemPrivateKey,
-            generate_dh_akem_keypair, generate_mlkem768_keypair,
-            mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey},
-            x25519::DHPrivateKey,
-        },
-        private,
-    };
+    use crate::{Journalist, Source};
 
     use super::*;
 

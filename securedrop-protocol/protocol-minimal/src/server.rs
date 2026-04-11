@@ -205,8 +205,7 @@ impl Server {
             let (
                 signing_key,
                 fetching_key,
-                reply_key,
-                _reply_mlkem_key,
+                reply_apke_pk,
                 journalist_self_sig,
                 signed_pubkey_bytes,
                 newsroom_sig,
@@ -220,7 +219,7 @@ impl Server {
             let journo_public = JournalistPublicView::new(
                 signing_key,
                 fetching_key,
-                reply_key,
+                reply_apke_pk,
                 journalist_self_sig,
                 signed_pubkey_bytes,
                 ephemeral_bundle,

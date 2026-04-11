@@ -2,12 +2,8 @@ use crate::VerifyingKey;
 use crate::api::Api;
 use crate::api::JournalistApi;
 use crate::api::restricted;
+use crate::message::{MessageKeyPair, MessagePublicKey, keygen as message_keygen};
 use crate::metadata::{MetadataPublicKey, keygen as metadata_keygen};
-use crate::primitives::dh_akem::DhAkemPrivateKey;
-use crate::primitives::dh_akem::DhAkemPublicKey;
-use crate::primitives::dh_akem::generate_dh_akem_keypair;
-use crate::primitives::mlkem::MLKEM768PublicKey;
-use crate::primitives::mlkem::generate_mlkem768_keypair;
 use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::x25519::generate_dh_keypair;
@@ -28,10 +24,8 @@ pub struct Journalist {
     signing_key: SigningKeyPair,
     fetch_key: DhFetchKeyPair,
     message_keys: Vec<SignedMessageKeyBundle>,
-    /// DH-AKEM component of the long-term APKE key tuple (pk_J^APKE)
-    reply_key: DhAkemKeyPair,
-    /// ML-KEM component of the long-term APKE key tuple (pk_J^APKE)
-    reply_mlkem_key: MlKem768KeyPair,
+    /// Long-term SD-APKE key tuple `(sk_J^APKE, pk_J^APKE)`
+    reply_apke: MessageKeyPair,
     self_signature: Signature<JournalistLongTermKey>,
     signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
     session_storage: SessionStorage,
@@ -42,7 +36,7 @@ pub struct Journalist {
 pub struct JournalistPublicView {
     vk: VerifyingKey,
     fetch_pk: DHPublicKey,
-    dhakem_pk_reply: DhAkemPublicKey,
+    reply_apke_pk: MessagePublicKey,
     signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
     selfsig: Signature<JournalistLongTermKey>,
     kb: SignedKeyBundlePublic,
@@ -52,7 +46,7 @@ impl JournalistPublicView {
     pub fn new(
         vk: VerifyingKey,
         fetch: DHPublicKey,
-        dhakem: DhAkemPublicKey,
+        reply_apke: MessagePublicKey,
         selfsig: Signature<JournalistLongTermKey>,
         signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
         kb: SignedKeyBundlePublic,
@@ -60,7 +54,7 @@ impl JournalistPublicView {
         Self {
             vk,
             fetch_pk: fetch,
-            dhakem_pk_reply: dhakem,
+            reply_apke_pk: reply_apke,
             selfsig,
             signed_longterm_key_bytes,
             kb,
@@ -73,20 +67,16 @@ impl UserPublic for JournalistPublicView {
         &self.fetch_pk
     }
 
-    fn message_auth_pk(&self) -> &DhAkemPublicKey {
-        &self.dhakem_pk_reply
-    }
-
-    fn message_psk_pk(&self) -> &MLKEM768PublicKey {
-        &self.kb.0.mlkem_pk
+    fn message_auth_pk(&self) -> &MessagePublicKey {
+        &self.reply_apke_pk
     }
 
     fn message_metadata_pk(&self) -> &MetadataPublicKey {
         &self.kb.0.metadata_pk
     }
 
-    fn message_enc_pk(&self) -> &DhAkemPublicKey {
-        &self.kb.0.dhakem_pk
+    fn message_enc_pk(&self) -> &MessagePublicKey {
+        &self.kb.0.apke_pk
     }
 }
 
@@ -136,14 +126,12 @@ impl UserSecret for Journalist {
         (&self.fetch_key.sk, &self.fetch_key.pk)
     }
 
-    fn message_auth_keypair(&self) -> (&DhAkemPrivateKey, &DhAkemPublicKey) {
-        // "reply key" (long term dh-akem key)
-        (&self.reply_key.sk, &self.reply_key.pk)
+    fn message_auth_key(&self) -> &crate::message::MessagePrivateKey {
+        self.reply_apke.private_key()
     }
 
-    fn message_psk_pk(&self) -> &MLKEM768PublicKey {
-        // ML-KEM component of the journalist's long-term APKE key tuple (pk_J^PQ)
-        &self.reply_mlkem_key.pk
+    fn message_auth_pk(&self) -> &MessagePublicKey {
+        self.reply_apke.public_key()
     }
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
@@ -171,8 +159,7 @@ impl Enrollable for Journalist {
             keys: (
                 self.signing_key.pk,
                 self.fetch_key.pk.clone(),
-                self.reply_key.pk.clone(),
-                self.reply_mlkem_key.pk.clone(),
+                self.reply_apke.public_key().clone(),
             ),
         }
     }
@@ -198,39 +185,22 @@ impl Journalist {
         let (sk_fetch, pk_fetch) =
             generate_dh_keypair(&mut *rng).expect("DH Keygen (Fetch) failed");
 
-        let (sk_reply, pk_reply) =
-            generate_dh_akem_keypair(&mut *rng).expect("DH-AKEM Keygen (Reply) failed");
-
-        let (sk_reply_mlkem, pk_reply_mlkem) =
-            generate_mlkem768_keypair(rng).expect("ML-KEM Keygen (Reply) failed");
+        let reply_apke =
+            message_keygen(&mut *rng).expect("SD-APKE Keygen (Reply) failed");
 
         // Self-sign long-term pubkeys (for enrollment).
         // Covers pk_J^APKE = (pk_J^AKEM, pk_J^PQ) and pk_J^fetch
         let selfsigned_pubkeys =
-            SignedLongtermPubKeyBytes::from_keys(&pk_reply, &pk_reply_mlkem, &pk_fetch);
+            SignedLongtermPubKeyBytes::from_keys(reply_apke.public_key(), &pk_fetch);
         let self_signature: Signature<JournalistLongTermKey> =
             signing_key.sign(selfsigned_pubkeys.as_bytes());
 
         // Generate one-time/short-lived keybundles.
         for _ in 0..num_keybundles {
-            let (sk_dh, pk_dh) = generate_dh_akem_keypair(rng).expect("DH keygen (DH-AKEM) failed");
-
-            let (sk_pqkem_psk, pk_pqkem_psk) =
-                generate_mlkem768_keypair(rng).expect("Failed to generate ml-kem keys!");
-
+            let apke_kp = message_keygen(rng).expect("SD-APKE keygen (ephemeral) failed");
             let metadata_kp = metadata_keygen(rng).expect("Failed to generate metadata keys");
 
-            let bundle = MessageKeyBundle::new(
-                KeyPair {
-                    sk: sk_dh,
-                    pk: pk_dh,
-                },
-                KeyPair {
-                    sk: sk_pqkem_psk,
-                    pk: pk_pqkem_psk,
-                },
-                metadata_kp,
-            );
+            let bundle = MessageKeyBundle::new(apke_kp, metadata_kp);
 
             let pubkey_bytes = bundle.public().as_bytes();
             let selfsig: Signature<JournalistEphemeralKey> = signing_key.sign(&pubkey_bytes);
@@ -254,14 +224,7 @@ impl Journalist {
                 sk: sk_fetch,
                 pk: pk_fetch,
             },
-            reply_key: KeyPair {
-                sk: sk_reply,
-                pk: pk_reply,
-            },
-            reply_mlkem_key: KeyPair {
-                sk: sk_reply_mlkem,
-                pk: pk_reply_mlkem,
-            },
+            reply_apke,
             message_keys: key_bundles,
             self_signature,
             signed_longterm_key_bytes: selfsigned_pubkeys,
@@ -274,7 +237,7 @@ impl Journalist {
         JournalistPublicView::new(
             self.signing_key.pk,
             self.fetch_key.pk.clone(),
-            self.reply_key.pk.clone(),
+            self.reply_apke.public_key().clone(),
             self.self_signature,
             self.signed_longterm_key_bytes.clone(),
             (kb.bundle.public(), kb.selfsig),
@@ -303,20 +266,12 @@ mod tests {
 
         for i in 0..kbs.len() {
             assert_eq!(
-                journalist.message_keys[i].bundle.dh_akem.sk.as_bytes(),
-                kbs[i].dh_akem.sk.as_bytes()
-            );
-            assert_eq!(
-                journalist.message_keys[i].bundle.dh_akem.pk.as_bytes(),
-                kbs[i].dh_akem.pk.as_bytes()
-            );
-            assert_eq!(
-                journalist.message_keys[i].bundle.mlkem.sk.as_bytes(),
-                kbs[i].mlkem.sk.as_bytes()
-            );
-            assert_eq!(
-                journalist.message_keys[i].bundle.mlkem.pk.as_bytes(),
-                kbs[i].mlkem.pk.as_bytes()
+                journalist.message_keys[i]
+                    .bundle
+                    .apke
+                    .public_key()
+                    .as_bytes(),
+                kbs[i].apke.public_key().as_bytes()
             );
             assert_eq!(
                 journalist.message_keys[i]

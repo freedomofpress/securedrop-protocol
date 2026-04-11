@@ -90,6 +90,36 @@ impl MessagePublicKey {
         out.extend_from_slice(self.mlkem.as_bytes());
         out
     }
+
+    /// Deserialize from `pk1 || pk2` bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the byte slice has incorrect length.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
+        use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
+
+        if bytes.len() != DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN {
+            return Err(anyhow::anyhow!(
+                "Invalid MessagePublicKey length: expected {}, got {}",
+                DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN,
+                bytes.len()
+            ));
+        }
+
+        let dhakem_bytes: [u8; DH_AKEM_PUBLIC_KEY_LEN] = bytes[..DH_AKEM_PUBLIC_KEY_LEN]
+            .try_into()
+            .expect("checked length");
+        let mlkem_bytes: [u8; MLKEM768_PUBLIC_KEY_LEN] = bytes[DH_AKEM_PUBLIC_KEY_LEN..]
+            .try_into()
+            .expect("checked length");
+
+        Ok(Self {
+            dhakem: DhAkemPublicKey::from_bytes(dhakem_bytes),
+            mlkem: MLKEM768PublicKey::from_bytes(mlkem_bytes),
+        })
+    }
 }
 
 /// SD-APKE ciphertext `((c1, cp), c2)`.
