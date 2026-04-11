@@ -3,7 +3,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 use securedrop_protocol_minimal::{
-    journalist::JournalistClient, keys::FPFKeyPair, messages::core::SourceJournalistKeyResponse,
+    journalist::JournalistClient, keys::FPFKeyPair, wire::core::SourceJournalistKeyResponse,
     server::Server, source::SourceClient,
 };
 

@@ -9,18 +9,18 @@ use uuid::Uuid;
 
 use crate::encrypt_decrypt::compute_fetch_challenges;
 use crate::keys::NewsroomKeyPair;
-use crate::messages::core::{
+use crate::primitives;
+use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
+use crate::storage::ServerStorage;
+use crate::wire::core::{
     MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchRequest,
     SourceJournalistKeyRequest, SourceJournalistKeyResponse, SourceNewsroomKeyRequest,
     SourceNewsroomKeyResponse,
 };
-use crate::messages::setup::{
+use crate::wire::setup::{
     JournalistEphemeralKeyRequest, JournalistSetupRequest, JournalistSetupResponse,
     NewsroomSetupRequest,
 };
-use crate::primitives;
-use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
-use crate::storage::ServerStorage;
 use crate::{Envelope, JournalistPublicView};
 
 /// Server session for handling source requests
