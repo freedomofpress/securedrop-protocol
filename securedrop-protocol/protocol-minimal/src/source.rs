@@ -1,11 +1,7 @@
 use crate::VerifyingKey;
 use crate::api::Api;
+use crate::message::{MessagePublicKey, deterministic_keygen as kgen_deterministic_message};
 use crate::metadata::{MetadataPublicKey, deterministic_keygen as kgen_deterministic_metadata};
-use crate::primitives::dh_akem::DhAkemPrivateKey;
-use crate::primitives::dh_akem::DhAkemPublicKey;
-use crate::primitives::dh_akem::deterministic_keygen as kgen_deterministic_dhakem;
-use crate::primitives::mlkem::MLKEM768PublicKey;
-use crate::primitives::mlkem::deterministic_keygen as kgen_deterministic_mlkem;
 use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::x25519::deterministic_dh_keygen;
@@ -48,7 +44,7 @@ impl core::fmt::Debug for Source {
 #[derive(Debug, Clone)]
 pub struct SourcePublicView {
     fetch_pk: DHPublicKey,
-    dhakem_pk: DhAkemPublicKey,
+    apke_pk: MessagePublicKey,
     message_pks: KeyBundlePublic,
 }
 
@@ -57,20 +53,16 @@ impl UserPublic for SourcePublicView {
         &self.fetch_pk
     }
 
-    fn message_auth_pk(&self) -> &DhAkemPublicKey {
-        &self.dhakem_pk
-    }
-
-    fn message_psk_pk(&self) -> &MLKEM768PublicKey {
-        &self.message_pks.mlkem_pk
+    fn message_auth_pk(&self) -> &MessagePublicKey {
+        &self.apke_pk
     }
 
     fn message_metadata_pk(&self) -> &MetadataPublicKey {
         &self.message_pks.metadata_pk
     }
 
-    fn message_enc_pk(&self) -> &DhAkemPublicKey {
-        &self.message_pks.dhakem_pk
+    fn message_enc_pk(&self) -> &MessagePublicKey {
+        &self.message_pks.apke_pk
     }
 }
 
@@ -96,12 +88,12 @@ impl UserSecret for Source {
         (&self.fetch_key.sk, &self.fetch_key.pk)
     }
 
-    fn message_auth_keypair(&self) -> (&DhAkemPrivateKey, &DhAkemPublicKey) {
-        (&self.message_keys.dh_akem.sk, &self.message_keys.dh_akem.pk)
+    fn message_auth_key(&self) -> &crate::message::MessagePrivateKey {
+        self.message_keys.apke.private_key()
     }
 
-    fn message_psk_pk(&self) -> &MLKEM768PublicKey {
-        &self.message_keys.mlkem.pk
+    fn message_auth_pk(&self) -> &crate::message::MessagePublicKey {
+        self.message_keys.apke.public_key()
     }
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
@@ -194,15 +186,11 @@ impl Source {
         let pke_result = pke_hasher.finalize();
 
         // Create key pairs
-        let (dhakem_decaps, dhakem_encaps) =
-            kgen_deterministic_dhakem(dh_result.into()).expect("Need DH-AKEM keygen");
-
         let (fetch_sk, fetch_pk): (DHPrivateKey, DHPublicKey) =
             deterministic_dh_keygen(fetch_result.into()).expect("Need Fetch keygen");
 
-        // TODO: review derand kgen mechanism, see mlkem.rs
-        let (mlkem_decaps, mlkem_encaps) =
-            kgen_deterministic_mlkem(kem_result.into()).expect("Need MLKEM keygen");
+        let message_kp = kgen_deterministic_message(dh_result.into(), kem_result.into())
+            .expect("Need SD-APKE keygen");
 
         let metadata_kp =
             kgen_deterministic_metadata(pke_result.into()).expect("Need X-Wing keygen");
@@ -218,17 +206,7 @@ impl Source {
                 sk: fetch_sk,
                 pk: fetch_pk,
             },
-            message_keys: MessageKeyBundle::new(
-                KeyPair {
-                    sk: dhakem_decaps,
-                    pk: dhakem_encaps,
-                },
-                KeyPair {
-                    sk: mlkem_decaps,
-                    pk: mlkem_encaps,
-                },
-                metadata_kp,
-            ),
+            message_keys: MessageKeyBundle::new(message_kp, metadata_kp),
             passphrase: passphrase.to_vec(),
             session,
         }
@@ -238,7 +216,7 @@ impl Source {
     pub fn public(&self) -> SourcePublicView {
         SourcePublicView {
             fetch_pk: self.fetch_key.pk,
-            dhakem_pk: self.message_keys.dh_akem.pk.clone(),
+            apke_pk: self.message_keys.apke.public_key().clone(),
             message_pks: self.message_keys.public(),
         }
     }
@@ -267,36 +245,11 @@ mod tests {
             "Expected identical passphrase"
         );
 
-        // DH keys
+        // SD-APKE keys (pk^APKE = (pk1, pk2))
         assert_eq!(
-            source1.message_keys.dh_akem.pk.as_bytes(),
-            source2.message_keys.dh_akem.pk.as_bytes(),
-            "DH-AKEM Pubkey should be identical"
-        );
-        assert_eq!(
-            source1.message_keys.dh_akem.sk.as_bytes(),
-            source2.message_keys.dh_akem.sk.as_bytes(),
-            "DH-AKEM Private Key should be identical"
-        );
-        assert_ne!(
-            *source1.message_keys.dh_akem.sk.as_bytes(),
-            [0u8; LEN_DHKEM_DECAPS_KEY]
-        );
-
-        // PQ KEM keys
-        assert_eq!(
-            source1.message_keys.mlkem.pk.as_bytes(),
-            source2.message_keys.mlkem.pk.as_bytes(),
-            "PQ KEM Encaps Key should be identical"
-        );
-        assert_eq!(
-            source1.message_keys.mlkem.sk.as_bytes(),
-            source2.message_keys.mlkem.sk.as_bytes(),
-            "PQ KEM Decaps Key should be identical"
-        );
-        assert_ne!(
-            *source1.message_keys.mlkem.sk.as_bytes(),
-            [0u8; LEN_MLKEM_DECAPS_KEY]
+            source1.message_keys.apke.public_key().as_bytes(),
+            source2.message_keys.apke.public_key().as_bytes(),
+            "SD-APKE public key should be identical"
         );
 
         // Metadata keys
