@@ -185,8 +185,7 @@ impl Journalist {
         let (sk_fetch, pk_fetch) =
             generate_dh_keypair(&mut *rng).expect("DH Keygen (Fetch) failed");
 
-        let reply_apke =
-            message_keygen(&mut *rng).expect("SD-APKE Keygen (Reply) failed");
+        let reply_apke = message_keygen(&mut *rng).expect("SD-APKE Keygen (Reply) failed");
 
         // Self-sign long-term pubkeys (for enrollment).
         // Covers pk_J^APKE = (pk_J^AKEM, pk_J^PQ) and pk_J^fetch
