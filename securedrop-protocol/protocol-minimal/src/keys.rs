@@ -85,15 +85,12 @@ impl SignedLongtermPubKeyBytes {
     /// Byte layout (per spec §3.1): `pk_J^APKE || pk_J^fetch`
     /// where `pk_J^APKE = pk_J^AKEM (DH-AKEM) || pk_J^PQ (ML-KEM)`
     pub(crate) fn from_keys(reply_apke: &MessagePublicKey, fetch_pk: &DHPublicKey) -> Self {
+        let apke_bytes = reply_apke.as_bytes();
+        let fetch_bytes = fetch_pk.into_bytes();
+
         let mut pubkey_bytes = [0u8; LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_ENCAPS_KEY + LEN_DH_ITEM];
-        let mut offset = 0;
-        pubkey_bytes[offset..offset + LEN_DHKEM_ENCAPS_KEY]
-            .copy_from_slice(reply_apke.dhakem.as_bytes());
-        offset += LEN_DHKEM_ENCAPS_KEY;
-        pubkey_bytes[offset..offset + LEN_MLKEM_ENCAPS_KEY]
-            .copy_from_slice(reply_apke.mlkem.as_bytes());
-        offset += LEN_MLKEM_ENCAPS_KEY;
-        pubkey_bytes[offset..].copy_from_slice(&fetch_pk.into_bytes());
+        pubkey_bytes[..apke_bytes.len()].copy_from_slice(&apke_bytes);
+        pubkey_bytes[apke_bytes.len()..].copy_from_slice(&fetch_bytes);
 
         Self(pubkey_bytes)
     }
