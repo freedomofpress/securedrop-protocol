@@ -40,7 +40,8 @@ use crate::primitives::mlkem::{
 };
 
 // PSK ID per spec §pskAPKE
-const PSK_ID: &[u8] = b"PSK_INFO_ID_TAG";
+// spec: PSK_ID = "SD-pskAPKE"
+const PSK_ID: &[u8] = b"SD-pskAPKE";
 
 // ML-KEM-768 encaps randomness size (32 bytes, not the 64-byte keygen seed)
 const LEN_MLKEM_ENCAPS_RAND: usize = 32;
