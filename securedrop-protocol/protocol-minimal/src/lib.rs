@@ -5,11 +5,11 @@ pub mod api;
 mod ciphertext;
 mod constants;
 pub mod keys;
-pub mod messages;
 pub mod primitives;
 pub mod server;
 pub mod setup;
 mod traits;
+pub mod wire;
 
 pub mod journalist;
 pub mod source;
