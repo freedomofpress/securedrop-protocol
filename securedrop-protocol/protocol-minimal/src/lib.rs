@@ -19,8 +19,8 @@ pub use constants::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY};
 pub use ciphertext::{Envelope, FetchResponse, Plaintext};
 
 pub use keys::{
-    DhAkemKeyPair, DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, MlKem768KeyPair,
-    SessionStorage, SignedKeyBundlePublic, SignedLongtermPubKeyBytes, SigningKeyPair,
+    DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, SessionStorage, SignedKeyBundlePublic,
+    SignedLongtermPubKeyBytes, SigningKeyPair,
 };
 
 pub use traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
