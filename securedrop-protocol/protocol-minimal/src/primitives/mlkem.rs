@@ -6,43 +6,39 @@ use rand_core::{CryptoRng, RngCore};
 // https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf
 // See Table 2 which shows k = 3 for ML-KEM-768 and
 // Algorithm 19 which defines the size of the encap and decap keys in terms of k
-pub const MLKEM768_PUBLIC_KEY_LEN: usize = 1184;
-pub const MLKEM768_PRIVATE_KEY_LEN: usize = 2400;
+pub(crate) const MLKEM768_PUBLIC_KEY_LEN: usize = 1184;
+pub(crate) const MLKEM768_PRIVATE_KEY_LEN: usize = 2400;
 
 /// MLKEM-768 public key.
 #[derive(Debug, Clone)]
-pub struct MLKEM768PublicKey([u8; MLKEM768_PUBLIC_KEY_LEN]);
+pub(crate) struct MLKEM768PublicKey([u8; MLKEM768_PUBLIC_KEY_LEN]);
 
 /// MLKEM-768 private key.
 #[derive(Debug, Clone)]
-pub struct MLKEM768PrivateKey([u8; MLKEM768_PRIVATE_KEY_LEN]);
+pub(crate) struct MLKEM768PrivateKey([u8; MLKEM768_PRIVATE_KEY_LEN]);
 
 impl MLKEM768PublicKey {
-    /// Get the public key as bytes
-    pub fn as_bytes(&self) -> &[u8; MLKEM768_PUBLIC_KEY_LEN] {
+    pub(crate) fn as_bytes(&self) -> &[u8; MLKEM768_PUBLIC_KEY_LEN] {
         &self.0
     }
 
-    /// Create from bytes
-    pub fn from_bytes(bytes: [u8; MLKEM768_PUBLIC_KEY_LEN]) -> Self {
+    pub(crate) fn from_bytes(bytes: [u8; MLKEM768_PUBLIC_KEY_LEN]) -> Self {
         Self(bytes)
     }
 }
 
 impl MLKEM768PrivateKey {
-    /// Get the private key as bytes
-    pub fn as_bytes(&self) -> &[u8; MLKEM768_PRIVATE_KEY_LEN] {
+    pub(crate) fn as_bytes(&self) -> &[u8; MLKEM768_PRIVATE_KEY_LEN] {
         &self.0
     }
 
-    /// Create from bytes
-    pub fn from_bytes(bytes: [u8; MLKEM768_PRIVATE_KEY_LEN]) -> Self {
+    pub(crate) fn from_bytes(bytes: [u8; MLKEM768_PRIVATE_KEY_LEN]) -> Self {
         Self(bytes)
     }
 }
 
 // TODO: this uses generate_key_pair from mlkem768 library, the other uses keygen derand
-pub fn from_bytes(
+pub(crate) fn from_bytes(
     seed: [u8; KEY_GENERATION_SEED_SIZE],
 ) -> Result<(MLKEM768PrivateKey, MLKEM768PublicKey), anyhow::Error> {
     let (sk, pk) = mlkem768::generate_key_pair(seed).into_parts();
@@ -54,7 +50,7 @@ pub fn from_bytes(
 
 /// Generate MLKEM-768 keypair from external randomness
 /// FOR TEST PURPOSES ONLY
-pub fn deterministic_keygen(
+pub(crate) fn deterministic_keygen(
     randomness: [u8; KEY_GENERATION_SEED_SIZE],
 ) -> Result<(MLKEM768PrivateKey, MLKEM768PublicKey), anyhow::Error> {
     use libcrux_kem::{Algorithm, key_gen_derand};
@@ -121,7 +117,7 @@ fn typed(
 }
 
 /// Generate a new MLKEM-768 keypair using libcrux_kem
-pub fn generate_mlkem768_keypair<R: RngCore + CryptoRng>(
+pub(crate) fn generate_mlkem768_keypair<R: RngCore + CryptoRng>(
     rng: &mut R,
 ) -> Result<(MLKEM768PrivateKey, MLKEM768PublicKey), anyhow::Error> {
     use libcrux_kem::{Algorithm, key_gen};

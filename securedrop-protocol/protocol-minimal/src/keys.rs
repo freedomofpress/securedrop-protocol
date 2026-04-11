@@ -7,11 +7,8 @@ use crate::sign::{
     VerifyingKey,
 };
 
+use crate::message::{MessageKeyPair, MessagePublicKey};
 use crate::metadata::{MetadataKeyPair, MetadataPublicKey};
-use crate::primitives::dh_akem::DhAkemPrivateKey;
-use crate::primitives::dh_akem::DhAkemPublicKey;
-use crate::primitives::mlkem::MLKEM768PrivateKey;
-use crate::primitives::mlkem::MLKEM768PublicKey;
 use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
 use alloc::vec::Vec;
@@ -24,9 +21,6 @@ pub struct KeyPair<SK, PK> {
     pub(crate) pk: PK,
 }
 
-/// The keypairs we actually use
-pub type MlKem768KeyPair = KeyPair<MLKEM768PrivateKey, MLKEM768PublicKey>;
-pub type DhAkemKeyPair = KeyPair<DhAkemPrivateKey, DhAkemPublicKey>;
 // silly name but include "fetch" for disambiguation with dh-akem.
 // eventually: ristretto255
 pub type DhFetchKeyPair = KeyPair<DHPrivateKey, DHPublicKey>;
@@ -36,18 +30,11 @@ pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
 /// self-signature over it.
 pub type SignedKeyBundlePublic = (KeyBundlePublic, Signature<JournalistEphemeralKey>);
 
-/// The public keys that make up one ephemeral key bundle (step 3.2).
-///
-/// Each bundle contains one key for each cryptographic role:
-/// - `dhakem_pk`: SD-APKE ephemeral key (`pk_{J,i}^{APKE_E}`), DHKEM(X25519) component
-/// - `mlkem_pk`: SD-APKE ephemeral key (`pk_{J,i}^{APKE_E}`), ML-KEM-768 component
-/// - `metadata_pk`: SD-PKE ephemeral key (`pk_{J,i}^{PKE_E}`), X-Wing
+/// The public keys that make up one ephemeral key bundle
 #[derive(Debug, Clone)]
 pub struct KeyBundlePublic {
-    /// DHKEM(X25519) component of the ephemeral SD-APKE key.
-    pub dhakem_pk: DhAkemPublicKey,
-    /// ML-KEM-768 component of the ephemeral SD-APKE key.
-    pub mlkem_pk: MLKEM768PublicKey,
+    /// SD-APKE ephemeral key `pk_{J,i}^{APKE_E} = (pk1, pk2)`.
+    pub apke_pk: MessagePublicKey,
     /// SD-PKE ephemeral key, used for metadata protection.
     pub metadata_pk: MetadataPublicKey,
 }
@@ -58,46 +45,25 @@ impl KeyBundlePublic {
     /// Layout: `pk_{J,i}^{APKE_E}(DHKEM) || pk_{J,i}^{APKE_E}(ML-KEM) || pk_{J,i}^{PKE_E}(X-Wing)`
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend(self.dhakem_pk.as_bytes());
-        out.extend(self.mlkem_pk.as_bytes());
+        out.extend(self.apke_pk.as_bytes());
         out.extend(self.metadata_pk.as_bytes());
         out
     }
 }
 
 pub(crate) struct MessageKeyBundle {
-    pub(crate) dh_akem: DhAkemKeyPair,
-    pub(crate) mlkem: MlKem768KeyPair,
+    pub(crate) apke: MessageKeyPair,
     pub(crate) metadata_kp: MetadataKeyPair,
 }
 
 impl MessageKeyBundle {
-    pub fn new(
-        dh_akem: DhAkemKeyPair,
-        mlkem: MlKem768KeyPair,
-        metadata_kp: MetadataKeyPair,
-    ) -> Self {
-        // // ID is derived from pubkey hashes in specific order
-        // let mut hasher = libcrux_sha2::Sha256::default();
-
-        // hasher.update(dh_akem.pk.as_bytes());
-        // hasher.update(mlkem.pk.as_bytes());
-        // hasher.update(xwing_md.pk.as_bytes());
-
-        // let mut id = [0u8; 32];
-        // let _ = hasher.finish(&mut id);
-
-        Self {
-            dh_akem,
-            mlkem,
-            metadata_kp,
-        }
+    pub fn new(apke: MessageKeyPair, metadata_kp: MetadataKeyPair) -> Self {
+        Self { apke, metadata_kp }
     }
 
     pub(crate) fn public(&self) -> KeyBundlePublic {
         KeyBundlePublic {
-            dhakem_pk: self.dh_akem.pk.clone(),
-            mlkem_pk: self.mlkem.pk.clone(),
+            apke_pk: self.apke.public_key().clone(),
             metadata_pk: self.metadata_kp.public_key().clone(),
         }
     }
@@ -118,19 +84,13 @@ impl SignedLongtermPubKeyBytes {
     ///
     /// Byte layout (per spec §3.1): `pk_J^APKE || pk_J^fetch`
     /// where `pk_J^APKE = pk_J^AKEM (DH-AKEM) || pk_J^PQ (ML-KEM)`
-    pub(crate) fn from_keys(
-        reply_dhakem: &DhAkemPublicKey,
-        reply_mlkem: &MLKEM768PublicKey,
-        fetch_pk: &DHPublicKey,
-    ) -> Self {
+    pub(crate) fn from_keys(reply_apke: &MessagePublicKey, fetch_pk: &DHPublicKey) -> Self {
+        let apke_bytes = reply_apke.as_bytes();
+        let fetch_bytes = fetch_pk.into_bytes();
+
         let mut pubkey_bytes = [0u8; LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_ENCAPS_KEY + LEN_DH_ITEM];
-        let mut offset = 0;
-        pubkey_bytes[offset..offset + LEN_DHKEM_ENCAPS_KEY]
-            .copy_from_slice(reply_dhakem.as_bytes());
-        offset += LEN_DHKEM_ENCAPS_KEY;
-        pubkey_bytes[offset..offset + LEN_MLKEM_ENCAPS_KEY].copy_from_slice(reply_mlkem.as_bytes());
-        offset += LEN_MLKEM_ENCAPS_KEY;
-        pubkey_bytes[offset..].copy_from_slice(&fetch_pk.into_bytes());
+        pubkey_bytes[..apke_bytes.len()].copy_from_slice(&apke_bytes);
+        pubkey_bytes[apke_bytes.len()..].copy_from_slice(&fetch_bytes);
 
         Self(pubkey_bytes)
     }
@@ -145,12 +105,7 @@ impl SignedLongtermPubKeyBytes {
 pub struct Enrollment {
     pub bundle: SignedLongtermPubKeyBytes,
     pub selfsig: Signature<JournalistLongTermKey>,
-    pub keys: (
-        VerifyingKey,
-        DHPublicKey,
-        DhAkemPublicKey,
-        MLKEM768PublicKey,
-    ),
+    pub keys: (VerifyingKey, DHPublicKey, MessagePublicKey),
 }
 
 // in memory session storage
