@@ -7,9 +7,9 @@ use rand_core::SeedableRng;
 use securedrop_protocol_minimal::api::{Api, JournalistApi};
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 
-use securedrop_protocol_minimal::messages::core::SourceJournalistKeyRequest;
 use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::server::Server;
+use securedrop_protocol_minimal::wire::core::SourceJournalistKeyRequest;
 use securedrop_protocol_minimal::{Journalist, JournalistPublic, Source, UserPublic, UserSecret};
 
 // TODO: better way (eg parameterize as in benchmarks)

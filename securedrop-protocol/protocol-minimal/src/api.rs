@@ -18,7 +18,7 @@ use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublic, SignedKeyBundlePublic, UserPublic,
     UserSecret, VerifyingKey,
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
-    messages::{
+    wire::{
         core::{
             MessageChallengeFetchRequest, MessageFetchRequest, SourceJournalistKeyRequest,
             SourceJournalistKeyResponse, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,

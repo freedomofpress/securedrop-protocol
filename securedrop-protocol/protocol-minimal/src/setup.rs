@@ -3,8 +3,8 @@
 //! This module contains implementations that run on FPF hardware.
 
 use crate::keys::FPFKeyPair;
-use crate::messages::setup::{NewsroomSetupRequest, NewsroomSetupResponse};
 use crate::sign::{FpfOnNewsroom, Signature};
+use crate::wire::setup::{NewsroomSetupRequest, NewsroomSetupResponse};
 use anyhow::Error;
 
 impl NewsroomSetupRequest {
