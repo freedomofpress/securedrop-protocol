@@ -98,7 +98,7 @@ impl UserSecret for Source {
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
         let mut fetch_pk = [0u8; LEN_DH_ITEM];
-        fetch_pk.copy_from_slice(&self.fetch_key.pk.clone().into_bytes());
+        fetch_pk.copy_from_slice(&self.fetch_key.pk.into_bytes());
 
         let mut reply_key_pq_hybrid = [0u8; LEN_XWING_ENCAPS_KEY];
         reply_key_pq_hybrid.copy_from_slice(self.message_keys.metadata_kp.public_key().as_bytes());
