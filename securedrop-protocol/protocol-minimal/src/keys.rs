@@ -9,10 +9,6 @@ use crate::sign::{
 
 use crate::message::{MessageKeyPair, MessagePublicKey};
 use crate::metadata::{MetadataKeyPair, MetadataPublicKey};
-use crate::primitives::dh_akem::DhAkemPrivateKey;
-use crate::primitives::dh_akem::DhAkemPublicKey;
-use crate::primitives::mlkem::MLKEM768PrivateKey;
-use crate::primitives::mlkem::MLKEM768PublicKey;
 use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
 use alloc::vec::Vec;
@@ -25,9 +21,6 @@ pub struct KeyPair<SK, PK> {
     pub(crate) pk: PK,
 }
 
-/// The keypairs we actually use
-pub type MlKem768KeyPair = KeyPair<MLKEM768PrivateKey, MLKEM768PublicKey>;
-pub type DhAkemKeyPair = KeyPair<DhAkemPrivateKey, DhAkemPublicKey>;
 // silly name but include "fetch" for disambiguation with dh-akem.
 // eventually: ristretto255
 pub type DhFetchKeyPair = KeyPair<DHPrivateKey, DHPublicKey>;
@@ -37,12 +30,7 @@ pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
 /// self-signature over it.
 pub type SignedKeyBundlePublic = (KeyBundlePublic, Signature<JournalistEphemeralKey>);
 
-/// The public keys that make up one ephemeral key bundle (step 3.2).
-///
-/// Each bundle contains one key for each cryptographic role:
-/// - `dhakem_pk`: SD-APKE ephemeral key (`pk_{J,i}^{APKE_E}`), DHKEM(X25519) component
-/// - `mlkem_pk`: SD-APKE ephemeral key (`pk_{J,i}^{APKE_E}`), ML-KEM-768 component
-/// - `metadata_pk`: SD-PKE ephemeral key (`pk_{J,i}^{PKE_E}`), X-Wing
+/// The public keys that make up one ephemeral key bundle
 #[derive(Debug, Clone)]
 pub struct KeyBundlePublic {
     /// SD-APKE ephemeral key `pk_{J,i}^{APKE_E} = (pk1, pk2)`.
