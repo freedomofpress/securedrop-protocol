@@ -16,14 +16,17 @@
 > [!WARNING]
 > This repository contains proof-of-concept code and is not intended for production use. The protocol details are not yet finalized.
 
+**March 2026:** A manuscript, specifying and proving [version 0.3][v0.3] of the
+protocol and its [Tamarin models], is under peer review.
+
 **January 2025:** A formal analysis was performed by
 [Luca Maier](https://github.com/lumaier) in ["A Formal Analysis of the
 SecureDrop Protocol"](https://doi.org/10.3929/ethz-b-000718325), supervised by
 David Basin, Felix Linker, and Shannon Veitch in the Information Security Group
-at ETH Zürich. (This work is superseded by the [specification] and [Tamarin
-models] linked above.)
+at ETH Zürich. This work led to [version 0.2][v0.2] of the specification.
 
-**May 2024:** Proof-of-concept code was [announced publicly](https://securedrop.org/news/introducing-securedrop-protocol/).
+**May 2024:** [Version 0.1][v0.1] of a [proof-of-concept
+implementation][v0.1-tag] was [announced publicly](https://securedrop.org/news/introducing-securedrop-protocol/).
 
 **December 2023:** A preliminary cryptographic audit was performed by
 [Michele Orrù](https://github.com/mmaker). See
@@ -31,6 +34,11 @@ models] linked above.)
 
 **January 2023:** Proof-of-concept implementation work with
 [Shielder](https://www.shielder.com/) began.
+
+[v0.1]: ./docs/protocol.md#01
+[v0.1-tag]: https://github.com/freedomofpress/securedrop-protocol/releases/tag/v0.1
+[v0.2]: ./docs/protocol.md#02
+[v0.3]: ./docs/protocol.md#03
 
 ## Background
 
