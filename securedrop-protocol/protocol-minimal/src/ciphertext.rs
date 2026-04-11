@@ -4,16 +4,25 @@ use crate::metadata::MetadataCiphertext;
 use alloc::vec::Vec;
 use anyhow::Error;
 
+/// The full submission `(C_S, X, Z)` sent from sender to server in step 6.
+///
+/// - `C_S = (ct^APKE, ct^PKE)`: the two ciphertexts
+/// - `X = g^x`: ephemeral DH public key (hint)
+/// - `Z = (pk_R^fetch)^x`: DH share for fetching (hint)
+///
+/// The server stores `(id, C_S, X, Z)` per message.
 #[derive(Debug, Clone)]
 pub struct Envelope {
-    /// SD-APKE ciphertext `((c1, cp), c2)`
+    /// `ct^APKE`: SD-APKE ciphertext `((c1, cp), c2)` - the encrypted message
     pub(crate) ct_apke: MessageCiphertext,
 
-    /// SD-PKE ciphertext `(c, c')`: encrypted sender APKE public key tuple
+    /// `ct^PKE`: SD-PKE ciphertext `(c, c')` - the encrypted sender APKE public key
     pub(crate) ct_pke: MetadataCiphertext,
 
-    // clue material
+    /// `X = g^x`: ephemeral DH public key for the hint
     pub(crate) mgdh_pubkey: [u8; LEN_DH_ITEM],
+
+    /// `Z = (pk_R^fetch)^x`: DH share for fetching
     pub(crate) mgdh: [u8; LEN_DH_ITEM],
 }
 
