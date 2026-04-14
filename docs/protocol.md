@@ -405,10 +405,12 @@ source, they also already know their recipient's keys without further
 verification.
 
 For each recipient, the sender produces two ciphertexts. The SD-APKE ciphertext
-carries the message itself along with the sender's long-term $fetch$ and $PKE$
-public keys. The SD-PKE ciphertext carries the
-sender's long-term APKE public key, encrypted to the recipient's $PKE$
-key.
+is sender authenticated and carries the message along with the sender's
+long-term $fetch$ and $PKE$ public keys. Because decrypting SD-APKE requires
+the recipient to know the sender's long-term APKE public key, a second SD-PKE
+ciphertext delivers that key, encrypted to the recipient's $PKE$ key, thus keeping
+the sender's identity hidden from the server, as described in HPKE's metadata
+protection guidance ([RFC 9180 §9.9]).
 
 The sender also computes a hint from the recipient's fetching key: a fresh
 ephemeral DH public key $X = g^x$ and a Diffie–Hellman share $Z =
@@ -591,4 +593,5 @@ insertion order.
 [RFC 9180 §6.1]: https://datatracker.ietf.org/doc/html/rfc9180#section-6.1
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
 [RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
+[RFC 9180 §9.9]: https://datatracker.ietf.org/doc/html/rfc9180#name-metadata-protection
 [semantic versioning]: https://semver.org
