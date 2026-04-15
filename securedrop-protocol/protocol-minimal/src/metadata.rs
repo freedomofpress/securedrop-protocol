@@ -105,6 +105,8 @@ impl MetadataPublicKey {
     }
 
     /// SD-PKE.Enc: encrypt message `m` to this key, returning `(c, c')`.
+    ///
+    /// `m` is the sender's serialized long-term APKE public key.
     pub fn encrypt(&self, m: &[u8]) -> MetadataCiphertext {
         let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
         let pk_r = self.0.clone().into();
