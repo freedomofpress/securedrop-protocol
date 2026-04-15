@@ -3,6 +3,14 @@ module Securedrop_protocol_minimal.Primitives.Xwing
 open FStar.Mul
 open Core_models
 
+let _ =
+  (* This module has implicit dependencies, here we make them explicit. *)
+  (* The implicit dependencies arise from typeclasses instances. *)
+  let open Hpke_rs in
+  let open Libcrux_kem in
+  let open Rand_core in
+  ()
+
 let v_XWING_PUBLIC_KEY_LEN: usize = mk_usize 1216
 
 let v_XWING_PRIVATE_KEY_LEN: usize = mk_usize 32
@@ -10,8 +18,17 @@ let v_XWING_PRIVATE_KEY_LEN: usize = mk_usize 32
 /// XWING public key.
 type t_XWingPublicKey = | XWingPublicKey : t_Array u8 (mk_usize 1216) -> t_XWingPublicKey
 
+let impl_5: Core_models.Clone.t_Clone t_XWingPublicKey =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
 /// XWING private key.
 type t_XWingPrivateKey = | XWingPrivateKey : t_Array u8 (mk_usize 32) -> t_XWingPrivateKey
+
+let impl_7: Core_models.Clone.t_Clone t_XWingPrivateKey =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+/// Get the public key as bytes
+let impl_XWingPublicKey__as_bytes (self: t_XWingPublicKey) : t_Array u8 (mk_usize 1216) = self._0
 
 /// Create from bytes
 let impl_XWingPublicKey__from_bytes (bytes: t_Array u8 (mk_usize 1216)) : t_XWingPublicKey =
@@ -20,6 +37,38 @@ let impl_XWingPublicKey__from_bytes (bytes: t_Array u8 (mk_usize 1216)) : t_XWin
 /// Create from bytes
 let impl_XWingPrivateKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_XWingPrivateKey =
   XWingPrivateKey bytes <: t_XWingPrivateKey
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+let impl_2: Core_models.Convert.t_From Hpke_rs.t_HpkePrivateKey t_XWingPrivateKey =
+  {
+    f_from_pre = (fun (sk: t_XWingPrivateKey) -> true);
+    f_from_post = (fun (sk: t_XWingPrivateKey) (out: Hpke_rs.t_HpkePrivateKey) -> true);
+    f_from
+    =
+    fun (sk: t_XWingPrivateKey) ->
+      Core_models.Convert.f_from #Hpke_rs.t_HpkePrivateKey
+        #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+        #FStar.Tactics.Typeclasses.solve
+        (Alloc.Slice.impl__to_vec #u8 (sk._0 <: t_Slice u8)
+          <:
+          Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+  }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+let impl_3: Core_models.Convert.t_From Hpke_rs.t_HpkePublicKey t_XWingPublicKey =
+  {
+    f_from_pre = (fun (pk: t_XWingPublicKey) -> true);
+    f_from_post = (fun (pk: t_XWingPublicKey) (out: Hpke_rs.t_HpkePublicKey) -> true);
+    f_from
+    =
+    fun (pk: t_XWingPublicKey) ->
+      Core_models.Convert.f_from #Hpke_rs.t_HpkePublicKey
+        #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+        #FStar.Tactics.Typeclasses.solve
+        (Alloc.Slice.impl__to_vec #u8 (pk._0 <: t_Slice u8)
+          <:
+          Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+  }
 
 /// Helper, convert libcrux type to our key types
 let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
@@ -118,8 +167,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       <:
       Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
     with
-    | Core_models.Result.Result_Ok hoist8 ->
-      let private_key:t_XWingPrivateKey = impl_XWingPrivateKey__from_bytes hoist8 in
+    | Core_models.Result.Result_Ok hoist12 ->
+      let private_key:t_XWingPrivateKey = impl_XWingPrivateKey__from_bytes hoist12 in
       (match
           Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 1216))
             #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
@@ -145,8 +194,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
           <:
           Core_models.Result.t_Result (t_Array u8 (mk_usize 1216)) Anyhow.t_Error
         with
-        | Core_models.Result.Result_Ok hoist9 ->
-          let public_key:t_XWingPublicKey = impl_XWingPublicKey__from_bytes hoist9 in
+        | Core_models.Result.Result_Ok hoist13 ->
+          let public_key:t_XWingPublicKey = impl_XWingPublicKey__from_bytes hoist13 in
           Core_models.Result.Result_Ok
           (private_key, public_key <: (t_XWingPrivateKey & t_XWingPublicKey))
           <:
@@ -159,3 +208,108 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       Core_models.Result.Result_Err err
       <:
       Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error
+
+/// Generate XWING keypair from external randomness
+/// FOR TEST PURPOSES ONLY
+let deterministic_keygen (randomness: t_Array u8 (mk_usize 32))
+    : Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error =
+  match
+    Core_models.Result.impl__map_err #(Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey)
+      #Libcrux_kem.t_Error
+      #Anyhow.t_Error
+      (Libcrux_kem.key_gen_derand (Libcrux_kem.Algorithm_XWingKemDraft06 <: Libcrux_kem.t_Algorithm)
+          (randomness <: t_Slice u8)
+        <:
+        Core_models.Result.t_Result (Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey)
+          Libcrux_kem.t_Error)
+      (fun e ->
+          let e:Libcrux_kem.t_Error = e in
+          let args:Libcrux_kem.t_Error = e <: Libcrux_kem.t_Error in
+          let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
+            let list = [Core_models.Fmt.Rt.impl__new_debug #Libcrux_kem.t_Error args] in
+            FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+            Rust_primitives.Hax.array_of_list 1 list
+          in
+          Anyhow.Error.impl__msg #Alloc.String.t_String
+            (Core_models.Hint.must_use #Alloc.String.t_String
+                (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
+                        (mk_usize 1)
+                        (let list = ["XWING deterministic key generation failed: "] in
+                          FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                          Rust_primitives.Hax.array_of_list 1 list)
+                        args
+                      <:
+                      Core_models.Fmt.t_Arguments)
+                  <:
+                  Alloc.String.t_String)
+              <:
+              Alloc.String.t_String))
+    <:
+    Core_models.Result.t_Result (Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey) Anyhow.t_Error
+  with
+  | Core_models.Result.Result_Ok (sk, pk) -> typed sk pk
+  | Core_models.Result.Result_Err err ->
+    Core_models.Result.Result_Err err
+    <:
+    Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error
+
+/// Generate a new XWING keypair using libcrux_kem
+let generate_xwing_keypair
+      (#v_R: Type0)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
+      (rng: v_R)
+    : (v_R & Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error) =
+  let
+  (tmp0: v_R),
+  (out:
+    Core_models.Result.t_Result (Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey)
+      Libcrux_kem.t_Error) =
+    Libcrux_kem.key_gen #v_R (Libcrux_kem.Algorithm_XWingKemDraft06 <: Libcrux_kem.t_Algorithm) rng
+  in
+  let rng:v_R = tmp0 in
+  match
+    Core_models.Result.impl__map_err #(Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey)
+      #Libcrux_kem.t_Error
+      #Anyhow.t_Error
+      out
+      (fun e ->
+          let e:Libcrux_kem.t_Error = e in
+          let args:Libcrux_kem.t_Error = e <: Libcrux_kem.t_Error in
+          let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
+            let list = [Core_models.Fmt.Rt.impl__new_debug #Libcrux_kem.t_Error args] in
+            FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+            Rust_primitives.Hax.array_of_list 1 list
+          in
+          Anyhow.Error.impl__msg #Alloc.String.t_String
+            (Core_models.Hint.must_use #Alloc.String.t_String
+                (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
+                        (mk_usize 1)
+                        (let list = ["XWING key generation failed: "] in
+                          FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                          Rust_primitives.Hax.array_of_list 1 list)
+                        args
+                      <:
+                      Core_models.Fmt.t_Arguments)
+                  <:
+                  Alloc.String.t_String)
+              <:
+              Alloc.String.t_String))
+    <:
+    Core_models.Result.t_Result (Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey) Anyhow.t_Error
+  with
+  | Core_models.Result.Result_Ok (sk, pk) ->
+    let hax_temp_output:Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey)
+      Anyhow.t_Error =
+      typed sk pk
+    in
+    rng, hax_temp_output
+    <:
+    (v_R & Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error)
+  | Core_models.Result.Result_Err err ->
+    rng,
+    (Core_models.Result.Result_Err err
+      <:
+      Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error)
+    <:
+    (v_R & Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error)
