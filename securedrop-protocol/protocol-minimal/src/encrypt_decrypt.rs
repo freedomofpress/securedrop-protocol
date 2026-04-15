@@ -1,4 +1,5 @@
 use crate::constants::LEN_XWING_ENCAPS_KEY;
+use crate::metadata;
 use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
 use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::x25519::DHPublicKey;
@@ -135,7 +136,7 @@ where
     sender_apke_bytes.extend_from_slice(sender.message_psk_pk().as_bytes()); // pk_S^PQ (ML-KEM)
 
     // spec: ct^PKE = SD-PKE.Enc(pk_R^PKE, pk_S^APKE)
-    let ct_pke = recipient.message_metadata_pk().encrypt(&sender_apke_bytes);
+    let ct_pke = metadata::encrypt(recipient.message_metadata_pk(), &sender_apke_bytes);
 
     let cmessage = CombinedCiphertext {
         message_dhakem_ss_encap: dhakem_ss_encaps_bytes,
@@ -162,10 +163,7 @@ pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Pla
     let results: Vec<(&MessageKeyBundle, Vec<u8>)> = receiver
         .keybundles()
         .filter_map(|bundle| {
-            bundle
-                .metadata_kp
-                .private_key()
-                .decrypt(&envelope.ct_pke)
+            metadata::decrypt(bundle.metadata_kp.private_key(), &envelope.ct_pke)
                 .ok()
                 .map(|m| (bundle, m))
         })
