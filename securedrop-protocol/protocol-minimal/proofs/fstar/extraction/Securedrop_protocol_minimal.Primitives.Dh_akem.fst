@@ -13,11 +13,9 @@ type t_DhAkemPublicKey = | DhAkemPublicKey : t_Array u8 (mk_usize 32) -> t_DhAke
 /// An DH-AKEM private key.
 type t_DhAkemPrivateKey = | DhAkemPrivateKey : t_Array u8 (mk_usize 32) -> t_DhAkemPrivateKey
 
-/// Create from bytes
 let impl_DhAkemPublicKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_DhAkemPublicKey =
   DhAkemPublicKey bytes <: t_DhAkemPublicKey
 
-/// Create from bytes
 let impl_DhAkemPrivateKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_DhAkemPrivateKey =
   DhAkemPrivateKey bytes <: t_DhAkemPrivateKey
 

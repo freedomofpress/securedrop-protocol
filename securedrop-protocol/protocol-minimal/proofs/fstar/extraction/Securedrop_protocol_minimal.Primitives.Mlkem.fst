@@ -14,11 +14,9 @@ type t_MLKEM768PublicKey = | MLKEM768PublicKey : t_Array u8 (mk_usize 1184) -> t
 type t_MLKEM768PrivateKey =
   | MLKEM768PrivateKey : t_Array u8 (mk_usize 2400) -> t_MLKEM768PrivateKey
 
-/// Create from bytes
 let impl_MLKEM768PublicKey__from_bytes (bytes: t_Array u8 (mk_usize 1184)) : t_MLKEM768PublicKey =
   MLKEM768PublicKey bytes <: t_MLKEM768PublicKey
 
-/// Create from bytes
 let impl_MLKEM768PrivateKey__from_bytes (bytes: t_Array u8 (mk_usize 2400)) : t_MLKEM768PrivateKey =
   MLKEM768PrivateKey bytes <: t_MLKEM768PrivateKey
 
