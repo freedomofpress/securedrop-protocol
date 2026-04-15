@@ -108,6 +108,23 @@ type t_Ss =
   | Ss_XWingKemDraft06 : Libcrux_kem.Xwing.t_XWingSharedSecret -> t_Ss
   | Ss_MlKem1024 : t_Array u8 (mk_usize 32) -> t_Ss
 
+/// Generate a key pair using the provided RNG.
+val key_gen
+      (#iimpl_rng: Type0)
+      {| i0: Rand_core.t_RngCore iimpl_rng |}
+      {| i1: Rand_core.t_CryptoRng iimpl_rng |}
+      (alg: t_Algorithm)
+      (rng: iimpl_rng)
+    : Prims.Pure (iimpl_rng & Core_models.Result.t_Result (t_PrivateKey & t_PublicKey) t_Error)
+      Prims.l_True
+      (fun _ -> Prims.l_True)
+
+/// Generate a key pair deterministically from a seed.
+val key_gen_derand (alg: t_Algorithm) (seed: t_Slice u8)
+    : Prims.Pure (Core_models.Result.t_Result (t_PrivateKey & t_PublicKey) t_Error)
+      Prims.l_True
+      (fun _ -> Prims.l_True)
+
 /// Encode a private key.
 val impl_PrivateKey__encode (self: t_PrivateKey)
     : Prims.Pure (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Prims.l_True (fun _ -> Prims.l_True)
