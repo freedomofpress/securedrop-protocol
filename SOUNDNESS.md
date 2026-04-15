@@ -74,6 +74,36 @@ following crates:[^1]
 
 [^1]: https://github.com/freedomofpress/securedrop-protocol/issues/172
 
+#### libcrux verification status
+
+The libcrux family of crates have varying verification status. The following
+are verified by calling out to code generated from the [HACL\*][hacl] project,
+but their high-level Rust APIs are not necessarily verified:
+
+- `libcrux-ed25519`
+- `libcrux-curve25519`
+- `libcrux-chacha20poly1305` (verified except `XChacha20Poly1305`, which we do not use)
+- `libcrux-sha2`
+
+The following is verified using hax and F\*:
+
+- `libcrux-ml-kem`
+
+#### hpke-rs dependencies
+
+We use [`hpke-rs`][hpke-rs] with the `hpke-rs-libcrux` backend. Its
+dependencies (including transitive dependencies) have the following
+verification status:
+
+- `libcrux-sha3` - not verified, used for HKDF and deriving keys
+- `libcrux-kem` and `libcrux-traits` - not verified
+- `libcrux-ecdh` and `libcrux-hkdf` - verified by calling out to code
+  generated from the HACL\* project
+- `libcrux-aead` - `ChaCha20Poly1305` is verified (via HACL\*), but AES-GCM is
+  not, and we do rely on AES-GCM
+
+[hacl]: https://hacl-star.github.io/
+[hpke-rs]: https://github.com/cryspen/hpke-rs
 [bhargavan-2025]: https://eprint.iacr.org/2025/980
 [hax]: https://github.com/cryspen/hax
 [`HAX_TARGETS`]: ./securedrop-protocol/protocol-minimal/Makefile#L1
