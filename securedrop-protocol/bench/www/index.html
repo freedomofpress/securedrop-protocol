@@ -193,8 +193,12 @@
 
       window.benchReady = true;
     } catch (e) {
-      // emit a single JSON error line, keep harness quiet otherwise
-      print(JSON.stringify({ error: String(e && e.message || e) }));
+      print(JSON.stringify({
+          error: String(e?.message || e),
+          stack: e?.stack,
+          name: e?.name,
+        }));
+      console.error(e);
       window.benchReady = true;
     }
   })();
