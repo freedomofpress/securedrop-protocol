@@ -183,6 +183,28 @@ const {
     return;
   }
 
+  // store and check for console errors
+  const consoleErrors = [];
+
+  async function collectConsoleErrors(driver, flavorKey) {
+    try {
+      const logs = await driver.manage().logs().get('browser');
+
+      // todo: can adjust
+      const severe = logs.filter(e => e.level && e.level.name === 'SEVERE');
+
+      if (severe.length > 0) {
+
+        consoleErrors.push({
+          flavor: flavorKey,
+          errors: severe.map(e => e.message),
+        });
+      }
+    } catch (e) {
+      logWarn(`Could not read console logs for ${flavorKey}: ${e.message}`);
+    }
+  }
+
   // store a traditional summary for per-flavor tables, and build a pivot for the final table
   const pivot = new Map(); // flavorKey -> { encrypt: "1.234 (x2.00)", decrypt: "...", fetch: "..." }
 
@@ -194,15 +216,18 @@ const {
     let driver;
     try {
       driver = await buildDriver(flavor.family, versionLabel, tmpProfile);
-      await driver.get(baseUrl); // initial load to evaluate capabilities
 
       const caps = await driver.getCapabilities();
       const version = caps.get('browserVersion') || 'unknown';
+      const flavorKey = `${flavor.family}:${flavor.label} (${version})`;
+
+      await driver.get(baseUrl); // initial load to evaluate capabilities
+      await collectConsoleErrors(driver, flavorKey);
+
       const coi = await driver.executeScript('return !!globalThis.crossOriginIsolated;');
       if (!coi) logWarn(`${flavor.family}:${flavor.label} crossOriginIsolated=false; timers may be coarse.`);
 
       const flavorBundle = { flavor, version, coi, benches: {} };
-      const flavorKey = `${flavor.family}:${flavor.label} (${version})`;
 
       for (const spec of specs) {
         if (!RUN_ANY_SWEEP) {
@@ -354,6 +379,15 @@ const {
     console.log(makeTable(headers, rows));
   } else {
     logWarn('No browser results.');
+  }
+
+  // Did we hit any console errors?
+  if (consoleErrors.length > 0) {
+    console.error(`\n${kleur.bold(`=== Console Errors Detected ===`)}`);
+    for (const { flavor, message } of consoleErrors) {
+      console.error(`[${flavor}] ${message}`);
+    }
+    process.exitCode = 1;
   }
 
   server.close();
