@@ -6,6 +6,7 @@ HAX_TARGETS += +securedrop_protocol_minimal::primitives::x25519::typed
 HAX_TARGETS += +securedrop_protocol_minimal::message::**
 HAX_TARGETS += +securedrop_protocol_minimal::metadata::**
 HAX_TARGETS += +securedrop_protocol_minimal::ciphertext::**
+HAX_TARGETS += +securedrop_protocol_minimal::constants::**
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 PROOF_DIR = proofs/fstar/extraction
