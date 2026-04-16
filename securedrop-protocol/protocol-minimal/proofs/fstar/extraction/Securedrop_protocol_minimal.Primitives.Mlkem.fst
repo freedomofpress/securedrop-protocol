@@ -7,6 +7,7 @@ let _ =
   (* This module has implicit dependencies, here we make them explicit. *)
   (* The implicit dependencies arise from typeclasses instances. *)
   let open Libcrux_kem in
+  let open Libcrux_ml_kem.Types in
   let open Rand_core in
   ()
 
@@ -17,9 +18,29 @@ let v_MLKEM768_PRIVATE_KEY_LEN: usize = mk_usize 2400
 /// MLKEM-768 public key.
 type t_MLKEM768PublicKey = | MLKEM768PublicKey : t_Array u8 (mk_usize 1184) -> t_MLKEM768PublicKey
 
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_2': Core_models.Fmt.t_Debug t_MLKEM768PublicKey
+
+unfold
+let impl_2 = impl_2'
+
+let impl_3: Core_models.Clone.t_Clone t_MLKEM768PublicKey =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
 /// MLKEM-768 private key.
 type t_MLKEM768PrivateKey =
   | MLKEM768PrivateKey : t_Array u8 (mk_usize 2400) -> t_MLKEM768PrivateKey
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_4': Core_models.Fmt.t_Debug t_MLKEM768PrivateKey
+
+unfold
+let impl_4 = impl_4'
+
+let impl_5: Core_models.Clone.t_Clone t_MLKEM768PrivateKey =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 let impl_MLKEM768PublicKey__as_bytes (self: t_MLKEM768PublicKey) : t_Array u8 (mk_usize 1184) =
   self._0
@@ -32,6 +53,40 @@ let impl_MLKEM768PrivateKey__as_bytes (self: t_MLKEM768PrivateKey) : t_Array u8 
 
 let impl_MLKEM768PrivateKey__from_bytes (bytes: t_Array u8 (mk_usize 2400)) : t_MLKEM768PrivateKey =
   MLKEM768PrivateKey bytes <: t_MLKEM768PrivateKey
+
+let from_bytes (seed: t_Array u8 (mk_usize 64))
+    : Core_models.Result.t_Result (t_MLKEM768PrivateKey & t_MLKEM768PublicKey) Anyhow.t_Error =
+  let
+  (sk: Libcrux_ml_kem.Types.t_MlKemPrivateKey (mk_usize 2400)),
+  (pk: Libcrux_ml_kem.Types.t_MlKemPublicKey (mk_usize 1184)) =
+    Libcrux_ml_kem.Types.impl_24__into_parts (mk_usize 2400)
+      (mk_usize 1184)
+      (Libcrux_ml_kem.Mlkem768.generate_key_pair seed
+        <:
+        Libcrux_ml_kem.Types.t_MlKemKeyPair (mk_usize 2400) (mk_usize 1184))
+  in
+  let mlkem_encaps:t_MLKEM768PublicKey =
+    impl_MLKEM768PublicKey__from_bytes (Core_models.Convert.f_into #(Libcrux_ml_kem.Types.t_MlKemPublicKey
+            (mk_usize 1184))
+          #(t_Array u8 (mk_usize 1184))
+          #FStar.Tactics.Typeclasses.solve
+          pk
+        <:
+        t_Array u8 (mk_usize 1184))
+  in
+  let mlkem_decaps:t_MLKEM768PrivateKey =
+    impl_MLKEM768PrivateKey__from_bytes (Core_models.Convert.f_into #(Libcrux_ml_kem.Types.t_MlKemPrivateKey
+            (mk_usize 2400))
+          #(t_Array u8 (mk_usize 2400))
+          #FStar.Tactics.Typeclasses.solve
+          sk
+        <:
+        t_Array u8 (mk_usize 2400))
+  in
+  Core_models.Result.Result_Ok
+  (mlkem_decaps, mlkem_encaps <: (t_MLKEM768PrivateKey & t_MLKEM768PublicKey))
+  <:
+  Core_models.Result.t_Result (t_MLKEM768PrivateKey & t_MLKEM768PublicKey) Anyhow.t_Error
 
 /// Helper, convert libcrux type to our key types
 let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
