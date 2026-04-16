@@ -22,6 +22,15 @@ class t_DomainTag (v_Self: Type0) = {
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 let _ = fun (v_Self:Type0) {|i: t_DomainTag v_Self|} -> i._super_i0
 
+/// Journalist self-signature over long-term public keys (step 3.1).
+type t_JournalistLongTermKey = | JournalistLongTermKey : t_JournalistLongTermKey
+
+/// Journalist self-signature over ephemeral key bundles (step 3.2).
+type t_JournalistEphemeralKey = | JournalistEphemeralKey : t_JournalistEphemeralKey
+
+/// Newsroom signature over a journalist's verifying key (steps 3.1, 5).
+type t_NewsroomOnJournalist = | NewsroomOnJournalist : t_NewsroomOnJournalist
+
 /// FPF signature over the newsroom's verifying key (step 2).
 type t_FpfOnNewsroom = | FpfOnNewsroom : t_FpfOnNewsroom
 

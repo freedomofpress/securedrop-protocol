@@ -14,27 +14,3 @@ type t_JournalistPublicView = {
     Securedrop_protocol_minimal.Sign.t_Signature
     Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
 }
-
-let impl_JournalistPublicView__new
-      (vk: Securedrop_protocol_minimal.Sign.t_VerifyingKey)
-      (fetch: Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
-      (reply_apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
-      (selfsig:
-          Securedrop_protocol_minimal.Sign.t_Signature
-          Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey)
-      (signed_longterm_key_bytes: Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes)
-      (kb:
-          (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-            Securedrop_protocol_minimal.Sign.t_Signature
-            Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey))
-    : t_JournalistPublicView =
-  {
-    f_vk = vk;
-    f_fetch_pk = fetch;
-    f_reply_apke_pk = reply_apke;
-    f_selfsig = selfsig;
-    f_signed_longterm_key_bytes = signed_longterm_key_bytes;
-    f_kb = kb
-  }
-  <:
-  t_JournalistPublicView

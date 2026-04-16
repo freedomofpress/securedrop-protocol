@@ -41,6 +41,17 @@ type t_ServerStorage = {
     Allocator_api2.Stable.Alloc.Global.t_Global
 }
 
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_1': Core_models.Default.t_Default t_ServerStorage
+
+unfold
+let impl_1 = impl_1'
+
+/// Create a new ServerStorage instance
+let impl_ServerStorage__new (_: Prims.unit) : t_ServerStorage =
+  Core_models.Default.f_default #t_ServerStorage #FStar.Tactics.Typeclasses.solve ()
+
 /// Add ephemeral keys for a journalist
 let impl_ServerStorage__add_ephemeral_keys
       (self: t_ServerStorage)

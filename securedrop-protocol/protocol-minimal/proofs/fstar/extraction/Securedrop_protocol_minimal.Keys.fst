@@ -9,6 +9,24 @@ let _ =
   let open Securedrop_protocol_minimal.Sign in
   ()
 
+/// The public keys that make up one ephemeral key bundle
+type t_KeyBundlePublic = {
+  f_apke_pk:Securedrop_protocol_minimal.Message.t_MessagePublicKey;
+  f_metadata_pk:Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey
+}
+
+type t_SignedLongtermPubKeyBytes =
+  | SignedLongtermPubKeyBytes : t_Array u8 (mk_usize 1248) -> t_SignedLongtermPubKeyBytes
+
+type t_Enrollment = {
+  f_bundle:t_SignedLongtermPubKeyBytes;
+  f_selfsig:Securedrop_protocol_minimal.Sign.t_Signature
+  Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey;
+  f_keys:(Securedrop_protocol_minimal.Sign.t_VerifyingKey &
+    Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey &
+    Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+}
+
 /// A key pair for FPF (Freedom of the Press Foundation).
 type t_FPFKeyPair = {
   f_sk:Securedrop_protocol_minimal.Sign.t_SigningKey;
