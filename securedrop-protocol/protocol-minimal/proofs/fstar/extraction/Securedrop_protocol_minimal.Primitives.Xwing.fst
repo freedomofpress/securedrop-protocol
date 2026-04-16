@@ -18,11 +18,25 @@ let v_XWING_PRIVATE_KEY_LEN: usize = mk_usize 32
 /// XWING public key.
 type t_XWingPublicKey = | XWingPublicKey : t_Array u8 (mk_usize 1216) -> t_XWingPublicKey
 
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_4': Core_models.Fmt.t_Debug t_XWingPublicKey
+
+unfold
+let impl_4 = impl_4'
+
 let impl_5: Core_models.Clone.t_Clone t_XWingPublicKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 /// XWING private key.
 type t_XWingPrivateKey = | XWingPrivateKey : t_Array u8 (mk_usize 32) -> t_XWingPrivateKey
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_6': Core_models.Fmt.t_Debug t_XWingPrivateKey
+
+unfold
+let impl_6 = impl_6'
 
 let impl_7: Core_models.Clone.t_Clone t_XWingPrivateKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
@@ -33,6 +47,9 @@ let impl_XWingPublicKey__as_bytes (self: t_XWingPublicKey) : t_Array u8 (mk_usiz
 /// Create from bytes
 let impl_XWingPublicKey__from_bytes (bytes: t_Array u8 (mk_usize 1216)) : t_XWingPublicKey =
   XWingPublicKey bytes <: t_XWingPublicKey
+
+/// Get the private key as bytes
+let impl_XWingPrivateKey__as_bytes (self: t_XWingPrivateKey) : t_Array u8 (mk_usize 32) = self._0
 
 /// Create from bytes
 let impl_XWingPrivateKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_XWingPrivateKey =
@@ -167,8 +184,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       <:
       Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
     with
-    | Core_models.Result.Result_Ok hoist12 ->
-      let private_key:t_XWingPrivateKey = impl_XWingPrivateKey__from_bytes hoist12 in
+    | Core_models.Result.Result_Ok hoist20 ->
+      let private_key:t_XWingPrivateKey = impl_XWingPrivateKey__from_bytes hoist20 in
       (match
           Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 1216))
             #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
@@ -194,8 +211,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
           <:
           Core_models.Result.t_Result (t_Array u8 (mk_usize 1216)) Anyhow.t_Error
         with
-        | Core_models.Result.Result_Ok hoist13 ->
-          let public_key:t_XWingPublicKey = impl_XWingPublicKey__from_bytes hoist13 in
+        | Core_models.Result.Result_Ok hoist21 ->
+          let public_key:t_XWingPublicKey = impl_XWingPublicKey__from_bytes hoist21 in
           Core_models.Result.Result_Ok
           (private_key, public_key <: (t_XWingPrivateKey & t_XWingPublicKey))
           <:
