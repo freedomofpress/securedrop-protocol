@@ -1,10 +1,10 @@
 use crate::VerifyingKey;
+use crate::metadata::MetadataPublicKey;
 use crate::primitives::dh_akem::DhAkemPrivateKey;
 use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::mlkem::MLKEM768PublicKey;
 use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
-use crate::primitives::xwing::XWingPublicKey;
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature};
 use alloc::vec::Vec;
 
@@ -34,7 +34,7 @@ pub trait UserPublic {
     fn fetch_pk(&self) -> &DHPublicKey;
     fn message_auth_pk(&self) -> &DhAkemPublicKey;
     fn message_psk_pk(&self) -> &MLKEM768PublicKey;
-    fn message_metadata_pk(&self) -> &XWingPublicKey;
+    fn message_metadata_pk(&self) -> &MetadataPublicKey;
     fn message_enc_pk(&self) -> &DhAkemPublicKey;
 }
 
@@ -66,6 +66,7 @@ pub trait UserSecret: private::Sealed {
     fn num_bundles(&self) -> usize;
     fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey);
     fn message_auth_keypair(&self) -> (&DhAkemPrivateKey, &DhAkemPublicKey);
+    fn message_psk_pk(&self) -> &MLKEM768PublicKey;
     fn build_message(&self, message: Vec<u8>) -> Plaintext;
     fn keybundles(&self) -> impl Iterator<Item = &MessageKeyBundle>;
 }

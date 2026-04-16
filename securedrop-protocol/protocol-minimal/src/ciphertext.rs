@@ -1,4 +1,8 @@
-use crate::constants::*;
+use crate::constants::{
+    LEN_DH_ITEM, LEN_DHKEM_SHAREDSECRET_ENCAPS, LEN_KMID, LEN_MLKEM_SHAREDSECRET_ENCAPS,
+    LEN_XWING_ENCAPS_KEY,
+};
+use crate::metadata::MetadataCiphertext;
 use alloc::vec::Vec;
 use anyhow::Error;
 
@@ -34,7 +38,7 @@ impl CombinedCiphertext {
     }
 
     // TOY ONLY
-    pub fn from_bytes(ct_bytes: &Vec<u8>) -> Result<Self, Error> {
+    pub fn from_bytes(ct_bytes: &[u8]) -> Result<Self, Error> {
         let mut dhakem_ss_encaps: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] =
             [0u8; LEN_DHKEM_SHAREDSECRET_ENCAPS];
 
@@ -65,11 +69,8 @@ pub struct Envelope {
     // see CombinedCiphertext
     pub(crate) cmessage: Vec<u8>,
 
-    // baseenc "metadata", aka sender pubkey
-    pub(crate) cmetadata: Vec<u8>,
-
-    // "metadata" encaps shared secret
-    pub(crate) metadata_encap: [u8; LEN_XWING_SHAREDSECRET_ENCAPS],
+    // SD-PKE ciphertext (c, c'): encrypted sender APKE public key tuple
+    pub(crate) ct_pke: MetadataCiphertext,
 
     // clue material
     pub(crate) mgdh_pubkey: [u8; LEN_DH_ITEM],
@@ -79,33 +80,35 @@ pub struct Envelope {
 impl Envelope {
     // Used for benchmarks - see wasm_bindgen
     pub fn size_hint(&self) -> usize {
-        self.cmessage.len() + self.cmetadata.len()
+        self.cmessage.len() + self.cmetadata_len()
     }
 
     pub fn cmessage_len(&self) -> usize {
         self.cmessage.len()
     }
 
-    // sender dh-akem pubkey bytes
+    // SD-PKE ciphertext byte length: encapsulation c + AEAD ciphertext c'
     pub fn cmetadata_len(&self) -> usize {
-        self.cmetadata.len()
+        self.ct_pke.len()
     }
 }
 
 #[derive(Debug, Clone)]
-/// Toy pt structure - provide params in order
+/// Toy pt structure - TODO: provide params in correct order
 pub struct Plaintext {
-    pub sender_reply_pubkey_pq_psk: [u8; LEN_MLKEM_ENCAPS_KEY],
+    /// Metadata key: $pk_S^{PKE}$ in the spec
     pub sender_reply_pubkey_hybrid: [u8; LEN_XWING_ENCAPS_KEY],
+    /// Fetching key: $pk_S^{fetch}$ in the spec
     pub sender_fetch_key: [u8; LEN_DH_ITEM],
+    /// Message
     pub msg: Vec<u8>,
 }
 
 impl Plaintext {
     pub fn to_bytes(&self) -> alloc::vec::Vec<u8> {
+        // TODO: Deviates from spec
         let mut buf = Vec::new();
 
-        buf.extend_from_slice(&self.sender_reply_pubkey_pq_psk);
         buf.extend_from_slice(&self.sender_reply_pubkey_hybrid);
         buf.extend_from_slice(&self.sender_fetch_key);
         buf.extend_from_slice(&self.msg);
@@ -114,17 +117,12 @@ impl Plaintext {
     }
 
     pub fn len(&self) -> usize {
-        return LEN_MLKEM_ENCAPS_KEY + LEN_XWING_ENCAPS_KEY + LEN_DH_ITEM + &self.msg.len();
+        LEN_XWING_ENCAPS_KEY + LEN_DH_ITEM + self.msg.len()
     }
 
     // Toy parsing only
-    pub fn from_bytes(pt_bytes: &Vec<u8>) -> Result<Self, Error> {
+    pub fn from_bytes(pt_bytes: &[u8]) -> Result<Self, Error> {
         let mut offset = 0;
-
-        let mut sender_reply_pubkey_pq_psk = [0u8; LEN_MLKEM_ENCAPS_KEY];
-        sender_reply_pubkey_pq_psk
-            .copy_from_slice(&pt_bytes[offset..offset + LEN_MLKEM_ENCAPS_KEY]);
-        offset += LEN_MLKEM_ENCAPS_KEY;
 
         let mut sender_reply_pubkey_hybrid = [0u8; LEN_XWING_ENCAPS_KEY];
         sender_reply_pubkey_hybrid
@@ -138,7 +136,6 @@ impl Plaintext {
         let msg = pt_bytes[offset..].to_vec();
 
         Ok(Plaintext {
-            sender_reply_pubkey_pq_psk,
             sender_reply_pubkey_hybrid,
             sender_fetch_key,
             msg,
@@ -146,7 +143,7 @@ impl Plaintext {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FetchResponse {
     pub(crate) enc_id: [u8; LEN_KMID],   // aka kmid
     pub(crate) pmgdh: [u8; LEN_DH_ITEM], // aka per-request clue
@@ -154,9 +151,6 @@ pub struct FetchResponse {
 
 impl FetchResponse {
     pub fn new(enc_id: [u8; LEN_KMID], pmgdh: [u8; LEN_DH_ITEM]) -> Self {
-        Self {
-            enc_id: enc_id,
-            pmgdh: pmgdh,
-        }
+        Self { enc_id, pmgdh }
     }
 }
