@@ -14,7 +14,7 @@
 
 ## Table of contents
 
-- [Overview]()
+- [Overview](#overview)
   - [Introduction](#introduction)
   - [Sequence Diagram](#sequence-diagram)
 - [Keys]
@@ -32,10 +32,38 @@
 
 ### Introduction
 
-SecureDrop is a first-contact protocol between an unknown party (an anonymous
-source) and well-known parties (journalists).
+SecureDrop Protocol is a first-contact messaging protocol between anonymous users (sources) and well-known user(s) (journalists) with a shared affiliation (newsroom).
+The design is largely motivated by the requirement that sources avoid local persistent state, for plausible deniability.
 
-TK
+This specification describes:
+
+- Each party (source, journalist, newsroom, FPF) and their setup
+- Message encryption, retrieval, and decryption
+- What type of security and confidentiality properties are provided
+- What encryption algorithms and parameters are used
+
+Throughout, the terms **source**, **journalist** and **newsroom** are used.
+These may be understood to mean: the anonymous users who initiate conversations (sources); the non-anonymous users who receive and reply to messages (journalists), and the public organization that manages the system and authorizes allowed journalists (newsroom).
+
+The terms **sender** and **recipient** are also used, more abstractly, to refer to a user's role at a given point in the protocol's execution: when a source writes to a journalist, they are a sender, and when they receive a reply, they are a recipient, and vice-versa.
+
+The protocol has:
+
+- A limited, stateless, _unauthenticated_ public API (`requestKeys`, `sendMessage`, `requestChallenges`, `getMessage`) used by all parties for message sending and retrieval
+- A limited, authenticated administrator API, used by newsrooms to enroll and unenroll journalists
+- A limited, authenticated journalist API, used to replenish their message encryption keys
+
+One of the system's goals is to consider real-world deployment scenarios and their risks.
+The choice of an unauthenticated API avoids a serverside "users" database.
+
+#### Design Constraints
+
+- Prioritize the safety/anonymity of the source
+- Do not require sources to use any specific software or download any applications to communicate; they should be able to use Tor Browser, visit a url like `newsorg.securedrop.tor.onion`, and begin messaging
+- Be maintainable: Use well-known encryption primitives and existing cryptography libraries
+- Be readily-deployable: Use a single-server design, consider realistic threat models with respect to cloud deployments.
+
+For further context, see [our Research page](https://securedrop.org/research/), particularly the blog post series.
 
 ### Sequence Diagram
 
