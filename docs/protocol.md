@@ -9,10 +9,37 @@
 > RECOMMENDED, MAY, and OPTIONAL in this document are to be interpreted as
 > described in [RFC 2119].
 
+> [!NOTE]
+> This protocol is under active development.
+
 ## Table of contents
 
-This sequence diagram is a visual table of contents to the SecureDrop Protocol
-outlined in the sections below. See individual protocol steps for details.
+- [Overview]()
+  - [Introduction](#introduction)
+  - [Sequence Diagram](#sequence-diagram)
+- [Keys]
+  - [Key Hierarchy](#key-hierarchy)
+  - [Key Setup Steps](#setup)
+- [Messaging Protocol]
+  - [Building Blocks](#building-blocks)
+  - [Messaging Protocol Steps](#messaging-protocol)
+- [Message Format](#message-format)
+- [Work in progress/TODOs, caveats](#todos-caveats)
+- [Changelog](#changelog)
+- [Glossary]()
+
+## Overview
+
+### Introduction
+
+SecureDrop is a first-contact protocol between an unknown party (an anonymous
+source) and well-known parties (journalists).
+
+TK
+
+### Sequence Diagram
+
+This diagram provides a high-level visual depiction of SecureDrop Protocol.
 
 ```mermaid
 sequenceDiagram
@@ -57,7 +84,9 @@ deactivate Journalist
 deactivate Server
 ```
 
-## Key hierarchy <!-- as of b1e4d41 -->
+## Keys
+
+### Key hierarchy <!-- as of b1e4d41 -->
 
 Throughout this document, keys are notated as $component_{owner}^{scheme}$, where:
 
@@ -89,7 +118,131 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
-## Building blocks[^9] <!-- Section 4 as of b1e4d41 -->
+### Key Setup Steps
+
+#### Protocol Step 1: FPF signing setup
+
+FPF (Freedom of the Press Foundation) serves as the root of trust for the
+SecureDrop ecosystem.[^2] FPF generates a long-term signing keypair whose
+verification key is pinned into client and server software. This key is used to
+sign newsroom verification keys, establishing a chain of trust: FPF signs
+newsrooms, and newsrooms sign journalists.
+
+| FPF                                                               |
+| ----------------------------------------------------------------- |
+| $`(sk_{FPF}^{sig}, vk_{FPF}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |
+
+The server, the journalist client, and the source client SHOULD be built with
+FPF's verification key $vk_{FPF}^{sig}$ pinned.
+
+#### Protocol Step 2: Newsroom signing setup
+
+Each newsroom that operates a SecureDrop instance generates its own signing
+keypair. The newsroom sends its verification key to FPF, which manually verifies
+it (out of band) and signs it.[^2] The resulting signature $\sigma_{FPF}^{NR}$ allows
+anyone holding FPF's pinned verification key to verify that this newsroom is
+legitimate.
+
+Given:
+
+|       | FPF              |
+| ----- | ---------------- |
+| Holds | $vk_{FPF}^{sig}$ |
+|       | $sk_{FPF}^{sig}$ |
+
+Then:
+
+| Newsroom                                                        |                                      | FPF                                                                                                       |
+| --------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| $`(sk_{NR}^{sig}, vk_{NR}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |                                      |                                                                                                           |
+|                                                                 | $`\longrightarrow vk_{NR}^{sig}`$    | Verify manually                                                                                           |
+|                                                                 |                                      | $`\sigma_{FPF}^{NR} \gets^{\$} \text{SIG.Sign}(sk_{FPF}^{sig}, \texttt{fpf-sig-nr} \Vert vk_{NR}^{sig})`$ |
+|                                                                 | $`\sigma_{FPF}^{NR} \longleftarrow`$ |                                                                                                           |
+
+The server MUST be deployed with the newsroom's verification key $vk_{NR}^{sig}$
+pinned. The server MAY be deployed with FPF's verification key $vk_{FPF}^{sig}$
+pinned.[^2]
+
+#### Protocol Step 3: Journalist Setup
+
+##### 3.1. Journalist initial key setup <!-- Figure 2 as of b1e4d41 -->
+
+Each journalist generates three long-term keypairs: $sig$ for signing, $APKE$ for message encryption, and $fetch$ for message fetching. The journalist signs their $APKE$ and $fetch$ public keys with their new $sig$ signing key and sends the public keys to the newsroom along with the signature and verification key.
+
+The newsroom manually verifies the journalist's verification key (out of band),
+then signs it with the newsroom signing key to produce $\sigma_{NR,J}$. The
+newsroom then verifies the journalist's signature over their public keys. If the signature is
+valid, the server stores the journalist's public keys and signatures, and the journalist is considered enrolled.
+
+Given:
+
+|       | Newsroom        |
+| ----- | --------------- |
+| Holds | $vk_{NR}^{sig}$ |
+|       | $sk_{NR}^{sig}$ |
+
+Then:
+
+| Journalist                                                                                                |                                                                       | Newsroom                                                                                               |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| $`(sk_J^{sig}, vk_J^{sig}) \gets^{\$} \text{SIG.KGen}()`$                                                 |                                                                       |                                                                                                        |
+| $`(sk_J^{APKE}, pk_J^{APKE}) \gets^{\$} \text{SD-APKE.KGen}()`$                                           |                                                                       |                                                                                                        |
+| $`(sk_J^{fetch}, pk_J^{fetch}) \gets^{\$} \text{Ristretto255.KGen}()`$[^8]                                |                                                                       |                                                                                                        |
+| $`\sigma_J \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}))`$ |                                                                       |                                                                                                        |
+|                                                                                                           | $`\longrightarrow (vk_J^{sig}, \sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ |                                                                                                        |
+|                                                                                                           |                                                                       | Verify $vk_J^{sig}$ manually, then store for $J$                                                       |
+|                                                                                                           |                                                                       | $`\sigma_{NR}^{J} \gets^{\$} \text{SIG.Sign}(sk_{NR}^{sig}, \texttt{nr-sig} \Vert vk_J^{sig})`$        |
+|                                                                                                           |                                                                       | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J)`$ |
+|                                                                                                           |                                                                       | If $b = 1$: Store $`(\sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ and $\sigma_{NR}^{J}$ for $J$              |
+
+##### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 3(a) as of b1e4d41 -->
+
+Following [enrollment](#31-journalist-initial-key-setup-), each journalist $J$
+MUST generate and maintain a pool of $n$ signed key bundles. Each key bundle
+consists of an ephemeral APKE public key and an ephemeral PKE public key. A signed key bundle is accompanied by a signature by the journalist's long-term signing key.
+
+The server verifies the signature, and stores these public keys and the
+corresponding signature. The journalist maintains the corresponding ephemeral private keys.
+
+For each key bundle $i$:[^11]
+
+| Journalist                                                                                                              |                                                                         | Server                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                                             |                                                                         |                                                                                                                      |
+| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                                                |                                                                         |                                                                                                                      |
+| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}))`$ |                                                                         |                                                                                                                      |
+|                                                                                                                         | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                                                                      |
+|                                                                                                                         |                                                                         | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i})`$ |
+|                                                                                                                         |                                                                         | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ for $J$                                    |
+
+#### Protocol Step 4: Source key setup
+
+To begin each session, a source MUST enter (on their first visit) or reenter (on
+a subsequent visit) some $passphrase$. A master key $mk$ is derived from the
+passphrase using a password-based KDF.
+
+Three private keys are then derived from $mk$ using a
+domain-separated KDF: one for message fetching and three for encryption (two for the APKE key tuple and
+one for PKE). All source keys are long-term and fully determined by the passphrase.
+
+| Source                                                                            |
+| --------------------------------------------------------------------------------- |
+| $`mk \gets \text{PBKDF}(passphrase)`$                                             |
+| $`sk_S^{fetch} \gets \text{KDF}(mk, \texttt{sourcefetchkey})`$                    |
+| $`sk_S^{APKE}(\text{DH}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-dh})`$        |
+| $`sk_S^{APKE}(\text{ML-KEM}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-mlkem})`$ |
+| $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$                        |
+
+Note that $sk_S^{APKE}$ is a key tuple: SD-APKE requires separate DH-AKEM and ML-KEM-768
+components, each derived independently using its own label.
+
+As with the journalist, $`(sk_S^{fetch}, pk_S^{fetch})`$ key generation uses the ristretto255 prime order group.
+
+## Messaging Protocol
+
+Overview TK
+
+### Notation[^9] <!-- Section 4 as of b1e4d41 -->
 
 | Scheme               | Function                                                                           | Use                                                                                                                                                                                                                       |
 | -------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -151,7 +304,7 @@ def Dec(skR, c, cp):  # where cp = c' in (c, cp)
     return m
 ```
 
-### Message encryption
+### Message encryption via `SD-APKE`
 
 #### `AKEM`: Authenticated KEM <!-- Definition A.9 as of b1e4d41 -->
 
@@ -239,133 +392,10 @@ def AuthDec(
     return m
 ```
 
-## Setup
+### Messaging Protocol Steps
 
-### 1. FPF signing setup
-
-FPF (Freedom of the Press Foundation) serves as the root of trust for the
-SecureDrop ecosystem.[^2] FPF generates a long-term signing keypair whose
-verification key is pinned into client and server software. This key is used to
-sign newsroom verification keys, establishing a chain of trust: FPF signs
-newsrooms, and newsrooms sign journalists.
-
-| FPF                                                               |
-| ----------------------------------------------------------------- |
-| $`(sk_{FPF}^{sig}, vk_{FPF}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |
-
-The server, the journalist client, and the source client SHOULD be built with
-FPF's verification key $vk_{FPF}^{sig}$ pinned.
-
-### 2. Newsroom signing setup
-
-Each newsroom that operates a SecureDrop instance generates its own signing
-keypair. The newsroom sends its verification key to FPF, which manually verifies
-it (out of band) and signs it.[^2] The resulting signature $\sigma_{FPF}^{NR}$ allows
-anyone holding FPF's pinned verification key to verify that this newsroom is
-legitimate.
-
-Given:
-
-|       | FPF              |
-| ----- | ---------------- |
-| Holds | $vk_{FPF}^{sig}$ |
-|       | $sk_{FPF}^{sig}$ |
-
-Then:
-
-| Newsroom                                                        |                                      | FPF                                                                                                       |
-| --------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| $`(sk_{NR}^{sig}, vk_{NR}^{sig}) \gets^{\$} \text{SIG.KGen}()`$ |                                      |                                                                                                           |
-|                                                                 | $`\longrightarrow vk_{NR}^{sig}`$    | Verify manually                                                                                           |
-|                                                                 |                                      | $`\sigma_{FPF}^{NR} \gets^{\$} \text{SIG.Sign}(sk_{FPF}^{sig}, \texttt{fpf-sig-nr} \Vert vk_{NR}^{sig})`$ |
-|                                                                 | $`\sigma_{FPF}^{NR} \longleftarrow`$ |                                                                                                           |
-
-The server MUST be deployed with the newsroom's verification key $vk_{NR}^{sig}$
-pinned. The server MAY be deployed with FPF's verification key $vk_{FPF}^{sig}$
-pinned.[^2]
-
-### 3. Journalist
-
-#### 3.1. Journalist initial key setup <!-- Figure 2 as of b1e4d41 -->
-
-Each journalist generates three long-term keypairs: $sig$ for signing, $APKE$ for message encryption, and $fetch$ for message fetching. The journalist signs their $APKE$ and $fetch$ public keys with their new $sig$ signing key and sends the public keys to the newsroom along with the signature and verification key.
-
-The newsroom manually verifies the journalist's verification key (out of band),
-then signs it with the newsroom signing key to produce $\sigma_{NR,J}$. The
-newsroom then verifies the journalist's signature over their public keys. If the signature is
-valid, the server stores the journalist's public keys and signatures, and the journalist is considered enrolled.
-
-Given:
-
-|       | Newsroom        |
-| ----- | --------------- |
-| Holds | $vk_{NR}^{sig}$ |
-|       | $sk_{NR}^{sig}$ |
-
-Then:
-
-| Journalist                                                                                                |                                                                       | Newsroom                                                                                               |
-| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| $`(sk_J^{sig}, vk_J^{sig}) \gets^{\$} \text{SIG.KGen}()`$                                                 |                                                                       |                                                                                                        |
-| $`(sk_J^{APKE}, pk_J^{APKE}) \gets^{\$} \text{SD-APKE.KGen}()`$                                           |                                                                       |                                                                                                        |
-| $`(sk_J^{fetch}, pk_J^{fetch}) \gets^{\$} \text{Ristretto255.KGen}()`$[^8]                                |                                                                       |                                                                                                        |
-| $`\sigma_J \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}))`$ |                                                                       |                                                                                                        |
-|                                                                                                           | $`\longrightarrow (vk_J^{sig}, \sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ |                                                                                                        |
-|                                                                                                           |                                                                       | Verify $vk_J^{sig}$ manually, then store for $J$                                                       |
-|                                                                                                           |                                                                       | $`\sigma_{NR}^{J} \gets^{\$} \text{SIG.Sign}(sk_{NR}^{sig}, \texttt{nr-sig} \Vert vk_J^{sig})`$        |
-|                                                                                                           |                                                                       | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J)`$ |
-|                                                                                                           |                                                                       | If $b = 1$: Store $`(\sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ and $\sigma_{NR}^{J}$ for $J$              |
-
-#### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 3(a) as of b1e4d41 -->
-
-Following [enrollment](#31-journalist-initial-key-setup-), each journalist $J$
-MUST generate and maintain a pool of $n$ signed key bundles. Each key bundle
-consists of an ephemeral APKE public key and an ephemeral PKE public key. A signed key bundle is accompanied by a signature by the journalist's long-term signing key.
-
-The server verifies the signature, and stores these public keys and the
-corresponding signature. The journalist maintains the corresponding ephemeral private keys.
-
-For each key bundle $i$:[^11]
-
-| Journalist                                                                                                              |                                                                         | Server                                                                                                               |
-| ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                                             |                                                                         |                                                                                                                      |
-| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                                                |                                                                         |                                                                                                                      |
-| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}))`$ |                                                                         |                                                                                                                      |
-|                                                                                                                         | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                                                                      |
-|                                                                                                                         |                                                                         | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i})`$ |
-|                                                                                                                         |                                                                         | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ for $J$                                    |
-
-### 4. Source key setup
-
-To begin each session, a source MUST enter (on their first visit) or reenter (on
-a subsequent visit) some $passphrase$. A master key $mk$ is derived from the
-passphrase using a password-based KDF.
-
-Three private keys are then derived from $mk$ using a
-domain-separated KDF: one for message fetching and three for encryption (two for the APKE key tuple and
-one for PKE). All source keys are long-term and fully determined by the passphrase.
-
-| Source                                                                            |
-| --------------------------------------------------------------------------------- |
-| $`mk \gets \text{PBKDF}(passphrase)`$                                             |
-| $`sk_S^{fetch} \gets \text{KDF}(mk, \texttt{sourcefetchkey})`$                    |
-| $`sk_S^{APKE}(\text{DH}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-dh})`$        |
-| $`sk_S^{APKE}(\text{ML-KEM}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-mlkem})`$ |
-| $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$                        |
-
-Note that $sk_S^{APKE}$ is a key tuple: SD-APKE requires separate DH-AKEM and ML-KEM-768
-components, each derived independently using its own label.
-
-As with the journalist, $`(sk_S^{fetch}, pk_S^{fetch})`$ key generation uses the ristretto255 prime order group.
-
-## Messaging protocol
-
-SecureDrop is a first-contact protocol between an unknown party (an anonymous
-source) and well-known parties (journalists).
-
-The preceding setup steps are _role-specific_: sources' and journalists' setup
-steps are different. By contrast, the following protocol steps are
+Sources and journalists use different [setup](#setup) steps to manage their encryption keys.
+By contrast, messaging protocol steps are
 _role-agnostic_ and _turn-specific_. Except where otherwise noted, sources and
 journalists execute the same fetching step (5), sending step (6), and receiving
 step (7), in any order.
@@ -373,7 +403,7 @@ step (7), in any order.
 Only a source can initiate a conversation. In other words, a source is always
 the first sender.
 
-### 5. Sender fetches keys and verifies their authenticity <!-- Figure 3(b) as of b1e4d41 -->
+#### Protocol Step 5: Sender fetches keys and verifies their authenticity <!-- Figure 3(b) as of b1e4d41 -->
 
 Given:
 
@@ -395,7 +425,7 @@ Then:
 | If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                  |                                 |                                                                                                                 |
 | If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}) = 0`$ for some $J, i$: abort |                                 |                                                                                                                 |
 
-### 6. Sender submits a message <!-- Figure 3(c) as of b1e4d41 -->
+#### Protocol Step 6: Sender submits a message <!-- Figure 3(c) as of b1e4d41 -->
 
 A sender knows their own keys, the newsroom's verification key $vk_{NR}^{sig}$, and
 the $pks$ and $sigs$ they previously [fetched].
@@ -457,7 +487,7 @@ Then, for some message $m$:
 |                                                                                                                             |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
 |                                                                                                                             |                                 | Store $(id, C_S, X, Z)$ in $database$          |
 
-### 7. Receiver fetches and decrypts messages <!-- Figure 3(d) as of b1e4d41 -->
+#### Protocol Step 7: Receiver fetches and decrypts messages <!-- Figure 3(d) as of b1e4d41 -->
 
 A receiver knows their own keys, the newsroom's signing key $vk_{NR}^{sig}$, and
 the $pks$ and $sigs$ they previously [fetched].
@@ -519,6 +549,14 @@ For some newsroom $NR$:
 |                                                                                                  |                                                | &nbsp;&nbsp;&nbsp;&nbsp;If $`(\_, pk_S^{APKE}, \_, \_, \_) \notin pks`$: discard message        |
 |                                                                                                  |                                                | $`fetched \gets fetched \cup \{cid\}`$                                                          |
 |                                                                                                  |                                                | If $`tofetch \setminus \{cid\} \neq \emptyset`$: repeat from `RequestMessages`                  |
+
+## Message Formats
+
+TK
+
+## TODOs, Caveats
+
+TK
 
 ## Changelog
 
