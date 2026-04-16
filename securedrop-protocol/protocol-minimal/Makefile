@@ -4,7 +4,9 @@ HAX_TARGETS += +securedrop_protocol_minimal::metadata::**
 HAX_TARGETS += +securedrop_protocol_minimal::ciphertext::**
 HAX_TARGETS += +securedrop_protocol_minimal::constants::**
 HAX_TARGETS += +securedrop_protocol_minimal::primitives::**
-# tricky targets: api.rs, encrypt_decrypt.rs, journalist.rs, keys.rs
+HAX_TARGETS += +securedrop_protocol_minimal::setup::**
+
+# tricky targets: api.rs, encrypt_decrypt.rs, journalist.rs, keys.rs, server.rs
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 PROOF_DIR = proofs/fstar/extraction

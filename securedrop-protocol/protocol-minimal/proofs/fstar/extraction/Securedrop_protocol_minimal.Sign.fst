@@ -22,14 +22,30 @@ class t_DomainTag (v_Self: Type0) = {
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 let _ = fun (v_Self:Type0) {|i: t_DomainTag v_Self|} -> i._super_i0
 
-/// Journalist self-signature over long-term public keys (step 3.1).
-type t_JournalistLongTermKey = | JournalistLongTermKey : t_JournalistLongTermKey
-
-/// Journalist self-signature over ephemeral key bundles (step 3.2).
-type t_JournalistEphemeralKey = | JournalistEphemeralKey : t_JournalistEphemeralKey
-
 /// FPF signature over the newsroom's verifying key (step 2).
 type t_FpfOnNewsroom = | FpfOnNewsroom : t_FpfOnNewsroom
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+let impl_3: Securedrop_protocol_minimal.Sign.Private.t_Sealed t_FpfOnNewsroom =
+  { __marker_trait_Securedrop_protocol_minimal.Sign.Private.t_Sealed = () }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+let impl_DomainTag_for_FpfOnNewsroom: t_DomainTag t_FpfOnNewsroom =
+  {
+    _super_i0 = FStar.Tactics.Typeclasses.solve;
+    f_TAG
+    =
+    (let list =
+        [
+          mk_u8 102; mk_u8 112; mk_u8 102; mk_u8 45; mk_u8 115; mk_u8 105; mk_u8 103; mk_u8 45;
+          mk_u8 110; mk_u8 114
+        ]
+      in
+      FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 10);
+      Rust_primitives.Hax.array_of_list 10 list)
+    <:
+    t_Slice u8
+  }
 
 /// An Ed25519 signature carrying its domain at the type level.
 /// A `Signature<D>` can only be verified against a message using the same
@@ -127,131 +143,6 @@ type t_SigningKey = {
   f_sk:Libcrux_ed25519.Impl_hacl.t_SigningKey
 }
 
-(* item error backend: The support in hax of function with one or more inputs of type `&mut _` is limited.
-Only trivial patterns are allowed there: `fn f(x: &mut (T, U)) ...` is allowed while `f((x, y): &mut (T, U))` is rejected.
-
-This is discussed in issue https://github.com/hacspec/hax/issues/1405.
-Please upvote or comment this issue if you see this error message.
-[90mNote: the error was labeled with context `AndMutDefsite`.
-[0m
-Last available AST for this item:
-
-/// Generate a signing key from the supplied `rng`.
-#[feature(register_tool)]
-#[register_tool(_hax)]
-fn impl_SigningKey__new<Anonymous: 'unk, impl_CryptoRng>(
-    mut rng: &mut impl_CryptoRng,
-) -> core_models::result::t_Result<
-    securedrop_protocol_minimal::sign::t_SigningKey,
-    anyhow::t_Error,
->
-where
-    _: rand_core::t_CryptoRng<impl_CryptoRng>,
-{
-    {
-        let Tuple2(
-            sk,
-            vk,
-        ): tuple2<
-            libcrux_ed25519::impl_hacl::t_SigningKey,
-            libcrux_ed25519::impl_hacl::t_VerificationKey,
-        > = {
-            (match (core_models::result::impl__map_err::<
-                tuple2<
-                    libcrux_ed25519::impl_hacl::t_SigningKey,
-                    libcrux_ed25519::impl_hacl::t_VerificationKey,
-                >,
-                libcrux_ed25519::impl_hacl::t_Error,
-                anyhow::t_Error,
-                arrow!(libcrux_ed25519::impl_hacl::t_Error -> anyhow::t_Error),
-            >(
-                libcrux_ed25519::impl_hacl::generate_key_pair::<
-                    &mut impl_CryptoRng,
-                >(&mut (deref(&mut (rng)))),
-                (|_| {
-                    anyhow::__private::must_use({
-                        let error: anyhow::t_Error = {
-                            anyhow::__private::format_err(
-                                core_models::fmt::rt::impl_1__new_const::<
-                                    lifetime!(something),
-                                    generic_value!(todo),
-                                >(&(deref(&(["Key generation failed"])))),
-                            )
-                        };
-                        { error }
-                    })
-                }),
-            )) {
-                core_models::result::Result_Ok(ok) => ok,
-                core_models::result::Result_Err(err) => {
-                    (return core_models::result::Result_Err(err))
-                }
-            })
-        };
-        {
-            core_models::result::Result_Ok(securedrop_protocol_minimal::sign::SigningKey {
-                f_vk: securedrop_protocol_minimal::sign::VerifyingKey(vk),
-                f_sk: sk,
-            })
-        }
-    }
-}
-
-
-Last AST:
-/** print_rust: pitem: not implemented  (item: { Concrete_ident.T.def_id =
-  { Explicit_def_id.T.is_constructor = false;
-    def_id =
-    { Types.index = (0, 0, None); is_local = true; kind = Types.AssocFn;
-      krate = "securedrop_protocol_minimal";
-      parent =
-      (Some { Types.contents =
-              { Types.id = 0;
-                value =
-                { Types.index = (0, 0, None); is_local = true;
-                  kind = Types.Impl {of_trait = false};
-                  krate = "securedrop_protocol_minimal";
-                  parent =
-                  (Some { Types.contents =
-                          { Types.id = 0;
-                            value =
-                            { Types.index = (0, 0, None); is_local = true;
-                              kind = Types.Mod;
-                              krate = "securedrop_protocol_minimal";
-                              parent =
-                              (Some { Types.contents =
-                                      { Types.id = 0;
-                                        value =
-                                        { Types.index = (0, 0, None);
-                                          is_local = true; kind = Types.Mod;
-                                          krate =
-                                          "securedrop_protocol_minimal";
-                                          parent = None; path = [] }
-                                        }
-                                      });
-                              path =
-                              [{ Types.data = (Types.TypeNs "sign");
-                                 disambiguator = 0 }
-                                ]
-                              }
-                            }
-                          });
-                  path =
-                  [{ Types.data = (Types.TypeNs "sign"); disambiguator = 0 };
-                    { Types.data = Types.Impl; disambiguator = 16 }]
-                  }
-                }
-              });
-      path =
-      [{ Types.data = (Types.TypeNs "sign"); disambiguator = 0 };
-        { Types.data = Types.Impl; disambiguator = 16 };
-        { Types.data = (Types.ValueNs "new"); disambiguator = 0 }]
-      }
-    };
-  moved = None; suffix = None }) */
-const _: () = ();
- *)
-
 /// Sign `msg` in domain `D`, returning a `Signature<D>`.
 /// The actual preimage is `len(tag) || tag || msg` where `tag = D::TAG`.
 let impl_SigningKey__sign
@@ -281,3 +172,7 @@ let impl_SigningKey__sign
       "Signing should not fail with valid key"
   in
   impl_13__from_bytes #v_D bytes
+
+/// Get the raw bytes of this verification key.
+let impl_VerifyingKey__into_bytes (self: t_VerifyingKey) : t_Array u8 (mk_usize 32) =
+  Libcrux_ed25519.Impl_hacl.impl_VerificationKey__into_bytes self._0
