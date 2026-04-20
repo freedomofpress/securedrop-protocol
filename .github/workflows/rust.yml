@@ -142,14 +142,23 @@ jobs:
           make build
         working-directory: securedrop-protocol/bench
 
-  native_bench:
-    name: Run minimal benchmarks using cargo
+  quick_bench:
+    name: Run native and browser benchmarks (quick-bench)
     runs-on: ubuntu-latest
     needs: [build_wasm, check_wasm_bindgen]
     steps:
       - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
         with:
           persist-credentials: false
+      - name: Setup Node
+        # action v6.3.0, most recent with passing CI suite
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          node-version-file: securedrop-protocol/bench/.nvmrc
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+        with:
+          toolchain: stable
       - name: Restore node and selenium artifacts
         uses: actions/cache@v4
         with:
@@ -164,9 +173,9 @@ jobs:
             securedrop-protocol/bench/target
             securedrop-protocol/bench/pkg
           key: wasm-target-${{ runner.os }}-${{ github.run_id }}
-      - name: Install wasm-bindgen cli
+      - name: Install wasm-bindgen + target
         run: make rust-target
         working-directory: securedrop-protocol/bench
-      - name: Run minimal cli bench
-        run: cargo bench --bench manual -- all -n 10 -k 10 -j 10
+      - name: Run quick bench
+        run: make quick-bench
         working-directory: securedrop-protocol/bench
