@@ -15,9 +15,8 @@ use securedrop_protocol_minimal::{
     Envelope, FetchResponse, Journalist, Plaintext, Source, UserPublic, UserSecret,
 };
 
-use securedrop_protocol_minimal::encrypt_decrypt::{
-    LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY,
-};
+use securedrop_protocol_minimal::LEN_XWING_ENCAPS_KEY;
+use securedrop_protocol_minimal::encrypt_decrypt::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY};
 
 #[inline]
 fn rng_from_seed(seed32: [u8; 32]) -> ChaCha20Rng {
@@ -141,7 +140,7 @@ pub fn encrypt_once(
         seed,
         &sender.inner,
         &recipient.inner.public(recipient_bundle_index),
-        plaintext,
+        &plaintext,
     );
     env.into()
 }
@@ -212,7 +211,7 @@ pub fn bench_encrypt<S: UserSecret, P: UserPublic>(
     seed32: [u8; 32],
     sender: &S,
     recipient: &P,
-    plaintext: Plaintext,
+    plaintext: &Plaintext,
 ) -> Envelope {
     let mut rng = ChaCha20Rng::from_seed(seed32);
     encrypt(&mut rng, sender, plaintext, recipient)

@@ -119,7 +119,7 @@ pub trait Api {
         // TODO: review padding
         let padded_message = crate::primitives::pad::pad_message(message);
         let plaintext = sender.build_message(padded_message);
-        let envelope = encrypt(rng, sender, plaintext, recipient);
+        let envelope = encrypt(rng, sender, &plaintext, recipient);
         Ok(envelope)
     }
 

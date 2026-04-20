@@ -1,5 +1,6 @@
 use crate::VerifyingKey;
 use crate::api::Api;
+use crate::metadata::{MetadataPublicKey, deterministic_keygen as kgen_deterministic_metadata};
 use crate::primitives::dh_akem::DhAkemPrivateKey;
 use crate::primitives::dh_akem::DhAkemPublicKey;
 use crate::primitives::dh_akem::deterministic_keygen as kgen_deterministic_dhakem;
@@ -8,8 +9,6 @@ use crate::primitives::mlkem::deterministic_keygen as kgen_deterministic_mlkem;
 use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::x25519::deterministic_dh_keygen;
-use crate::primitives::xwing::XWingPublicKey;
-use crate::primitives::xwing::deterministic_keygen as kgen_deterministic_xwing;
 use alloc::vec::Vec;
 use argon2::{Algorithm, Argon2, Params, Version};
 use rand_core::{CryptoRng, RngCore};
@@ -66,8 +65,8 @@ impl UserPublic for SourcePublicView {
         &self.message_pks.mlkem_pk
     }
 
-    fn message_metadata_pk(&self) -> &XWingPublicKey {
-        &self.message_pks.xwing_pk
+    fn message_metadata_pk(&self) -> &MetadataPublicKey {
+        &self.message_pks.metadata_pk
     }
 
     fn message_enc_pk(&self) -> &DhAkemPublicKey {
@@ -101,18 +100,18 @@ impl UserSecret for Source {
         (&self.message_keys.dh_akem.sk, &self.message_keys.dh_akem.pk)
     }
 
-    fn build_message(&self, message: Vec<u8>) -> Plaintext {
-        let mut reply_key_pq_psk = [0u8; LEN_MLKEM_ENCAPS_KEY];
-        reply_key_pq_psk.copy_from_slice(self.message_keys.mlkem.pk.as_bytes());
+    fn message_psk_pk(&self) -> &MLKEM768PublicKey {
+        &self.message_keys.mlkem.pk
+    }
 
+    fn build_message(&self, message: Vec<u8>) -> Plaintext {
         let mut fetch_pk = [0u8; LEN_DH_ITEM];
         fetch_pk.copy_from_slice(&self.fetch_key.pk.clone().into_bytes());
 
         let mut reply_key_pq_hybrid = [0u8; LEN_XWING_ENCAPS_KEY];
-        reply_key_pq_hybrid.copy_from_slice(self.message_keys.xwing_md.pk.as_bytes());
+        reply_key_pq_hybrid.copy_from_slice(self.message_keys.metadata_kp.public_key().as_bytes());
 
         Plaintext {
-            sender_reply_pubkey_pq_psk: reply_key_pq_psk,
             sender_fetch_key: fetch_pk,
             sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
             msg: message,
@@ -205,8 +204,8 @@ impl Source {
         let (mlkem_decaps, mlkem_encaps) =
             kgen_deterministic_mlkem(kem_result.into()).expect("Need MLKEM keygen");
 
-        let (xwing_decaps, xwing_encaps) =
-            kgen_deterministic_xwing(pke_result.into()).expect("Need X-Wing keygen");
+        let metadata_kp =
+            kgen_deterministic_metadata(pke_result.into()).expect("Need X-Wing keygen");
 
         let session = SessionStorage {
             fpf_key: None,
@@ -228,10 +227,7 @@ impl Source {
                     sk: mlkem_decaps,
                     pk: mlkem_encaps,
                 },
-                KeyPair {
-                    sk: xwing_decaps,
-                    pk: xwing_encaps,
-                },
+                metadata_kp,
             ),
             passphrase: passphrase.to_vec(),
             session,
@@ -305,18 +301,18 @@ mod tests {
 
         // Metadata keys
         assert_eq!(
-            source1.message_keys.xwing_md.pk.as_bytes(),
-            source2.message_keys.xwing_md.pk.as_bytes(),
+            source1.message_keys.metadata_kp.public_key().as_bytes(),
+            source2.message_keys.metadata_kp.public_key().as_bytes(),
             "XWING Encaps Key should be identical"
         );
         assert_eq!(
-            source1.message_keys.xwing_md.sk.as_bytes(),
-            source2.message_keys.xwing_md.sk.as_bytes(),
+            source1.message_keys.metadata_kp.private_key().as_bytes(),
+            source2.message_keys.metadata_kp.private_key().as_bytes(),
             "XWING Decaps Key should be identical"
         );
         assert_ne!(
-            *source1.message_keys.xwing_md.sk.as_bytes(),
-            [0u8; LEN_XWING_DECAPS_KEY]
+            source1.message_keys.metadata_kp.private_key().as_bytes(),
+            &[0u8; LEN_XWING_DECAPS_KEY]
         );
     }
 }
