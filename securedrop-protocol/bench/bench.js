@@ -37,9 +37,39 @@ const {
   RUN_BASIC,
 } = runFlags;
 
+// Helper
+const isRunFailure = (e) => {
+  const msg = (e.message || '').toLowerCase();
+
+  if (msg.includes('favico') && msg.includes('404')) {
+    return false;
+  }
+
+  return (
+    e.level?.name === 'SEVERE' ||
+    // May not have loglevel SEVERE, but still errors
+
+    // WASM / runtime issues
+    msg.includes('wasm') ||
+    msg.includes('compileerror') ||
+    msg.includes('linkerror') ||
+    msg.includes('runtimeerror') ||
+    // JS crashes
+    msg.includes('uncaught') ||
+    msg.includes('referenceerror') ||
+    msg.includes('typeerror') ||
+    // fail to load assets
+    msg.includes('failed to fetch') ||
+    msg.includes('404')
+  );
+};
+
 (async () => {
   const outRoot = path.join(cfg.out, stamp());
   ensureDir(outRoot);
+
+  const consoleErrors = [];
+  let flavorHadErrors = false;
 
   const csvWriter = createObjectCsvWriter({
     path: path.join(outRoot, 'all_samples.csv'),
@@ -148,6 +178,7 @@ const {
       }
     } catch (e) {
       logWarn('Native bench failed:', e.message);
+      process.exitCode = 1;
     }
   }
 
@@ -183,10 +214,31 @@ const {
     return;
   }
 
+  async function collectConsoleErrors(driver, flavorKey) {
+    try {
+      const logs = await driver.manage().logs().get('browser');
+
+      for (const e of logs) {
+        if (isRunFailure(e)) {
+          flavorHadErrors = true;
+          consoleErrors.push({
+            flavor: flavorKey,
+            level: e.level?.name,
+            message: e.message,
+          });
+        }
+      }
+    } catch (e) {
+      logWarn(`Could not read console logs for ${flavorKey}: ${e.message}`);
+    }
+  }
+
   // store a traditional summary for per-flavor tables, and build a pivot for the final table
   const pivot = new Map(); // flavorKey -> { encrypt: "1.234 (x2.00)", decrypt: "...", fetch: "..." }
 
   for (const flavor of flavors) {
+    flavorHadErrors = false; // reset error flag per flavor
+
     const versionLabel = mapFlavorToVersion(flavor.family, flavor.label);
     const tmpProfile = makeTmp(`bench-${flavor.family}-${flavor.label}-`);
     const jsonOutFile = path.join(outRoot, `${flavor.family}-${flavor.label}.json`);
@@ -194,15 +246,24 @@ const {
     let driver;
     try {
       driver = await buildDriver(flavor.family, versionLabel, tmpProfile);
-      await driver.get(baseUrl); // initial load to evaluate capabilities
 
       const caps = await driver.getCapabilities();
       const version = caps.get('browserVersion') || 'unknown';
+      const flavorKey = `${flavor.family}:${flavor.label} (${version})`;
+
+      await driver.get(baseUrl); // initial load to evaluate capabilities
+
+      // See if there are errors, and if there are, don't keep re-trying this driver
+      await collectConsoleErrors(driver, flavorKey);
+      if (flavorHadErrors) {
+        logWarn(`${flavor.family}:${flavor.label} errors, skipping further testing with this driver (this run will fail)`);
+        continue;
+      }
+
       const coi = await driver.executeScript('return !!globalThis.crossOriginIsolated;');
       if (!coi) logWarn(`${flavor.family}:${flavor.label} crossOriginIsolated=false; timers may be coarse.`);
 
       const flavorBundle = { flavor, version, coi, benches: {} };
-      const flavorKey = `${flavor.family}:${flavor.label} (${version})`;
 
       for (const spec of specs) {
         if (!RUN_ANY_SWEEP) {
@@ -220,9 +281,21 @@ const {
               spec,
               cfg.iterations,
             );
+
+            await collectConsoleErrors(driver, flavorKey);
+            if (flavorHadErrors) {
+              logWarn(`${flavor.family}:${flavor.label}: errors for spec profile (isolated) ${spec.name}`)
+              break;
+            }
           } else {
             const specWithMode = new BenchmarkSpec(spec.name, { ...spec.params });
             const res = await runSpecOnDriver(driver, baseUrl, specWithMode);
+
+            await collectConsoleErrors(driver, flavorKey);
+            if (flavorHadErrors) {
+              logWarn(`${flavor.family}:${flavor.label} errors in spec ${spec.name}`)
+              break;
+            }
 
             samplesUs = Array.isArray(res.samples_us)
               ? res.samples_us.map((x) => Math.round(x))
@@ -328,6 +401,9 @@ const {
       }
     } catch (e) {
       logErr(`Failed ${flavor.family}:${flavor.label}: ${e.message}`);
+      consoleErrors.push({
+        flavor: `${flavor.family}:${flavor.label} ${e.message}`
+      });
     } finally {
       if (driver) await driver.quit();
       try {
@@ -354,6 +430,18 @@ const {
     console.log(makeTable(headers, rows));
   } else {
     logWarn('No browser results.');
+  }
+
+  // Did we hit any console errors?
+  if (consoleErrors.length > 0) {
+    const errorPath = path.join(outRoot, 'errors.log');
+    console.error(`\n${kleur.bold(`=== Console Errors Detected ===`)}`);
+    for (const { flavor, message } of consoleErrors) {
+      console.error(`[${flavor}] ${message}`);
+      fs.appendFileSync(errorPath, `[${flavor}] ${message}\n`);
+    }
+    logErr(`Console errors written to ${outRoot}`);
+    process.exitCode = 1;
   }
 
   server.close();

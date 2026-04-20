@@ -16,7 +16,7 @@
   import init, {
     WSource, WJournalist, WEnvelope, WStoreEntry,
     encrypt_once, decrypt_once, compute_fetch_challenges_once, fetch_once,
-  } from '../pkg/securedrop_protocol.js';
+  } from '../pkg/securedrop_protocol_bench.js';
 
   function bytesEq(a, b) {
     if (a.length !== b.length) return false;
@@ -168,7 +168,7 @@
   // -------- run --------
   (async function run() {
     try {
-      const wasmUrl = new URL('../pkg/securedrop_protocol_bg.wasm', import.meta.url);
+      const wasmUrl = new URL('../pkg/securedrop_protocol_bench_bg.wasm', import.meta.url);
       await init(wasmUrl);
 
       const toRun = (which === 'all')
@@ -194,7 +194,12 @@
       window.benchReady = true;
     } catch (e) {
       // emit a single JSON error line, keep harness quiet otherwise
-      print(JSON.stringify({ error: String(e && e.message || e) }));
+      print(JSON.stringify({
+          error: String(e?.message || e),
+          stack: e?.stack,
+          name: e?.name,
+        }));
+      console.error(e);
       window.benchReady = true;
     }
   })();
