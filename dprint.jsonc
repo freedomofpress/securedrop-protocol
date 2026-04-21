@@ -1,0 +1,22 @@
+{
+  "markdown": {},
+  "typescript": {},
+  "markup": {},
+  // note: can't configure includes/excludes per plugin
+  "excludes": [
+    "**/.fstar-cache/**",
+    "**/lint-tools",
+    "**/securedrop-protocol/target/**",
+    "**/securedrop-protocol/bench/.selenium-cache/**",
+    "**/securedrop-protocol/bench/node_modules/**",
+    "**/securedrop-protocol/bench/out/**",
+    "**/securedrop-protocol/bench/pkg/**",
+    "**/securedrop-protocol/protocol-minimal/proofs/**",
+    "**/securedrop-protocol/protocol-minimal/target/**",
+  ],
+  "plugins": [
+    "https://plugins.dprint.dev/markdown-0.20.0.wasm",
+    "https://plugins.dprint.dev/typescript-0.95.15.wasm",
+    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.0.wasm"
+  ]
+}
