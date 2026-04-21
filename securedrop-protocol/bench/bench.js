@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
-const { createObjectCsvWriter } = require('csv-writer');
-const kleur = require('kleur');
+const { createObjectCsvWriter } = require("csv-writer");
+const kleur = require("kleur");
 
-const { parseCli } = require('./js/cli');
-const { startServer } = require('./js/server');
-const { BenchmarkSpec, defaultSpecs } = require('./js/specs');
+const { parseCli } = require("./js/cli");
+const { startServer } = require("./js/server");
+const { BenchmarkSpec, defaultSpecs } = require("./js/specs");
 const {
   expandFlavors,
   mapFlavorToVersion,
   buildDriver,
   runSpecOnDriver,
   runSpecProfileIsolated,
-} = require('./js/selenium');
-const { runBrowserSweeps } = require('./js/sweeps');
-const { runNative, runNativeSweeps } = require('./js/native');
-const { prettyStatsFromUs, makeTable } = require('./js/reporting');
+} = require("./js/selenium");
+const { runBrowserSweeps } = require("./js/sweeps");
+const { runNative, runNativeSweeps } = require("./js/native");
+const { prettyStatsFromUs, makeTable } = require("./js/reporting");
 const {
   rangeSweep,
   stamp,
@@ -27,7 +27,7 @@ const {
   logWarn,
   logErr,
   makeTmp,
-} = require('./js/utils');
+} = require("./js/utils");
 
 const { cfg, runFlags } = parseCli();
 const {
@@ -39,28 +39,28 @@ const {
 
 // Helper
 const isRunFailure = (e) => {
-  const msg = (e.message || '').toLowerCase();
+  const msg = (e.message || "").toLowerCase();
 
-  if (msg.includes('favico') && msg.includes('404')) {
+  if (msg.includes("favico") && msg.includes("404")) {
     return false;
   }
 
   return (
-    e.level?.name === 'SEVERE' ||
+    e.level?.name === "SEVERE"
     // May not have loglevel SEVERE, but still errors
 
     // WASM / runtime issues
-    msg.includes('wasm') ||
-    msg.includes('compileerror') ||
-    msg.includes('linkerror') ||
-    msg.includes('runtimeerror') ||
+    || msg.includes("wasm")
+    || msg.includes("compileerror")
+    || msg.includes("linkerror")
+    || msg.includes("runtimeerror")
     // JS crashes
-    msg.includes('uncaught') ||
-    msg.includes('referenceerror') ||
-    msg.includes('typeerror') ||
+    || msg.includes("uncaught")
+    || msg.includes("referenceerror")
+    || msg.includes("typeerror")
     // fail to load assets
-    msg.includes('failed to fetch') ||
-    msg.includes('404')
+    || msg.includes("failed to fetch")
+    || msg.includes("404")
   );
 };
 
@@ -72,19 +72,19 @@ const isRunFailure = (e) => {
   let flavorHadErrors = false;
 
   const csvWriter = createObjectCsvWriter({
-    path: path.join(outRoot, 'all_samples.csv'),
+    path: path.join(outRoot, "all_samples.csv"),
     header: [
-      { id: 'bench_type', title: 'bench_type' },
-      { id: 'family', title: 'family' },
-      { id: 'label', title: 'label' },
-      { id: 'browser_version', title: 'browser_version' },
-      { id: 'coi', title: 'coi' },
-      { id: 'bench', title: 'bench' },
-      { id: 'iter_index', title: 'iter_index' },
-      { id: 'sample_us', title: 'sample_us' },
-      { id: 'iterations', title: 'iterations' },
-      { id: 'keybundles', title: 'keybundles' },
-      { id: 'challenges', title: 'challenges' },
+      { id: "bench_type", title: "bench_type" },
+      { id: "family", title: "family" },
+      { id: "label", title: "label" },
+      { id: "browser_version", title: "browser_version" },
+      { id: "coi", title: "coi" },
+      { id: "bench", title: "bench" },
+      { id: "iter_index", title: "iter_index" },
+      { id: "sample_us", title: "sample_us" },
+      { id: "iterations", title: "iterations" },
+      { id: "keybundles", title: "keybundles" },
+      { id: "challenges", title: "challenges" },
     ],
     append: false,
   });
@@ -107,22 +107,22 @@ const isRunFailure = (e) => {
 
   // Native (optional)
   let native = null;
-  if (cfg.native === 'on' && !RUN_ANY_SWEEP) {
-    logInfo('Running native...');
+  if (cfg.native === "on" && !RUN_ANY_SWEEP) {
+    logInfo("Running native...");
     try {
-      native = await runNative(cfg.iterations, cfg.k, cfg.j, cfg.rng === 'on');
+      native = await runNative(cfg.iterations, cfg.k, cfg.j, cfg.rng === "on");
 
       if (!native || Object.keys(native).length === 0) {
-        logWarn('Native bench parsed no results.');
+        logWarn("Native bench parsed no results.");
       } else {
         const nativeBundle = {
-          flavor: { family: 'native', label: 'native' },
-          version: 'N/A',
+          flavor: { family: "native", label: "native" },
+          version: "N/A",
           coi: true,
           benches: native,
         };
 
-        const nativeJsonPath = path.join(outRoot, 'native.json');
+        const nativeJsonPath = path.join(outRoot, "native.json");
         fs.writeFileSync(nativeJsonPath, JSON.stringify(nativeBundle, null, 2));
         logInfo(`Saved ${nativeJsonPath}`);
 
@@ -134,17 +134,17 @@ const isRunFailure = (e) => {
 
           samples.forEach((us, i) => {
             nativeRows.push({
-              bench_type: 'basic',
-              family: 'native',
-              label: 'native',
-              browser_version: 'N/A',
+              bench_type: "basic",
+              family: "native",
+              label: "native",
+              browser_version: "N/A",
               coi: true,
               bench,
               iter_index: i,
               sample_us: us,
-              iterations: rec.iterations ?? '',
-              keybundles: rec.keybundles ?? '',
-              challenges: rec.challenges ?? '',
+              iterations: rec.iterations ?? "",
+              keybundles: rec.keybundles ?? "",
+              challenges: rec.challenges ?? "",
             });
           });
         }
@@ -152,7 +152,7 @@ const isRunFailure = (e) => {
         await csvWriter.writeRecords(nativeRows);
 
         const prettyTable = [];
-        for (const op of ['encrypt', 'decrypt', 'fetch']) {
+        for (const op of ["encrypt", "decrypt", "fetch"]) {
           const rec = native?.[op];
           if (!rec) continue;
 
@@ -170,21 +170,23 @@ const isRunFailure = (e) => {
         }
 
         if (prettyTable.length) {
-          console.log(`\n${makeTable(
-            ['op', 'iters', 'avg (ms)', 'p50', 'p90', 'p99', 'max'],
-            prettyTable,
-          )}`);
+          console.log(`\n${
+            makeTable(
+              ["op", "iters", "avg (ms)", "p50", "p90", "p99", "max"],
+              prettyTable,
+            )
+          }`);
         }
       }
     } catch (e) {
-      logWarn('Native bench failed:', e.message);
+      logWarn("Native bench failed:", e.message);
       process.exitCode = 1;
     }
   }
 
   let nativeSweeps = null;
   if (RUN_ANY_SWEEP) {
-    logInfo('Running native sweeps...');
+    logInfo("Running native sweeps...");
 
     nativeSweeps = await runNativeSweeps(
       cfg,
@@ -194,29 +196,29 @@ const isRunFailure = (e) => {
       csvWriter,
     );
 
-    const outFile = path.join(outRoot, 'native_sweeps.json');
+    const outFile = path.join(outRoot, "native_sweeps.json");
     fs.writeFileSync(outFile, JSON.stringify(nativeSweeps, null, 2));
     logInfo(`Saved ${outFile}`);
   }
 
-  if (cfg.browser === 'none') {
-    logWarn('Browsers disabled (--browser none). Done.');
+  if (cfg.browser === "none") {
+    logWarn("Browsers disabled (--browser none). Done.");
     server.close();
     return;
   }
 
-  const specs = defaultSpecs(cfg.iterations, cfg.k, cfg.j, cfg.rng === 'on');
+  const specs = defaultSpecs(cfg.iterations, cfg.k, cfg.j, cfg.rng === "on");
   const flavors = expandFlavors(cfg.browser, cfg.flavors);
 
   if (flavors.length === 0) {
-    logWarn('No flavors selected.');
+    logWarn("No flavors selected.");
     server.close();
     return;
   }
 
   async function collectConsoleErrors(driver, flavorKey) {
     try {
-      const logs = await driver.manage().logs().get('browser');
+      const logs = await driver.manage().logs().get("browser");
 
       for (const e of logs) {
         if (isRunFailure(e)) {
@@ -248,7 +250,7 @@ const isRunFailure = (e) => {
       driver = await buildDriver(flavor.family, versionLabel, tmpProfile);
 
       const caps = await driver.getCapabilities();
-      const version = caps.get('browserVersion') || 'unknown';
+      const version = caps.get("browserVersion") || "unknown";
       const flavorKey = `${flavor.family}:${flavor.label} (${version})`;
 
       await driver.get(baseUrl); // initial load to evaluate capabilities
@@ -256,11 +258,13 @@ const isRunFailure = (e) => {
       // See if there are errors, and if there are, don't keep re-trying this driver
       await collectConsoleErrors(driver, flavorKey);
       if (flavorHadErrors) {
-        logWarn(`${flavor.family}:${flavor.label} errors, skipping further testing with this driver (this run will fail)`);
+        logWarn(
+          `${flavor.family}:${flavor.label} errors, skipping further testing with this driver (this run will fail)`,
+        );
         continue;
       }
 
-      const coi = await driver.executeScript('return !!globalThis.crossOriginIsolated;');
+      const coi = await driver.executeScript("return !!globalThis.crossOriginIsolated;");
       if (!coi) logWarn(`${flavor.family}:${flavor.label} crossOriginIsolated=false; timers may be coarse.`);
 
       const flavorBundle = { flavor, version, coi, benches: {} };
@@ -273,7 +277,7 @@ const isRunFailure = (e) => {
           let keybundles = spec.params.k ?? null;
           let challenges = spec.params.j ?? null;
 
-          if (cfg.mode === 'profile') {
+          if (cfg.mode === "profile") {
             samplesUs = await runSpecProfileIsolated(
               flavor.family,
               versionLabel,
@@ -284,7 +288,7 @@ const isRunFailure = (e) => {
 
             await collectConsoleErrors(driver, flavorKey);
             if (flavorHadErrors) {
-              logWarn(`${flavor.family}:${flavor.label}: errors for spec profile (isolated) ${spec.name}`)
+              logWarn(`${flavor.family}:${flavor.label}: errors for spec profile (isolated) ${spec.name}`);
               break;
             }
           } else {
@@ -293,15 +297,15 @@ const isRunFailure = (e) => {
 
             await collectConsoleErrors(driver, flavorKey);
             if (flavorHadErrors) {
-              logWarn(`${flavor.family}:${flavor.label} errors in spec ${spec.name}`)
+              logWarn(`${flavor.family}:${flavor.label} errors in spec ${spec.name}`);
               break;
             }
 
             samplesUs = Array.isArray(res.samples_us)
               ? res.samples_us.map((x) => Math.round(x))
               : Array.isArray(res.samples_ms)
-                ? res.samples_ms.map((x) => Math.round(x * 1000))
-                : [];
+              ? res.samples_ms.map((x) => Math.round(x * 1000))
+              : [];
           }
 
           const norm = {
@@ -315,7 +319,7 @@ const isRunFailure = (e) => {
           flavorBundle.benches[spec.name] = norm;
 
           const rows = samplesUs.map((us, i) => ({
-            bench_type: 'basic',
+            bench_type: "basic",
             family: flavor.family,
             label: flavor.label,
             browser_version: version,
@@ -324,8 +328,8 @@ const isRunFailure = (e) => {
             iter_index: i,
             sample_us: us,
             iterations: norm.iterations,
-            keybundles: norm.keybundles ?? '',
-            challenges: norm.challenges ?? '',
+            keybundles: norm.keybundles ?? "",
+            challenges: norm.challenges ?? "",
           }));
           await csvWriter.writeRecords(rows);
 
@@ -374,7 +378,9 @@ const isRunFailure = (e) => {
       }
       // Per-flavor table (unchanged, detailed stats + ×native)
       if (RUN_BASIC) {
-        console.log(`\n${kleur.bold(`=== ${flavor.family}:${flavor.label} (${version}) — iterations: ${cfg.iterations} ===`)}`);
+        console.log(
+          `\n${kleur.bold(`=== ${flavor.family}:${flavor.label} (${version}) — iterations: ${cfg.iterations} ===`)}`,
+        );
         const fRows = Object.values(flavorBundle.benches).map((b) => {
           const s = prettyStatsFromUs(b.samples_us);
           const nativeRec = native?.[b.bench];
@@ -391,18 +397,18 @@ const isRunFailure = (e) => {
             s.p90_ms.toFixed(3),
             s.p99_ms.toFixed(3),
             s.max_ms.toFixed(3),
-            slowdown != null ? `x${slowdown.toFixed(2)}` : '—',
+            slowdown != null ? `x${slowdown.toFixed(2)}` : "—",
           ];
         });
         console.log(makeTable(
-          ['op', 'iters', 'avg (ms)', 'p50', 'p90', 'p99', 'max', '×native'],
+          ["op", "iters", "avg (ms)", "p50", "p90", "p99", "max", "×native"],
           fRows,
         ));
       }
     } catch (e) {
       logErr(`Failed ${flavor.family}:${flavor.label}: ${e.message}`);
       consoleErrors.push({
-        flavor: `${flavor.family}:${flavor.label} ${e.message}`
+        flavor: `${flavor.family}:${flavor.label} ${e.message}`,
       });
     } finally {
       if (driver) await driver.quit();
@@ -416,25 +422,25 @@ const isRunFailure = (e) => {
 
   // Global summary (PIVOT: one row per browser, columns are ops with "avg (xSlowdown)")
   if (pivot.size) {
-    const headers = ['browser', 'encrypt', 'decrypt', 'fetch'];
+    const headers = ["browser", "encrypt", "decrypt", "fetch"];
     const rows = [];
     for (const [flavorKey, cells] of pivot.entries()) {
       rows.push([
         flavorKey,
-        cells.encrypt || '—',
-        cells.decrypt || '—',
-        cells.fetch || '—',
+        cells.encrypt || "—",
+        cells.decrypt || "—",
+        cells.fetch || "—",
       ]);
     }
     console.log(`\n${kleur.bold(`=== Summary by browser (iterations: ${cfg.iterations}) ===`)}`);
     console.log(makeTable(headers, rows));
   } else {
-    logWarn('No browser results.');
+    logWarn("No browser results.");
   }
 
   // Did we hit any console errors?
   if (consoleErrors.length > 0) {
-    const errorPath = path.join(outRoot, 'errors.log');
+    const errorPath = path.join(outRoot, "errors.log");
     console.error(`\n${kleur.bold(`=== Console Errors Detected ===`)}`);
     for (const { flavor, message } of consoleErrors) {
       console.error(`[${flavor}] ${message}`);

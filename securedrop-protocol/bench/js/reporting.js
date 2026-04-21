@@ -1,4 +1,4 @@
-const ss = require('simple-statistics');
+const ss = require("simple-statistics");
 
 function prettyStatsFromUs(samplesUs) {
   const ms = samplesUs.map((us) => us / 1000);
@@ -16,7 +16,7 @@ function prettyStatsFromUs(samplesUs) {
 }
 
 function makeTable(headers, rows) {
-  const Table = require('cli-table3');
+  const Table = require("cli-table3");
   const t = new Table({ head: headers });
   rows.forEach((r) => t.push(r));
   return t.toString();

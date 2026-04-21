@@ -10,22 +10,22 @@ class BenchmarkSpec {
 
   toQuery() {
     const u = new URLSearchParams();
-    u.set('bench', this.name);
-    if (this.params.n != null) u.set('n', String(this.params.n));
-    if (this.params.k != null) u.set('k', String(this.params.k));
-    if (this.params.j != null) u.set('j', String(this.params.j));
-    if (this.params.include_rng) u.set('include_rng', '1');
-    u.set('raw', 'json'); // page emits JSON & window.benchResults*
-    u.set('quiet', '1'); // no pretty printing
+    u.set("bench", this.name);
+    if (this.params.n != null) u.set("n", String(this.params.n));
+    if (this.params.k != null) u.set("k", String(this.params.k));
+    if (this.params.j != null) u.set("j", String(this.params.j));
+    if (this.params.include_rng) u.set("include_rng", "1");
+    u.set("raw", "json"); // page emits JSON & window.benchResults*
+    u.set("quiet", "1"); // no pretty printing
     return `?${u.toString()}`;
   }
 }
 
 function defaultSpecs(iterations, k, j, rngOn) {
   return [
-    new BenchmarkSpec('encrypt', { n: iterations, k, include_rng: rngOn }),
-    new BenchmarkSpec('decrypt', { n: iterations, k: 1 }),
-    new BenchmarkSpec('fetch', { n: iterations, k, j: 1 }),
+    new BenchmarkSpec("encrypt", { n: iterations, k, include_rng: rngOn }),
+    new BenchmarkSpec("decrypt", { n: iterations, k: 1 }),
+    new BenchmarkSpec("fetch", { n: iterations, k, j: 1 }),
   ];
 }
 

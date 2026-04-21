@@ -13,8 +13,7 @@ function parseCSV(raw) {
 }
 
 const mean = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
-const stddev = (arr) =>
-  Math.sqrt(mean(arr.map((x) => (x - mean(arr)) ** 2)));
+const stddev = (arr) => Math.sqrt(mean(arr.map((x) => (x - mean(arr)) ** 2)));
 
 function computeStats(rows) {
   const map = {};
@@ -56,9 +55,9 @@ const stats = computeStats(rows);
 const benches = ["encrypt", "decrypt", "solve"];
 
 const series = [
-  { fam: "native",   label: "Native",   fill: "barred"   },
-  { fam: "chromium", label: "Chromium", fill: "barblue"  },
-  { fam: "firefox",  label: "Firefox",  fill: "bargreen" },
+  { fam: "native", label: "Native", fill: "barred" },
+  { fam: "chromium", label: "Chromium", fill: "barblue" },
+  { fam: "firefox", label: "Firefox", fill: "bargreen" },
 ];
 
 console.log(`
@@ -115,7 +114,7 @@ for (const s of series) {
     const st = stats[bench]?.[s.fam];
     if (!st) continue;
     console.log(
-      `    (${bench}, ${st.mean.toFixed(3)}) +- (0, ${st.std.toFixed(3)})`
+      `    (${bench}, ${st.mean.toFixed(3)}) +- (0, ${st.std.toFixed(3)})`,
     );
   }
 
@@ -127,4 +126,3 @@ console.log(`
 \\end{axis}
 \\end{tikzpicture}
 `);
-

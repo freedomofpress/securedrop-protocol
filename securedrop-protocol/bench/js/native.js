@@ -1,8 +1,8 @@
-const { execa } = require('execa');
-const kleur = require('kleur');
+const { execa } = require("execa");
+const kleur = require("kleur");
 
-const { logWarn } = require('./utils');
-const { prettyStatsFromUs, makeTable } = require('./reporting');
+const { logWarn } = require("./utils");
+const { prettyStatsFromUs, makeTable } = require("./reporting");
 
 function statsFromUs(samplesUs) {
   const s = samplesUs.slice().sort((a, b) => a - b);
@@ -29,22 +29,22 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
 
   // --- FETCH sweep (vary j) ---
   for (const j of jSweep) {
-    const args = ['fetch', '-n', String(baseIterations), '-k', '500', '-j', String(j), '--raw', 'json', '--quiet'];
+    const args = ["fetch", "-n", String(baseIterations), "-k", "500", "-j", String(j), "--raw", "json", "--quiet"];
 
     let samplesUs = [];
 
-    if (cfg.mode === 'profile') {
+    if (cfg.mode === "profile") {
       // One single native iteration per profile
       for (let i = 0; i < cfg.iterations; i++) {
-        const { stdout } = await execa('cargo', [
-          'bench',
-          '--bench',
-          'manual',
-          '--',
+        const { stdout } = await execa("cargo", [
+          "bench",
+          "--bench",
+          "manual",
+          "--",
           ...args,
-          '--raw',
-          'json',
-          '--quiet',
+          "--raw",
+          "json",
+          "--quiet",
         ]);
 
         const jsonLine = stdout
@@ -52,7 +52,7 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
           .split(/\r?\n/)
           .filter(Boolean)
           .reverse()
-          .find((l) => l.startsWith('{') && l.endsWith('}'));
+          .find((l) => l.startsWith("{") && l.endsWith("}"));
 
         if (!jsonLine) continue;
         const obj = JSON.parse(jsonLine);
@@ -60,22 +60,22 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
         const us = Array.isArray(obj.samples_us)
           ? Math.round(obj.samples_us[0])
           : Array.isArray(obj.samples_ms)
-            ? Math.round(obj.samples_ms[0] * 1000)
-            : null;
+          ? Math.round(obj.samples_ms[0] * 1000)
+          : null;
 
         if (us != null) samplesUs.push(us);
       }
     } else {
       // warm mode = existing aggregated native benchmark
-      const { stdout } = await execa('cargo', [
-        'bench',
-        '--bench',
-        'manual',
-        '--',
+      const { stdout } = await execa("cargo", [
+        "bench",
+        "--bench",
+        "manual",
+        "--",
         ...args,
-        '--raw',
-        'json',
-        '--quiet',
+        "--raw",
+        "json",
+        "--quiet",
       ]);
 
       const jsonLine = stdout
@@ -83,15 +83,15 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
         .split(/\r?\n/)
         .filter(Boolean)
         .reverse()
-        .find((l) => l.startsWith('{') && l.endsWith('}'));
+        .find((l) => l.startsWith("{") && l.endsWith("}"));
 
       if (jsonLine) {
         const obj = JSON.parse(jsonLine);
         samplesUs = Array.isArray(obj.samples_us)
           ? obj.samples_us.map((x) => Math.round(x))
           : Array.isArray(obj.samples_ms)
-            ? obj.samples_ms.map((x) => Math.round(x * 1000))
-            : [];
+          ? obj.samples_ms.map((x) => Math.round(x * 1000))
+          : [];
       }
     }
 
@@ -107,12 +107,12 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
 
     // CSV rows
     const rows = samplesUs.map((us, i) => ({
-      bench_type: 'fetch_sweep',
-      family: 'native',
-      label: 'native',
-      browser_version: 'N/A',
+      bench_type: "fetch_sweep",
+      family: "native",
+      label: "native",
+      browser_version: "N/A",
       coi: true,
-      bench: 'fetch',
+      bench: "fetch",
       iter_index: i,
       sample_us: us,
       iterations: baseIterations,
@@ -124,22 +124,22 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
 
   // --- DECRYPT sweep (vary k) ---
   for (const k of kSweep) {
-    const args = ['decrypt', '-n', String(baseIterations), '-k', String(k), '--raw', 'json', '--quiet'];
+    const args = ["decrypt", "-n", String(baseIterations), "-k", String(k), "--raw", "json", "--quiet"];
 
     let samplesUs = [];
 
-    if (cfg.mode === 'profile') {
+    if (cfg.mode === "profile") {
       // One single native iteration per profile
       for (let i = 0; i < cfg.iterations; i++) {
-        const { stdout } = await execa('cargo', [
-          'bench',
-          '--bench',
-          'manual',
-          '--',
+        const { stdout } = await execa("cargo", [
+          "bench",
+          "--bench",
+          "manual",
+          "--",
           ...args,
-          '--raw',
-          'json',
-          '--quiet',
+          "--raw",
+          "json",
+          "--quiet",
         ]);
 
         const jsonLine = stdout
@@ -147,7 +147,7 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
           .split(/\r?\n/)
           .filter(Boolean)
           .reverse()
-          .find((l) => l.startsWith('{') && l.endsWith('}'));
+          .find((l) => l.startsWith("{") && l.endsWith("}"));
 
         if (!jsonLine) continue;
         const obj = JSON.parse(jsonLine);
@@ -155,22 +155,22 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
         const us = Array.isArray(obj.samples_us)
           ? Math.round(obj.samples_us[0])
           : Array.isArray(obj.samples_ms)
-            ? Math.round(obj.samples_ms[0] * 1000)
-            : null;
+          ? Math.round(obj.samples_ms[0] * 1000)
+          : null;
 
         if (us != null) samplesUs.push(us);
       }
     } else {
       // warm mode = existing aggregated native benchmark
-      const { stdout } = await execa('cargo', [
-        'bench',
-        '--bench',
-        'manual',
-        '--',
+      const { stdout } = await execa("cargo", [
+        "bench",
+        "--bench",
+        "manual",
+        "--",
         ...args,
-        '--raw',
-        'json',
-        '--quiet',
+        "--raw",
+        "json",
+        "--quiet",
       ]);
 
       const jsonLine = stdout
@@ -178,15 +178,15 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
         .split(/\r?\n/)
         .filter(Boolean)
         .reverse()
-        .find((l) => l.startsWith('{') && l.endsWith('}'));
+        .find((l) => l.startsWith("{") && l.endsWith("}"));
 
       if (jsonLine) {
         const obj = JSON.parse(jsonLine);
         samplesUs = Array.isArray(obj.samples_us)
           ? obj.samples_us.map((x) => Math.round(x))
           : Array.isArray(obj.samples_ms)
-            ? obj.samples_ms.map((x) => Math.round(x * 1000))
-            : [];
+          ? obj.samples_ms.map((x) => Math.round(x * 1000))
+          : [];
       }
     }
 
@@ -200,17 +200,17 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
     };
 
     const rows = samplesUs.map((us, i) => ({
-      bench_type: 'decrypt_sweep',
-      family: 'native',
-      label: 'native',
-      browser_version: 'N/A',
+      bench_type: "decrypt_sweep",
+      family: "native",
+      label: "native",
+      browser_version: "N/A",
       coi: true,
-      bench: 'decrypt',
+      bench: "decrypt",
       iter_index: i,
       sample_us: us,
       iterations: baseIterations,
       keybundles: k,
-      challenges: '',
+      challenges: "",
     }));
     await csvWriter.writeRecords(rows);
   }
@@ -231,8 +231,8 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
         s.max_ms.toFixed(3),
       ]);
     }
-    console.log(`\n${kleur.bold('=== Native fetch sweep ===')}`);
-    console.log(makeTable(['j', 'iters', 'avg (ms)', 'p50', 'p90', 'p99', 'max'], rows));
+    console.log(`\n${kleur.bold("=== Native fetch sweep ===")}`);
+    console.log(makeTable(["j", "iters", "avg (ms)", "p50", "p90", "p99", "max"], rows));
   }
 
   if (Object.keys(results.decrypt).length) {
@@ -250,8 +250,8 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
         s.max_ms.toFixed(3),
       ]);
     }
-    console.log(`\n${kleur.bold('=== Native decrypt sweep ===')}`);
-    console.log(makeTable(['k', 'iters', 'avg (ms)', 'p50', 'p90', 'p99', 'max'], rows));
+    console.log(`\n${kleur.bold("=== Native decrypt sweep ===")}`);
+    console.log(makeTable(["k", "iters", "avg (ms)", "p50", "p90", "p99", "max"], rows));
   }
 
   return results;
@@ -260,18 +260,18 @@ async function runNativeSweeps(cfg, baseIterations, jSweep, kSweep, csvWriter) {
 async function runNative(iterations, k, j, rngOn) {
   const plans = [
     {
-      bench: 'encrypt',
-      args: ['encrypt', '-n', String(iterations), '-k', String(k), ...(rngOn ? ['--include-rng'] : [])],
+      bench: "encrypt",
+      args: ["encrypt", "-n", String(iterations), "-k", String(k), ...(rngOn ? ["--include-rng"] : [])],
       expect: { iterations, keybundles: k, challenges: null },
     },
     {
-      bench: 'decrypt',
-      args: ['decrypt', '-n', String(iterations), '-k', '1'],
+      bench: "decrypt",
+      args: ["decrypt", "-n", String(iterations), "-k", "1"],
       expect: { iterations, keybundles: 1, challenges: null },
     },
     {
-      bench: 'fetch',
-      args: ['fetch', '-n', String(iterations), '-k', String(k), '-j', '1'],
+      bench: "fetch",
+      args: ["fetch", "-n", String(iterations), "-k", String(k), "-j", "1"],
       expect: { iterations, keybundles: k, challenges: 1 },
     },
   ];
@@ -280,12 +280,12 @@ async function runNative(iterations, k, j, rngOn) {
   for (const p of plans) {
     try {
       const { stdout } = await execa(
-        'cargo',
-        ['bench', '--bench', 'manual', '--', ...p.args, '--raw', 'json', '--quiet'],
-        { stdio: 'pipe' },
+        "cargo",
+        ["bench", "--bench", "manual", "--", ...p.args, "--raw", "json", "--quiet"],
+        { stdio: "pipe" },
       );
       const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
-      const jsonLine = lines.reverse().find((l) => l.startsWith('{') && l.endsWith('}'));
+      const jsonLine = lines.reverse().find((l) => l.startsWith("{") && l.endsWith("}"));
       if (!jsonLine) {
         logWarn(`Native: no JSON for ${p.bench}`);
         continue;
