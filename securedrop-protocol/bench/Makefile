@@ -29,11 +29,24 @@ SELENIUM_CACHE ?= .selenium-cache
 SELENIUM_TOML  := $(SELENIUM_CACHE)/se-config.toml
 SELENIUM_STAMP := $(SELENIUM_CACHE)/.ready
 
-.PHONY: all deps rust-target build bench clean clean-cache warm-cache
+NVMRC := .nvmrc
+NODE_VERSION := $(shell cat $(NVMRC) 2>/dev/null)
+
+.PHONY: all check deps rust-target build bench clean clean-cache warm-cache
 
 all: deps build
 
-deps: node_modules selenium-cache rust-target
+check:
+	@command -v node >/dev/null 2>&1 || { \
+	  echo "Node is not installed. Need v$(NODE_VERSION)."; exit 1; \
+	}
+	@NODE_ACTUAL="$$(node -v)"; \
+	if [[ "$$NODE_ACTUAL" != "$(NODE_VERSION)" ]]; then \
+	  echo "Need Node $(NODE_VERSION), found $$NODE_ACTUAL"; exit 1; \
+	fi
+	@echo "Node version ok."
+
+deps: check node_modules selenium-cache rust-target
 	@echo "Deps ok."
 
 node_modules: package.json

@@ -1,8 +1,8 @@
-const kleur = require('kleur');
+const kleur = require("kleur");
 
-const { BenchmarkSpec } = require('./specs');
-const { runSpecOnDriver, runSpecProfileIsolated } = require('./selenium');
-const { prettyStatsFromUs, makeTable } = require('./reporting');
+const { BenchmarkSpec } = require("./specs");
+const { runSpecOnDriver, runSpecProfileIsolated } = require("./selenium");
+const { prettyStatsFromUs, makeTable } = require("./reporting");
 
 async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSweep, kSweep, csvWriter) {
   const out = {
@@ -12,10 +12,10 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
 
   // --- FETCH sweep ---
   for (const j of jSweep) {
-    const spec = new BenchmarkSpec('fetch', { n: cfg.iterations, k: cfg.k, j });
+    const spec = new BenchmarkSpec("fetch", { n: cfg.iterations, k: cfg.k, j });
     let samplesUs;
 
-    if (cfg.mode === 'profile') {
+    if (cfg.mode === "profile") {
       // Run N independent single-iteration profiles
       samplesUs = await runSpecProfileIsolated(
         flavor.family,
@@ -31,8 +31,8 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
       samplesUs = Array.isArray(res.samples_us)
         ? res.samples_us.map((x) => Math.round(x))
         : Array.isArray(res.samples_ms)
-          ? res.samples_ms.map((x) => Math.round(x * 1000))
-          : [];
+        ? res.samples_ms.map((x) => Math.round(x * 1000))
+        : [];
     }
 
     const stats = prettyStatsFromUs(samplesUs);
@@ -44,12 +44,12 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
     };
 
     const rows = samplesUs.map((us, i) => ({
-      bench_type: 'fetch_sweep',
+      bench_type: "fetch_sweep",
       family: flavor.family,
       label: flavor.label,
       browser_version: version,
       coi,
-      bench: 'fetch',
+      bench: "fetch",
       iter_index: i,
       sample_us: us,
       iterations: cfg.iterations,
@@ -61,10 +61,10 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
 
   // --- DECRYPT sweep ---
   for (const k of kSweep) {
-    const spec = new BenchmarkSpec('decrypt', { n: cfg.iterations, k });
+    const spec = new BenchmarkSpec("decrypt", { n: cfg.iterations, k });
     let samplesUs;
 
-    if (cfg.mode === 'profile') {
+    if (cfg.mode === "profile") {
       // Run N independent single-iteration profiles
       samplesUs = await runSpecProfileIsolated(
         flavor.family,
@@ -80,8 +80,8 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
       samplesUs = Array.isArray(res.samples_us)
         ? res.samples_us.map((x) => Math.round(x))
         : Array.isArray(res.samples_ms)
-          ? res.samples_ms.map((x) => Math.round(x * 1000))
-          : [];
+        ? res.samples_ms.map((x) => Math.round(x * 1000))
+        : [];
     }
     const stats = prettyStatsFromUs(samplesUs);
 
@@ -92,17 +92,17 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
     };
 
     const rows = samplesUs.map((us, i) => ({
-      bench_type: 'decrypt_sweep',
+      bench_type: "decrypt_sweep",
       family: flavor.family,
       label: flavor.label,
       browser_version: version,
       coi,
-      bench: 'decrypt',
+      bench: "decrypt",
       iter_index: i,
       sample_us: us,
       iterations: cfg.iterations,
       keybundles: k,
-      challenges: '',
+      challenges: "",
     }));
     await csvWriter.writeRecords(rows);
   }
@@ -123,7 +123,7 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
       ]);
     }
     console.log(`\n${kleur.bold(`=== ${flavor.family}:${flavor.label} — fetch sweep ===`)}`);
-    console.log(makeTable(['j', 'avg (ms)', 'p50', 'p90', 'p99', 'max'], rows));
+    console.log(makeTable(["j", "avg (ms)", "p50", "p90", "p99", "max"], rows));
   }
 
   if (Object.keys(out.decrypt).length) {
@@ -141,7 +141,7 @@ async function runBrowserSweeps(cfg, driver, baseUrl, flavor, version, coi, jSwe
       ]);
     }
     console.log(`\n${kleur.bold(`=== ${flavor.family}:${flavor.label} — decrypt sweep ===`)}`);
-    console.log(makeTable(['k', 'avg (ms)', 'p50', 'p90', 'p99', 'max'], rows));
+    console.log(makeTable(["k", "avg (ms)", "p50", "p90", "p99", "max"], rows));
   }
 
   return out;

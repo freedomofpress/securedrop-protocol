@@ -16,7 +16,7 @@ use securedrop_protocol_minimal::{
 };
 
 use securedrop_protocol_minimal::LEN_XWING_ENCAPS_KEY;
-use securedrop_protocol_minimal::encrypt_decrypt::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY};
+use securedrop_protocol_minimal::encrypt_decrypt::LEN_DH_ITEM;
 
 #[inline]
 fn rng_from_seed(seed32: [u8; 32]) -> ChaCha20Rng {
@@ -151,10 +151,10 @@ pub fn encrypt_once(
 pub fn decrypt_once(recipient: &WJournalist, envelope: &WEnvelope) -> Vec<u8> {
     let pt: Plaintext = bench_decrypt(&recipient.inner, &envelope.inner);
 
-    // sanity
+    // todo: remove when return WPlaintext object
     assert_eq!(
         pt.msg.len(),
-        pt.len() - (LEN_DH_ITEM + LEN_MLKEM_ENCAPS_KEY + LEN_XWING_ENCAPS_KEY)
+        pt.len() - (LEN_DH_ITEM + LEN_XWING_ENCAPS_KEY)
     );
 
     // this was just a string, now it's a plaintext struct.
