@@ -23,8 +23,8 @@
 - [Messaging Protocol]
   - [Building Blocks](#building-blocks)
   - [Messaging Protocol Steps](#messaging-protocol)
-- [Message Format](#message-format)
-- [Work in progress/TODOs, caveats](#todos-caveats)
+  - [Message Format](#message-format)
+- [Known Limitations](#known-limitations)
 - [Changelog](#changelog)
 - [Glossary]()
 
@@ -550,11 +550,11 @@ For some newsroom $NR$:
 |                                                                                                  |                                                | $`fetched \gets fetched \cup \{cid\}`$                                                          |
 |                                                                                                  |                                                | If $`tofetch \setminus \{cid\} \neq \emptyset`$: repeat from `RequestMessages`                  |
 
-## Message Formats
+### Message Formats
 
 TK
 
-## TODOs, Caveats
+## Known Limitations
 
 TK
 
