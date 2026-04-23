@@ -505,7 +505,7 @@ Then, for some message $m$:
 | &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, \_)\}`$ |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \cup \{(-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -)\}`$                            |                                 |                                                |
 | $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                            |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pt \gets m \Vert pk_S^{fetch} \Vert pk_S^{PKE} `$                                                 |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pt \gets pk_S^{fetch} \Vert pk_S^{PKE} \Vert m `$                                                 |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch})`$  |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                             |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                 |                                 |                                                |
