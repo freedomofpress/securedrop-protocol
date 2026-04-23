@@ -455,30 +455,44 @@ Then:
 
 #### Protocol Step 6: Sender submits a message <!-- Figure 3(c) as of b1e4d41 -->
 
+For each recipient, a sender produces a message ciphertext (SD-APKE ciphertext), a metadata ciphertext (SD-PKE ciphertext), and a message delivery hint.
+
 A sender knows their own keys, the newsroom's verification key $vk_{NR}^{sig}$, and
 the $pks$ and $sigs$ they previously [fetched].
 
 In addition, in the **reply case,** if the sender is a journalist replying to a
 source, they also already know their recipient's keys without further
 verification.
+In this case, they substitute the source's long-term keys
+for their own in the recipient list, and address the remaining slots to all other
+enrolled journalists.
 
-For each recipient, the sender produces two ciphertexts. The SD-APKE ciphertext
-is sender authenticated and carries the message along with the sender's
-long-term $fetch$ and $PKE$ public keys. Because decrypting SD-APKE requires
-the recipient to know the sender's long-term APKE public key, a second SD-PKE
-ciphertext delivers that key, encrypted to the recipient's $PKE$ key, thus keeping
-the sender's identity hidden from the server, as described in HPKE's metadata
-protection guidance ([RFC 9180 §9.9]).
+**Message Ciphertext (SD-APKE Ciphertext).** The SD-APKE ciphertext is sender authenticated using classical, DH-AKEM implicit authentication, and provides hybrid (classical/quantum-resistent) message encryption via a quantum-resistent shared secret, `pskAPKE`.
+The SD-APKE ciphertext carries a [structured plaintext message](#message-formats) including the sender's long-term $fetch$ and $PKE$ public keys, which must be enclosed by the source so that they can receive replies, and are enclosed by the journalist for parity.
+Despite the name, `pskAPKE` is not a true 'pre-shared' key, and functions more like a [KEM combiner](https://datatracker.ietf.org/doc/draft-ounsworth-cfrg-kem-combiners/); the naming convention from [related work](https://eprint.iacr.org/2023/1480) is retained.
 
-The sender also computes a hint from the recipient's fetching key: a fresh
+The SD-APKE ciphertext (message ciphertext) additionally commits to the following values via the HPKE `info` parameter: the encapsulation of the `pskAPKE` shared secret; the receiver's $fetch$ key, and the ML-KEM portion of the sender's SD-APKE public key.
+
+This `info` parameter is greater than 64 bytes. Implementors MUST ensure that the HPKE implementation and the underlying AEAD support a sufficiently long `info` parameter, or implement a modification to the protocol that hashes the concatenated values to the supported `info` length.
+
+This `info` parameter MUST NOT be transmitted with the ciphertext by the underlying AEAD, since it contains cleartext public keys, which are identifying; comformant implementations of HPKE pass the `info` parameter to the KeySchedule but do not transmit it with the ciphertext. The recipient MUST locally reconstruct the `info` parameter based on the information in the PKE ciphertext and their knowledge of their own $fetch$ key, and supply the reconstructed `info` parameter to successfully decrypt the message.
+
+Note: An alternate "dead drop" protocol implementation MAY omit the sender's $fetch$ and $PKE$ keys from the plaintext message, offering improved deniability (no possibility for pending ciphertexts) but forgoing the sender's ability to receive replies.
+
+**Metadata Ciphertext (SD-PKE Ciphertext).** Because decrypting the SD-APKE ciphertext requires the recipient to know the sender's long-term APKE public key, an SD-PKE ciphertext (metadata ciphertext) delivers this SD-APKE public key, encrypted to the recipient's $PKE$ key, thus keeping the sender's identity hidden from the server, as described in HPKE's metadata protection guidance ([RFC 9180 §9.9]).
+
+The SD-PKE (metadata) ciphertext is unauthenticated, so its contents MUST be committed to in the SD-APKE ciphertext's encryption context.
+This is satisfied by the use of implicit authenticated encryption plus the `info` parameter, as described above.
+
+The SD-PKE ciphertext MUST provide hybrid classical/quantum guarantees.
+
+**Message Delivery Hint.** The sender also computes a hint from the recipient's fetching key: a fresh
 ephemeral DH public key $X = g^x$ and a Diffie–Hellman share $Z =
 (pk_R^{fetch})^x$. This lets the recipient privately scan for their messages in
 step 7 without disclosing their identity to the server. The server stores the two
 ciphertexts and hint under a randomly generated message ID.
 
-When a journalist is sending a reply, they substitute the source's long-term keys
-for their own in the recipient list, and address the remaining slots to all other
-enrolled journalists.
+As follows, the final message paylod to the server includes: each ciphertext; the encapsulated shared secrets required to decrypt each of them; the encapsulated shared secret of the `pskAPKE`; and the two components of the message delivery hint.
 
 |                                                   | All senders         | Reply case     |
 | ------------------------------------------------- | ------------------- | -------------- |
