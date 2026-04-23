@@ -584,7 +584,12 @@ TK
 
 ## Known Limitations
 
-TK
+- The protocol does not currently include a specification for transferring attachments.
+- The protocol does not currently include a specification for Journalist key replenishment, or for rotation of journalist long-term keys.
+- The protocol does not currently include a specification for rotation of the Newsroom key. The relationship between the Newsroom key and the server URL is not yet specified.
+- The protocol is not designed for scalability. There is a maximum number of messages that can be held by the server, constrained by the number of per-request challenges that the server can reasonably perform during message-fetching without unacceptable latency for users, particularly over Tor. See benchmarks for more information.
+- The use of HPKE's implicit authentication for message sending means that the protocol is vulnerable to [key compromise impersonation](https://datatracker.ietf.org/doc/html/rfc9180#section-9.1.1).
+- The protocol currently offers quantum-resistent message encryption, but not quantum-resistent message authentication or message-fetching.
 
 ## Changelog
 
