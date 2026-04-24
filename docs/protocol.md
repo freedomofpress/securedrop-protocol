@@ -394,6 +394,8 @@ $\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
 
 Concretely:
 
+<!-- FIXME: This is hard to read and `info` is overused and confusing. -->
+
 ```python
 def KGen():
     (sk1, pk1) = AKEM.KGen()
@@ -407,7 +409,7 @@ def AuthEnc(
         pk=(pkR1, pkR2),
         m, ad, info):
     (c2, K2) = KEM_PQ.Encap(pkR=pkR2)
-    (c1, cp) = pskAEnc(skS=skS1, pkR=pkR1, psk=K2, m=m, ad=ad, info=c2 + info)  # where cp = c' and "+" means concatenation
+    (c1, cp) = pskAEnc(skS=skS1, pkR=pkR1, psk=K2, m=m, ad=ad, info=c2 + info + pkS2)  # where cp = c', `info` is receiver fetch pubkey, pkS2 is sender KEM_PQ pubkey/encaps key, from SD-APKE tuple
     return ((c1, cp), c2)
 
 def AuthDec(
@@ -416,7 +418,7 @@ def AuthDec(
         c1, cp, c2,  # where cp = c' in ((c1, cp), c2)
         ad, info):
     K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
-    m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2 + info)  # "+" for concatenation
+    m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2 + info + pkS2)  #info = c2 || receiver fetch pubkey || sender KEM_PQ pubkey/encaps key, from SD-APKE tuple
     return m
 ```
 
@@ -513,21 +515,25 @@ As follows, the final message paylod to the server includes: each ciphertext; th
 
 Then, for some message $m$:
 
-| Sender                                                                                                                      |                                 | Server                                         |
-| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
-| **Reply case:** A journalist $J$ replaces their own key bundle $i$ with that of the source $R$ to whom they are replying:   |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, \_)\}`$ |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \cup \{(-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -)\}`$                            |                                 |                                                |
-| $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                            |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pt \gets pk_S^{fetch} \Vert pk_S^{PKE} \Vert m `$                                                 |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch})`$  |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                             |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                 |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`(x, X) \gets^{\$} \text{Ristretto255.KGen}()`$[^8]                                                |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`Z \gets \text{Ristretto255.DH}(x, pk_{R,i}^{fetch})`$                                             |                                 |                                                |
-|                                                                                                                             | $`\longrightarrow (C_S, X, Z)`$ |                                                |
-|                                                                                                                             |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
-|                                                                                                                             |                                 | Store $(id, C_S, X, Z)$ in $database$          |
+| Sender                                                                                                                        |                                 | Server                                         |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
+| **Reply case:** A journalist $J$ replaces their own key bundle $i$ with that of the source $R$ to whom they are replying:     |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, \_)\}`$   |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \cup \{(-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -)\}`$                              |                                 |                                                |
+| $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                              |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pt \gets pk_S^{fetch} \Vert pk_S^{PKE} \Vert m `$                                                   |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch}) `$ * |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                               |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                   |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`(x, X) \gets^{\$} \text{Ristretto255.KGen}()`$[^8]                                                  |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`Z \gets \text{Ristretto255.DH}(x, pk_{R,i}^{fetch})`$                                               |                                 |                                                |
+|                                                                                                                               | $`\longrightarrow (C_S, X, Z)`$ |                                                |
+|                                                                                                                               |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
+|                                                                                                                               |                                 | Store $(id, C_S, X, Z)$ in $database$          |
+
+<!-- FIXME: The formal notation should make clear that AuthEnc passes more than just the receiver fetch key in the info parameter. The formal notation here is error-prone since it implies that only the fetch key is part of the info param. -->
+
+\* Note: See $SD-APKE.AuthEnc$, which requires constructing the `info` parameter from the encapsulated `pskAPKE`, the recipient's fetching key, and MLKEM portion of the sender's SD-APKE key.
 
 #### Protocol Step 7: Receiver fetches and decrypts messages <!-- Figure 3(d) as of b1e4d41 -->
 
