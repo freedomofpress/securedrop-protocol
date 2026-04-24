@@ -600,7 +600,64 @@ For some newsroom $NR$:
 
 ### Message Formats
 
-TK
+### Plaintext
+
+#### SD-APKE (Message) Plaintext
+
+<!-- FIXME: protocol versioning?; message padding -->
+
+`SENDER_FETCH_PUBKEY_BYTES || SENDER_PKE_PUBKEY_BYTES || structured_message_bytes || padding`
+
+Unpadded len: 32 bytes + 1216 bytes + len(structured_message)
+
+= structured message size + 1248; messages will then be padded to a fixed message size before encryption.
+
+#### SD-PKE (Metadata) Plaintext
+
+<!-- FIXME: protocol versioning? -->
+
+`SENDER_LONG_TERM_SD_APKE_DHAKEM_PUBKEY_BYTES || SENDER_LONG_TERM_SD_APKE_MLKEM768_PUBKEY_BYTES`
+
+Len: 32 + 1184 = 1216 bytes
+
+### Ciphertext
+
+Encrypting the SD-APKE (message) plaintext yields a ciphertext and encapsulated shared secret ciphertext:
+
+`CT_APKE` = `MLKEM768_CT_ENCAPS_SHARED_SECRET || DHAKEM_ENCAPS_SHARED_SECRET || CT_SD_APKE`
+
+Len: 1088 + 32 + ((fixed message size) + AEAD_TAG_LEN) = 1120 + (fixed message size + 16)
+
+= fixed message size + 1136
+
+Encrypting the SD-PKE (metadata) plaintext also yields a ciphertext and encapsulated shared secret ciphertext:
+
+`CT_PKE` = `CT_SD_PKE_ENCAPS_SS_CT || CT_SD_PKE`
+
+Len: XWING_SHARED_SECRET_ENCAPS_CT_LEN + (DHAKEM_PK_LEN + MLKEM768_PK_LEN + AEAD_TAG_LEN) = 1120 + 1184 + 16
+
+= 2352
+
+### Encrypted Envelope (Message payload)
+
+`encrypted_envelope` = `X || Z || CT_APKE || CT_PKE` = (epehemeral pk || dh(ephemeral pk, receiver fetch pk) || CT_APKE || CT_PKE)
+
+Len: 32 + 32 + (fixed message size + 1136) + 2352
+
+= fixed message size + 3552
+
+### Message storage on server
+
+Message tuples:
+`(server_generated_uuid, encrypted_envelope, challenge_pk, dh_share, fuzzy_exp_timestamp)`
+
+Len: 16, len(`encrypted_envelope`), 32, 32, 12 * n total server capacity (server pads )
+
+### Message delivery hint (Challenges)
+
+`(AEADenc(server_generated_uuid), server_dh_share, mgdh)`
+
+Len: 32 + 32 + 32 = 96 bytes * n challenges
 
 ## Known Limitations
 
