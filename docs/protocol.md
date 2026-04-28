@@ -602,6 +602,8 @@ For some newsroom $NR$:
 
 ### Message Formats
 
+Implementors MUST implement robust message-parsing and are expected to gracefully handle malformed plaintext and ciphertext messages, both at the server and on the client.
+
 ### Plaintext
 
 #### SD-APKE (Message) Plaintext
