@@ -455,6 +455,8 @@ Then:
 | If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                  |                                 |                                                                                                                 |
 | If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}) = 0`$ for some $J, i$: abort |                                 |                                                                                                                 |
 
+**Key exhaustion**: If $`(pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J_i}`$ are unavailable for $`{J_i}`$, $`{J_i}`$ is skipped (no "key of last resort" approach). See [key replenishment](#known-limitations).
+
 #### Protocol Step 6: Sender submits a message <!-- Figure 3(c) as of b1e4d41 -->
 
 For each recipient, a sender produces a message ciphertext (SD-APKE ciphertext), a metadata ciphertext (SD-PKE ciphertext), and a message delivery hint.
