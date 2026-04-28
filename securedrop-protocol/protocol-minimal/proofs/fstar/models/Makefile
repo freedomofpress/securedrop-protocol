@@ -19,6 +19,13 @@ LIBCRUX_ML_KEM_TARGETS := -**
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemPrivateKey
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemPublicKey
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemCiphertext
+LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::mlkem768::MlKem768
+LIBCRUX_TRAITS_TARGETS := -**
+LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::Kem
+LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::KeyGenError
+LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::EncapsError
+LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::DecapsError
+LIBCRUX_TRAITS_TARGETS += +:libcrux_traits::kem::owned::Kem
 .PHONY: libcrux
 libcrux:
 	rm -rf $@
@@ -34,4 +41,10 @@ libcrux:
 	cd $@/libcrux-ml-kem && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
 	cd $@/libcrux-ml-kem && cargo hax into -i '$(LIBCRUX_ML_KEM_TARGETS)' fstar --interfaces '+!**'
 
+	cd $@/traits && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
+	cd $@/traits && cargo hax into -i '$(LIBCRUX_TRAITS_TARGETS)' fstar --interfaces '+!**'
+
 	cp $@/*/proofs/fstar/extraction/*.fsti .
+
+	# Append axiomatic stubs that hax cannot extract (see each .stub file for context).
+	cat Libcrux_ml_kem.Mlkem768.fsti.stub >> Libcrux_ml_kem.Mlkem768.fsti
