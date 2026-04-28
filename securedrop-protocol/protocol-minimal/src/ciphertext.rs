@@ -1,90 +1,39 @@
-use crate::constants::{
-    LEN_DH_ITEM, LEN_DHKEM_SHAREDSECRET_ENCAPS, LEN_KMID, LEN_MLKEM_SHAREDSECRET_ENCAPS,
-    LEN_XWING_ENCAPS_KEY,
-};
+use crate::constants::{LEN_DH_ITEM, LEN_KMID, LEN_XWING_ENCAPS_KEY};
+use crate::message::MessageCiphertext;
 use crate::metadata::MetadataCiphertext;
 use alloc::vec::Vec;
 use anyhow::Error;
 
-#[derive(Debug, Clone)]
-pub struct CombinedCiphertext {
-    // dh-akem ss encaps (needed to decrypt message)
-    pub(crate) message_dhakem_ss_encap: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS],
-
-    // pq psk encap (needed to decaps psk)
-    // also passed as part of `info` param during hpke.authopen
-    pub(crate) message_pqpsk_ss_encap: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS],
-
-    // authenc message ciphertext
-    pub(crate) ct_message: Vec<u8>,
-}
-
-impl CombinedCiphertext {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-
-        // Store fixed-size arrays
-        buf.extend_from_slice(&self.message_dhakem_ss_encap);
-        buf.extend_from_slice(&self.message_pqpsk_ss_encap);
-
-        // Store cmessage bytes
-        buf.extend_from_slice(&self.ct_message);
-
-        buf
-    }
-
-    pub fn len(&self) -> usize {
-        self.to_bytes().len()
-    }
-
-    // TOY ONLY
-    pub fn from_bytes(ct_bytes: &[u8]) -> Result<Self, Error> {
-        let mut dhakem_ss_encaps: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] =
-            [0u8; LEN_DHKEM_SHAREDSECRET_ENCAPS];
-
-        let mut pqpsk_ss_encaps: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS] =
-            [0u8; LEN_MLKEM_SHAREDSECRET_ENCAPS];
-
-        dhakem_ss_encaps.copy_from_slice(&ct_bytes[0..LEN_DHKEM_SHAREDSECRET_ENCAPS]);
-
-        pqpsk_ss_encaps.copy_from_slice(
-            &ct_bytes[LEN_DHKEM_SHAREDSECRET_ENCAPS
-                ..LEN_DHKEM_SHAREDSECRET_ENCAPS + LEN_MLKEM_SHAREDSECRET_ENCAPS],
-        );
-
-        let cmessage: Vec<u8> =
-            ct_bytes[LEN_DHKEM_SHAREDSECRET_ENCAPS + LEN_MLKEM_SHAREDSECRET_ENCAPS..].to_vec();
-
-        Ok(CombinedCiphertext {
-            message_dhakem_ss_encap: dhakem_ss_encaps,
-            message_pqpsk_ss_encap: pqpsk_ss_encaps,
-            ct_message: (cmessage),
-        })
-    }
-}
-
+/// The full submission `(C_S, X, Z)` sent from sender to server in step 6.
+///
+/// - `C_S = (ct^APKE, ct^PKE)`: the two ciphertexts
+/// - `X = g^x`: ephemeral DH public key (hint)
+/// - `Z = (pk_R^fetch)^x`: DH share for fetching (hint)
+///
+/// The server stores `(id, C_S, X, Z)` per message.
 #[derive(Debug, Clone)]
 pub struct Envelope {
-    // (message_ciphertext || message_dhakem_ss_encap || msg_psk_ss_encap)
-    // see CombinedCiphertext
-    pub(crate) cmessage: Vec<u8>,
+    /// `ct^APKE`: SD-APKE ciphertext `((c1, cp), c2)` - the encrypted message
+    pub(crate) ct_apke: MessageCiphertext,
 
-    // SD-PKE ciphertext (c, c'): encrypted sender APKE public key tuple
+    /// `ct^PKE`: SD-PKE ciphertext `(c, c')` - the encrypted sender APKE public key
     pub(crate) ct_pke: MetadataCiphertext,
 
-    // clue material
+    /// `X = g^x`: ephemeral DH public key for the hint
     pub(crate) mgdh_pubkey: [u8; LEN_DH_ITEM],
+
+    /// `Z = (pk_R^fetch)^x`: DH share for fetching
     pub(crate) mgdh: [u8; LEN_DH_ITEM],
 }
 
 impl Envelope {
     // Used for benchmarks - see wasm_bindgen
     pub fn size_hint(&self) -> usize {
-        self.cmessage.len() + self.cmetadata_len()
+        self.ct_apke.len() + self.ct_pke.len()
     }
 
     pub fn cmessage_len(&self) -> usize {
-        self.cmessage.len()
+        self.ct_apke.len()
     }
 
     // SD-PKE ciphertext byte length: encapsulation c + AEAD ciphertext c'

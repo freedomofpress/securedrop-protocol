@@ -2,15 +2,11 @@ use alloc::vec::Vec;
 use anyhow::Error;
 use getrandom;
 
-// Later: Can make these all pub(crate)
-pub mod dh_akem;
-pub mod mlkem;
+pub(crate) mod dh_akem;
+pub(crate) mod mlkem;
 pub mod pad;
 pub mod x25519;
 pub(crate) mod xwing;
-
-pub use crate::primitives::dh_akem::generate_dh_akem_keypair;
-pub use crate::primitives::mlkem::generate_mlkem768_keypair;
 
 /// Fixed number of message ID entries to return in privacy-preserving fetch
 ///

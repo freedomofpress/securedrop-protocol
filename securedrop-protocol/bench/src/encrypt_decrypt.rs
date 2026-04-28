@@ -15,8 +15,8 @@ use securedrop_protocol_minimal::{
     Envelope, FetchResponse, Journalist, Plaintext, Source, UserPublic, UserSecret,
 };
 
+use securedrop_protocol_minimal::LEN_DH_ITEM;
 use securedrop_protocol_minimal::LEN_XWING_ENCAPS_KEY;
-use securedrop_protocol_minimal::encrypt_decrypt::LEN_DH_ITEM;
 
 #[inline]
 fn rng_from_seed(seed32: [u8; 32]) -> ChaCha20Rng {

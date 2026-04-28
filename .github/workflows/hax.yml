@@ -27,9 +27,7 @@ jobs:
         working-directory: securedrop-protocol/protocol-minimal
 
       - name: Confirm no diff from committed proofs
-        run: |
-          git status --porcelain .
-          test -z "$(git status --porcelain .)"
+        run: git diff --exit-code .
         working-directory: securedrop-protocol/protocol-minimal/proofs
 
       - name: Type-check and verify
