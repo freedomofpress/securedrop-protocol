@@ -146,9 +146,9 @@ let deterministic_keygen (randomness: t_Array u8 (mk_usize 32))
 let impl_MetadataPublicKey__as_bytes (self: t_MetadataPublicKey) : t_Slice u8 =
   Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__as_bytes self._0 <: t_Slice u8
 
-/// SD-PKE.Enc: encrypt message `m` to this key, returning `(c, c')`.
-let impl_MetadataPublicKey__encrypt (self: t_MetadataPublicKey) (m: t_Slice u8)
-    : t_MetadataCiphertext =
+/// SD-PKE.Enc: encrypt message `m` to recipient key `pk_r`, returning `(c, c')`.
+/// `m` is the sender's serialized long-term APKE public key.
+let encrypt (pk_r: t_MetadataPublicKey) (m: t_Slice u8) : t_MetadataCiphertext =
   let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
     Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
       (Hpke_rs.Mode_Base <: Hpke_rs.t_Mode)
@@ -156,13 +156,13 @@ let impl_MetadataPublicKey__encrypt (self: t_MetadataPublicKey) (m: t_Slice u8)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
       (Hpke_rs_crypto.Types.AeadAlgorithm_Aes256Gcm <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
   in
-  let pk_r:Hpke_rs.t_HpkePublicKey =
+  let pk_r_hpke:Hpke_rs.t_HpkePublicKey =
     Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPublicKey
       #Hpke_rs.t_HpkePublicKey
       #FStar.Tactics.Typeclasses.solve
       (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPublicKey
           #FStar.Tactics.Typeclasses.solve
-          self._0
+          pk_r._0
         <:
         Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPublicKey)
   in
@@ -174,7 +174,7 @@ let impl_MetadataPublicKey__encrypt (self: t_MetadataPublicKey) (m: t_Slice u8)
       Hpke_rs.t_HpkeError) =
     Hpke_rs.impl_7__seal #Hpke_rs_libcrux.t_HpkeLibcrux
       hpke
-      pk_r
+      pk_r_hpke
       ((let list:Prims.list u8 = [] in
           FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
           Rust_primitives.Hax.array_of_list 0 list)
@@ -213,10 +213,10 @@ let impl_MetadataPublicKey__encrypt (self: t_MetadataPublicKey) (m: t_Slice u8)
   in
   { f_c = c; f_cp = cp } <: t_MetadataCiphertext
 
-/// SD-PKE.Dec: decrypt `(c, c')` using this key, returning message `m`.
+/// SD-PKE.Dec: decrypt `(c, c')` using recipient key `sk_r`, returning message `m`.
 /// # Errors
 /// Returns an error if HPKE decryption fails.
-let impl_MetadataPrivateKey__decrypt (self: t_MetadataPrivateKey) (ct: t_MetadataCiphertext)
+let decrypt (sk_r: t_MetadataPrivateKey) (ct: t_MetadataCiphertext)
     : Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error =
   let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
     Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
@@ -225,20 +225,20 @@ let impl_MetadataPrivateKey__decrypt (self: t_MetadataPrivateKey) (ct: t_Metadat
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
       (Hpke_rs_crypto.Types.AeadAlgorithm_Aes256Gcm <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
   in
-  let sk_r:Hpke_rs.t_HpkePrivateKey =
+  let sk_r_hpke:Hpke_rs.t_HpkePrivateKey =
     Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPrivateKey
       #Hpke_rs.t_HpkePrivateKey
       #FStar.Tactics.Typeclasses.solve
       (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPrivateKey
           #FStar.Tactics.Typeclasses.solve
-          self._0
+          sk_r._0
         <:
         Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPrivateKey)
   in
   Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
     #Hpke_rs.t_HpkeError
     #Anyhow.t_Error
-    (Hpke_rs.impl_7__open #Hpke_rs_libcrux.t_HpkeLibcrux hpke (ct.f_c <: t_Slice u8) sk_r
+    (Hpke_rs.impl_7__open #Hpke_rs_libcrux.t_HpkeLibcrux hpke (ct.f_c <: t_Slice u8) sk_r_hpke
         ((let list:Prims.list u8 = [] in
             FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
             Rust_primitives.Hax.array_of_list 0 list)
