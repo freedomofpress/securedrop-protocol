@@ -49,7 +49,7 @@ The terms **sender** and **recipient** are also used, more abstractly, to refer 
 
 The protocol has:
 
-- A limited, stateless, _unauthenticated_ public API (`requestKeys`, `sendMessage`, `requestChallenges`, `getMessage`) used by all parties for message sending and retrieval
+- A limited, stateless, _unauthenticated_ public API (`requestKeys`, `sendMessage`, `requestMessages`, `getMessage`) used by all parties for message sending and retrieval
 - A limited, authenticated administrator API, used by newsrooms to enroll and unenroll journalists
 - A limited, authenticated journalist API, used to replenish their message encryption keys
 
