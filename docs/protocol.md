@@ -19,7 +19,7 @@
   - [Sequence Diagram](#sequence-diagram)
 - [Keys]
   - [Key Hierarchy](#key-hierarchy)
-  - [Key Setup Steps](#setup)
+  - [Key Setup Steps](#key-setup-steps)
 - [Messaging Protocol]
   - [Building Blocks](#building-blocks)
   - [Messaging Protocol Steps](#messaging-protocol)
@@ -37,7 +37,7 @@ The design is largely motivated by the requirement that sources avoid local pers
 
 This specification describes:
 
-- Each party (source, journalist, newsroom, FPF) and their setup
+- Each party (source, journalist, newsroom, FPF) and their [setup](#key-setup-steps)
 - Message encryption, retrieval, and decryption
 - What type of security and confidentiality properties are provided
 - What encryption algorithms and parameters are used
@@ -424,7 +424,7 @@ def AuthDec(
 
 ### Messaging Protocol Steps
 
-Sources and journalists use different [setup](#setup) steps to manage their encryption keys.
+Sources and journalists use different [setup steps](#key-setup-steps) to manage their encryption keys.
 By contrast, messaging protocol steps are
 _role-agnostic_ and _turn-specific_. Except where otherwise noted, sources and
 journalists execute the same fetching step (5), sending step (6), and receiving
