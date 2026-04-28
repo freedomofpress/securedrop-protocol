@@ -600,6 +600,8 @@ For some newsroom $NR$:
 |                                                                                                  |                                                | $`fetched \gets fetched \cup \{cid\}`$                                                          |
 |                                                                                                  |                                                | If $`tofetch \setminus \{cid\} \neq \emptyset`$: repeat from `RequestMessages`                  |
 
+Implementors MUST mitigate timing attacks via the API that could leak the number of ciphertexts on the server, for example by ensuring that `requestMessages` is constant-time at the server.
+
 ### Message Formats
 
 Implementors MUST implement robust message-parsing and are expected to gracefully handle malformed plaintext and ciphertext messages, both at the server and on the client.
