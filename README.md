@@ -2,8 +2,8 @@
 
 |                                   | Version           |
 | --------------------------------- | ----------------- |
-| [Proof-of-concept implementation] | 0.3               |
-| [Specification]                   | 0.3 ([changelog]) |
+| [Proof-of-concept implementation] | 0.4               |
+| [Specification]                   | 0.4 ([changelog]) |
 | [Tamarin models]                  | 0.3               |
 
 [changelog]: ./docs/protocol.md#changelog
@@ -17,7 +17,8 @@
 > This repository contains proof-of-concept code and is not intended for production use. The protocol details are not yet finalized.
 
 **March 2026:** A manuscript, specifying and proving [version 0.3][v0.3] of the
-protocol and its [Tamarin models], is under peer review.
+protocol and its [Tamarin models], is under peer review. An eprint is
+forthcoming.
 
 **January 2025:** A formal analysis was performed by
 [Luca Maier](https://github.com/lumaier) in ["A Formal Analysis of the
