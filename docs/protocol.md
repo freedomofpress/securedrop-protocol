@@ -2,7 +2,7 @@
 
 | Version |
 | ------- |
-| 0.3     |
+| 0.4     |
 
 > [!NOTE]
 > The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT,
@@ -574,9 +574,13 @@ Initial proof of concept.
 As analyzed in Maier (2025), ["A Formal Analysis of the SecureDrop
 Protocol"][maier2025], using modified $`\text{HPKE}^{pq}_{auth}`$.
 
-### 0.3
+### [0.3]
 
 Using standard HPKE modes `Base` and `AuthPSK`.
+
+<!-- TODO: ...as formalized in... -->
+
+## 0.4
 
 <!--
 ## Footnotes
@@ -615,8 +619,9 @@ insertion order.
     single byte, and $m$ is the preimage bytes. Tags MUST contain only ASCII
     characters and MUST be at most 255 bytes.
 
-[0.1]: https://github.com/freedomofpress/securedrop-protocol/blob/ffc07fd85d1d43dc2796e3b63aca91298adb018e/docs/protocol.md
+[0.1]: https://github.com/freedomofpress/securedrop-protocol/blob/v0.1/README.md#parties
 [0.2]: https://github.com/freedomofpress/securedrop-protocol/blob/9e6c165673c03e9821725f72b3df4d8292b8cabf/docs/protocol.md
+[0.3]: https://github.com/freedomofpress/securedrop-protocol/blob/v0.3/docs/protocol.md
 [#127]: https://github.com/freedomofpress/securedrop-protocol/issues/127
 [alwen2020]: https://eprint.iacr.org/2020/1499
 [alwen2023]: https://eprint.iacr.org/2023/1480
