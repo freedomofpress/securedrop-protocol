@@ -30,6 +30,21 @@ type t_Algorithm =
 val t_Algorithm_cast_to_repr (x: t_Algorithm)
     : Prims.Pure isize Prims.l_True (fun _ -> Prims.l_True)
 
+let impl_13: Core_models.Clone.t_Clone t_Algorithm =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_14:Core_models.Marker.t_Copy t_Algorithm
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_15:Core_models.Marker.t_StructuralPartialEq t_Algorithm
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_16:Core_models.Cmp.t_PartialEq t_Algorithm t_Algorithm
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_17:Core_models.Fmt.t_Debug t_Algorithm
+
 type t_Error =
   | Error_EcDhError : Libcrux_ecdh.t_Error -> t_Error
   | Error_KeyGen : t_Error
@@ -39,6 +54,68 @@ type t_Error =
   | Error_InvalidPrivateKey : t_Error
   | Error_InvalidPublicKey : t_Error
   | Error_InvalidCiphertext : t_Error
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_18:Core_models.Fmt.t_Debug t_Error
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_19:Core_models.Marker.t_StructuralPartialEq t_Error
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_20:Core_models.Cmp.t_PartialEq t_Error t_Error
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_21:Core_models.Cmp.t_Eq t_Error
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+let impl: Core_models.Convert.t_TryFrom Libcrux_ecdh.t_Algorithm t_Algorithm =
+  {
+    f_Error = string;
+    f_try_from_pre = (fun (value: t_Algorithm) -> true);
+    f_try_from_post
+    =
+    (fun (value: t_Algorithm) (out: Core_models.Result.t_Result Libcrux_ecdh.t_Algorithm string) ->
+        true);
+    f_try_from
+    =
+    fun (value: t_Algorithm) ->
+      match value <: t_Algorithm with
+      | Algorithm_X25519  ->
+        Core_models.Result.Result_Ok (Libcrux_ecdh.Algorithm_X25519 <: Libcrux_ecdh.t_Algorithm)
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.t_Algorithm string
+      | Algorithm_X448  ->
+        Core_models.Result.Result_Ok (Libcrux_ecdh.Algorithm_X448 <: Libcrux_ecdh.t_Algorithm)
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.t_Algorithm string
+      | Algorithm_Secp256r1  ->
+        Core_models.Result.Result_Ok (Libcrux_ecdh.Algorithm_P256 <: Libcrux_ecdh.t_Algorithm)
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.t_Algorithm string
+      | Algorithm_Secp384r1  ->
+        Core_models.Result.Result_Ok (Libcrux_ecdh.Algorithm_P384 <: Libcrux_ecdh.t_Algorithm)
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.t_Algorithm string
+      | Algorithm_Secp521r1  ->
+        Core_models.Result.Result_Ok (Libcrux_ecdh.Algorithm_P521 <: Libcrux_ecdh.t_Algorithm)
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.t_Algorithm string
+      | Algorithm_X25519MlKem768Draft00  ->
+        Core_models.Result.Result_Ok (Libcrux_ecdh.Algorithm_X25519 <: Libcrux_ecdh.t_Algorithm)
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.t_Algorithm string
+      | Algorithm_XWingKemDraft06  ->
+        Core_models.Result.Result_Ok (Libcrux_ecdh.Algorithm_X25519 <: Libcrux_ecdh.t_Algorithm)
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.t_Algorithm string
+      | _ ->
+        Core_models.Result.Result_Err "provided algorithm is not an ECDH algorithm"
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.t_Algorithm string
+  }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_1:Core_models.Convert.t_From t_Error Libcrux_ecdh.t_Error
 
 /// An ML-KEM768-x25519 private key.
 type t_X25519MlKem768Draft00PrivateKey = {
@@ -108,39 +185,35 @@ type t_Ss =
   | Ss_XWingKemDraft06 : Libcrux_kem.Xwing.t_XWingSharedSecret -> t_Ss
   | Ss_MlKem1024 : t_Array u8 (mk_usize 32) -> t_Ss
 
-/// Encode a private key.
-val impl_PrivateKey__encode (self: t_PrivateKey)
-    : Prims.Pure (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Prims.l_True (fun _ -> Prims.l_True)
-
-/// Decode a private key.
-val impl_PrivateKey__decode (alg: t_Algorithm) (bytes: t_Slice u8)
-    : Prims.Pure (Core_models.Result.t_Result t_PrivateKey t_Error)
+/// Compute the public key for a private key of the given [`Algorithm`].
+/// Applicable only to X25519 and secp256r1.
+val secret_to_public
+      (#iimpl_677085834_: Type0)
+      {| i0: Core_models.Convert.t_AsRef iimpl_677085834_ (t_Slice u8) |}
+      (alg: t_Algorithm)
+      (sk: iimpl_677085834_)
+    : Prims.Pure (Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) t_Error)
       Prims.l_True
       (fun _ -> Prims.l_True)
 
-/// Encapsulate a shared secret to the provided `pk` and return the `(Key, Enc)` tuple.
-val impl_PublicKey__encapsulate
+val random_array
+      (v_L: usize)
       (#iimpl_447424039_: Type0)
       {| i0: Rand_core.t_CryptoRng iimpl_447424039_ |}
-      (self: t_PublicKey)
       (rng: iimpl_447424039_)
-    : Prims.Pure (iimpl_447424039_ & Core_models.Result.t_Result (t_Ss & t_Ct) t_Error)
+    : Prims.Pure (iimpl_447424039_ & Core_models.Result.t_Result (t_Array u8 v_L) t_Error)
       Prims.l_True
       (fun _ -> Prims.l_True)
 
-/// Encapsulate a shared secret to the provided `pk` and return the `(Key, Enc)` tuple.
-val impl_PublicKey__encapsulate_derand (self: t_PublicKey) (seed: t_Slice u8)
-    : Prims.Pure (Core_models.Result.t_Result (t_Ss & t_Ct) t_Error)
-      Prims.l_True
-      (fun _ -> Prims.l_True)
-
-/// Encode public key.
-val impl_PublicKey__encode (self: t_PublicKey)
-    : Prims.Pure (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Prims.l_True (fun _ -> Prims.l_True)
-
-/// Decode a public key.
-val impl_PublicKey__decode (alg: t_Algorithm) (bytes: t_Slice u8)
-    : Prims.Pure (Core_models.Result.t_Result t_PublicKey t_Error)
+val gen_mlkem768
+      (#iimpl_447424039_: Type0)
+      {| i0: Rand_core.t_CryptoRng iimpl_447424039_ |}
+      (rng: iimpl_447424039_)
+    : Prims.Pure
+      (iimpl_447424039_ &
+        Core_models.Result.t_Result
+          (Libcrux_ml_kem.Types.t_MlKemPrivateKey (mk_usize 2400) &
+            Libcrux_ml_kem.Types.t_MlKemPublicKey (mk_usize 1184)) t_Error)
       Prims.l_True
       (fun _ -> Prims.l_True)
 
@@ -166,3 +239,63 @@ val key_gen_derand (alg: t_Algorithm) (seed: t_Slice u8)
     : Prims.Pure (Core_models.Result.t_Result (t_PrivateKey & t_PublicKey) t_Error)
       Prims.l_True
       (fun _ -> Prims.l_True)
+
+val mlkem_rand
+      (#iimpl_447424039_: Type0)
+      {| i0: Rand_core.t_CryptoRng iimpl_447424039_ |}
+      (rng: iimpl_447424039_)
+    : Prims.Pure (iimpl_447424039_ & Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) t_Error)
+      Prims.l_True
+      (fun _ -> Prims.l_True)
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+let impl_11: Core_models.Convert.t_TryInto t_PublicKey Libcrux_ecdh.X25519.t_PublicKey =
+  {
+    f_Error = Libcrux_ecdh.t_Error;
+    f_try_into_pre = (fun (self: t_PublicKey) -> true);
+    f_try_into_post
+    =
+    (fun
+        (self: t_PublicKey)
+        (out: Core_models.Result.t_Result Libcrux_ecdh.X25519.t_PublicKey Libcrux_ecdh.t_Error)
+        ->
+        true);
+    f_try_into
+    =
+    fun (self: t_PublicKey) ->
+      match self <: t_PublicKey with
+      | PublicKey_X25519 k ->
+        Core_models.Result.Result_Ok k
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.X25519.t_PublicKey Libcrux_ecdh.t_Error
+      | _ ->
+        Core_models.Result.Result_Err (Libcrux_ecdh.Error_InvalidPoint <: Libcrux_ecdh.t_Error)
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.X25519.t_PublicKey Libcrux_ecdh.t_Error
+  }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+let impl_12: Core_models.Convert.t_TryInto t_PrivateKey Libcrux_ecdh.X25519.t_PrivateKey =
+  {
+    f_Error = Libcrux_ecdh.t_Error;
+    f_try_into_pre = (fun (self: t_PrivateKey) -> true);
+    f_try_into_post
+    =
+    (fun
+        (self: t_PrivateKey)
+        (out: Core_models.Result.t_Result Libcrux_ecdh.X25519.t_PrivateKey Libcrux_ecdh.t_Error)
+        ->
+        true);
+    f_try_into
+    =
+    fun (self: t_PrivateKey) ->
+      match self <: t_PrivateKey with
+      | PrivateKey_X25519 k ->
+        Core_models.Result.Result_Ok k
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.X25519.t_PrivateKey Libcrux_ecdh.t_Error
+      | _ ->
+        Core_models.Result.Result_Err (Libcrux_ecdh.Error_InvalidPoint <: Libcrux_ecdh.t_Error)
+        <:
+        Core_models.Result.t_Result Libcrux_ecdh.X25519.t_PrivateKey Libcrux_ecdh.t_Error
+  }

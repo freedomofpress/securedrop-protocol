@@ -9,7 +9,9 @@ license = "GPL-3.0"
 [lib]
 
 [dependencies]
-# crypto stack, pinned to cryspen/libcrux#1312
+# Keep versions in sync with "proofs/fstar/models/Makefile".
+
+# crypto stack, pinned to cryspen/libcrux#1312 until it's released
 libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f", features = ["rand"] }
 libcrux-curve25519 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
 libcrux-chacha20poly1305 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
@@ -18,7 +20,7 @@ libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1
 libcrux-ml-kem = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
 libcrux-sha2 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
 
-# fork of cryspen/hpke-rs, transitively pinned to cryspen/libcrux#1312
+# fork of cryspen/hpke-rs, transitively pinned to cryspen/libcrux#1312 until it's released
 hpke-rs = { git = "https://github.com/cfm/hpke-rs", rev = "9325551537d642d308edc60f3b271742b3a25b00", features = ["libcrux"] }
 
 rand_core = { version = "0.9" }
