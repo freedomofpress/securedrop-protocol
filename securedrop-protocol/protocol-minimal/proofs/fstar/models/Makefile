@@ -30,6 +30,14 @@ LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::KeyGenError
 LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::EncapsError
 LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::DecapsError
 LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::owned::Kem
+LIBCRUX_CURVE25519_TARGETS := -**
+LIBCRUX_CURVE25519_TARGETS += +libcrux_curve25519::DK_LEN
+LIBCRUX_CURVE25519_TARGETS += +libcrux_curve25519::EK_LEN
+LIBCRUX_CURVE25519_TARGETS += +libcrux_curve25519::SS_LEN
+LIBCRUX_CHACHA20POLY1305_TARGETS := -**
+LIBCRUX_CHACHA20POLY1305_TARGETS += +libcrux_chacha20poly1305::TAG_LEN
+LIBCRUX_CHACHA20POLY1305_TARGETS += +libcrux_chacha20poly1305::NONCE_LEN
+
 .PHONY: libcrux
 libcrux:
 	rm -rf $@
@@ -48,7 +56,14 @@ libcrux:
 	cd $@/traits && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
 	cd $@/traits && cargo hax into -i '$(LIBCRUX_TRAITS_TARGETS)' fstar --interfaces '+!**'
 
+	cd $@/crates/algorithms/curve25519 && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
+	cd $@/crates/algorithms/curve25519 && cargo hax into -i '$(LIBCRUX_CURVE25519_TARGETS)' fstar --interfaces '+!**'
+
+	cd $@/crates/algorithms/chacha20poly1305 && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
+	cd $@/crates/algorithms/chacha20poly1305 && cargo hax into -i '$(LIBCRUX_CHACHA20POLY1305_TARGETS)' fstar --interfaces '+!**'
+
 	cp $@/*/proofs/fstar/extraction/*.fsti .
+	cp $@/crates/algorithms/*/proofs/fstar/extraction/*.fsti .
 
 	# Append axiomatic stubs that hax cannot extract (see each .stub file for context).
 	cat Libcrux_ml_kem.Mlkem768.fsti.stub >> Libcrux_ml_kem.Mlkem768.fsti
