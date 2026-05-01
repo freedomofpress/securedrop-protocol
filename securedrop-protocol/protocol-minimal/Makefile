@@ -44,9 +44,9 @@ verify:  # Internal/CI: Type-check and verify extracted proofs.
 	# Verify:
 	$(MAKE) -C $(PROOF_DIR)
 
-.PHONY: hax-lib-version
-hax-lib-version:  # Internal: Query Cargo for the hax-lib version.
-	@cargo pkgid hax-lib 2>/dev/null | sed 's/.*@//'
+.PHONY: version
+version:  # Internal: "PACKAGE=foo make version" queries Cargo for the installed version of the crate foo.
+	@cargo pkgid $(PACKAGE) 2>/dev/null | sed 's/.*@//'
 
 .PHONY: help
 help: ## Print this message.

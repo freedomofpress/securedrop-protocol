@@ -2,7 +2,7 @@
 #
 # include pattern modifiers (e.g. `+`, `+!`, `+:`) are documented
 # in `cargo hax into --help`
-HAX_LIB_VERSION=$(shell make -C ../../.. -s hax-lib-version)  # TODO: Can we generalize this so it's automatic?
+HAX_LIB_VERSION=$(shell PACKAGE=hax-lib make -C ../../.. -s version)
 
 LIBCRUX_VERSION=c1e75990cbcf1bf476199fb1367df680c6de570f
 
