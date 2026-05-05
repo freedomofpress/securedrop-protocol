@@ -1,12 +1,13 @@
 # SecureDrop Protocol
 
-|                                   | Version           |
-| --------------------------------- | ----------------- |
-| [Proof-of-concept implementation] | 0.3               |
-| [Specification]                   | 0.3 ([changelog]) |
-| [Tamarin models]                  | 0.3               |
+|                                   | Version               |
+| --------------------------------- | --------------------- |
+| [Proof-of-concept implementation] | 0.4 ([documentation]) |
+| [Specification]                   | 0.4 ([changelog])     |
+| [Tamarin models]                  | 0.3                   |
 
 [changelog]: ./docs/protocol.md#changelog
+[documentation]: https://freedomofpress.github.io/securedrop-protocol/securedrop_protocol_minimal/
 [Proof-of-concept implementation]: https://github.com/freedomofpress/securedrop-protocol/tree/main/securedrop-protocol/protocol-minimal
 [specification]: ./docs/protocol.md
 [Tamarin models]: https://github.com/freedomofpress/securedrop-protocol-models
@@ -17,7 +18,8 @@
 > This repository contains proof-of-concept code and is not intended for production use. The protocol details are not yet finalized.
 
 **March 2026:** A manuscript, specifying and proving [version 0.3][v0.3] of the
-protocol and its [Tamarin models], is under peer review.
+protocol and its [Tamarin models], is under peer review. An eprint is
+forthcoming.
 
 **January 2025:** A formal analysis was performed by
 [Luca Maier](https://github.com/lumaier) in ["A Formal Analysis of the
@@ -51,7 +53,7 @@ To better understand the context of this research and the previous steps that le
 
 ## Setup instructions
 
-Install the Rust toolchain. To view browsable documentation, install `doxygen` and `dot` (Graphviz). Use `make help` from the project root to see available make targets, e.g. to install lint tools, run formatting checks, or build crates.
+Install the Rust toolchain. Use `make help` from the project root to see available make targets, e.g. to install lint tools, run formatting checks, or build crates.
 
 Lint tools are installed in the `lint-tools` directory to avoid interfering with the user's system dependencies; cargo will suggest adding the directory to your $PATH, but that's not required.
 

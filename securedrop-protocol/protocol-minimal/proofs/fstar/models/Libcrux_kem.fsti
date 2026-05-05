@@ -143,3 +143,26 @@ val impl_PublicKey__decode (alg: t_Algorithm) (bytes: t_Slice u8)
     : Prims.Pure (Core_models.Result.t_Result t_PublicKey t_Error)
       Prims.l_True
       (fun _ -> Prims.l_True)
+
+/// Generate a key pair for the [`Algorithm`] using the provided rng.
+/// The function returns a fresh key or a [`Error::KeyGen`] error if
+/// * not enough entropy was available
+/// * it was not possible to generate a valid key within a reasonable amount of iterations.
+val key_gen
+      (#iimpl_447424039_: Type0)
+      {| i0: Rand_core.t_CryptoRng iimpl_447424039_ |}
+      (alg: t_Algorithm)
+      (rng: iimpl_447424039_)
+    : Prims.Pure
+      (iimpl_447424039_ & Core_models.Result.t_Result (t_PrivateKey & t_PublicKey) t_Error)
+      Prims.l_True
+      (fun _ -> Prims.l_True)
+
+/// Generate a key pair for the [`Algorithm`] using the provided rng.
+/// The function returns a fresh key or a [`Error::KeyGen`] error if
+/// * the `seed` wasn't long enough
+/// * it was not possible to generate a valid key within a reasonable amount of iterations.
+val key_gen_derand (alg: t_Algorithm) (seed: t_Slice u8)
+    : Prims.Pure (Core_models.Result.t_Result (t_PrivateKey & t_PublicKey) t_Error)
+      Prims.l_True
+      (fun _ -> Prims.l_True)
