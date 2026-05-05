@@ -408,6 +408,7 @@ def AuthEnc(
         sk=(skS1, skS2),  # NB. invalid Python syntax for parity with the mathematical signature
         pk=(pkR1, pkR2),
         m, ad, info):
+    pkS2 = skS2.public() # Commit to pkS2, which would be used by receiver to reply to sender, via KEM_PQ.Encap(pkr=pkS2)
     (c2, K2) = KEM_PQ.Encap(pkR=pkR2)
     (c1, cp) = pskAEnc(skS=skS1, pkR=pkR1, psk=K2, m=m, ad=ad, info=c2 + info + pkS2)  # where cp = c', `info` is receiver fetch pubkey, pkS2 is sender KEM_PQ pubkey/encaps key, from SD-APKE tuple
     return ((c1, cp), c2)
@@ -640,7 +641,7 @@ Encrypting the SD-PKE (metadata) plaintext also yields a ciphertext and encapsul
 
 `CT_PKE` = `CT_SD_PKE_ENCAPS_SS_CT || CT_SD_PKE`
 
-Len: XWING_SHARED_SECRET_ENCAPS_CT_LEN + (DHAKEM_PK_LEN + MLKEM768_PK_LEN + AEAD_TAG_LEN) = 1120 + 1184 + 16
+Len: XWING_SHARED_SECRET_ENCAPS_CT_LEN + (DHAKEM_PK_LEN + MLKEM768_PK_LEN + AEAD_TAG_LEN) = 1120 + 32 + 1184 + 16
 
 = 2352
 
@@ -655,15 +656,16 @@ Len: 32 + 32 + (fixed message size + 1136) + 2352
 ### Message storage on server
 
 Message tuples:
-`(server_generated_uuid, encrypted_envelope, challenge_pk, dh_share, fuzzy_exp_timestamp)`
 
-Len: 16, len(`encrypted_envelope`), 32, 32, 12 * n total server capacity (server pads )
+$`id_k, encrypted_envelope, X, Z, timestamp`$ (`server_generated_uuid, encrypted_envelope, ephemeral_pk, dh_share, server_generated_fuzzy_expiry_time`)
+
+Len: [16, len(`encrypted_envelope`), 32, 32, 12 ] per row; server pads to fixed number of messages (rows)
 
 ### Message delivery hint (Challenges)
 
-`(AEADenc(server_generated_uuid), server_dh_share, mgdh)`
+$`(eid_k, Q_k)`$ <!-- mgdh, dh(mgdh, receiver fetch) --> (`encrypted_uuid, message_challenge_3party`)
 
-Len: 32 + 32 + 32 = 96 bytes * n challenges
+Len: 32 + 32 + 32 = 96 bytes * n challenges; server pads to fixed numnber of challenges
 
 ## Known Limitations
 
