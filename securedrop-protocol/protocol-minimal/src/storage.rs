@@ -161,6 +161,13 @@ impl ServerStorage {
         None
     }
 
+    pub(crate) fn deterministic_uuid<R: RngCore + CryptoRng>(&mut self, rng: &mut R) -> Uuid {
+        let mut bytes = [0u8; 16];
+        rng.fill_bytes(&mut bytes);
+
+        uuid::Builder::from_random_bytes(bytes).into_uuid()
+    }
+
     /// Get all messages
     pub fn get_messages(&self) -> &HashMap<Uuid, Envelope> {
         &self.messages

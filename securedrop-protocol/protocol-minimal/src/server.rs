@@ -238,9 +238,13 @@ impl Server {
     }
 
     /// Handle message submission (step 6 for sources, step 9 for journalists)
-    pub fn handle_message_submit(&mut self, message: Envelope) -> Result<Uuid, Error> {
+    pub fn handle_message_submit<R: RngCore + CryptoRng>(
+        &mut self,
+        message: Envelope,
+        rng: &mut R,
+    ) -> Result<Uuid, Error> {
         // Generate a random message ID
-        let message_id = Uuid::new_v4();
+        let message_id = self.storage.deterministic_uuid(rng);
 
         // Store the message with the generated ID
         self.storage.add_message(message_id, message);

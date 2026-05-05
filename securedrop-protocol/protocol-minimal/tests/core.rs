@@ -251,7 +251,7 @@ fn protocol_step_6_source_submits_message() {
 
     // Submit the message to the server
     let message_id = server_session
-        .handle_message_submit(message.clone())
+        .handle_message_submit(message.clone(), &mut rng)
         .expect("Can handle message submission");
 
     // Verify that the message was stored
@@ -339,7 +339,7 @@ fn protocol_step_7_message_id_fetch() {
         .expect("Can submit message");
 
     let message_id = server_session
-        .handle_message_submit(message.clone())
+        .handle_message_submit(message.clone(), &mut rng)
         .expect("Can handle message submission");
 
     // Step 7: Test message ID fetch from journalist perspective
