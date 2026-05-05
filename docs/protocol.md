@@ -17,16 +17,16 @@
 - [Overview](#overview)
   - [Introduction](#introduction)
   - [Sequence Diagram](#sequence-diagram)
-- [Keys]
+- [Keys](#keys)
   - [Key Hierarchy](#key-hierarchy)
   - [Key Setup Steps](#key-setup-steps)
-- [Messaging Protocol]
+- [Messaging Protocol](#messaging-protocol)
   - [Building Blocks](#building-blocks)
   - [Messaging Protocol Steps](#messaging-protocol)
   - [Message Format](#message-format)
 - [Known Limitations](#known-limitations)
+- [Glossary](#glossary)
 - [Changelog](#changelog)
-- [Glossary]()
 
 ## Overview
 
@@ -673,6 +673,10 @@ Len: 32 + 32 + 32 = 96 bytes * n challenges
 - The protocol is not designed for scalability. There is a maximum number of messages that can be held by the server, constrained by the number of per-request challenges that the server can reasonably perform during message-fetching without unacceptable latency for users, particularly over Tor. See benchmarks for more information.
 - The use of HPKE's implicit authentication for message sending means that the protocol is vulnerable to [key compromise impersonation](https://datatracker.ietf.org/doc/html/rfc9180#section-9.1.1).
 - The protocol currently offers quantum-resistent message encryption, but not quantum-resistent message authentication or message-fetching.
+
+## Glossary
+
+TK
 
 ## Changelog
 
