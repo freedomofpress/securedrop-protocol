@@ -32,7 +32,7 @@
 
 ### Introduction
 
-SecureDrop Protocol is a first-contact messaging protocol between anonymous users (sources) and well-known user(s) (journalists) with a shared affiliation (newsroom).
+SecureDrop Protocol is a first-contact messaging protocol between anonymous users (sources) and non-anonymous user(s) (journalists) with a shared affiliation (newsroom).
 The design is largely motivated by the requirement that sources avoid local persistent state, for plausible deniability.
 
 This specification describes:
@@ -471,7 +471,7 @@ In this case, they substitute the source's long-term keys
 for their own in the recipient list, and address the remaining slots to all other
 enrolled journalists.
 
-**Message Ciphertext (SD-APKE Ciphertext).** The SD-APKE ciphertext is sender authenticated using classical, DH-AKEM implicit authentication, and provides hybrid (classical/quantum-resistent) message encryption via a quantum-resistent shared secret, `pskAPKE`.
+**Message Ciphertext (SD-APKE Ciphertext).** The SD-APKE ciphertext is sender authenticated using classical DH-AKEM implicit authentication, and provides hybrid (post-quantum/traditional) message encryption via a quantum-resistent shared secret, `pskAPKE`.
 The SD-APKE ciphertext carries a [structured plaintext message](#message-formats) including the sender's long-term $fetch$ and $PKE$ public keys, which must be enclosed by the source so that they can receive replies, and are enclosed by the journalist for parity.
 Despite the name, `pskAPKE` is not a true 'pre-shared' key, and functions more like a [KEM combiner](https://datatracker.ietf.org/doc/draft-ounsworth-cfrg-kem-combiners/); the naming convention from [related work](https://eprint.iacr.org/2023/1480) is retained.
 
@@ -488,7 +488,7 @@ _One-time drop mode extension_: An extension implementation MAY omit the sender'
 The SD-PKE (metadata) ciphertext is unauthenticated, so its contents MUST be committed to in the SD-APKE ciphertext's encryption context.
 This is satisfied by the use of implicit authenticated encryption plus the `info` parameter, as described above.
 
-The SD-PKE ciphertext MUST provide hybrid classical/quantum guarantees.
+The SD-PKE ciphertext MUST provide hybrid post-quantum/traditional confidentiality.
 
 **Message Delivery Hint.** The sender also computes a hint from the recipient's fetching key: a fresh
 ephemeral DH public key $X = g^x$ and a Diffie–Hellman share $Z =
@@ -496,7 +496,7 @@ ephemeral DH public key $X = g^x$ and a Diffie–Hellman share $Z =
 step 7 without disclosing their identity to the server. The server stores the two
 ciphertexts and hint under a randomly generated message ID.
 
-As follows, the final message paylod to the server includes: each ciphertext; the encapsulated shared secrets required to decrypt each of them; the encapsulated shared secret of the `pskAPKE`; and the two components of the message delivery hint.
+As follows, the final message payload to the server includes: each ciphertext; the encapsulated shared secrets required to decrypt each of them; the encapsulated shared secret of the `pskAPKE`; and the two components of the message delivery hint.
 
 |                                                   | All senders         | Reply case     |
 | ------------------------------------------------- | ------------------- | -------------- |
@@ -610,7 +610,7 @@ Implementors MUST implement robust message-parsing and are expected to gracefull
 
 #### SD-APKE (Message) Plaintext
 
-<!-- FIXME: protocol versioning?; message padding -->
+<!-- FIXME: protocol versioning?; message padding? https://github.com/freedomofpress/securedrop-protocol/issues/228 -->
 
 `SENDER_FETCH_PUBKEY_BYTES || SENDER_PKE_PUBKEY_BYTES || structured_message_bytes || padding`
 
@@ -672,7 +672,7 @@ Len: 32 + 32 + 32 = 96 bytes * n challenges
 - The protocol does not currently include a specification for rotation of the Newsroom key. The relationship between the Newsroom key and the server URL is not yet specified.
 - The protocol is not designed for scalability. There is a maximum number of messages that can be held by the server, constrained by the number of per-request challenges that the server can reasonably perform during message-fetching without unacceptable latency for users, particularly over Tor. See benchmarks for more information.
 - The use of HPKE's implicit authentication for message sending means that the protocol is vulnerable to [key compromise impersonation](https://datatracker.ietf.org/doc/html/rfc9180#section-9.1.1).
-- The protocol currently offers quantum-resistent message encryption, but not quantum-resistent message authentication or message-fetching.
+- The protocol currently offers quantum-resistant message encryption, but not quantum-resistant message authentication or message-fetching.
 
 ## Glossary
 
