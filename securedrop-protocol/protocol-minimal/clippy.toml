@@ -1,0 +1,9 @@
+disallowed-types = [
+    { path = "rand::rngs::OsRng",  reason = "hidden randomness source breaks hax, test vectors, benchmarks; rand breaks nostd wasm32 compat", replacement = "Use rand_core for nostd wasm32 compat; use parameterized <R: Rng+CryptoRng>, revisit before prod deploy." },
+]
+
+disallowed-methods = [
+    { path = "getrandom::getrandom", reason = "hidden randomness source breaks hax, test vectors, benchmarks", replacement = "Use parameterized <R: Rng+CryptoRng>, revisit before prod deploy." },
+    { path = "getrandom::fill", reason = "hidden randomness source breaks hax, test vectors, benchmarks", replacement = "Use parameterized <R: Rng+CryptoRng>, revisit before prod deploy." },
+    { path = "getrandom::u32", reason = "hidden randomness source breaks hax, test vectors, benchmarks", replacement = "Use parameterized <R: Rng+CryptoRng>, revisit before prod deploy." },
+]
