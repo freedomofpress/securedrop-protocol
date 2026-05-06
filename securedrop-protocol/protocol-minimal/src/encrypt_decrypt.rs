@@ -220,7 +220,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::{Journalist, Source};
+    use crate::{Journalist, Source, storage::ServerStorage};
 
     use super::*;
 
@@ -313,13 +313,12 @@ mod tests {
         let plaintext = build_message(&source.public(), msg.to_vec());
         let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
-        // On server. TODO: in helper function
-        let mut store = ServerMessageStore::new();
-        let message_id = uuid::Uuid::new_v4();
+        let mut store: ServerStorage = ServerStorage::new();
+        let message_id = store.deterministic_uuid(&mut rng);
 
-        store.insert(message_id, envelope);
+        store.add_message(message_id, envelope);
 
-        let challenges = compute_fetch_challenges(&mut rng, &store, 2);
+        let challenges = compute_fetch_challenges(&mut rng, &store.get_messages(), 2);
 
         let solved_ids = solve_fetch_challenges(&journalist, &challenges);
 
@@ -343,13 +342,12 @@ mod tests {
         let plaintext = build_message(&source.public(), msg.to_vec());
         let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
-        // On server. TODO: in helper function
-        let mut store = ServerMessageStore::new();
-        let message_id = uuid::Uuid::new_v4();
+        let mut store: ServerStorage = ServerStorage::new();
+        let message_id = store.deterministic_uuid(&mut rng);
 
-        store.insert(message_id, envelope);
+        store.add_message(message_id, envelope);
 
-        let challenges = compute_fetch_challenges(&mut rng, &store, 2);
+        let challenges = compute_fetch_challenges(&mut rng, &store.get_messages(), 2);
 
         let solved_ids = solve_fetch_challenges(&journalist, &challenges);
 
