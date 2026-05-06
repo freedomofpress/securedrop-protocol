@@ -52,7 +52,7 @@ deps-rust:  ## Install clippy and rustfmt.
 # future TODO: stricter clippy (append -D warnings)
 .PHONY: clippy
 clippy: deps-rust  ## Check Rust code with clippy
-	@cargo clippy --manifest-path=securedrop-protocol/Cargo.toml --all-targets --all-features --
+	@cargo clippy --manifest-path=securedrop-protocol/Cargo.toml --workspace --all-targets --all-features --
 
 .PHONY: build-wasm
 build-wasm:  ## Compile securedrop-protocol crate for wasm32-unknown-unknown (browser compat, requires rust toolchain).
