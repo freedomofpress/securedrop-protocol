@@ -1,5 +1,4 @@
 use alloc::vec::Vec;
-use getrandom;
 use hashbrown::HashMap;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
@@ -67,7 +66,7 @@ impl ServerStorage {
             }
 
             // Select a "random" index (note: Modulo bias, Toy purposes only!)
-            let index = getrandom::u32().unwrap() as usize % keys.len();
+            let index = rng.next_u32() as usize % keys.len();
 
             // Remove and return the selected key set
             Some(keys.remove(index))

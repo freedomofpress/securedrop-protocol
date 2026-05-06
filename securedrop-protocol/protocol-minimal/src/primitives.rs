@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use anyhow::Error;
-use getrandom;
+use rand_core::{CryptoRng, RngCore};
 
 pub(crate) mod dh_akem;
 pub(crate) mod mlkem;
@@ -18,16 +18,20 @@ pub const MESSAGE_ID_FETCH_SIZE: usize = 10;
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
 ///
 /// This is used in step 7 for encrypting message IDs with a shared secret
-pub fn encrypt_message_id(key: &[u8], message_id: &[u8]) -> Result<Vec<u8>, Error> {
+pub fn encrypt_message_id<R: RngCore + CryptoRng>(
+    key: &[u8],
+    message_id: &[u8],
+    rng: &mut R,
+) -> Result<Vec<u8>, Error> {
     use libcrux_chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 
     if key.len() != KEY_LEN {
         return Err(anyhow::anyhow!("Invalid key length"));
     }
 
-    // Generate a random nonce (use getrandom for cross target compatibility)
+    // Generate a random nonce with supplied rng
     let mut nonce = [0u8; NONCE_LEN];
-    getrandom::fill(&mut nonce).expect("Need randomness");
+    rng.fill_bytes(&mut nonce);
 
     // Prepare output buffer: nonce + ciphertext + tag
     let mut output = alloc::vec::Vec::new();

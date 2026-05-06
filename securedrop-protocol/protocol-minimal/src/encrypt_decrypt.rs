@@ -126,7 +126,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
         // 3-party DH yields shared_secret used to encrypt message_id
         let shared_secret = dh_shared_secret(&DHPublicKey::from_bytes(envelope.mgdh), eph_sk)
             .expect("Need 3-party dh shared secret");
-        let enc_mid = encrypt_message_id(&shared_secret.into_bytes(), message_id).unwrap();
+        let enc_mid = encrypt_message_id(&shared_secret.into_bytes(), message_id, rng).unwrap();
 
         let kmid = enc_mid
             .try_into()
