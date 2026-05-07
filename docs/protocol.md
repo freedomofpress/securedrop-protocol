@@ -693,9 +693,9 @@ TK
 ## Changelog
 
 Beginning with v1, the protocol may adopt [semantic versioning]. For now,
-versions like `0.x` reflect coarse-grained phases of the protocol's development,
-with finer-grained changes reflected in individual Git commits. All changes
-SHOULD be considered breaking.
+versions like `0.x` reflect coarse-grained [milestones] of the protocol's
+development, with finer-grained changes reflected in individual Git commits.
+All changes SHOULD be considered breaking.
 
 ### [0.1]
 
@@ -712,7 +712,7 @@ Using standard HPKE modes `Base` and `AuthPSK`.
 
 <!-- TODO: ...as formalized in... -->
 
-## 0.4
+### 0.4
 
 <!--
 ## Footnotes
@@ -758,6 +758,7 @@ insertion order.
 [alwen2020]: https://eprint.iacr.org/2020/1499
 [alwen2023]: https://eprint.iacr.org/2023/1480
 [maier2025]: https://github.com/lumaier/securedrop-formalanalysis/tree/fd0daf0ce90144e12956032abf1817e18cec48e0
+[milestones]: https://github.com/freedomofpress/securedrop-protocol/milestones
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
 [RFC 9180]: https://datatracker.ietf.org/doc/html/rfc9180
 [RFC 9180 §4.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-dh-based-kem-dhkem
