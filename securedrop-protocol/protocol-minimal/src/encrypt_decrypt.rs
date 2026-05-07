@@ -71,17 +71,16 @@ where
 pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Plaintext {
     // Trial-decrypt ct^PKE with each keybundle's metadata private key to find
     // the intended recipient's bundle. There should be exactly 1 result.
-    let results: Vec<(&MessageKeyBundle, Vec<u8>)> = receiver
-        .keybundles()
-        .filter_map(|bundle| {
-            metadata::decrypt(bundle.metadata_kp.private_key(), &envelope.ct_pke)
-                .ok()
-                .map(|m| (bundle, m))
-        })
-        .collect();
+    let mut results: Vec<(&MessageKeyBundle, Vec<u8>)> = Vec::new();
 
-    debug_assert_eq!(results.len(), 1);
+    // hax doesn't support FnMut closures (cryspen/hax/issues/1060), so avoid filter_map() etc
+    for bundle in receiver.keybundles() {
+        if let Ok(m) = metadata::decrypt(bundle.metadata_kp.private_key(), &envelope.ct_pke) {
+            results.push((bundle, m));
+        }
+    }
 
+    // TODO: only true for test purposes!
     let (bundle, raw_metadata) = results.first().expect("we should find exactly 1 result");
 
     // spec: pk_S^APKE - reconstruct sender's APKE public key from decrypted metadata
@@ -182,17 +181,20 @@ pub fn solve_fetch_challenges<S: UserSecret>(
 
         // Try decrypting the encrypted message id
         // Convert to UUID (v4) format and add to message ID list on success
-        // An error in decryption is fine (may not be a valid message_id), but
-        // an error in uuid parsing isn't.
-        // TODO: return Result<Vec<Uuid>, Error> instead of panic
-        // (will change wasm stuff too so deferring for now)
-        decrypt_message_id(&maybe_kmid_secret.into_bytes(), &chall.enc_id)
-            .ok()
-            .map(|message_id_bytes| {
-                Uuid::from_slice(&message_id_bytes)
-                    .expect("Need uuid from decrypted message_id_bytes")
-            })
-            .inspect(|uuid| message_ids.push(*uuid));
+        match decrypt_message_id(&maybe_kmid_secret.into_bytes(), &chall.enc_id) {
+            Ok(message_id_bytes) => {
+                let uuid = Uuid::from_slice(&message_id_bytes)
+                    // TODO: return Result<Vec<Uuid>, Error> instead of panic
+                    // (will change wasm stuff too so deferring for now)
+                    .expect("Need uuid from decrypted message_id_bytes");
+
+                message_ids.push(uuid);
+            }
+            Err(_) => {
+                // An error in decryption is fine (may not be a valid message_id), but
+                // an error in uuid parsing isn't.
+            }
+        }
     }
     message_ids
 }

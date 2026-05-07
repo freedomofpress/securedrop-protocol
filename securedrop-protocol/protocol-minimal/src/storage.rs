@@ -46,7 +46,8 @@ impl ServerStorage {
         let journalist_keys = self
             .ephemeral_keys
             .entry(journalist_id)
-            .or_insert_with(Vec::new);
+            // avoid `or_insert_with(Vec::new)` because hax doesn't accept FnMut/FnOnce closure
+            .or_insert(Vec::new());
         journalist_keys.extend(keys);
     }
 
