@@ -20,6 +20,12 @@ type t_MessageKeyBundle = {
   f_metadata_kp:Securedrop_protocol_minimal.Metadata.t_MetadataKeyPair
 }
 
+type t_SignedMessageKeyBundle = {
+  f_bundle:t_MessageKeyBundle;
+  f_selfsig:Securedrop_protocol_minimal.Sign.t_Signature
+  Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey
+}
+
 type t_SignedLongtermPubKeyBytes =
   | SignedLongtermPubKeyBytes : t_Array u8 (mk_usize 1248) -> t_SignedLongtermPubKeyBytes
 

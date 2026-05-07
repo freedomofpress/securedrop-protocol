@@ -16,3 +16,10 @@ type t_Source = {
   f_passphrase:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global;
   f_session:Securedrop_protocol_minimal.Keys.t_SessionStorage
 }
+
+/// The public key material of a source, used by journalists to send replies.
+type t_SourcePublicView = {
+  f_fetch_pk:Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey;
+  f_apke_pk:Securedrop_protocol_minimal.Message.t_MessagePublicKey;
+  f_message_pks:Securedrop_protocol_minimal.Keys.t_KeyBundlePublic
+}

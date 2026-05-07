@@ -41,3 +41,9 @@ type t_Signature (v_D: Type0) {| i0: t_DomainTag v_D |} = {
 
 /// An Ed25519 verification key.
 type t_VerifyingKey = | VerifyingKey : Libcrux_ed25519.Impl_hacl.t_VerificationKey -> t_VerifyingKey
+
+/// An Ed25519 signing key.
+type t_SigningKey = {
+  f_vk:t_VerifyingKey;
+  f_sk:Libcrux_ed25519.Impl_hacl.t_SigningKey
+}

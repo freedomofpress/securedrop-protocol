@@ -8,6 +8,16 @@ HAX_TARGETS += +securedrop_protocol_minimal::metadata::**
 HAX_TARGETS += +securedrop_protocol_minimal::ciphertext::**
 HAX_TARGETS += +securedrop_protocol_minimal::constants::**
 
+HAX_TARGETS += +securedrop_protocol_minimal::traits::UserPublic
+
+HAX_TARGETS += +securedrop_protocol_minimal::source::Source
+HAX_TARGETS += +securedrop_protocol_minimal::source::SourcePublicView
+
+HAX_TARGETS += +securedrop_protocol_minimal::journalist::Journalist
+HAX_TARGETS += +securedrop_protocol_minimal::journalist::JournalistPublicView
+
+
+
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 PROOF_DIR = proofs/fstar/extraction
 

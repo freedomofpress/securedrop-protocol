@@ -177,8 +177,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       <:
       Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
     with
-    | Core_models.Result.Result_Ok hoist12 ->
-      let private_key:t_XWingPrivateKey = impl_XWingPrivateKey__from_bytes hoist12 in
+    | Core_models.Result.Result_Ok hoist20 ->
+      let private_key:t_XWingPrivateKey = impl_XWingPrivateKey__from_bytes hoist20 in
       (match
           Securedrop_protocol_minimal.Hax_helper.f_ok_or_err #(Core_models.Result.t_Result
                 (t_Array u8 (mk_usize 1216)) (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
@@ -196,8 +196,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
           <:
           Core_models.Result.t_Result (t_Array u8 (mk_usize 1216)) Anyhow.t_Error
         with
-        | Core_models.Result.Result_Ok hoist13 ->
-          let public_key:t_XWingPublicKey = impl_XWingPublicKey__from_bytes hoist13 in
+        | Core_models.Result.Result_Ok hoist21 ->
+          let public_key:t_XWingPublicKey = impl_XWingPublicKey__from_bytes hoist21 in
           Core_models.Result.Result_Ok
           (private_key, public_key <: (t_XWingPrivateKey & t_XWingPublicKey))
           <:
