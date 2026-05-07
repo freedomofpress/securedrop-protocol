@@ -15,8 +15,7 @@
 //! 4. Each journalist's key bundles are self-signed.
 
 use crate::{
-    Enrollable, Envelope, FetchResponse, JournalistPublic, SignedKeyBundlePublic, UserPublic,
-    UserSecret, VerifyingKey,
+    Enrollable, Envelope, FetchResponse, JournalistPublic, UserPublic, UserSecret, VerifyingKey,
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
     wire::{
         core::{
@@ -226,11 +225,9 @@ pub trait JournalistApi: Api + restricted::RestrictedApi {
     where
         Self: Enrollable,
     {
-        let bundles: Vec<SignedKeyBundlePublic> = self.signed_keybundles().collect();
-
         JournalistEphemeralKeyRequest {
             verifying_key: self.signing_key().clone(),
-            bundles,
+            bundles: self.signed_keybundles(),
         }
     }
 }

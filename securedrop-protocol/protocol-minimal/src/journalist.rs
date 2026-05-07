@@ -146,8 +146,11 @@ impl UserSecret for Journalist {
         }
     }
 
-    fn keybundles(&self) -> impl Iterator<Item = &MessageKeyBundle> {
-        self.message_keys.iter().map(|signed| &signed.bundle)
+    fn keybundles(&self) -> Vec<&MessageKeyBundle> {
+        self.message_keys
+            .iter()
+            .map(|signed| &signed.bundle)
+            .collect()
     }
 }
 
@@ -164,10 +167,15 @@ impl Enrollable for Journalist {
         }
     }
 
-    fn signed_keybundles(&self) -> impl Iterator<Item = SignedKeyBundlePublic> {
+    fn signed_keybundles(&self) -> Vec<SignedKeyBundlePublic> {
+        fn extract_public_bundle(signed: &SignedMessageKeyBundle) -> SignedKeyBundlePublic {
+            (signed.bundle.public(), signed.selfsig)
+        }
+
         self.message_keys
             .iter()
-            .map(|k| (k.bundle.public(), k.selfsig))
+            .map(extract_public_bundle)
+            .collect()
     }
 
     fn signing_key(&self) -> &VerifyingKey {
@@ -257,7 +265,7 @@ mod tests {
 
         let journalist = Journalist::new(&mut rng, 5);
         assert_eq!(journalist.message_keys.len(), 5);
-        let skb: Vec<SignedKeyBundlePublic> = journalist.signed_keybundles().collect();
+        let skb: Vec<SignedKeyBundlePublic> = journalist.signed_keybundles();
         assert_eq!(journalist.message_keys.len(), skb.len());
 
         let kbs: Vec<&MessageKeyBundle> = journalist.keybundles().collect();

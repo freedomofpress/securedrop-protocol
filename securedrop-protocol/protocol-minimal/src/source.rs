@@ -110,8 +110,8 @@ impl UserSecret for Source {
         }
     }
 
-    fn keybundles(&self) -> impl Iterator<Item = &MessageKeyBundle> {
-        core::iter::once(&self.message_keys)
+    fn keybundles(&self) -> Vec<&MessageKeyBundle> {
+        alloc::vec![&self.message_keys]
     }
 }
 
