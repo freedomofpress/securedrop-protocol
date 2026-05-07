@@ -8,6 +8,7 @@ use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
 use crate::encrypt_decrypt::compute_fetch_challenges;
+use crate::hax_helper::HaxHelper;
 use crate::keys::NewsroomKeyPair;
 use crate::primitives;
 use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
@@ -84,7 +85,7 @@ impl Server {
                 request.enrollment.bundle.as_bytes(),
                 &request.enrollment.selfsig,
             )
-            .map_err(|_| anyhow::anyhow!("Invalid signature on longterm keys"))?;
+            .ok_or_err("Invalid signature on longterm keys")?;
 
         // Sign the journalist's verifying key.
         let verifying_key_bytes = request.enrollment.keys.0.into_bytes();
@@ -130,7 +131,7 @@ impl Server {
             .bundles
             .iter()
             .try_for_each(|k| request.verifying_key.verify(&k.0.as_bytes(), &k.1))
-            .map_err(|_| anyhow::anyhow!("Invalid signature on ephemeral keys"))?;
+            .ok_or_err("Invalid signature on ephemeral keys")?;
 
         // Store the ephemeral keys for the journalist
         self.storage

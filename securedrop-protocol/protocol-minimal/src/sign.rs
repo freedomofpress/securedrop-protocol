@@ -1,6 +1,7 @@
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
+use crate::hax_helper::HaxHelper;
 use anyhow::Error;
 use libcrux_ed25519::{SigningKey as LibCruxSigningKey, VerificationKey as LibCruxVerifyingKey};
 use rand_core::CryptoRng;
@@ -131,8 +132,8 @@ impl core::fmt::Debug for VerifyingKey {
 impl SigningKey {
     /// Generate a signing key from the supplied `rng`.
     pub fn new(mut rng: &mut impl CryptoRng) -> Result<SigningKey, Error> {
-        let (sk, vk) = libcrux_ed25519::generate_key_pair(&mut rng)
-            .map_err(|_| anyhow::anyhow!("Key generation failed"))?;
+        let (sk, vk) =
+            libcrux_ed25519::generate_key_pair(&mut rng).ok_or_err("Key generation failed")?;
         Ok(SigningKey {
             vk: VerifyingKey(vk),
             sk,
@@ -162,7 +163,7 @@ impl VerifyingKey {
     pub fn verify<D: DomainTag>(&self, msg: &[u8], sig: &Signature<D>) -> Result<(), Error> {
         let preimage = tagged_preimage::<D>(msg);
         libcrux_ed25519::verify(&preimage, self.0.as_ref(), &sig.bytes)
-            .map_err(|_| anyhow::anyhow!("Signature verification failed"))
+            .ok_or_err("Signature verification failed")
     }
 }
 

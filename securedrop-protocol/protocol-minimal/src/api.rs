@@ -14,6 +14,7 @@
 //! 3. Each journalist's signing key is signed by the newsroom.
 //! 4. Each journalist's key bundles are self-signed.
 
+use crate::hax_helper::HaxHelper;
 use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublic, SignedKeyBundlePublic, UserPublic,
     UserSecret, VerifyingKey,
@@ -139,7 +140,7 @@ pub trait Api {
         let newsroom_vk_bytes = response.newsroom_verifying_key.into_bytes();
         fpf_verifying_key
             .verify(&newsroom_vk_bytes, &response.fpf_sig)
-            .map_err(|_| anyhow::anyhow!("invalid FPF signature on newsroom verifying key"))?;
+            .ok_or_err("Failed to verify newsroom key!")?;
 
         self.set_newsroom_verifying_key(response.newsroom_verifying_key);
         Ok(())
@@ -166,7 +167,7 @@ pub trait Api {
                 &response.journalist.verifying_key().into_bytes(),
                 &response.nr_signature,
             )
-            .map_err(|_| anyhow::anyhow!("invalid newsroom signature on journalist signing key"))?;
+            .ok_or_err("invalid newsroom signature on journalist signing key")?;
 
         // 2. Verify journalist's self-signature on long-term key bundle.
         let vk = response.journalist.verifying_key();
@@ -174,14 +175,14 @@ pub trait Api {
             response.journalist.signed_keybytes().as_bytes(),
             response.journalist.self_signature(),
         )
-        .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
+        .ok_or_err("invalid journalist self-signature on long-term keys")?;
 
         // 3. Verify journalist's self-signature on one-time ephemeral key bundle.
         vk.verify(
             &response.journalist.ephemeral_bundle().as_bytes(),
             response.journalist.ephemeral_signature(),
         )
-        .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on one-time keys"))?;
+        .ok_or_err("invalid journalist self-signature on one-time keys")?;
 
         Ok(())
     }
