@@ -9,6 +9,7 @@ let _ =
   let open Hpke_rs in
   let open Libcrux_kem in
   let open Rand_core in
+  let open Securedrop_protocol_minimal.Hax_helper in
   ()
 
 let v_XWING_PUBLIC_KEY_LEN: usize = mk_usize 1216
@@ -18,11 +19,25 @@ let v_XWING_PRIVATE_KEY_LEN: usize = mk_usize 32
 /// XWING public key.
 type t_XWingPublicKey = | XWingPublicKey : t_Array u8 (mk_usize 1216) -> t_XWingPublicKey
 
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_4': Core_models.Fmt.t_Debug t_XWingPublicKey
+
+unfold
+let impl_4 = impl_4'
+
 let impl_5: Core_models.Clone.t_Clone t_XWingPublicKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 /// XWING private key.
 type t_XWingPrivateKey = | XWingPrivateKey : t_Array u8 (mk_usize 32) -> t_XWingPrivateKey
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_6': Core_models.Fmt.t_Debug t_XWingPrivateKey
+
+unfold
+let impl_6 = impl_6'
 
 let impl_7: Core_models.Clone.t_Clone t_XWingPrivateKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
@@ -33,6 +48,9 @@ let impl_XWingPublicKey__as_bytes (self: t_XWingPublicKey) : t_Array u8 (mk_usiz
 /// Create from bytes
 let impl_XWingPublicKey__from_bytes (bytes: t_Array u8 (mk_usize 1216)) : t_XWingPublicKey =
   XWingPublicKey bytes <: t_XWingPublicKey
+
+/// Get the private key as bytes
+let impl_XWingPrivateKey__as_bytes (self: t_XWingPrivateKey) : t_Array u8 (mk_usize 32) = self._0
 
 /// Create from bytes
 let impl_XWingPrivateKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_XWingPrivateKey =
@@ -143,9 +161,11 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
     Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error
   else
     match
-      Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
+      Securedrop_protocol_minimal.Hax_helper.f_ok_or_err #(Core_models.Result.t_Result
+            (t_Array u8 (mk_usize 32)) (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
+        #(t_Array u8 (mk_usize 32))
         #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-        #Anyhow.t_Error
+        #FStar.Tactics.Typeclasses.solve
         (Core_models.Convert.f_try_into #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
             #(t_Array u8 (mk_usize 32))
             #FStar.Tactics.Typeclasses.solve
@@ -153,26 +173,18 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
           <:
           Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
             (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
-        (fun temp_0_ ->
-            let _:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = temp_0_ in
-            let error:Anyhow.t_Error =
-              Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
-                    (let list = ["Failed to convert private key bytes"] in
-                      FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-                      Rust_primitives.Hax.array_of_list 1 list)
-                  <:
-                  Core_models.Fmt.t_Arguments)
-            in
-            Anyhow.__private.must_use error)
+        "Failed to convert private key bytes"
       <:
       Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
     with
     | Core_models.Result.Result_Ok hoist12 ->
       let private_key:t_XWingPrivateKey = impl_XWingPrivateKey__from_bytes hoist12 in
       (match
-          Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 1216))
+          Securedrop_protocol_minimal.Hax_helper.f_ok_or_err #(Core_models.Result.t_Result
+                (t_Array u8 (mk_usize 1216)) (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
+            #(t_Array u8 (mk_usize 1216))
             #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-            #Anyhow.t_Error
+            #FStar.Tactics.Typeclasses.solve
             (Core_models.Convert.f_try_into #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
                 #(t_Array u8 (mk_usize 1216))
                 #FStar.Tactics.Typeclasses.solve
@@ -180,17 +192,7 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
               <:
               Core_models.Result.t_Result (t_Array u8 (mk_usize 1216))
                 (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
-            (fun temp_0_ ->
-                let _:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = temp_0_ in
-                let error:Anyhow.t_Error =
-                  Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
-                        (let list = ["Failed to convert public key bytes"] in
-                          FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-                          Rust_primitives.Hax.array_of_list 1 list)
-                      <:
-                      Core_models.Fmt.t_Arguments)
-                in
-                Anyhow.__private.must_use error)
+            "Failed to convert public key bytes"
           <:
           Core_models.Result.t_Result (t_Array u8 (mk_usize 1216)) Anyhow.t_Error
         with

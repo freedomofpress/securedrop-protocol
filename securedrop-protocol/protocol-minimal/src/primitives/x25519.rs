@@ -1,3 +1,4 @@
+use crate::hax_helper::HaxHelper;
 use anyhow::Error;
 use libcrux_curve25519::ecdh;
 use libcrux_traits::kem::arrayref::Kem;
@@ -54,7 +55,7 @@ pub fn deterministic_dh_keygen(randomness: [u8; 32]) -> Result<(DHPrivateKey, DH
     let mut secret_key = [0u8; SK_LEN];
 
     libcrux_curve25519::X25519::keygen(&mut public_key, &mut secret_key, &randomness)
-        .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
+        .ok_or_err("X25519 key generation failed")?;
 
     Ok((DHPrivateKey(secret_key), DHPublicKey(public_key)))
 }
@@ -72,7 +73,7 @@ pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
     // Generate the key pair using X25519 from libcrux
     // Parameters: ek (public key), dk (secret key), rand (randomness)
     libcrux_curve25519::X25519::keygen(&mut public_key, &mut secret_key, &randomness)
-        .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
+        .ok_or_err("X25519 key generation failed")?;
 
     typed(secret_key, public_key)
 }
@@ -95,7 +96,7 @@ pub fn generate_random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Result<[u8
     // Generate the key pair using X25519 from libcrux
     // Parameters: ek (public key), dk (secret key), rand (randomness)
     libcrux_curve25519::X25519::keygen(&mut _public_key, &mut secret_key, &randomness)
-        .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
+        .ok_or_err("X25519 key generation failed")?;
 
     Ok(secret_key)
 }
@@ -116,8 +117,7 @@ pub fn dh_shared_secret(
     private_scalar: [u8; 32],
 ) -> Result<DHSharedSecret, Error> {
     let mut shared_secret_bytes = [0u8; 32];
-    ecdh(&mut shared_secret_bytes, &public_key.0, &private_scalar)
-        .map_err(|_| anyhow::anyhow!("X25519 DH failed"))?;
+    ecdh(&mut shared_secret_bytes, &public_key.0, &private_scalar).ok_or_err("X25519 DH failed")?;
     Ok(DHSharedSecret(shared_secret_bytes))
 }
 

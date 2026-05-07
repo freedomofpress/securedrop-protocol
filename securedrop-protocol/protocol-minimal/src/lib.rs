@@ -50,3 +50,5 @@ pub mod storage;
 pub mod encrypt_decrypt;
 pub mod message;
 pub mod metadata;
+
+pub mod hax_helper;

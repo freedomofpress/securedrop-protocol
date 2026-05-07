@@ -1,3 +1,4 @@
+use crate::hax_helper::HaxHelper;
 use alloc::vec::Vec;
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
@@ -38,9 +39,7 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
     output.extend_from_slice(&nonce);
 
     let mut ciphertext = alloc::vec![0u8; message_id.len() + TAG_LEN];
-    let key_array: [u8; KEY_LEN] = key
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
+    let key_array: [u8; KEY_LEN] = key.try_into().ok_or_err("Key length mismatch")?;
 
     // Encrypt the message ID
     libcrux_chacha20poly1305::encrypt(
@@ -73,14 +72,12 @@ pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, 
     // Extract nonce and ciphertext
     let nonce: [u8; NONCE_LEN] = encrypted_data[..NONCE_LEN]
         .try_into()
-        .map_err(|_| anyhow::anyhow!("Nonce extraction failed"))?;
+        .ok_or_err("Nonce extraction failed")?;
     let ciphertext = &encrypted_data[NONCE_LEN..];
 
     // Prepare output buffer
     let mut plaintext = alloc::vec![0u8; ciphertext.len() - TAG_LEN];
-    let key_array: [u8; KEY_LEN] = key
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
+    let key_array: [u8; KEY_LEN] = key.try_into().ok_or_err("Key length mismatch")?;
 
     // Decrypt the message ID
     libcrux_chacha20poly1305::decrypt(

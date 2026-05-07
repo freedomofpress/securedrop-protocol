@@ -1,3 +1,4 @@
+use crate::hax_helper::HaxHelper;
 use hpke_rs::{HpkePrivateKey, HpkePublicKey};
 use libcrux_kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
@@ -107,12 +108,12 @@ fn typed(
     let private_key = XWingPrivateKey::from_bytes(
         private_key_bytes
             .try_into()
-            .map_err(|_| anyhow::anyhow!("Failed to convert private key bytes"))?,
+            .ok_or_err("Failed to convert private key bytes")?,
     );
     let public_key = XWingPublicKey::from_bytes(
         public_key_bytes
             .try_into()
-            .map_err(|_| anyhow::anyhow!("Failed to convert public key bytes"))?,
+            .ok_or_err("Failed to convert public key bytes")?,
     );
 
     Ok((private_key, public_key))

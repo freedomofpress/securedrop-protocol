@@ -1,8 +1,8 @@
 HAX_TARGETS := -**
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::dh_akem::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::mlkem::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::xwing::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::x25519::typed
+HAX_TARGETS += +securedrop_protocol_minimal::primitives::dh_akem::**
+HAX_TARGETS += +securedrop_protocol_minimal::primitives::mlkem::**
+HAX_TARGETS += +securedrop_protocol_minimal::primitives::xwing::**
+HAX_TARGETS += +securedrop_protocol_minimal::primitives::x25519::**
 HAX_TARGETS += +securedrop_protocol_minimal::message::**
 HAX_TARGETS += +securedrop_protocol_minimal::metadata::**
 HAX_TARGETS += +securedrop_protocol_minimal::ciphertext::**
