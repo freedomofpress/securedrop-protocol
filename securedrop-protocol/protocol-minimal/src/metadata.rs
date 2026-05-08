@@ -17,14 +17,13 @@
 
 use alloc::vec::Vec;
 use anyhow::Error;
-use hpke_rs::{
-    Hpke, Mode, hpke_types::AeadAlgorithm::Aes256Gcm, hpke_types::KdfAlgorithm::HkdfSha256,
-    hpke_types::KemAlgorithm::XWingDraft06, libcrux::HpkeLibcrux,
-};
+use hpke_ng::{Aes256Gcm, HkdfSha256, Hpke, XWingDraft06, kem::Kem as _};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::constants::LEN_XWING_SHAREDSECRET_ENCAPS;
 use crate::primitives::xwing::{XWingPrivateKey, XWingPublicKey, generate_xwing_keypair};
+
+type MetadataSuite = Hpke<XWingDraft06, HkdfSha256, Aes256Gcm>;
 
 /// The recipient's metadata public key (`pk_R^PKE` in the spec).
 #[derive(Debug, Clone)]
@@ -116,17 +115,21 @@ impl MetadataPrivateKey {
 /// SD-PKE.Enc: encrypt message `m` to recipient key `pk_r`, returning `(c, c')`.
 ///
 /// `m` is the sender's serialized long-term APKE public key.
-pub fn encrypt(pk_r: &MetadataPublicKey, m: &[u8]) -> MetadataCiphertext {
-    let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
-    let pk_r_hpke = pk_r.0.clone().into();
+pub fn encrypt<R: RngCore + CryptoRng>(
+    rng: &mut R,
+    pk_r: &MetadataPublicKey,
+    m: &[u8],
+) -> MetadataCiphertext {
+    let pk_r_hpke = XWingDraft06::pk_from_bytes(pk_r.0.as_bytes())
+        .expect("MetadataPublicKey has invalid XWing wire bytes");
 
     // MetadataPublicKey always holds a valid XWing key, so seal cannot fail.
-    let (c_vec, cp) = hpke
-        .seal(&pk_r_hpke, b"", b"", m, None, None, None)
-        .expect("SD-PKE encryption failed");
+    let (enc, cp) =
+        MetadataSuite::seal_base(rng, &pk_r_hpke, b"", b"", m).expect("SD-PKE encryption failed");
 
     // XWing will always produce this length ciphertext, so this .expect is fine.
-    let c: [u8; LEN_XWING_SHAREDSECRET_ENCAPS] = c_vec
+    let c: [u8; LEN_XWING_SHAREDSECRET_ENCAPS] = enc
+        .as_ref()
         .try_into()
         .expect("X-Wing encapsulation output has unexpected length");
 
@@ -139,10 +142,12 @@ pub fn encrypt(pk_r: &MetadataPublicKey, m: &[u8]) -> MetadataCiphertext {
 ///
 /// Returns an error if HPKE decryption fails.
 pub fn decrypt(sk_r: &MetadataPrivateKey, ct: &MetadataCiphertext) -> Result<Vec<u8>, Error> {
-    let hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
-    let sk_r_hpke = sk_r.0.clone().into();
+    let sk_r_hpke = XWingDraft06::sk_from_bytes(sk_r.0.as_bytes())
+        .map_err(|e| anyhow::anyhow!("MetadataPrivateKey has invalid XWing wire bytes: {:?}", e))?;
+    let enc = XWingDraft06::enc_from_bytes(&ct.c)
+        .map_err(|e| anyhow::anyhow!("Invalid SD-PKE encapsulation: {:?}", e))?;
 
-    hpke.open(&ct.c, &sk_r_hpke, b"", b"", &ct.cp, None, None, None)
+    MetadataSuite::open_base(&enc, &sk_r_hpke, b"", b"", &ct.cp)
         .map_err(|e| anyhow::anyhow!("SD-PKE decryption failed: {:?}", e))
 }
 
@@ -165,7 +170,7 @@ mod tests {
             let mut rng = get_rng();
             let kp = keygen(&mut rng).expect("KGen failed");
 
-            let ct = encrypt(kp.public_key(), &m);
+            let ct = encrypt(&mut rng, kp.public_key(), &m);
             let decrypted = decrypt(kp.private_key(), &ct).expect("Decryption failed");
 
             prop_assert_eq!(m, decrypted);
@@ -178,7 +183,7 @@ mod tests {
         let kp = keygen(&mut rng).expect("KGen failed");
         let wrong_kp = keygen(&mut rng).expect("KGen failed");
 
-        let ct = encrypt(kp.public_key(), b"some sender apke key bytes");
+        let ct = encrypt(&mut rng, kp.public_key(), b"some sender apke key bytes");
         assert!(decrypt(wrong_kp.private_key(), &ct).is_err());
     }
 }

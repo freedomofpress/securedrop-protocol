@@ -22,14 +22,12 @@
 
 use alloc::vec::Vec;
 use anyhow::Error;
-use hpke_rs::{
-    Hpke, HpkePrivateKey, HpkePublicKey, Mode, hpke_types::AeadAlgorithm::Aes256Gcm,
-    hpke_types::KdfAlgorithm::HkdfSha256, hpke_types::KemAlgorithm::DhKem25519,
-    libcrux::HpkeLibcrux,
-};
+use hpke_ng::{Aes256Gcm, DhKemX25519HkdfSha256, HkdfSha256, Hpke, kem::Kem as _};
 use libcrux_kem::MlKem768;
 use libcrux_traits::kem::owned::Kem;
 use rand_core::{CryptoRng, RngCore};
+
+type MessageSuite = Hpke<DhKemX25519HkdfSha256, HkdfSha256, Aes256Gcm>;
 
 use crate::constants::{LEN_DHKEM_SHAREDSECRET_ENCAPS, LEN_MLKEM_SHAREDSECRET_ENCAPS};
 use crate::primitives::dh_akem::deterministic_keygen as dhakem_derand;
@@ -200,8 +198,6 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
     ad: &[u8],
     info: &[u8],
 ) -> Result<MessageCiphertext, Error> {
-    let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, Aes256Gcm);
-
     let mut randomness = [0u8; LEN_MLKEM_ENCAPS_RAND];
     rng.fill_bytes(&mut randomness);
 
@@ -210,27 +206,21 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
         .map_err(|e| anyhow::anyhow!("ML-KEM encapsulation failed: {:?}", e))?;
 
     // (c1, cp) = pskAEnc(skS=skS1, pkR=pkR1, psk=K2, m=m, ad=ad, info=c2+info)
-    let pkr1: HpkePublicKey = pk.dhakem.clone().into();
-    let sks1: HpkePrivateKey = sk.dhakem.clone().into();
+    let pkr1 = DhKemX25519HkdfSha256::pk_from_bytes(pk.dhakem.as_bytes())
+        .map_err(|e| anyhow::anyhow!("Invalid DH-AKEM recipient public key: {:?}", e))?;
+    let sks1 = DhKemX25519HkdfSha256::sk_from_bytes(sk.dhakem.as_bytes())
+        .map_err(|e| anyhow::anyhow!("Invalid DH-AKEM sender private key: {:?}", e))?;
 
     let mut full_info = Vec::new();
     full_info.extend_from_slice(&c2);
     full_info.extend_from_slice(info);
 
-    let (c1_vec, cp) = hpke
-        .seal(
-            &pkr1,
-            &full_info,
-            ad,
-            m,
-            Some(&k2),
-            Some(PSK_ID),
-            Some(&sks1),
-        )
+    let (enc, cp) = MessageSuite::seal_auth_psk(rng, &pkr1, &full_info, ad, m, &k2, PSK_ID, &sks1)
         .map_err(|e| anyhow::anyhow!("SD-APKE AuthEnc failed: {:?}", e))?;
 
     // c1 is always LEN_DHKEM_SHAREDSECRET_ENCAPS bytes for DHKEM(X25519)
-    let c1: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] = c1_vec
+    let c1: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] = enc
+        .as_ref()
         .try_into()
         .expect("DHKEM(X25519) encapsulation output has unexpected length");
 
@@ -254,31 +244,24 @@ pub fn auth_dec(
     ad: &[u8],
     info: &[u8],
 ) -> Result<Vec<u8>, Error> {
-    let hpke = Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, Aes256Gcm);
-
     // K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
     let k2 = MlKem768::decaps(&ct.c2, sk.mlkem.as_bytes())
         .map_err(|e| anyhow::anyhow!("ML-KEM decapsulation failed: {:?}", e))?;
 
     // m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2+info)
-    let skr1: HpkePrivateKey = sk.dhakem.clone().into();
-    let pks1: HpkePublicKey = pk.dhakem.clone().into();
+    let skr1 = DhKemX25519HkdfSha256::sk_from_bytes(sk.dhakem.as_bytes())
+        .map_err(|e| anyhow::anyhow!("Invalid DH-AKEM recipient private key: {:?}", e))?;
+    let pks1 = DhKemX25519HkdfSha256::pk_from_bytes(pk.dhakem.as_bytes())
+        .map_err(|e| anyhow::anyhow!("Invalid DH-AKEM sender public key: {:?}", e))?;
+    let enc = DhKemX25519HkdfSha256::enc_from_bytes(&ct.c1)
+        .map_err(|e| anyhow::anyhow!("Invalid SD-APKE encapsulation: {:?}", e))?;
 
     let mut full_info = Vec::new();
     full_info.extend_from_slice(&ct.c2);
     full_info.extend_from_slice(info);
 
-    hpke.open(
-        &ct.c1,
-        &skr1,
-        &full_info,
-        ad,
-        &ct.cp,
-        Some(&k2),
-        Some(PSK_ID),
-        Some(&pks1),
-    )
-    .map_err(|e| anyhow::anyhow!("SD-APKE AuthDec failed: {:?}", e))
+    MessageSuite::open_auth_psk(&enc, &skr1, &full_info, ad, &ct.cp, &k2, PSK_ID, &pks1)
+        .map_err(|e| anyhow::anyhow!("SD-APKE AuthDec failed: {:?}", e))
 }
 
 #[cfg(test)]

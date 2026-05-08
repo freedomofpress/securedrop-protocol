@@ -48,7 +48,7 @@ where
 
     // Hint (X, Z): X = g^x, Z = (pk_R^fetch)^x for a fresh ephemeral scalar x
     // spec: x (hint_esk), X (hint_epk)
-    let (hint_esk, hint_epk) = generate_dh_keypair(rng).expect("DH Keygen (hint) failed");
+    let (hint_esk, hint_epk) = generate_dh_keypair(&mut *rng).expect("DH Keygen (hint) failed");
     // spec: Z = (pk_R^fetch)^x
     let hint_sharedsecret: DHSharedSecret =
         dh_shared_secret(recipient.fetch_pk(), hint_esk.into_bytes())
@@ -58,7 +58,11 @@ where
     let sender_apke_bytes = sender.message_auth_pk().as_bytes();
 
     // spec: ct^PKE = SD-PKE.Enc(pk_R^PKE, pk_S^APKE)
-    let ct_pke = metadata::encrypt(recipient.message_metadata_pk(), &sender_apke_bytes);
+    let ct_pke = metadata::encrypt(
+        &mut *rng,
+        recipient.message_metadata_pk(),
+        &sender_apke_bytes,
+    );
 
     Envelope {
         ct_apke,                              // spec: ct^APKE

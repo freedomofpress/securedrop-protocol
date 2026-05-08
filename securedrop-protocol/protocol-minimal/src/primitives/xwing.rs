@@ -1,4 +1,3 @@
-use hpke_rs::{HpkePrivateKey, HpkePublicKey};
 use libcrux_kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
 
@@ -35,18 +34,6 @@ impl XWingPrivateKey {
     /// Create from bytes
     pub(crate) fn from_bytes(bytes: [u8; XWING_PRIVATE_KEY_LEN]) -> Self {
         Self(bytes)
-    }
-}
-
-impl From<XWingPrivateKey> for HpkePrivateKey {
-    fn from(sk: XWingPrivateKey) -> Self {
-        HpkePrivateKey::from(sk.0.to_vec())
-    }
-}
-
-impl From<XWingPublicKey> for HpkePublicKey {
-    fn from(pk: XWingPublicKey) -> Self {
-        HpkePublicKey::from(pk.0.to_vec())
     }
 }
 

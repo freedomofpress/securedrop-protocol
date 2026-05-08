@@ -1,4 +1,3 @@
-use hpke_rs::{HpkePrivateKey, HpkePublicKey};
 use libcrux_kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
 
@@ -75,18 +74,6 @@ pub(crate) fn deterministic_keygen(
         .map_err(|e| anyhow::anyhow!("DH-AKEM deterministic key generation failed: {:?}", e))?;
 
     typed(sk, pk)
-}
-
-impl From<DhAkemPrivateKey> for HpkePrivateKey {
-    fn from(sk: DhAkemPrivateKey) -> Self {
-        HpkePrivateKey::from(sk.0.to_vec())
-    }
-}
-
-impl From<DhAkemPublicKey> for HpkePublicKey {
-    fn from(pk: DhAkemPublicKey) -> Self {
-        HpkePublicKey::from(pk.0.to_vec())
-    }
 }
 
 #[cfg_attr(hax, hax_lib::requires(
