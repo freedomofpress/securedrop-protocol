@@ -24,14 +24,9 @@
 //! parameters of the abstract HPKE primitive in `primitives` and not
 //! visible here.
 
-use crate::primitives::{XwingEnc, XwingPk, XwingSk, hpke_open_base, hpke_seal_base, xwing_keygen};
+use crate::keys::{SdPkePk, SdPkeSk};
+use crate::primitives::{XwingEnc, hpke_open_base, hpke_seal_base, xwing_keygen};
 use alloc::vec::Vec;
-
-/// SD-PKE recipient public key `pk_R^PKE` (§Key Hierarchy line 142).
-pub struct SdPkePk(pub XwingPk);
-
-/// SD-PKE recipient private key `sk_R^PKE` (§Key Hierarchy line 142).
-pub struct SdPkeSk(pub XwingSk);
 
 /// SD-PKE ciphertext `(c, c')` per §SD-PKE line 317.
 pub struct SdPkeCt {
