@@ -275,6 +275,11 @@ $\text{BIP39.Entropy}$ parses the mnemonic, verifies its checksum, and returns
 the 16 byte entropy. An invalid checksum MUST cause the operation to fail
 without producing keys.
 
+The BIP39 wordlist is static, a source's mnemonic remains valid indefinitely.
+BIP39 also defines wordlists for nine other languages, implementations MAY
+support any. Note that $mk$ is a 128-bit symmetric secret and is not threatened by quantum
+attack (see [NIST IR 8547][nist-ir-8547] §4.1.3).
+
 Note that $sk_S^{APKE}$ is a key tuple: SD-APKE requires separate DH-AKEM and ML-KEM-768
 components, each derived independently using its own info label.
 
@@ -773,6 +778,7 @@ insertion order.
 [alwen2023]: https://eprint.iacr.org/2023/1480
 [maier2025]: https://github.com/lumaier/securedrop-formalanalysis/tree/fd0daf0ce90144e12956032abf1817e18cec48e0
 [milestones]: https://github.com/freedomofpress/securedrop-protocol/milestones
+[nist-ir-8547]: https://nvlpubs.nist.gov/nistpubs/ir/2024/NIST.IR.8547.ipd.pdf
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
 [RFC 5869]: https://datatracker.ietf.org/doc/html/rfc5869
 [RFC 9180]: https://datatracker.ietf.org/doc/html/rfc9180
