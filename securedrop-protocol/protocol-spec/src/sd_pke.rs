@@ -29,6 +29,7 @@ use crate::primitives::{XwingEnc, hpke_open_base, hpke_seal_base, xwing_keygen};
 use alloc::vec::Vec;
 
 /// SD-PKE ciphertext `(c, c')` per §SD-PKE line 317.
+#[derive(Clone)]
 pub struct SdPkeCt {
     /// Encapsulated X-Wing shared secret (`c` in the spec).
     pub c: XwingEnc,

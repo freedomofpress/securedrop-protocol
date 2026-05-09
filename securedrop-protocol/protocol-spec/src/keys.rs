@@ -12,11 +12,13 @@ use alloc::vec::Vec;
 // §Key Hierarchy and §SD-APKE (line 392)
 // ===========================================================================
 
+#[derive(Clone)]
 pub struct SdApkeSk {
     pub sk1: AkemSk,
     pub sk2: KemPqSk,
 }
 
+#[derive(Clone)]
 pub struct SdApkePk {
     pub pk1: AkemPk,
     pub pk2: KemPqPk,
@@ -26,14 +28,20 @@ pub struct SdApkePk {
 // SD-PKE keypair: X-Wing  (§SD-PKE)
 // ===========================================================================
 
+#[derive(Clone)]
 pub struct SdPkeSk(pub XwingSk);
+
+#[derive(Clone)]
 pub struct SdPkePk(pub XwingPk);
 
 // ===========================================================================
 // Fetch keypair: ristretto255  (§Notation, line 294)
 // ===========================================================================
 
+#[derive(Clone)]
 pub struct FetchSk(pub R255Scalar);
+
+#[derive(Clone)]
 pub struct FetchPk(pub R255Point);
 
 // ===========================================================================

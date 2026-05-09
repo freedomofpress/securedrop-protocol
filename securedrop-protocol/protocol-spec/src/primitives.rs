@@ -131,7 +131,16 @@ pub fn r255_dh(_sk: &R255Scalar, _pk: &R255Point) -> R255Point {
 // §Notation: KDF / PBKDF, lines 277-278
 // ===========================================================================
 
+/// Key derivation: 32-byte output. Used in §Step 4 for source fetch and
+/// PKE keys, and in §Step 7 for fetch-challenge tag/idk derivation.
 pub fn kdf(_ikm: &[u8], _info: &[u8]) -> [u8; 32] {
+    unimplemented!()
+}
+
+/// Key derivation: 64-byte output. Used in §Step 4 for the source's
+/// ML-KEM-768 keygen seed (the doc's `KDF` notation is vague about
+/// output length; the impl uses Blake2b-64 here, hence this variant).
+pub fn kdf_64(_ikm: &[u8], _info: &[u8]) -> [u8; 64] {
     unimplemented!()
 }
 
