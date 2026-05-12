@@ -113,8 +113,6 @@ impl Api for Journalist {
 }
 
 impl restricted::RestrictedApi for Journalist {}
-impl JournalistApi for Journalist {}
-
 impl private::Sealed for Journalist {}
 /// Private, common to all users, implemented for Journalists
 impl UserSecret for Journalist {
@@ -268,7 +266,7 @@ mod tests {
         let skb: Vec<SignedKeyBundlePublic> = journalist.signed_keybundles();
         assert_eq!(journalist.message_keys.len(), skb.len());
 
-        let kbs: Vec<&MessageKeyBundle> = journalist.keybundles().collect();
+        let kbs: Vec<&MessageKeyBundle> = journalist.keybundles();
         assert_eq!(kbs.len(), journalist.message_keys.len());
 
         for i in 0..kbs.len() {

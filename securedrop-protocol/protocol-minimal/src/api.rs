@@ -16,6 +16,7 @@
 
 use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublic, UserPublic, UserSecret, VerifyingKey,
+    api::restricted::RestrictedApi,
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
     wire::{
         core::{
@@ -194,12 +195,35 @@ pub(crate) mod restricted {
     pub trait RestrictedApi {}
 }
 
+/// Provide generic implementation, restricted to implementors of the sealed
+/// [`RestrictedApi`](restricted::RestrictedApi) trait and the Enrollable trait.
+/// Implementors of both those will automatically be able to use this generic
+/// JournalistApi implementation, but downstream crates will be unable to implement
+/// restrictedApi. Originally this was defined at the trait level
+/// (`pub trait JournalistApi: Api + restricted::RestrictedApi`), but hax was unable
+/// to extract the trait.
+impl<T> JournalistApi for T
+where
+    T: Api + Enrollable + restricted::RestrictedApi,
+{
+    fn create_setup_request(&self) -> Result<JournalistSetupRequest, Error> {
+        Ok(JournalistSetupRequest {
+            enrollment: self.enroll(),
+        })
+    }
+
+    fn create_ephemeral_key_request(&self) -> JournalistEphemeralKeyRequest {
+        JournalistEphemeralKeyRequest {
+            verifying_key: self.signing_key().clone(),
+            bundles: self.signed_keybundles(),
+        }
+    }
+}
+
 /// Journalist-specific API operations.
 ///
-/// Extends [`Api`] with enrollment and ephemeral key management. Only types
-/// that implement the sealed [`RestrictedApi`](restricted::RestrictedApi) trait
-/// can implement this, preventing misuse by downstream code.
-pub trait JournalistApi: Api + restricted::RestrictedApi {
+/// Extends [`Api`] with enrollment and ephemeral key management.
+pub trait JournalistApi {
     /// Creates an enrollment request for initial journalist onboarding.
     ///
     /// Packages the journalist's self-signed long-term key bundle into a
@@ -208,26 +232,11 @@ pub trait JournalistApi: Api + restricted::RestrictedApi {
     /// # Errors
     ///
     /// Returns an error if enrollment data cannot be constructed.
-    fn create_setup_request(&self) -> Result<JournalistSetupRequest, Error>
-    where
-        Self: Enrollable,
-    {
-        Ok(JournalistSetupRequest {
-            enrollment: self.enroll(),
-        })
-    }
+    fn create_setup_request(&self) -> Result<JournalistSetupRequest, Error>;
 
     /// Creates a request to replenish ephemeral key bundles on the server.
     ///
     /// Collects all current signed key bundles and packages them into a
     /// [`JournalistEphemeralKeyRequest`] for upload to the server (step 3.2).
-    fn create_ephemeral_key_request(&self) -> JournalistEphemeralKeyRequest
-    where
-        Self: Enrollable,
-    {
-        JournalistEphemeralKeyRequest {
-            verifying_key: self.signing_key().clone(),
-            bundles: self.signed_keybundles(),
-        }
-    }
+    fn create_ephemeral_key_request(&self) -> JournalistEphemeralKeyRequest;
 }
