@@ -12,8 +12,11 @@ use rand_core::{CryptoRng, RngCore};
 use crate::ciphertext::Plaintext;
 use crate::constants::*;
 use crate::keys::*;
-use crate::traits::private;
 use crate::traits::{UserPublic, UserSecret};
+
+// do not re-export!
+use crate::sealed;
+impl sealed::Sealed for Source {}
 
 /// Fixed public salt for Argon2id. Argon2id requires a salt; since source
 /// keys must be deterministic from the passphrase alone, we use a fixed
@@ -75,8 +78,6 @@ impl Api for Source {
         self.session.nr_key = Some(key);
     }
 }
-
-impl private::Sealed for Source {}
 
 /// Private, common to all users, implemented for sources
 impl UserSecret for Source {

@@ -1,7 +1,5 @@
 use crate::VerifyingKey;
 use crate::api::Api;
-use crate::api::JournalistApi;
-use crate::api::restricted;
 use crate::message::{MessageKeyPair, MessagePublicKey, keygen as message_keygen};
 use crate::metadata::{MetadataPublicKey, keygen as metadata_keygen};
 use crate::primitives::x25519::DHPrivateKey;
@@ -14,8 +12,12 @@ use rand_core::{CryptoRng, RngCore};
 use crate::ciphertext::Plaintext;
 use crate::constants::*;
 use crate::keys::*;
-use crate::traits::private;
-use crate::traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
+use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, UserSecret};
+
+// caution: do not re-export!
+use crate::sealed;
+impl sealed::Sealed for Journalist {}
+impl RestrictedApi for Journalist {}
 
 /// Journalists: ingredients.
 /// Journalists have a signing/verifying key, a reply key,
@@ -112,8 +114,6 @@ impl Api for Journalist {
     }
 }
 
-impl restricted::RestrictedApi for Journalist {}
-impl private::Sealed for Journalist {}
 /// Private, common to all users, implemented for Journalists
 impl UserSecret for Journalist {
     fn num_bundles(&self) -> usize {

@@ -35,7 +35,6 @@ pub use journalist::{Journalist, JournalistPublicView};
 pub use source::{Source, SourcePublicView};
 
 pub(crate) use keys::MessageKeyBundle;
-pub(crate) use traits::private;
 
 // Primitives for signing
 pub mod sign;
@@ -49,3 +48,8 @@ pub mod storage;
 pub mod encrypt_decrypt;
 pub mod message;
 pub mod metadata;
+
+// Do not make this module public or re-export it anywhere!
+/// It uses the [sealed trait pattern](https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed)
+/// to gate features that downstream crates should not implement.
+mod sealed;

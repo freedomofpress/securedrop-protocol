@@ -16,8 +16,8 @@
 
 use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublic, UserPublic, UserSecret, VerifyingKey,
-    api::restricted::RestrictedApi,
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
+    traits::RestrictedApi,
     wire::{
         core::{
             MessageChallengeFetchRequest, MessageFetchRequest, SourceJournalistKeyRequest,
@@ -187,24 +187,15 @@ pub trait Api {
     }
 }
 
-/// Restricts [`JournalistApi`] to types explicitly opted in by the crate.
-///
-/// This uses the [sealed trait pattern](https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed)
-/// to prevent downstream crates from implementing [`JournalistApi`].
-pub(crate) mod restricted {
-    pub trait RestrictedApi {}
-}
-
-/// Provide generic implementation, restricted to implementors of the sealed
-/// [`RestrictedApi`](restricted::RestrictedApi) trait and the Enrollable trait.
-/// Implementors of both those will automatically be able to use this generic
-/// JournalistApi implementation, but downstream crates will be unable to implement
-/// restrictedApi. Originally this was defined at the trait level
+/// Provide generic implementation, restricted to implementors RestrictedApi trait and
+/// the Enrollable trait. Implementors of both those will automatically be able to use
+/// this generic JournalistApi implementation, but downstream crates will be unable to
+/// implement RestrictedApi. Originally this was defined at the trait level
 /// (`pub trait JournalistApi: Api + restricted::RestrictedApi`), but hax was unable
 /// to extract the trait.
 impl<T> JournalistApi for T
 where
-    T: Api + Enrollable + restricted::RestrictedApi,
+    T: Api + Enrollable + RestrictedApi,
 {
     fn create_setup_request(&self) -> Result<JournalistSetupRequest, Error> {
         Ok(JournalistSetupRequest {
