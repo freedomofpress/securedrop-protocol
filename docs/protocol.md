@@ -248,8 +248,9 @@ For each key bundle $i$:[^11]
 To begin each session, a source MUST enter (on their first visit) or reenter
 (on a subsequent visit) a $passphrase$ encoded as a 12 word [BIP39] mnemonic.
 The mnemonic encodes 128 bits of entropy plus a 4 bit checksum carried in the
-trailing bits of the final word. The checksum detects single word typos at
-entry and MUST be verified before deriving any keys.
+trailing bits of the final word, which checks for single-word typos. The
+application SHOULD verify the checksum before passing $passphrase$ to the
+key-derivation procedure specified below.
 
 The 16 byte BIP39 entropy is used directly as the master key $mk$. From $mk$,
 four private keys are derived using a domain-separated $\text{KDF}$,
@@ -271,9 +272,8 @@ All source keys are long term and fully determined by the passphrase.
 | $`sk_S^{APKE}(\text{ML-KEM}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-mlkem})`$ |
 | $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$                        |
 
-$\text{BIP39.Entropy}$ parses the mnemonic, verifies its checksum, and returns
-the 16 byte entropy. An invalid checksum MUST cause the operation to fail
-without producing keys.
+$\text{BIP39.Entropy}$ parses the mnemonic and returns the 16 byte entropy, or
+returns $\bot$ if the checksum failed to verify.
 
 The BIP39 wordlist is static, a source's mnemonic remains valid indefinitely.
 BIP39 also defines wordlists for nine other languages, implementations MAY
