@@ -48,9 +48,9 @@ impl Server {
     /// TODO: The caller should persist these keys to disk.
     pub fn create_newsroom_setup_request<R: RngCore + CryptoRng>(
         &mut self,
-        mut rng: R,
+        rng: &mut R,
     ) -> Result<NewsroomSetupRequest, Error> {
-        let newsroom_keys = NewsroomKeyPair::new(&mut rng)?;
+        let newsroom_keys = NewsroomKeyPair::new(rng)?;
         let newsroom_vk = newsroom_keys.verifying_key();
 
         // Store the newsroom keys in the session for later use (e.g., signing journalist keys)

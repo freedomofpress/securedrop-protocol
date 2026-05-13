@@ -21,8 +21,8 @@ impl core::fmt::Debug for NewsroomKeyPair {
 }
 
 impl NewsroomKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> Result<Self, anyhow::Error> {
-        let sk = SigningKey::new(&mut rng)?;
+    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, anyhow::Error> {
+        let sk = SigningKey::new(rng)?;
         let vk = sk.vk;
         Ok(Self { sk, vk })
     }

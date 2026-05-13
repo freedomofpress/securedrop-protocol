@@ -61,7 +61,7 @@ pub fn deterministic_dh_keygen(randomness: [u8; 32]) -> Result<(DHPrivateKey, DH
 
 /// Generate a new DH key pair using X25519
 pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
-    mut rng: R,
+    rng: &mut R,
 ) -> Result<(DHPrivateKey, DHPublicKey), Error> {
     let mut randomness = [0u8; 32];
     rng.fill_bytes(&mut randomness);
