@@ -1,0 +1,24 @@
+module Securedrop_protocol_minimal.Wire.Core
+#set-options "--fuel 0 --ifuel 1 --z3rlimit 15"
+open FStar.Mul
+open Core_models
+
+include Securedrop_protocol_minimal.Bundle {t_SourceNewsroomKeyRequest as t_SourceNewsroomKeyRequest}
+
+include Securedrop_protocol_minimal.Bundle {SourceNewsroomKeyRequest as SourceNewsroomKeyRequest}
+
+include Securedrop_protocol_minimal.Bundle {t_SourceNewsroomKeyResponse as t_SourceNewsroomKeyResponse}
+
+include Securedrop_protocol_minimal.Bundle {t_SourceJournalistKeyRequest as t_SourceJournalistKeyRequest}
+
+include Securedrop_protocol_minimal.Bundle {SourceJournalistKeyRequest as SourceJournalistKeyRequest}
+
+include Securedrop_protocol_minimal.Bundle {t_SourceJournalistKeyResponse as t_SourceJournalistKeyResponse}
+
+include Securedrop_protocol_minimal.Bundle {t_MessageChallengeFetchRequest as t_MessageChallengeFetchRequest}
+
+include Securedrop_protocol_minimal.Bundle {MessageChallengeFetchRequest as MessageChallengeFetchRequest}
+
+include Securedrop_protocol_minimal.Bundle {t_MessageChallengeFetchResponse as t_MessageChallengeFetchResponse}
+
+include Securedrop_protocol_minimal.Bundle {t_MessageFetchRequest as t_MessageFetchRequest}
