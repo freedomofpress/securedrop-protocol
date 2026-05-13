@@ -8,3 +8,6 @@ version = "0.4.0"
 edition = "2024"
 authors = ["SecureDrop Team <securedrop@freedom.press>"]
 license = "GPL-3.0"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(hax)"] }
