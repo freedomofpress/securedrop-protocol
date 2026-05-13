@@ -4,7 +4,7 @@ use getrandom;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-use securedrop_protocol_minimal::api::{Api, JournalistApi};
+use securedrop_protocol_minimal::api::{Api, Client, JournalistApi};
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 
 use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;

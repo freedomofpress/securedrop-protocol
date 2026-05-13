@@ -31,19 +31,117 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
-/// Common client operations shared by sources and journalists.
-///
-/// Implementors must provide storage for the newsroom verifying key via
-/// [`newsroom_verifying_key`](Api::newsroom_verifying_key) and
-/// [`set_newsroom_verifying_key`](Api::set_newsroom_verifying_key).
-/// All other methods have default implementations.
-pub trait Api {
+/// Clients hold a reference to the newsroom [`VerifyingKey`](VerifyingKey)
+/// of the instance they are interacting with.
+pub trait Client {
     /// Returns the stored newsroom verifying key, if one has been verified.
     fn newsroom_verifying_key(&self) -> Option<&VerifyingKey>;
 
     /// Stores a verified newsroom verifying key.
     fn set_newsroom_verifying_key(&mut self, key: VerifyingKey);
+}
 
+/// Common API shared by sources and journalists. [`Api`](Api) users must provide
+/// a Client implementation (local storage abstraction).
+/// All users use the same API, but hax does not support default trait implementations
+/// (cryspen/hax/issues/888) so the trait is defined separately.
+pub trait Api: Client {
+    /// Creates a request to fetch the newsroom's public keys from the server.
+    ///
+    /// This is the first part of step 5 in the protocol spec.
+    fn fetch_newsroom_keys(&self) -> SourceNewsroomKeyRequest;
+
+    /// Creates a request to fetch journalist public keys from the server.
+    ///
+    /// This is the second part of step 5 in the protocol spec. The server
+    /// responds with long-term keys and a one-time ephemeral key bundle
+    /// for each available journalist.
+    fn fetch_journalist_keys(&self) -> SourceJournalistKeyRequest;
+
+    /// Creates a request to fetch encrypted message IDs from the server.
+    ///
+    /// Corresponds to step 7 in the protocol spec. The server returns a
+    /// fixed-size set of challenges (encrypted message IDs) that the client
+    /// must solve using [`solve_fetch_challenges`](Api::solve_fetch_challenges).
+    fn fetch_message_ids<R: RngCore + CryptoRng>(
+        &self,
+        _rng: &mut R,
+    ) -> MessageChallengeFetchRequest;
+
+    /// Solves the encrypted message-ID challenges returned by the server.
+    ///
+    /// Each [`FetchResponse`] contains an encrypted message ID and a
+    /// per-request DH share. The client uses its fetch keypair to recover
+    /// message IDs that were addressed to it, discarding the rest.
+    ///
+    /// Returns the set of [`Uuid`]s for messages belonging to this client.
+    fn solve_fetch_challenges(&self, challenges: &[FetchResponse]) -> Result<Vec<Uuid>, Error>
+    where
+        Self: Sized + UserSecret;
+
+    /// Creates a request to fetch a specific message by its ID.
+    ///
+    /// Corresponds to steps 8 and 10 in the protocol spec. Returns `None`
+    /// if the request cannot be constructed (the default implementation
+    /// always returns `Some`).
+    fn fetch_message(&self, message_id: Uuid) -> Option<MessageFetchRequest>;
+
+    /// Encrypts and submits a message from `sender` to `recipient`.
+    ///
+    /// Handles padding, plaintext construction (including sender reply keys),
+    /// and hybrid encryption. This covers step 6 (source submissions) and
+    /// step 9 (journalist replies) in the protocol spec.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if encryption fails.
+    fn submit_message<R, S, P>(
+        &self,
+        rng: &mut R,
+        message: &[u8],
+        sender: &S,
+        recipient: &P,
+    ) -> Result<Envelope, Error>
+    where
+        R: RngCore + CryptoRng,
+        S: UserSecret,
+        P: UserPublic;
+
+    /// Verifies and stores the newsroom's verifying key from a server response.
+    ///
+    /// Checks the FPF signature over the newsroom verifying key, and if valid,
+    /// stores it for subsequent journalist key verification.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the FPF signature is invalid.
+    fn handle_newsroom_key_response(
+        &mut self,
+        response: &SourceNewsroomKeyResponse,
+        fpf_verifying_key: &VerifyingKey,
+    ) -> Result<(), Error>;
+
+    /// Verifies a journalist's key response against the newsroom's signature.
+    ///
+    /// Performs three signature checks:
+    /// 1. The newsroom's signature over the journalist's verifying key.
+    /// 2. The journalist's self-signature over their long-term key bundle.
+    /// 3. The journalist's self-signature over their one-time keys.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any signature check fails.
+    fn handle_journalist_key_response(
+        &self,
+        response: &SourceJournalistKeyResponse,
+        newsroom_verifying_key: &VerifyingKey,
+    ) -> Result<(), Error>;
+}
+
+impl<T> Api for T
+where
+    T: Client,
+{
     /// Creates a request to fetch the newsroom's public keys from the server.
     ///
     /// This is the first part of step 5 in the protocol spec.
