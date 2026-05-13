@@ -1,5 +1,5 @@
 use crate::VerifyingKey;
-use crate::api::Api;
+use crate::api::Client;
 use crate::message::{MessageKeyPair, MessagePublicKey, keygen as message_keygen};
 use crate::metadata::{MetadataPublicKey, keygen as metadata_keygen};
 use crate::primitives::x25519::DHPrivateKey;
@@ -104,7 +104,7 @@ impl JournalistPublic for JournalistPublicView {
     }
 }
 
-impl Api for Journalist {
+impl Client for Journalist {
     fn newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
         self.session_storage.nr_key.as_ref()
     }

@@ -5,7 +5,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
 use securedrop_protocol_minimal::LEN_DH_ITEM;
-use securedrop_protocol_minimal::api::{Api, JournalistApi};
+use securedrop_protocol_minimal::api::{Client, JournalistApi};
 use securedrop_protocol_minimal::keys::FPFKeyPair;
 use securedrop_protocol_minimal::sign::{FpfOnNewsroom, Signature};
 use securedrop_protocol_minimal::wire::setup::{
