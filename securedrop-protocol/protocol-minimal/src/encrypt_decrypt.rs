@@ -234,7 +234,7 @@ mod tests {
     }
 
     fn assert_encrypt_decrypt<R: CryptoRng + RngCore>(
-        mut rng: R,
+        rng: &mut R,
         sender_public: &impl UserPublic,
         sender_secret: &impl UserSecret,
         rcvr_public: &impl UserPublic,
@@ -243,7 +243,7 @@ mod tests {
     ) {
         let pt = build_message(sender_public, msg);
 
-        let envelope = encrypt(&mut rng, sender_secret, &pt, rcvr_public);
+        let envelope = encrypt(rng, sender_secret, &pt, rcvr_public);
         let decrypted = decrypt(rcvr_secret, &envelope);
 
         let pt_ref = &pt;
@@ -275,7 +275,7 @@ mod tests {
         let msg = b"Encrypt-decrypt-test".to_vec();
 
         assert_encrypt_decrypt(
-            rng,
+            &mut rng,
             &sender.public(),
             &sender,
             &recipient.public(1),
@@ -292,7 +292,7 @@ mod tests {
         let recipient = Source::new(&mut rng);
 
         assert_encrypt_decrypt(
-            rng,
+            &mut rng,
             &sender.public(),
             &sender,
             &recipient.public(),
@@ -370,7 +370,7 @@ mod tests {
         let msg = "Test message".as_bytes().to_vec();
 
         assert_encrypt_decrypt(
-            rng,
+            &mut rng,
             &journalist.public(0),
             &journalist,
             &j2.public(0),
