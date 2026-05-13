@@ -15,8 +15,17 @@ let v_DH_AKEM_PUBLIC_KEY_LEN: usize = mk_usize 32
 
 let v_DH_AKEM_PRIVATE_KEY_LEN: usize = mk_usize 32
 
+let v_DH_AKEM_SECRET_LEN: usize = mk_usize 32
+
 /// An DH-AKEM public key.
 type t_DhAkemPublicKey = | DhAkemPublicKey : t_Array u8 (mk_usize 32) -> t_DhAkemPublicKey
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_5': Core_models.Fmt.t_Debug t_DhAkemPublicKey
+
+unfold
+let impl_5 = impl_5'
 
 let impl_6: Core_models.Clone.t_Clone t_DhAkemPublicKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
@@ -24,7 +33,27 @@ let impl_6: Core_models.Clone.t_Clone t_DhAkemPublicKey =
 /// An DH-AKEM private key.
 type t_DhAkemPrivateKey = | DhAkemPrivateKey : t_Array u8 (mk_usize 32) -> t_DhAkemPrivateKey
 
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_7': Core_models.Fmt.t_Debug t_DhAkemPrivateKey
+
+unfold
+let impl_7 = impl_7'
+
 let impl_8: Core_models.Clone.t_Clone t_DhAkemPrivateKey =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+/// An DH-AKEM shared secret.
+type t_DhAkemSecret = | DhAkemSecret : t_Array u8 (mk_usize 32) -> t_DhAkemSecret
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_9': Core_models.Fmt.t_Debug t_DhAkemSecret
+
+unfold
+let impl_9 = impl_9'
+
+let impl_10: Core_models.Clone.t_Clone t_DhAkemSecret =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 let impl_DhAkemPublicKey__as_bytes (self: t_DhAkemPublicKey) : t_Array u8 (mk_usize 32) = self._0
@@ -32,8 +61,15 @@ let impl_DhAkemPublicKey__as_bytes (self: t_DhAkemPublicKey) : t_Array u8 (mk_us
 let impl_DhAkemPublicKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_DhAkemPublicKey =
   DhAkemPublicKey bytes <: t_DhAkemPublicKey
 
+let impl_DhAkemPrivateKey__as_bytes (self: t_DhAkemPrivateKey) : t_Array u8 (mk_usize 32) = self._0
+
 let impl_DhAkemPrivateKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_DhAkemPrivateKey =
   DhAkemPrivateKey bytes <: t_DhAkemPrivateKey
+
+let impl_DhAkemSecret__as_bytes (self: t_DhAkemSecret) : t_Array u8 (mk_usize 32) = self._0
+
+let impl_DhAkemSecret__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_DhAkemSecret =
+  DhAkemSecret bytes <: t_DhAkemSecret
 
 /// Clamp a scalar to ensure it's a valid X25519 scalar.
 let clamp (scalar: t_Array u8 (mk_usize 32)) : t_Array u8 (mk_usize 32) =
@@ -184,8 +220,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       <:
       Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
     with
-    | Core_models.Result.Result_Ok hoist2 ->
-      let private_key:t_DhAkemPrivateKey = impl_DhAkemPrivateKey__from_bytes hoist2 in
+    | Core_models.Result.Result_Ok hoist4 ->
+      let private_key:t_DhAkemPrivateKey = impl_DhAkemPrivateKey__from_bytes hoist4 in
       (match
           Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
             #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
@@ -211,8 +247,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
           <:
           Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
         with
-        | Core_models.Result.Result_Ok hoist3 ->
-          let public_key:t_DhAkemPublicKey = impl_DhAkemPublicKey__from_bytes hoist3 in
+        | Core_models.Result.Result_Ok hoist5 ->
+          let public_key:t_DhAkemPublicKey = impl_DhAkemPublicKey__from_bytes hoist5 in
           Core_models.Result.Result_Ok
           (private_key, public_key <: (t_DhAkemPrivateKey & t_DhAkemPublicKey))
           <:

@@ -1,12 +1,5 @@
-HAX_TARGETS := -**
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::dh_akem::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::mlkem::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::xwing::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::x25519::typed
-HAX_TARGETS += +securedrop_protocol_minimal::message::**
-HAX_TARGETS += +securedrop_protocol_minimal::metadata::**
-HAX_TARGETS += +securedrop_protocol_minimal::ciphertext::**
-HAX_TARGETS += +securedrop_protocol_minimal::constants::**
+HAX_TARGETS := +**
+HAX_TARGETS := -securedrop_protocol_minimal::storage::**
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 PROOF_DIR = proofs/fstar/extraction
