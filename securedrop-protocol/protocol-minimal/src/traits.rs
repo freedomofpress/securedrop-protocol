@@ -48,11 +48,9 @@ pub trait JournalistPublic: UserPublic {
 pub trait Enrollable: private::Sealed {
     fn signing_key(&self) -> &VerifyingKey;
     fn enroll(&self) -> Enrollment;
-    /// Returns an iterator over all signed ephemeral key bundles held by this journalist.
-    ///
     /// Each item is a [`SignedKeyBundlePublic`]: the public keys together with the
     /// journalist's self-signature over them.
-    fn signed_keybundles(&self) -> impl Iterator<Item = SignedKeyBundlePublic>;
+    fn signed_keybundles(&self) -> Vec<SignedKeyBundlePublic>;
 }
 
 /// Users have the following (secret traits) in common:
@@ -69,5 +67,5 @@ pub trait UserSecret: private::Sealed {
     /// The long-term SD-APKE public key `pk^APKE`.
     fn message_auth_pk(&self) -> &MessagePublicKey;
     fn build_message(&self, message: Vec<u8>) -> Plaintext;
-    fn keybundles(&self) -> impl Iterator<Item = &MessageKeyBundle>;
+    fn keybundles(&self) -> Vec<&MessageKeyBundle>;
 }

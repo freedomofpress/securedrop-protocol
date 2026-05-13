@@ -1,11 +1,10 @@
 #![no_std]
 // Deny direct access to system randomness except in tests.
 // See clippy.toml
-#![deny(clippy::disallowed_types)]
-#![deny(clippy::disallowed_methods)]
-#![cfg_attr(test, allow(clippy::disallowed_types))]
-#![cfg_attr(test, allow(clippy::disallowed_methods))]
-
+// hax breaks on these clippy statements
+#![cfg_attr(not(hax), deny(clippy::disallowed_types, clippy::disallowed_methods))]
+#![cfg_attr(all(not(hax), test), allow(clippy::disallowed_types))]
+#![cfg_attr(all(not(hax), test), allow(clippy::disallowed_methods))]
 extern crate alloc;
 
 pub mod api;
