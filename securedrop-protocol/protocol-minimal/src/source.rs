@@ -36,6 +36,9 @@ pub struct Source {
     session: SessionStorage,
 }
 
+// hax struggles with the debug format function signature, but it is
+// debug only, so we can exclude it from extraction
+#[cfg_attr(hax, hax_lib::exclude)]
 impl core::fmt::Debug for Source {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // Using non-exhaustive to avoid leaking source keys.

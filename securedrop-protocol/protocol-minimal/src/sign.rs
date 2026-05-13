@@ -69,6 +69,10 @@ impl<D: DomainTag> Clone for Signature<D> {
         *self
     }
 }
+
+// hax struggles with the debug format function signature, but it is
+// debug only, so we can exclude it from extraction
+#[cfg_attr(hax, hax_lib::exclude)]
 impl<D: DomainTag> core::fmt::Debug for Signature<D> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("Signature").field(&self.bytes).finish()
@@ -108,6 +112,9 @@ pub struct SigningKey {
     sk: LibCruxSigningKey,
 }
 
+// hax struggles with the debug format function signature, but it is
+// debug only, so we can exclude it from extraction
+#[cfg_attr(hax, hax_lib::exclude)]
 impl core::fmt::Debug for SigningKey {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("SigningKey")
@@ -120,6 +127,9 @@ impl core::fmt::Debug for SigningKey {
 #[derive(Copy, Clone)]
 pub struct VerifyingKey(LibCruxVerifyingKey);
 
+// hax struggles with the debug format function signature, but it is
+// debug only, so we can exclude it from extraction
+#[cfg_attr(hax, hax_lib::exclude)]
 impl core::fmt::Debug for VerifyingKey {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("VerifyingKey")
@@ -130,8 +140,8 @@ impl core::fmt::Debug for VerifyingKey {
 
 impl SigningKey {
     /// Generate a signing key from the supplied `rng`.
-    pub fn new(mut rng: &mut impl CryptoRng) -> Result<SigningKey, Error> {
-        let (sk, vk) = libcrux_ed25519::generate_key_pair(&mut rng)
+    pub fn new<R: CryptoRng>(rng: &mut R) -> Result<SigningKey, Error> {
+        let (sk, vk) = libcrux_ed25519::generate_key_pair(rng)
             .map_err(|_| anyhow::anyhow!("Key generation failed"))?;
         Ok(SigningKey {
             vk: VerifyingKey(vk),
