@@ -25,5 +25,6 @@ pub(crate) const LEN_MESSAGE_ID: usize = 16;
 // TODO: this will be aes-gcm and use AES GCM TagSize
 // TODO: current implementation prepends the nonce to the encrypted message.
 // Recheck this when switching implementations.
-pub(crate) const LEN_KMID: usize =
-    libcrux_chacha20poly1305::TAG_LEN + libcrux_chacha20poly1305::NONCE_LEN + LEN_MESSAGE_ID;
+pub(crate) const LEN_KMID: usize = crate::primitives::provider::params::chacha20poly1305::TAG_LEN
+    + crate::primitives::provider::params::chacha20poly1305::NONCE_LEN
+    + LEN_MESSAGE_ID;
