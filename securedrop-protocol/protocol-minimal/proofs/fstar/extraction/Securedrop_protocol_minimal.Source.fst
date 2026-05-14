@@ -19,7 +19,6 @@ let _ =
   let open Generic_array.Impls in
   let open Rand_core in
   let open Securedrop_protocol_minimal.Message in
-  let open Securedrop_protocol_minimal.Sealed in
   let open Typenum in
   let open Typenum.Bit in
   let open Typenum.Marker_traits in
@@ -58,10 +57,6 @@ type t_Source = {
   f_session:Securedrop_protocol_minimal.Keys.t_SessionStorage
 }
 
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl: Securedrop_protocol_minimal.Sealed.t_Sealed t_Source =
-  { __marker_trait_Securedrop_protocol_minimal.Sealed.t_Sealed = () }
-
 /// The public key material of a source, used by journalists to send replies.
 type t_SourcePublicView = {
   f_fetch_pk:Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey;
@@ -71,16 +66,16 @@ type t_SourcePublicView = {
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_6': Core_models.Fmt.t_Debug t_SourcePublicView
+val impl_5': Core_models.Fmt.t_Debug t_SourcePublicView
 
 unfold
-let impl_6 = impl_6'
+let impl_5 = impl_5'
 
-let impl_7: Core_models.Clone.t_Clone t_SourcePublicView =
+let impl_6: Core_models.Clone.t_Clone t_SourcePublicView =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_1: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
+let impl: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
   {
     f_fetch_pk_pre = (fun (self: t_SourcePublicView) -> true);
     f_fetch_pk_post
@@ -120,7 +115,7 @@ let impl_1: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
   }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_2: Securedrop_protocol_minimal.Api.t_Client t_Source =
+let impl_1: Securedrop_protocol_minimal.Api.t_Client t_Source =
   {
     f_newsroom_verifying_key_pre = (fun (self: t_Source) -> true);
     f_newsroom_verifying_key_post
@@ -169,9 +164,8 @@ let impl_2: Securedrop_protocol_minimal.Api.t_Client t_Source =
 
 /// Private, common to all users, implemented for sources
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_3: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
+let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
   {
-    _super_i0 = FStar.Tactics.Typeclasses.solve;
     f_num_bundles_pre = (fun (self: t_Source) -> true);
     f_num_bundles_post = (fun (self: t_Source) (out: usize) -> true);
     f_num_bundles = (fun (self: t_Source) -> mk_usize 1);

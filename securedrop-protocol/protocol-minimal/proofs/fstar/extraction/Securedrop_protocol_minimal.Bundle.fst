@@ -11,7 +11,6 @@ let _ =
   let open Securedrop_protocol_minimal.Keys in
   let open Securedrop_protocol_minimal.Message in
   let open Securedrop_protocol_minimal.Primitives.X25519 in
-  let open Securedrop_protocol_minimal.Sealed in
   let open Securedrop_protocol_minimal.Sign in
   let open Securedrop_protocol_minimal.Traits in
   ()
@@ -85,14 +84,6 @@ type t_Journalist = {
   f_session_storage:Securedrop_protocol_minimal.Keys.t_SessionStorage
 }
 
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl__from__journalist: Securedrop_protocol_minimal.Sealed.t_Sealed t_Journalist =
-  { __marker_trait_Securedrop_protocol_minimal.Sealed.t_Sealed = () }
-
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_1__from__journalist: Securedrop_protocol_minimal.Traits.t_RestrictedApi t_Journalist =
-  { _super_i0 = FStar.Tactics.Typeclasses.solve }
-
 type t_JournalistPublicView = {
   f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
   f_fetch_pk:Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey;
@@ -105,7 +96,7 @@ type t_JournalistPublicView = {
     Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
 }
 
-let impl_2__new
+let impl__new
       (vk: Securedrop_protocol_minimal.Sign.t_VerifyingKey)
       (fetch: Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
       (reply_apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
@@ -130,7 +121,7 @@ let impl_2__new
   t_JournalistPublicView
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_3: Securedrop_protocol_minimal.Traits.t_UserPublic t_JournalistPublicView =
+let impl_1__from__journalist: Securedrop_protocol_minimal.Traits.t_UserPublic t_JournalistPublicView =
   {
     f_fetch_pk_pre = (fun (self: t_JournalistPublicView) -> true);
     f_fetch_pk_post
@@ -176,7 +167,7 @@ let impl_3: Securedrop_protocol_minimal.Traits.t_UserPublic t_JournalistPublicVi
   }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_4: Securedrop_protocol_minimal.Traits.t_JournalistPublic t_JournalistPublicView =
+let impl_2: Securedrop_protocol_minimal.Traits.t_JournalistPublic t_JournalistPublicView =
   {
     _super_i0 = FStar.Tactics.Typeclasses.solve;
     f_verifying_key_pre = (fun (self: t_JournalistPublicView) -> true);
@@ -225,7 +216,7 @@ let impl_4: Securedrop_protocol_minimal.Traits.t_JournalistPublic t_JournalistPu
   }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_5: t_Client t_Journalist =
+let impl_3: t_Client t_Journalist =
   {
     f_newsroom_verifying_key_pre = (fun (self: t_Journalist) -> true);
     f_newsroom_verifying_key_post
@@ -278,9 +269,8 @@ let impl_5: t_Client t_Journalist =
 
 /// Private, common to all users, implemented for Journalists
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_6: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
+let impl_4: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
   {
-    _super_i0 = FStar.Tactics.Typeclasses.solve;
     f_num_bundles_pre = (fun (self: t_Journalist) -> true);
     f_num_bundles_post = (fun (self: t_Journalist) (out: usize) -> true);
     f_num_bundles
@@ -394,7 +384,7 @@ let impl_6: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
                 -> Securedrop_protocol_minimal.Keys.t_MessageKeyBundle))
   }
 
-let f_signed_keybundles__impl_7__extract_public_bundle
+let f_signed_keybundles__impl_5__extract_public_bundle
       (signed: Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle)
     : (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
       Securedrop_protocol_minimal.Sign.t_Signature
@@ -408,9 +398,8 @@ let f_signed_keybundles__impl_7__extract_public_bundle
     Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_7: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
+let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
   {
-    _super_i0 = FStar.Tactics.Typeclasses.solve;
     f_enroll_pre = (fun (self: t_Journalist) -> true);
     f_enroll_post
     =
@@ -487,7 +476,7 @@ let impl_7: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
                 <:
                 Core_models.Slice.Iter.t_Iter
                 Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle)
-              f_signed_keybundles__impl_7__extract_public_bundle
+              f_signed_keybundles__impl_5__extract_public_bundle
             <:
             Core_models.Iter.Adapters.Map.t_Map
               (Core_models.Slice.Iter.t_Iter
@@ -505,7 +494,7 @@ let impl_7: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
     fun (self: t_Journalist) -> self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk
   }
 
-let impl_8__new
+let impl_6__new
       (#v_R: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
@@ -748,7 +737,7 @@ let impl_8__new
   in
   rng, hax_temp_output <: (v_R & t_Journalist)
 
-let impl_8__public (self: t_Journalist) (idx: usize) : t_JournalistPublicView =
+let impl_6__public (self: t_Journalist) (idx: usize) : t_JournalistPublicView =
   let kb:Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle =
     Core_models.Option.impl__expect #Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle
       (Core_models.Slice.impl__get #Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle
@@ -764,7 +753,7 @@ let impl_8__public (self: t_Journalist) (idx: usize) : t_JournalistPublicView =
         Core_models.Option.t_Option Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle)
       "Bad index"
   in
-  impl_2__new self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk
+  impl__new self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk
     (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey
         #FStar.Tactics.Typeclasses.solve
         self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk

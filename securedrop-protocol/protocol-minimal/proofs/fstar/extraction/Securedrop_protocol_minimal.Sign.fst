@@ -8,205 +8,177 @@ let _ =
   (* The implicit dependencies arise from typeclasses instances. *)
   let open Libcrux_ed25519.Impl_hacl in
   let open Rand_core in
-  let open Securedrop_protocol_minimal.Sign.Private in
   ()
 
-/// Marker trait for signature domain separation.
-/// Each impl encodes the ASCII tag that is prepended to every signing preimage
-/// in that domain: `len(tag) || tag || msg`  (see footnote in the spec).
-class t_DomainTag (v_Self: Type0) = {
-  [@@@ FStar.Tactics.Typeclasses.no_method]_super_i0:Securedrop_protocol_minimal.Sign.Private.t_Sealed
-  v_Self;
-  f_TAG:t_Slice u8
-}
-
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let _ = fun (v_Self:Type0) {|i: t_DomainTag v_Self|} -> i._super_i0
+class t_DomainTag (v_Self: Type0) = { f_TAG:t_Slice u8 }
 
 /// Journalist self-signature over long-term public keys (step 3.1).
 type t_JournalistLongTermKey = | JournalistLongTermKey : t_JournalistLongTermKey
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_15': Core_models.Fmt.t_Debug t_JournalistLongTermKey
+val impl_11': Core_models.Fmt.t_Debug t_JournalistLongTermKey
 
 unfold
-let impl_15 = impl_15'
+let impl_11 = impl_11'
 
-let impl_16: Core_models.Clone.t_Clone t_JournalistLongTermKey =
+let impl_12: Core_models.Clone.t_Clone t_JournalistLongTermKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_17': Core_models.Marker.t_Copy t_JournalistLongTermKey
+val impl_13': Core_models.Marker.t_Copy t_JournalistLongTermKey
 
 unfold
-let impl_17 = impl_17'
+let impl_13 = impl_13'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_18': Core_models.Marker.t_StructuralPartialEq t_JournalistLongTermKey
+val impl_14': Core_models.Marker.t_StructuralPartialEq t_JournalistLongTermKey
 
 unfold
-let impl_18 = impl_18'
+let impl_14 = impl_14'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_19': Core_models.Cmp.t_PartialEq t_JournalistLongTermKey t_JournalistLongTermKey
+val impl_15': Core_models.Cmp.t_PartialEq t_JournalistLongTermKey t_JournalistLongTermKey
 
 unfold
-let impl_19 = impl_19'
+let impl_15 = impl_15'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_20': Core_models.Cmp.t_Eq t_JournalistLongTermKey
+val impl_16': Core_models.Cmp.t_Eq t_JournalistLongTermKey
 
 unfold
-let impl_20 = impl_20'
+let impl_16 = impl_16'
 
 /// Journalist self-signature over ephemeral key bundles (step 3.2).
 type t_JournalistEphemeralKey = | JournalistEphemeralKey : t_JournalistEphemeralKey
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_21': Core_models.Fmt.t_Debug t_JournalistEphemeralKey
+val impl_17': Core_models.Fmt.t_Debug t_JournalistEphemeralKey
 
 unfold
-let impl_21 = impl_21'
+let impl_17 = impl_17'
 
-let impl_22: Core_models.Clone.t_Clone t_JournalistEphemeralKey =
+let impl_18: Core_models.Clone.t_Clone t_JournalistEphemeralKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_23': Core_models.Marker.t_Copy t_JournalistEphemeralKey
+val impl_19': Core_models.Marker.t_Copy t_JournalistEphemeralKey
 
 unfold
-let impl_23 = impl_23'
+let impl_19 = impl_19'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_24': Core_models.Marker.t_StructuralPartialEq t_JournalistEphemeralKey
+val impl_20': Core_models.Marker.t_StructuralPartialEq t_JournalistEphemeralKey
 
 unfold
-let impl_24 = impl_24'
+let impl_20 = impl_20'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_25': Core_models.Cmp.t_PartialEq t_JournalistEphemeralKey t_JournalistEphemeralKey
+val impl_21': Core_models.Cmp.t_PartialEq t_JournalistEphemeralKey t_JournalistEphemeralKey
 
 unfold
-let impl_25 = impl_25'
+let impl_21 = impl_21'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_26': Core_models.Cmp.t_Eq t_JournalistEphemeralKey
+val impl_22': Core_models.Cmp.t_Eq t_JournalistEphemeralKey
 
 unfold
-let impl_26 = impl_26'
+let impl_22 = impl_22'
 
 /// Newsroom signature over a journalist's verifying key (steps 3.1, 5).
 type t_NewsroomOnJournalist = | NewsroomOnJournalist : t_NewsroomOnJournalist
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_27': Core_models.Fmt.t_Debug t_NewsroomOnJournalist
+val impl_23': Core_models.Fmt.t_Debug t_NewsroomOnJournalist
 
 unfold
-let impl_27 = impl_27'
+let impl_23 = impl_23'
 
-let impl_28: Core_models.Clone.t_Clone t_NewsroomOnJournalist =
+let impl_24: Core_models.Clone.t_Clone t_NewsroomOnJournalist =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_29': Core_models.Marker.t_Copy t_NewsroomOnJournalist
+val impl_25': Core_models.Marker.t_Copy t_NewsroomOnJournalist
 
 unfold
-let impl_29 = impl_29'
+let impl_25 = impl_25'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_30': Core_models.Marker.t_StructuralPartialEq t_NewsroomOnJournalist
+val impl_26': Core_models.Marker.t_StructuralPartialEq t_NewsroomOnJournalist
 
 unfold
-let impl_30 = impl_30'
+let impl_26 = impl_26'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_31': Core_models.Cmp.t_PartialEq t_NewsroomOnJournalist t_NewsroomOnJournalist
+val impl_27': Core_models.Cmp.t_PartialEq t_NewsroomOnJournalist t_NewsroomOnJournalist
 
 unfold
-let impl_31 = impl_31'
+let impl_27 = impl_27'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_32': Core_models.Cmp.t_Eq t_NewsroomOnJournalist
+val impl_28': Core_models.Cmp.t_Eq t_NewsroomOnJournalist
 
 unfold
-let impl_32 = impl_32'
+let impl_28 = impl_28'
 
 /// FPF signature over the newsroom's verifying key (step 2).
 type t_FpfOnNewsroom = | FpfOnNewsroom : t_FpfOnNewsroom
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_33': Core_models.Fmt.t_Debug t_FpfOnNewsroom
+val impl_29': Core_models.Fmt.t_Debug t_FpfOnNewsroom
 
 unfold
-let impl_33 = impl_33'
+let impl_29 = impl_29'
 
-let impl_34: Core_models.Clone.t_Clone t_FpfOnNewsroom =
+let impl_30: Core_models.Clone.t_Clone t_FpfOnNewsroom =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_35': Core_models.Marker.t_Copy t_FpfOnNewsroom
+val impl_31': Core_models.Marker.t_Copy t_FpfOnNewsroom
 
 unfold
-let impl_35 = impl_35'
+let impl_31 = impl_31'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_36': Core_models.Marker.t_StructuralPartialEq t_FpfOnNewsroom
+val impl_32': Core_models.Marker.t_StructuralPartialEq t_FpfOnNewsroom
 
 unfold
-let impl_36 = impl_36'
+let impl_32 = impl_32'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_37': Core_models.Cmp.t_PartialEq t_FpfOnNewsroom t_FpfOnNewsroom
+val impl_33': Core_models.Cmp.t_PartialEq t_FpfOnNewsroom t_FpfOnNewsroom
 
 unfold
-let impl_37 = impl_37'
+let impl_33 = impl_33'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_38': Core_models.Cmp.t_Eq t_FpfOnNewsroom
+val impl_34': Core_models.Cmp.t_Eq t_FpfOnNewsroom
 
 unfold
-let impl_38 = impl_38'
+let impl_34 = impl_34'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl: Securedrop_protocol_minimal.Sign.Private.t_Sealed t_JournalistLongTermKey =
-  { __marker_trait_Securedrop_protocol_minimal.Sign.Private.t_Sealed = () }
-
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_1: Securedrop_protocol_minimal.Sign.Private.t_Sealed t_JournalistEphemeralKey =
-  { __marker_trait_Securedrop_protocol_minimal.Sign.Private.t_Sealed = () }
-
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_2: Securedrop_protocol_minimal.Sign.Private.t_Sealed t_NewsroomOnJournalist =
-  { __marker_trait_Securedrop_protocol_minimal.Sign.Private.t_Sealed = () }
-
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_3: Securedrop_protocol_minimal.Sign.Private.t_Sealed t_FpfOnNewsroom =
-  { __marker_trait_Securedrop_protocol_minimal.Sign.Private.t_Sealed = () }
-
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_DomainTag_for_JournalistLongTermKey: t_DomainTag t_JournalistLongTermKey =
+let impl: t_DomainTag t_JournalistLongTermKey =
   {
-    _super_i0 = FStar.Tactics.Typeclasses.solve;
     f_TAG
     =
     (let list =
@@ -231,7 +203,6 @@ let impl_DomainTag_for_JournalistLongTermKey: t_DomainTag t_JournalistLongTermKe
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 let impl_DomainTag_for_JournalistEphemeralKey: t_DomainTag t_JournalistEphemeralKey =
   {
-    _super_i0 = FStar.Tactics.Typeclasses.solve;
     f_TAG
     =
     (let list =
@@ -256,7 +227,6 @@ let impl_DomainTag_for_JournalistEphemeralKey: t_DomainTag t_JournalistEphemeral
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 let impl_DomainTag_for_NewsroomOnJournalist: t_DomainTag t_NewsroomOnJournalist =
   {
-    _super_i0 = FStar.Tactics.Typeclasses.solve;
     f_TAG
     =
     (let list = [mk_u8 110; mk_u8 114; mk_u8 45; mk_u8 115; mk_u8 105; mk_u8 103] in
@@ -269,7 +239,6 @@ let impl_DomainTag_for_NewsroomOnJournalist: t_DomainTag t_NewsroomOnJournalist 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 let impl_DomainTag_for_FpfOnNewsroom: t_DomainTag t_FpfOnNewsroom =
   {
-    _super_i0 = FStar.Tactics.Typeclasses.solve;
     f_TAG
     =
     (let list =
@@ -294,7 +263,7 @@ type t_Signature (v_D: Type0) {| i0: t_DomainTag v_D |} = {
 }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_9 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
+let impl_5 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
     : Core_models.Clone.t_Clone (t_Signature v_D) =
   {
     f_clone_pre = (fun (self: t_Signature v_D) -> true);
@@ -303,11 +272,11 @@ let impl_9 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_Domain
   }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_8 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
+let impl_4 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
     : Core_models.Marker.t_Copy (t_Signature v_D) = { _super_i0 = FStar.Tactics.Typeclasses.solve }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_10 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
+let impl_6 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
     : Core_models.Cmp.t_PartialEq (t_Signature v_D) (t_Signature v_D) =
   {
     f_eq_pre = (fun (self: t_Signature v_D) (other: t_Signature v_D) -> true);
@@ -316,10 +285,10 @@ let impl_10 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_Domai
   }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_11 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
+let impl_7 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
     : Core_models.Cmp.t_Eq (t_Signature v_D) = { _super_i0 = FStar.Tactics.Typeclasses.solve }
 
-let impl_12__from_bytes
+let impl_8__from_bytes
       (#v_D: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
       (bytes: t_Array u8 (mk_usize 64))
@@ -406,15 +375,15 @@ type t_SigningKey = {
   f_sk:Libcrux_ed25519.Impl_hacl.t_SigningKey
 }
 
-let impl_42: Core_models.Clone.t_Clone t_VerifyingKey =
+let impl_38: Core_models.Clone.t_Clone t_VerifyingKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_41': Core_models.Marker.t_Copy t_VerifyingKey
+val impl_37': Core_models.Marker.t_Copy t_VerifyingKey
 
 unfold
-let impl_41 = impl_41'
+let impl_37 = impl_37'
 
 /// Generate a signing key from the supplied `rng`.
 let impl_SigningKey__new
@@ -495,7 +464,7 @@ let impl_SigningKey__sign
         Core_models.Result.t_Result (t_Array u8 (mk_usize 64)) Libcrux_ed25519.Impl_hacl.t_Error)
       "Signing should not fail with valid key"
   in
-  impl_12__from_bytes #v_D bytes
+  impl_8__from_bytes #v_D bytes
 
 /// Get the raw bytes of this verification key.
 let impl_VerifyingKey__into_bytes (self: t_VerifyingKey) : t_Array u8 (mk_usize 32) =
