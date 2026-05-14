@@ -1,3 +1,7 @@
+# This Makefile configures hax extraction for dependencies of the
+# "securedrop_protocol_minimal" crate, as documented here:
+# https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-interfaces-extracted-from-our-dependencies
+
 HAX_LIB_VERSION=$(shell make -C ../../.. -s hax-lib-version)
 
 # include pattern modifiers (e.g. `+`, `+!`, `+:`) are documented

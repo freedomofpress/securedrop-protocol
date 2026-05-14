@@ -1,3 +1,7 @@
+# This Makefile configures hax extraction and verification for the
+# "securedrop_protocol_minimal" crate, as documented here:
+# https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-modules-extracted-from-protocol-minimal
+
 HAX_TARGETS := -**
 HAX_TARGETS += +securedrop_protocol_minimal::primitives::dh_akem::typed
 HAX_TARGETS += +securedrop_protocol_minimal::primitives::mlkem::typed
