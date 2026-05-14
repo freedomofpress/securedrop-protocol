@@ -1,5 +1,5 @@
-use libcrux_kem::{PrivateKey, PublicKey};
-use libcrux_ml_kem::{KEY_GENERATION_SEED_SIZE, mlkem768};
+use crate::primitives::provider::params::kem::{PrivateKey, PublicKey};
+use crate::primitives::provider::params::mlkem::{KEY_GENERATION_SEED_SIZE, mlkem768};
 use rand_core::{CryptoRng, RngCore};
 
 // From NIST ML-KEM spec:
@@ -53,7 +53,7 @@ pub(crate) fn from_bytes(
 pub(crate) fn deterministic_keygen(
     randomness: [u8; KEY_GENERATION_SEED_SIZE],
 ) -> Result<(MLKEM768PrivateKey, MLKEM768PublicKey), anyhow::Error> {
-    use libcrux_kem::{Algorithm, key_gen_derand};
+    use crate::primitives::provider::params::kem::{Algorithm, key_gen_derand};
 
     // Generate MLKEM-768 keypair using libcrux_kem with deterministic randomness
     let (sk, pk) = key_gen_derand(Algorithm::MlKem768, &randomness)
@@ -120,7 +120,7 @@ fn typed(
 pub(crate) fn generate_mlkem768_keypair<R: RngCore + CryptoRng>(
     rng: &mut R,
 ) -> Result<(MLKEM768PrivateKey, MLKEM768PublicKey), anyhow::Error> {
-    use libcrux_kem::{Algorithm, key_gen};
+    use crate::primitives::provider::params::kem::{Algorithm, key_gen};
 
     // Generate MLKEM-768 keypair using libcrux_kem
     let (sk, pk) = key_gen(Algorithm::MlKem768, rng)

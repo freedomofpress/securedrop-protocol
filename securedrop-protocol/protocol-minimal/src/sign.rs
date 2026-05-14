@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
+use crate::primitives::provider::params::ed25519::{LibCruxSigningKey, LibCruxVerifyingKey};
 use anyhow::Error;
-use libcrux_ed25519::{SigningKey as LibCruxSigningKey, VerificationKey as LibCruxVerifyingKey};
 use rand_core::CryptoRng;
 
 // Sealing module: prevents external crates from implementing `DomainTag`.

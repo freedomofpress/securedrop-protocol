@@ -1,8 +1,6 @@
+use crate::primitives::provider::params::kem::{PrivateKey, PublicKey};
 use hpke_rs::{HpkePrivateKey, HpkePublicKey};
-use libcrux_kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
-
-// todo: deprecate all this
 
 pub(crate) const DH_AKEM_PUBLIC_KEY_LEN: usize = 32;
 pub(crate) const DH_AKEM_PRIVATE_KEY_LEN: usize = 32;
@@ -65,7 +63,7 @@ fn clamp(scalar: &mut [u8; 32]) {
 pub(crate) fn deterministic_keygen(
     randomness: [u8; 32],
 ) -> Result<(DhAkemPrivateKey, DhAkemPublicKey), anyhow::Error> {
-    use libcrux_kem::{Algorithm, key_gen_derand};
+    use crate::primitives::provider::params::kem::{Algorithm, key_gen_derand};
 
     // Note that the key_gen_derand function expects the seed to be a valid scalar for X25519
     let mut clamped_randomness = randomness.clone();
@@ -147,7 +145,7 @@ fn typed(
 pub(crate) fn generate_dh_akem_keypair<R: RngCore + CryptoRng>(
     rng: &mut R,
 ) -> Result<(DhAkemPrivateKey, DhAkemPublicKey), anyhow::Error> {
-    use libcrux_kem::{Algorithm, key_gen};
+    use crate::primitives::provider::params::kem::{Algorithm, key_gen};
 
     // Generate DH-AKEM keypair using libcrux_kem with X25519
     let (sk, pk) = key_gen(Algorithm::X25519, rng)

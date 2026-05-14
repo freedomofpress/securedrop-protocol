@@ -20,6 +20,8 @@
 //!     return m
 //! ```
 
+use crate::primitives::provider::params::kem::MlKem768;
+use crate::primitives::provider::params::traits::OwnedKem as Kem;
 use alloc::vec::Vec;
 use anyhow::Error;
 use hpke_rs::{
@@ -27,8 +29,6 @@ use hpke_rs::{
     hpke_types::KdfAlgorithm::HkdfSha256, hpke_types::KemAlgorithm::DhKem25519,
     libcrux::HpkeLibcrux,
 };
-use libcrux_kem::MlKem768;
-use libcrux_traits::kem::owned::Kem;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::constants::{LEN_DHKEM_SHAREDSECRET_ENCAPS, LEN_MLKEM_SHAREDSECRET_ENCAPS};
