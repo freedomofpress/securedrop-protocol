@@ -7,8 +7,31 @@ permissions:
   pull-requests: read
 
 jobs:
+  check-extraction-targets:
+    name: Check libcrux extraction targets are up-to-date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675 # v4.1.1
+        with:
+          persist-credentials: false
+
+      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+      - uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+        with:
+          toolchain: nightly
+
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Check libcrux extraction targets (warn only)
+        run: |
+          if ! make check-targets; then
+            echo "::warning:: libcrux extraction targets may be out of date. Run 'make update-targets' in proofs/fstar/models"
+          fi
+        working-directory: securedrop-protocol/protocol-minimal
+
   verify:
-    name: Verify
+    name: Extract and Verify
     runs-on: ubuntu-latest
     steps:
       - name: Check out
