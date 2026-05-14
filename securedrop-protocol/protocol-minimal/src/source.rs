@@ -10,8 +10,9 @@ use argon2::{Algorithm, Argon2, Params, Version};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
-use crate::constants::*;
 use crate::keys::*;
+use crate::primitives::x25519::DH_PUBLIC_KEY_LEN;
+use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use crate::traits::{UserPublic, UserSecret};
 
 // do not re-export!
@@ -98,10 +99,10 @@ impl UserSecret for Source {
     }
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
-        let mut fetch_pk = [0u8; LEN_DH_ITEM];
+        let mut fetch_pk = [0u8; DH_PUBLIC_KEY_LEN];
         fetch_pk.copy_from_slice(&self.fetch_key.pk.into_bytes());
 
-        let mut reply_key_pq_hybrid = [0u8; LEN_XWING_ENCAPS_KEY];
+        let mut reply_key_pq_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
         reply_key_pq_hybrid.copy_from_slice(self.message_keys.metadata_kp.public_key().as_bytes());
 
         Plaintext {
@@ -226,7 +227,7 @@ impl Source {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::{LEN_DHKEM_DECAPS_KEY, LEN_MLKEM_DECAPS_KEY, LEN_XWING_DECAPS_KEY};
+    use crate::primitives::xwing::XWING_PRIVATE_KEY_LEN;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
@@ -266,7 +267,7 @@ mod tests {
         );
         assert_ne!(
             source1.message_keys.metadata_kp.private_key().as_bytes(),
-            &[0u8; LEN_XWING_DECAPS_KEY]
+            &[0u8; XWING_PRIVATE_KEY_LEN]
         );
     }
 }

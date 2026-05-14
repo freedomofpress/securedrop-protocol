@@ -9,7 +9,6 @@ extern crate alloc;
 
 pub mod api;
 mod ciphertext;
-mod constants;
 pub mod keys;
 pub mod primitives;
 pub mod server;
@@ -20,14 +19,15 @@ pub mod wire;
 pub mod journalist;
 pub mod source;
 
-pub use constants::{LEN_DH_ITEM, LEN_MLKEM_ENCAPS_KEY, LEN_XWING_ENCAPS_KEY};
-
 pub use ciphertext::{Envelope, FetchResponse, Plaintext};
 
 pub use keys::{
     DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, SessionStorage, SignedKeyBundlePublic,
     SignedLongtermPubKeyBytes, SigningKeyPair,
 };
+pub use primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
+pub use primitives::x25519::DH_PUBLIC_KEY_LEN;
+pub use primitives::xwing::XWING_PUBLIC_KEY_LEN;
 
 pub use traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
 

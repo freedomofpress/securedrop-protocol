@@ -4,7 +4,7 @@
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
-use securedrop_protocol_minimal::LEN_DH_ITEM;
+use securedrop_protocol_minimal::DH_PUBLIC_KEY_LEN;
 use securedrop_protocol_minimal::api::{Client, JournalistApi};
 use securedrop_protocol_minimal::keys::FPFKeyPair;
 use securedrop_protocol_minimal::sign::{FpfOnNewsroom, Signature};
@@ -276,10 +276,13 @@ fn protocol_step_4_source_setup() {
     let source_public = source.public();
     let pass = source.passphrase();
     let source2 = Source::from_passphrase(pass);
-    assert_ne!(source_public.fetch_pk().into_bytes(), [0u8; LEN_DH_ITEM]);
+    assert_ne!(
+        source_public.fetch_pk().into_bytes(),
+        [0u8; DH_PUBLIC_KEY_LEN]
+    );
     assert_ne!(
         source_public.message_auth_pk().as_bytes(),
-        &[0u8; LEN_DH_ITEM]
+        &[0u8; DH_PUBLIC_KEY_LEN]
     );
     assert_eq!(pass, source2.passphrase());
     assert_eq!(

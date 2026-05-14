@@ -9,11 +9,11 @@ use crate::sign::{
 
 use crate::message::{MessageKeyPair, MessagePublicKey};
 use crate::metadata::{MetadataKeyPair, MetadataPublicKey};
-use crate::primitives::x25519::DHPrivateKey;
-use crate::primitives::x25519::DHPublicKey;
+use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
+use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
+use crate::primitives::x25519::{DH_PUBLIC_KEY_LEN, DHPrivateKey, DHPublicKey, DHSharedSecret};
+use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use alloc::vec::Vec;
-
-use crate::constants::*;
 
 /// Generic KeyPair
 pub struct KeyPair<SK, PK> {
@@ -76,7 +76,7 @@ pub(crate) struct SignedMessageKeyBundle {
 
 #[derive(Debug, Clone)]
 pub struct SignedLongtermPubKeyBytes(
-    pub [u8; LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_ENCAPS_KEY + LEN_DH_ITEM],
+    pub [u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN],
 );
 
 impl SignedLongtermPubKeyBytes {
@@ -88,7 +88,8 @@ impl SignedLongtermPubKeyBytes {
         let apke_bytes = reply_apke.as_bytes();
         let fetch_bytes = fetch_pk.into_bytes();
 
-        let mut pubkey_bytes = [0u8; LEN_DHKEM_ENCAPS_KEY + LEN_MLKEM_ENCAPS_KEY + LEN_DH_ITEM];
+        let mut pubkey_bytes =
+            [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN];
         pubkey_bytes[..apke_bytes.len()].copy_from_slice(&apke_bytes);
         pubkey_bytes[apke_bytes.len()..].copy_from_slice(&fetch_bytes);
 

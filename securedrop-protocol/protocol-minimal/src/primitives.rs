@@ -5,6 +5,7 @@ use rand_core::{CryptoRng, RngCore};
 pub(crate) mod dh_akem;
 pub(crate) mod mlkem;
 pub mod pad;
+pub(crate) mod provider;
 pub mod x25519;
 pub(crate) mod xwing;
 
@@ -23,7 +24,7 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
     message_id: &[u8],
     rng: &mut R,
 ) -> Result<Vec<u8>, Error> {
-    use libcrux_chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
+    use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 
     if key.len() != KEY_LEN {
         return Err(anyhow::anyhow!("Invalid key length"));
@@ -43,7 +44,7 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
         .map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
 
     // Encrypt the message ID
-    libcrux_chacha20poly1305::encrypt(
+    provider::chacha20poly1305::encrypt(
         &key_array,
         message_id,
         &mut ciphertext,
@@ -60,7 +61,7 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
 ///
 /// This is used in step 7 for decrypting message IDs with a shared secret
 pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, Error> {
-    use libcrux_chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
+    use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 
     if key.len() != KEY_LEN {
         return Err(anyhow::anyhow!("Invalid key length"));
@@ -83,7 +84,7 @@ pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, 
         .map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
 
     // Decrypt the message ID
-    libcrux_chacha20poly1305::decrypt(
+    provider::chacha20poly1305::decrypt(
         &key_array,
         &mut plaintext,
         ciphertext,

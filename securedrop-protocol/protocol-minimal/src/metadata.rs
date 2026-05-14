@@ -15,16 +15,16 @@
 //!     return m
 //! ```
 
+use crate::primitives::provider::hpke_rs::{
+    Aes256Gcm, HkdfSha256, Hpke, HpkeLibcrux, Mode, XWingDraft06,
+};
 use alloc::vec::Vec;
 use anyhow::Error;
-use hpke_rs::{
-    Hpke, Mode, hpke_types::AeadAlgorithm::Aes256Gcm, hpke_types::KdfAlgorithm::HkdfSha256,
-    hpke_types::KemAlgorithm::XWingDraft06, libcrux::HpkeLibcrux,
-};
 use rand_core::{CryptoRng, RngCore};
 
-use crate::constants::LEN_XWING_SHAREDSECRET_ENCAPS;
-use crate::primitives::xwing::{XWingPrivateKey, XWingPublicKey, generate_xwing_keypair};
+use crate::primitives::xwing::{
+    LEN_XWING_SHAREDSECRET_ENCAPS, XWingPrivateKey, XWingPublicKey, generate_xwing_keypair,
+};
 
 /// The recipient's metadata public key (`pk_R^PKE` in the spec).
 #[derive(Debug, Clone)]

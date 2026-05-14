@@ -20,24 +20,25 @@
 //!     return m
 //! ```
 
+use crate::primitives::provider::hpke_rs::{
+    Aes256Gcm, DhKem25519, HkdfSha256, Hpke, HpkeLibcrux, HpkePrivateKey, HpkePublicKey, Mode,
+};
+use crate::primitives::provider::kem::MlKem768;
+use crate::primitives::provider::traits::OwnedKem as Kem;
 use alloc::vec::Vec;
 use anyhow::Error;
-use hpke_rs::{
-    Hpke, HpkePrivateKey, HpkePublicKey, Mode, hpke_types::AeadAlgorithm::Aes256Gcm,
-    hpke_types::KdfAlgorithm::HkdfSha256, hpke_types::KemAlgorithm::DhKem25519,
-    libcrux::HpkeLibcrux,
-};
-use libcrux_kem::MlKem768;
-use libcrux_traits::kem::owned::Kem;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::constants::{LEN_DHKEM_SHAREDSECRET_ENCAPS, LEN_MLKEM_SHAREDSECRET_ENCAPS};
-use crate::primitives::dh_akem::deterministic_keygen as dhakem_derand;
+use crate::primitives::dh_akem::{
+    DH_AKEM_ENCAPS_SECRET_LEN, deterministic_keygen as dhakem_derand,
+};
 use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey, generate_dh_akem_keypair};
 use crate::primitives::mlkem::{
     MLKEM768PrivateKey, MLKEM768PublicKey, deterministic_keygen as mlkem_derand,
     generate_mlkem768_keypair,
 };
+
+use crate::primitives::mlkem::LEN_MLKEM_SHAREDSECRET_ENCAPS;
 
 // PSK ID per spec §pskAPKE
 // spec: PSK_ID = "SD-pskAPKE"
@@ -127,7 +128,7 @@ impl MessagePublicKey {
 #[derive(Debug, Clone)]
 pub struct MessageCiphertext {
     /// HPKE encapsulation output (`c1` in the spec)
-    pub(crate) c1: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS],
+    pub(crate) c1: [u8; DH_AKEM_ENCAPS_SECRET_LEN],
     /// HPKE AEAD ciphertext (`cp` / `c'` in the spec)
     pub(crate) cp: Vec<u8>,
     /// ML-KEM-768 encapsulation used as PSK (`c2` in the spec)
@@ -230,7 +231,7 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
         .map_err(|e| anyhow::anyhow!("SD-APKE AuthEnc failed: {:?}", e))?;
 
     // c1 is always LEN_DHKEM_SHAREDSECRET_ENCAPS bytes for DHKEM(X25519)
-    let c1: [u8; LEN_DHKEM_SHAREDSECRET_ENCAPS] = c1_vec
+    let c1: [u8; DH_AKEM_ENCAPS_SECRET_LEN] = c1_vec
         .try_into()
         .expect("DHKEM(X25519) encapsulation output has unexpected length");
 

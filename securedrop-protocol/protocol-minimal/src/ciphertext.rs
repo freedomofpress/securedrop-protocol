@@ -1,6 +1,8 @@
-use crate::constants::{LEN_DH_ITEM, LEN_KMID, LEN_XWING_ENCAPS_KEY};
 use crate::message::MessageCiphertext;
 use crate::metadata::MetadataCiphertext;
+use crate::primitives::provider::constants::LEN_KMID;
+use crate::primitives::x25519::{DH_PUBLIC_KEY_LEN, DH_SHARED_SECRET_LEN};
+use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use alloc::vec::Vec;
 use anyhow::Error;
 
@@ -20,10 +22,10 @@ pub struct Envelope {
     pub(crate) ct_pke: MetadataCiphertext,
 
     /// `X = g^x`: ephemeral DH public key for the hint
-    pub(crate) mgdh_pubkey: [u8; LEN_DH_ITEM],
+    pub(crate) mgdh_pubkey: [u8; DH_PUBLIC_KEY_LEN],
 
     /// `Z = (pk_R^fetch)^x`: DH share for fetching
-    pub(crate) mgdh: [u8; LEN_DH_ITEM],
+    pub(crate) mgdh: [u8; DH_PUBLIC_KEY_LEN],
 }
 
 impl Envelope {
@@ -46,9 +48,9 @@ impl Envelope {
 /// Toy pt structure - TODO: provide params in correct order
 pub struct Plaintext {
     /// Metadata key: $pk_S^{PKE}$ in the spec
-    pub sender_reply_pubkey_hybrid: [u8; LEN_XWING_ENCAPS_KEY],
+    pub sender_reply_pubkey_hybrid: [u8; XWING_PUBLIC_KEY_LEN],
     /// Fetching key: $pk_S^{fetch}$ in the spec
-    pub sender_fetch_key: [u8; LEN_DH_ITEM],
+    pub sender_fetch_key: [u8; DH_PUBLIC_KEY_LEN],
     /// Message
     pub msg: Vec<u8>,
 }
@@ -66,21 +68,21 @@ impl Plaintext {
     }
 
     pub fn len(&self) -> usize {
-        LEN_XWING_ENCAPS_KEY + LEN_DH_ITEM + self.msg.len()
+        XWING_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN + self.msg.len()
     }
 
     // Toy parsing only
     pub fn from_bytes(pt_bytes: &[u8]) -> Result<Self, Error> {
         let mut offset = 0;
 
-        let mut sender_reply_pubkey_hybrid = [0u8; LEN_XWING_ENCAPS_KEY];
+        let mut sender_reply_pubkey_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
         sender_reply_pubkey_hybrid
-            .copy_from_slice(&pt_bytes[offset..offset + LEN_XWING_ENCAPS_KEY]);
-        offset += LEN_XWING_ENCAPS_KEY;
+            .copy_from_slice(&pt_bytes[offset..offset + XWING_PUBLIC_KEY_LEN]);
+        offset += XWING_PUBLIC_KEY_LEN;
 
-        let mut sender_fetch_key = [0u8; LEN_DH_ITEM];
-        sender_fetch_key.copy_from_slice(&pt_bytes[offset..offset + LEN_DH_ITEM]);
-        offset += LEN_DH_ITEM;
+        let mut sender_fetch_key = [0u8; DH_PUBLIC_KEY_LEN];
+        sender_fetch_key.copy_from_slice(&pt_bytes[offset..offset + DH_PUBLIC_KEY_LEN]);
+        offset += DH_PUBLIC_KEY_LEN;
 
         let msg = pt_bytes[offset..].to_vec();
 
@@ -94,12 +96,12 @@ impl Plaintext {
 
 #[derive(Clone, Debug)]
 pub struct FetchResponse {
-    pub(crate) enc_id: [u8; LEN_KMID],   // aka kmid
-    pub(crate) pmgdh: [u8; LEN_DH_ITEM], // aka per-request clue
+    pub(crate) enc_id: [u8; LEN_KMID],            // aka kmid
+    pub(crate) pmgdh: [u8; DH_SHARED_SECRET_LEN], // aka per-request clue
 }
 
 impl FetchResponse {
-    pub fn new(enc_id: [u8; LEN_KMID], pmgdh: [u8; LEN_DH_ITEM]) -> Self {
+    pub fn new(enc_id: [u8; LEN_KMID], pmgdh: [u8; DH_SHARED_SECRET_LEN]) -> Self {
         Self { enc_id, pmgdh }
     }
 }

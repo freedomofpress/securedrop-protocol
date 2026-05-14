@@ -10,7 +10,6 @@ use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
-use crate::constants::*;
 use crate::keys::*;
 use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, UserSecret};
 
@@ -138,8 +137,8 @@ impl UserSecret for Journalist {
         // in order to reply. either fill with random bytes or use
         // another scheme (fixme)
         Plaintext {
-            sender_fetch_key: [0u8; LEN_DH_ITEM],
-            sender_reply_pubkey_hybrid: [0u8; LEN_XWING_ENCAPS_KEY],
+            sender_fetch_key: [0u8; crate::primitives::x25519::DH_PUBLIC_KEY_LEN],
+            sender_reply_pubkey_hybrid: [0u8; crate::primitives::xwing::XWING_PUBLIC_KEY_LEN],
             msg: message,
         }
     }
