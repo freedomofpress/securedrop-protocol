@@ -22,6 +22,9 @@ jobs:
           toolchain: stable
       # Swatinem/rust-cache@v2.8.0
       - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        with:
+          # wasm-bindgen-cli version change should invalidate cache too
+          prefix-key: ${{ hashFiles('securedrop-protocol/bench/Makefile') }}
       # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
       - run: cargo check
         working-directory: securedrop-protocol
@@ -40,6 +43,8 @@ jobs:
           toolchain: stable
       # Swatinem/rust-cache@v2.8.0
       - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        with:
+          prefix-key: ${{ hashFiles('securedrop-protocol/bench/Makefile') }}
       # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
       - run: cargo test --all-features
         working-directory: securedrop-protocol
@@ -59,6 +64,8 @@ jobs:
           components: rustfmt
       # Swatinem/rust-cache@v2.8.0
       - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        with:
+          prefix-key: ${{ hashFiles('securedrop-protocol/bench/Makefile') }}
       # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
       - run: cargo fmt --all --check
         working-directory: securedrop-protocol
@@ -121,6 +128,9 @@ jobs:
           targets: wasm32-unknown-unknown
       # Swatinem/rust-cache@v2.8.0
       - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        with:
+          # wasm-bindgen-cli version change should invalidate cache too
+          prefix-key: ${{ hashFiles('securedrop-protocol/bench/Makefile') }}
       # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
       - name: Cache node and selenium dependencies
         uses: actions/cache@v4
