@@ -6,68 +6,163 @@ HAX_LIB_VERSION=$(shell make -C ../../.. -s hax-lib-version)
 
 # include pattern modifiers (e.g. `+`, `+!`, `+:`) are documented
 # in `cargo hax into --help`
-LIBCRUX_VERSION=3cd1843b0f029b2c8499d1af4234670ad04341bf  # cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478
+
+LIBCRUX_VERSION=41e1b3d57f8f6c2e49f3fb1e6c33dbb92279023d  # FIXME: cfm/libcrux@41e1b3d
+
+# Manual extraction policy.
 LIBCRUX_ECDH_TARGETS := -**
-LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::Algorithm
-LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::Error
-LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::*::PrivateKey
-LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::*::PublicKey
-LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::*::SharedSecret
+
 LIBCRUX_KEM_TARGETS := -**
 # `+!` (no transitive deps): plain `+` pulls in items that cross the
 # `Libcrux_kem.Xwing` submodule boundary
-LIBCRUX_KEM_TARGETS += +!libcrux_kem::*
-# `+!libcrux_kem::*` doesn't reach into inherent-impl blocks; explicitly specify
-# the methods whose implementations we need:
-LIBCRUX_KEM_TARGETS += +!**::encode
-LIBCRUX_KEM_TARGETS += +!**::decode
-LIBCRUX_KEM_TARGETS += +!**::encapsulate
-LIBCRUX_KEM_TARGETS += +!**::encapsulate_derand
+LIBCRUX_KEM_TARGETS += +!libcrux_kem::key_gen
+LIBCRUX_KEM_TARGETS += +!libcrux_kem::key_gen_derand
+
 LIBCRUX_ML_KEM_TARGETS := -**
-LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemPrivateKey
-LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemPublicKey
-LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemCiphertext
-LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::mlkem768::MlKem768
 LIBCRUX_TRAITS_TARGETS := -**
-LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::Kem
-LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::KeyGenError
-LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::EncapsError
-LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::DecapsError
-LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::owned::Kem
 LIBCRUX_CURVE25519_TARGETS := -**
-LIBCRUX_CURVE25519_TARGETS += +libcrux_curve25519::DK_LEN
-LIBCRUX_CURVE25519_TARGETS += +libcrux_curve25519::EK_LEN
-LIBCRUX_CURVE25519_TARGETS += +libcrux_curve25519::SS_LEN
 LIBCRUX_CHACHA20POLY1305_TARGETS := -**
-LIBCRUX_CHACHA20POLY1305_TARGETS += +libcrux_chacha20poly1305::TAG_LEN
-LIBCRUX_CHACHA20POLY1305_TARGETS += +libcrux_chacha20poly1305::NONCE_LEN
 
-.PHONY: libcrux
-libcrux:
-	rm -rf $@
-	git clone https://github.com/cfm/libcrux # cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478
-	cd $@ && git checkout $(LIBCRUX_VERSION)
+# Additional targets are added here!
+# Autogenerate targets with `make update-targets`
+include targets.mk
 
-	cd $@/libcrux-ecdh && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
-	cd $@/libcrux-ecdh && cargo hax into -i '$(LIBCRUX_ECDH_TARGETS)' fstar --interfaces '+!**'
 
-	cd $@/libcrux-kem && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
-	cd $@/libcrux-kem && cargo hax into -i '$(LIBCRUX_KEM_TARGETS)' fstar --interfaces '+!**'
+.PHONY: rust-toolchain
+rust-toolchain:
+	@rustup toolchain list | grep -q '^nightly' || \
+	( \
+		echo "error: Rust nightly toolchain is required."; \
+		echo "install it with:"; \
+		echo "  rustup toolchain install nightly"; \
+		exit 1; \
+	)
 
-	cd $@/libcrux-ml-kem && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
-	cd $@/libcrux-ml-kem && cargo hax into -i '$(LIBCRUX_ML_KEM_TARGETS)' fstar --interfaces '+!**'
 
-	cd $@/traits && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
-	cd $@/traits && cargo hax into -i '$(LIBCRUX_TRAITS_TARGETS)' fstar --interfaces '+!**'
+.PHONY: update-targets
+update-targets: rust-toolchain
+	./auto_targets.sh libcrux
 
-	cd $@/crates/algorithms/curve25519 && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
-	cd $@/crates/algorithms/curve25519 && cargo hax into -i '$(LIBCRUX_CURVE25519_TARGETS)' fstar --interfaces '+!**'
 
-	cd $@/crates/algorithms/chacha20poly1305 && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
-	cd $@/crates/algorithms/chacha20poly1305 && cargo hax into -i '$(LIBCRUX_CHACHA20POLY1305_TARGETS)' fstar --interfaces '+!**'
+.PHONY: check-targets
+check-targets:
+	./auto_targets.sh libcrux
+	git diff --exit-code -- targets.mk || echo ""; \
+		echo "WARNING: targets.mk has changed!"; \
+		echo ""; \
+		echo "You may need to rerun 'make libcrux'."; \
+		exit 1;
 
-	cp $@/*/proofs/fstar/extraction/*.fsti .
-	cp $@/crates/algorithms/*/proofs/fstar/extraction/*.fsti .
 
-	# Append axiomatic stubs that hax cannot extract (see each .stub file for context).
-	cat Libcrux_ml_kem.Mlkem768.fsti.stub >> Libcrux_ml_kem.Mlkem768.fsti
+.PHONY: libcrux \
+	libcrux-clone \
+	libcrux-module \
+	libcrux-ecdh \
+	libcrux-kem \
+	libcrux-ml-kem \
+	libcrux-traits \
+	libcrux-curve25519 \
+	libcrux-chacha20poly1305 \
+	libcrux-append-stubs
+
+
+libcrux: \
+	libcrux-clone \
+	libcrux-ecdh \
+	libcrux-kem \
+	libcrux-ml-kem \
+	libcrux-traits \
+	libcrux-curve25519 \
+	libcrux-chacha20poly1305 \
+	libcrux-append-stubs
+	@echo "Done."
+
+
+libcrux-clone:
+	@echo "Clone libcrux@$(LIBCRUX_VERSION)"
+	@rm -rf libcrux
+	@git clone --quiet https://github.com/cfm/libcrux  # FIXME: cfm/libcrux@41e1b3d
+	@cd libcrux && git checkout $(LIBCRUX_VERSION) --quiet
+
+libcrux-module:
+	@echo "extract $(MODULE) ..."
+
+	@cd $(MODULE) && \
+		cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
+
+	@set -e; \
+	EXTRACT_STATUS=0; \
+	\
+	cd $(MODULE) && \
+		cargo hax into -i "$(TARGETS)" fstar --interfaces '+!**' \
+		|| EXTRACT_STATUS=$$?; \
+	\
+	echo "Copy $(MODULE) fsti ..."; \
+	for d in $(MODULE)/* $(MODULE)/crates/algorithms/*; do \
+		if [ -d "$$d/proofs/fstar/extraction" ]; then \
+			cp "$$d"/proofs/fstar/extraction/*.fsti . 2>/dev/null || true; \
+		fi; \
+	done; \
+	\
+	if [ $$EXTRACT_STATUS -ne 0 ]; then \
+		echo ""; \
+		echo "ERROR: hax extraction failed for module:"; \
+		echo "  $(MODULE)"; \
+		echo ""; \
+		echo "This likely means one or more extraction targets in this module are broken."; \
+		echo "Targets:"; \
+		printf '  %s\n' "$(TARGETS)"; \
+		exit $$EXTRACT_STATUS; \
+	fi
+
+libcrux-ecdh:
+	$(MAKE) libcrux-module \
+		MODULE=libcrux/libcrux-ecdh \
+		TARGETS="$(LIBCRUX_ECDH_TARGETS)"
+
+
+libcrux-kem:
+	$(MAKE) libcrux-module \
+		MODULE=libcrux/libcrux-kem \
+		TARGETS="$(LIBCRUX_KEM_TARGETS)"
+
+
+libcrux-ml-kem:
+	$(MAKE) libcrux-module \
+		MODULE=libcrux/libcrux-ml-kem \
+		TARGETS="$(LIBCRUX_ML_KEM_TARGETS)"
+
+
+libcrux-traits:
+	$(MAKE) libcrux-module \
+		MODULE=libcrux/traits \
+		TARGETS="$(LIBCRUX_TRAITS_TARGETS)"
+
+
+libcrux-curve25519:
+	$(MAKE) libcrux-module \
+		MODULE=libcrux/crates/algorithms/curve25519 \
+		TARGETS="$(LIBCRUX_CURVE25519_TARGETS)"
+
+
+libcrux-chacha20poly1305:
+	$(MAKE) libcrux-module \
+		MODULE=libcrux/crates/algorithms/chacha20poly1305 \
+		TARGETS="$(LIBCRUX_CHACHA20POLY1305_TARGETS)"
+
+
+libcrux-append-stubs:
+	@find . -type f -name '*.fsti.stub' \
+		-exec sh -c '\
+			stub="$$1"; \
+			dst="$${stub%.stub}"; \
+			\
+			if [ ! -f "$$dst" ]; then \
+				cp "$$stub" "$$dst"; \
+				exit 0; \
+			fi; \
+			\
+			if ! tail -c "$$(wc -c < "$$stub")" "$$dst" 2>/dev/null | cmp -s - "$$stub"; then \
+				cat "$$stub" >> "$$dst"; \
+			fi \
+		' _ {} \;
