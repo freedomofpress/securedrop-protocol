@@ -11,11 +11,9 @@ use crate::keys::{
     Enrollment, KeyBundlePublic, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermPubKeyBytes,
 };
 
-// Seal Secret user traits behind a private module so that others can't access or implement them
-// This could be more restricted than pub(crate), except we also use it for testing
-pub(crate) mod private {
-    pub trait Sealed {}
-}
+// Sealed traits that downstream crates should not implement.
+// Do not re-export!
+use crate::sealed;
 
 ////////////////////////
 ///
@@ -45,7 +43,7 @@ pub trait JournalistPublic: UserPublic {
     fn ephemeral_signature(&self) -> &Signature<JournalistEphemeralKey>;
 }
 
-pub trait Enrollable: private::Sealed {
+pub trait Enrollable: sealed::Sealed {
     fn signing_key(&self) -> &VerifyingKey;
     fn enroll(&self) -> Enrollment;
     /// Each item is a [`SignedKeyBundlePublic`]: the public keys together with the
@@ -59,7 +57,7 @@ pub trait Enrollable: private::Sealed {
 /// authenticate their messages (via DH-AKEM);
 /// They can index a KeyBundle (tuple) and use it to attempt to
 /// decrypt a message.
-pub trait UserSecret: private::Sealed {
+pub trait UserSecret: sealed::Sealed {
     fn num_bundles(&self) -> usize;
     fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey);
     /// The long-term SD-APKE private key `sk^APKE`.
@@ -69,3 +67,5 @@ pub trait UserSecret: private::Sealed {
     fn build_message(&self, message: Vec<u8>) -> Plaintext;
     fn keybundles(&self) -> Vec<&MessageKeyBundle>;
 }
+
+pub(crate) trait RestrictedApi: sealed::Sealed {}
