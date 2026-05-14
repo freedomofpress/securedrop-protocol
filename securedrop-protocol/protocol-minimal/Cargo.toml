@@ -6,9 +6,16 @@ authors = ["SecureDrop Team <securedrop@freedom.press>"]
 description = "A wip impl of the securedrop protocol"
 license = "GPL-3.0"
 
+# hax extraction for this crate is configured in "Makefile", as documented here:
+# https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-modules-extracted-from-protocol-minimal
+
 [lib]
 
 [dependencies]
+# hax extraction for dependencies is configured in "proofs/fstar/models/Makefile", as documented
+# here:
+# https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-interfaces-extracted-from-our-dependencies
+
 # no rand/getrandom in core library!
 # crypto stack, pinned to cryspen/libcrux#1312
 libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f", features = ["rand"] }
