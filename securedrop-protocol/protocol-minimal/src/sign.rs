@@ -6,6 +6,7 @@ use libcrux_ed25519::{SigningKey as LibCruxSigningKey, VerificationKey as LibCru
 use rand_core::CryptoRng;
 
 // Sealing module: prevents external crates from implementing `DomainTag`.
+#[cfg(not(hax))]
 mod private {
     pub trait Sealed {}
 }
@@ -14,7 +15,13 @@ mod private {
 ///
 /// Each impl encodes the ASCII tag that is prepended to every signing preimage
 /// in that domain: `len(tag) || tag || msg`  (see footnote in the spec).
+#[cfg(not(hax))]
 pub trait DomainTag: private::Sealed {
+    #[doc(hidden)]
+    const TAG: &'static [u8];
+}
+#[cfg(hax)]
+pub trait DomainTag {
     #[doc(hidden)]
     const TAG: &'static [u8];
 }
@@ -35,10 +42,15 @@ pub struct NewsroomOnJournalist;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FpfOnNewsroom;
 
-impl private::Sealed for JournalistLongTermKey {}
-impl private::Sealed for JournalistEphemeralKey {}
-impl private::Sealed for NewsroomOnJournalist {}
-impl private::Sealed for FpfOnNewsroom {}
+#[cfg(not(hax))]
+mod sealed_impls {
+    use super::*;
+
+    impl private::Sealed for JournalistLongTermKey {}
+    impl private::Sealed for JournalistEphemeralKey {}
+    impl private::Sealed for NewsroomOnJournalist {}
+    impl private::Sealed for FpfOnNewsroom {}
+}
 
 impl DomainTag for JournalistLongTermKey {
     const TAG: &'static [u8] = b"j-sig-ltk";

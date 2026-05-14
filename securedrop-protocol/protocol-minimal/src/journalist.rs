@@ -16,7 +16,11 @@ use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, Use
 
 // caution: do not re-export!
 use crate::sealed;
+
+#[cfg(not(hax))]
 impl sealed::Sealed for Journalist {}
+
+#[cfg(not(hax))]
 impl RestrictedApi for Journalist {}
 
 /// Journalists: ingredients.

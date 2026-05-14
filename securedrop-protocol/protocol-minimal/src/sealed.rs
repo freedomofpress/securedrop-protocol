@@ -6,4 +6,5 @@
 /// ``` pub trait RestrictedTrait: sealed::Sealed {}` ```
 /// The `Sealed` trait is public as long as UserSecret, RestrictedApi, etc are public;
 /// if those ever become pub(crate) then this trait can be restricted as well.
+#[cfg_attr(hax, hax_lib::opaque)]
 pub trait Sealed {}
