@@ -27,10 +27,10 @@ hashbrown = { version = "0.14", features = ["raw"] }
 uuid = { version = "1.0", default-features = false, features = ["v4", "rng-getrandom", "js"] }
 
 # Keep in sync with Makefile version
-wasm-bindgen = "0.2.106"
+wasm-bindgen = "0.2.121"
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.56"
+wasm-bindgen-test = "0.3.71"
 
 [features]
 default = []
