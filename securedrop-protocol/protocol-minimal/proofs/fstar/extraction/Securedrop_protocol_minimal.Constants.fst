@@ -36,5 +36,8 @@ let v_LEN_XWING_RAND_SEED_SIZE: usize = mk_usize 96
 let v_LEN_MESSAGE_ID: usize = mk_usize 16
 
 let v_LEN_KMID: usize =
-  (Libcrux_chacha20poly1305.v_TAG_LEN +! Libcrux_chacha20poly1305.v_NONCE_LEN <: usize) +!
+  (Securedrop_protocol_minimal.Primitives.Provider.Params.Chacha20poly1305.v_TAG_LEN +!
+    Securedrop_protocol_minimal.Primitives.Provider.Params.Chacha20poly1305.v_NONCE_LEN
+    <:
+    usize) +!
   v_LEN_MESSAGE_ID

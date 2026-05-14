@@ -24,7 +24,9 @@ let encrypt_message_id
       (key message_id: t_Slice u8)
       (rng: v_R)
     : (v_R & Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error) =
-  if (Core_models.Slice.impl__len #u8 key <: usize) <>. Libcrux_chacha20poly1305.v_KEY_LEN
+  if
+    (Core_models.Slice.impl__len #u8 key <: usize) <>.
+    Securedrop_protocol_minimal.Primitives.Provider.Params.Chacha20poly1305.v_KEY_LEN
   then
     let error:Anyhow.t_Error =
       Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
@@ -55,7 +57,8 @@ let encrypt_message_id
     let ciphertext:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
       Alloc.Vec.from_elem #u8
         (mk_u8 0)
-        ((Core_models.Slice.impl__len #u8 message_id <: usize) +! Libcrux_chacha20poly1305.v_TAG_LEN
+        ((Core_models.Slice.impl__len #u8 message_id <: usize) +!
+          Securedrop_protocol_minimal.Primitives.Provider.Params.Chacha20poly1305.v_TAG_LEN
           <:
           usize)
     in
@@ -176,7 +179,9 @@ let encrypt_message_id
 /// This is used in step 7 for decrypting message IDs with a shared secret
 let decrypt_message_id (key encrypted_data: t_Slice u8)
     : Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error =
-  if (Core_models.Slice.impl__len #u8 key <: usize) <>. Libcrux_chacha20poly1305.v_KEY_LEN
+  if
+    (Core_models.Slice.impl__len #u8 key <: usize) <>.
+    Securedrop_protocol_minimal.Primitives.Provider.Params.Chacha20poly1305.v_KEY_LEN
   then
     let error:Anyhow.t_Error =
       Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
@@ -192,7 +197,10 @@ let decrypt_message_id (key encrypted_data: t_Slice u8)
   else
     if
       (Core_models.Slice.impl__len #u8 encrypted_data <: usize) <.
-      (Libcrux_chacha20poly1305.v_NONCE_LEN +! Libcrux_chacha20poly1305.v_TAG_LEN <: usize)
+      (Securedrop_protocol_minimal.Primitives.Provider.Params.Chacha20poly1305.v_NONCE_LEN +!
+        Securedrop_protocol_minimal.Primitives.Provider.Params.Chacha20poly1305.v_TAG_LEN
+        <:
+        usize)
     then
       let error:Anyhow.t_Error =
         Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
@@ -214,7 +222,9 @@ let decrypt_message_id (key encrypted_data: t_Slice u8)
               #(t_Array u8 (mk_usize 12))
               #FStar.Tactics.Typeclasses.solve
               (encrypted_data.[ {
-                    Core_models.Ops.Range.f_end = Libcrux_chacha20poly1305.v_NONCE_LEN
+                    Core_models.Ops.Range.f_end
+                    =
+                    Securedrop_protocol_minimal.Primitives.Provider.Params.Chacha20poly1305.v_NONCE_LEN
                   }
                   <:
                   Core_models.Ops.Range.t_RangeTo usize ]
@@ -239,7 +249,11 @@ let decrypt_message_id (key encrypted_data: t_Slice u8)
       with
       | Core_models.Result.Result_Ok (nonce: t_Array u8 (mk_usize 12)) ->
         let ciphertext:t_Slice u8 =
-          encrypted_data.[ { Core_models.Ops.Range.f_start = Libcrux_chacha20poly1305.v_NONCE_LEN }
+          encrypted_data.[ {
+              Core_models.Ops.Range.f_start
+              =
+              Securedrop_protocol_minimal.Primitives.Provider.Params.Chacha20poly1305.v_NONCE_LEN
+            }
             <:
             Core_models.Ops.Range.t_RangeFrom usize ]
         in
@@ -247,7 +261,7 @@ let decrypt_message_id (key encrypted_data: t_Slice u8)
           Alloc.Vec.from_elem #u8
             (mk_u8 0)
             ((Core_models.Slice.impl__len #u8 ciphertext <: usize) -!
-              Libcrux_chacha20poly1305.v_TAG_LEN
+              Securedrop_protocol_minimal.Primitives.Provider.Params.Chacha20poly1305.v_TAG_LEN
               <:
               usize)
         in
