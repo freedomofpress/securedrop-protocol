@@ -43,7 +43,18 @@ pub trait JournalistPublic: UserPublic {
     fn ephemeral_signature(&self) -> &Signature<JournalistEphemeralKey>;
 }
 
+#[cfg(not(hax))]
 pub trait Enrollable: sealed::Sealed {
+    // sealed traits don't play nice with hax right now, so this is a workaround
+    fn signing_key(&self) -> &VerifyingKey;
+    fn enroll(&self) -> Enrollment;
+    /// Each item is a [`SignedKeyBundlePublic`]: the public keys together with the
+    /// journalist's self-signature over them.
+    fn signed_keybundles(&self) -> Vec<SignedKeyBundlePublic>;
+}
+
+#[cfg(hax)]
+pub trait Enrollable {
     fn signing_key(&self) -> &VerifyingKey;
     fn enroll(&self) -> Enrollment;
     /// Each item is a [`SignedKeyBundlePublic`]: the public keys together with the
@@ -57,6 +68,7 @@ pub trait Enrollable: sealed::Sealed {
 /// authenticate their messages (via DH-AKEM);
 /// They can index a KeyBundle (tuple) and use it to attempt to
 /// decrypt a message.
+#[cfg(not(hax))]
 pub trait UserSecret: sealed::Sealed {
     fn num_bundles(&self) -> usize;
     fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey);
@@ -68,4 +80,21 @@ pub trait UserSecret: sealed::Sealed {
     fn keybundles(&self) -> Vec<&MessageKeyBundle>;
 }
 
-pub(crate) trait RestrictedApi: sealed::Sealed {}
+#[cfg(hax)]
+pub trait UserSecret {
+    fn num_bundles(&self) -> usize;
+    fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey);
+    /// The long-term SD-APKE private key `sk^APKE`.
+    fn message_auth_key(&self) -> &MessagePrivateKey;
+    /// The long-term SD-APKE public key `pk^APKE`.
+    fn message_auth_pk(&self) -> &MessagePublicKey;
+    fn build_message(&self, message: Vec<u8>) -> Plaintext;
+    fn keybundles(&self) -> Vec<&MessageKeyBundle>;
+}
+
+// hax doesn't work well with sealed trait pattern right now
+#[cfg(not(hax))]
+pub trait RestrictedApi: sealed::Sealed {}
+
+#[cfg(hax)]
+pub trait RestrictedApi {}

@@ -17,6 +17,8 @@ use crate::traits::{UserPublic, UserSecret};
 
 // do not re-export!
 use crate::sealed;
+
+#[cfg(not(hax))]
 impl sealed::Sealed for Source {}
 
 /// Fixed public salt for Argon2id. Argon2id requires a salt; since source
