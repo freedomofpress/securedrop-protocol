@@ -3,12 +3,6 @@ module Securedrop_protocol_minimal.Traits
 open FStar.Mul
 open Core_models
 
-let _ =
-  (* This module has implicit dependencies, here we make them explicit. *)
-  (* The implicit dependencies arise from typeclasses instances. *)
-  let open Securedrop_protocol_minimal.Sealed in
-  ()
-
 /// Users have the following (public traits) in common:
 /// They expose a fetch pubkey, a message auth pubkey
 /// (implicit authentication),
@@ -97,8 +91,6 @@ class t_JournalistPublic (v_Self: Type0) = {
 let _ = fun (v_Self:Type0) {|i: t_JournalistPublic v_Self|} -> i._super_i0
 
 class t_Enrollable (v_Self: Type0) = {
-  [@@@ FStar.Tactics.Typeclasses.no_method]_super_i0:Securedrop_protocol_minimal.Sealed.t_Sealed
-  v_Self;
   f_signing_key_pre:v_Self -> Type0;
   f_signing_key_post:v_Self -> Securedrop_protocol_minimal.Sign.t_VerifyingKey -> Type0;
   f_signing_key:x0: v_Self
@@ -129,18 +121,7 @@ class t_Enrollable (v_Self: Type0) = {
         (fun result -> f_signed_keybundles_post x0 result)
 }
 
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let _ = fun (v_Self:Type0) {|i: t_Enrollable v_Self|} -> i._super_i0
-
-/// Users have the following (secret traits) in common:
-/// They have a fetching keypair used to retrieve messages;
-/// They have a message authentication keypair used to implicitly
-/// authenticate their messages (via DH-AKEM);
-/// They can index a KeyBundle (tuple) and use it to attempt to
-/// decrypt a message.
 class t_UserSecret (v_Self: Type0) = {
-  [@@@ FStar.Tactics.Typeclasses.no_method]_super_i0:Securedrop_protocol_minimal.Sealed.t_Sealed
-  v_Self;
   f_num_bundles_pre:v_Self -> Type0;
   f_num_bundles_post:v_Self -> usize -> Type0;
   f_num_bundles:x0: v_Self
@@ -191,13 +172,4 @@ class t_UserSecret (v_Self: Type0) = {
         (fun result -> f_keybundles_post x0 result)
 }
 
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let _ = fun (v_Self:Type0) {|i: t_UserSecret v_Self|} -> i._super_i0
-
-class t_RestrictedApi (v_Self: Type0) = {
-  [@@@ FStar.Tactics.Typeclasses.no_method]_super_i0:Securedrop_protocol_minimal.Sealed.t_Sealed
-  v_Self
-}
-
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let _ = fun (v_Self:Type0) {|i: t_RestrictedApi v_Self|} -> i._super_i0
+class t_RestrictedApi (v_Self: Type0) = { __marker_trait_t_RestrictedApi:Prims.unit }
