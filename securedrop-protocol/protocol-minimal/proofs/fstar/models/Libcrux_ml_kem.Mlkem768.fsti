@@ -5,7 +5,7 @@ open Core_models
 
 /// The ML-KEM 768 algorithms
 type t_MlKem768 = | MlKem768 : t_MlKem768
-
+/// STUB (AUTO INSERT BY MAKEFILE)
 /// Axiomatic stub: hax cannot extract this typeclass instance because libcrux's
 /// `arrayref::Kem` impl on `MlKem768` is `#[hax_lib::exclude]`-marked, and the
 /// blanket `impl<T: arrayref::Kem> owned::Kem for T` in libcrux/traits uses

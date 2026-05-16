@@ -97,23 +97,18 @@ libcrux-module:
 		cargo hax into -i "$(TARGETS)" fstar --interfaces '+!**' \
 		|| EXTRACT_STATUS=$$?; \
 	\
-	echo "Copy $(MODULE) fsti ..."; \
-	for d in $(MODULE)/* $(MODULE)/crates/algorithms/*; do \
-		if [ -d "$$d/proofs/fstar/extraction" ]; then \
-			cp "$$d"/proofs/fstar/extraction/*.fsti . 2>/dev/null || true; \
-		fi; \
-	done; \
-	\
 	if [ $$EXTRACT_STATUS -ne 0 ]; then \
 		echo ""; \
-		echo "ERROR: hax extraction failed for module:"; \
-		echo "  $(MODULE)"; \
+		echo "ERROR: hax extraction failed for module $(MODULE)"; \
 		echo ""; \
-		echo "This likely means one or more extraction targets in this module are broken."; \
-		echo "Targets:"; \
+		echo "This likely means one or more broken targets:"; \
 		printf '  %s\n' "$(TARGETS)"; \
 		exit $$EXTRACT_STATUS; \
 	fi
+
+	@cp libcrux/*/proofs/fstar/extraction/*.fsti . || true
+	@cp libcrux/crates/algorithms/*/proofs/fstar/extraction/*.fsti . || true
+
 
 libcrux-ecdh:
 	$(MAKE) libcrux-module \
@@ -150,19 +145,19 @@ libcrux-chacha20poly1305:
 		MODULE=libcrux/crates/algorithms/chacha20poly1305 \
 		TARGETS="$(LIBCRUX_CHACHA20POLY1305_TARGETS)"
 
-
 libcrux-append-stubs:
-	@find . -type f -name '*.fsti.stub' \
-		-exec sh -c '\
-			stub="$$1"; \
-			dst="$${stub%.stub}"; \
-			\
-			if [ ! -f "$$dst" ]; then \
-				cp "$$stub" "$$dst"; \
-				exit 0; \
-			fi; \
-			\
-			if ! tail -c "$$(wc -c < "$$stub")" "$$dst" 2>/dev/null | cmp -s - "$$stub"; then \
-				cat "$$stub" >> "$$dst"; \
-			fi \
-		' _ {} \;
+	@find . -name '*.fsti.stub' | while read -r stub; do \
+		dst=$${stub%.stub}; \
+		m='/// STUB (AUTO INSERT BY MAKEFILE)'; \
+		tmp=$$(mktemp); \
+		\
+		if [ -f "$$dst" ]; then \
+			awk -v m="$$m" '$$0==m {exit} {print}' "$$dst" > "$$tmp"; \
+		else \
+			: > "$$tmp"; \
+		fi; \
+		\
+		printf '%s\n' "$$m" >> "$$tmp"; \
+		cat "$$stub" >> "$$tmp"; \
+		mv "$$tmp" "$$dst"; \
+	done
