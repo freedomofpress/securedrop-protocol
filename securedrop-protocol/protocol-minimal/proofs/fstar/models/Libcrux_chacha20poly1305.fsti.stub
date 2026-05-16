@@ -1,0 +1,5 @@
+/// Stub: Extraction of libcrux-chacha20poly1305 fails
+/// because the crate does not extract cleanly. Extract
+/// this error type opaquely for use with encrypt/decrypt.
+
+type t_AeadError
