@@ -26,31 +26,6 @@ cargo +nightly rustc -- -Zunpretty=hir-tree \
 | sort -u \
 | awk '
 {
-    lines[NR] = $0
-}
-
-END {
-    for (i = 1; i <= NR; i++) {
-        keep = 1
-
-        for (j = 1; j <= NR; j++) {
-            if (i == j)
-                continue
-
-            # Drop if another target is a more specific child
-            if (index(lines[j], lines[i] "::") == 1) {
-                keep = 0
-                break
-            }
-        }
-
-        if (keep)
-            print lines[i]
-    }
-}
-' \
-| awk '
-{
   target = $0
 
   if ($0 ~ /^libcrux_ecdh::/)
