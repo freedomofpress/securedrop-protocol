@@ -59,17 +59,18 @@ let encrypt_message_id
           <:
           usize)
     in
+    let result:Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
+      Core_models.Array.t_TryFromSliceError =
+      Core_models.Convert.f_try_into #(t_Slice u8)
+        #(t_Array u8 (mk_usize 32))
+        #FStar.Tactics.Typeclasses.solve
+        key
+    in
     match
       Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
         #Core_models.Array.t_TryFromSliceError
         #Anyhow.t_Error
-        (Core_models.Convert.f_try_into #(t_Slice u8)
-            #(t_Array u8 (mk_usize 32))
-            #FStar.Tactics.Typeclasses.solve
-            key
-          <:
-          Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
-            Core_models.Array.t_TryFromSliceError)
+        result
         (fun temp_0_ ->
             let _:Core_models.Array.t_TryFromSliceError = temp_0_ in
             let error:Anyhow.t_Error =
@@ -84,7 +85,7 @@ let encrypt_message_id
       <:
       Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
     with
-    | Core_models.Result.Result_Ok (key_array: t_Array u8 (mk_usize 32)) ->
+    | Core_models.Result.Result_Ok key_array ->
       let
       (tmp0: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global),
       (out:
@@ -102,38 +103,10 @@ let encrypt_message_id
       in
       let ciphertext:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = tmp0 in
       (match
-          Core_models.Result.impl__map_err #(t_Slice u8 & t_Array u8 (mk_usize 16))
-            #Libcrux_chacha20poly1305.t_AeadError
-            #Anyhow.t_Error
-            out
-            (fun e ->
-                let e:Libcrux_chacha20poly1305.t_AeadError = e in
-                let args:Libcrux_chacha20poly1305.t_AeadError =
-                  e <: Libcrux_chacha20poly1305.t_AeadError
-                in
-                let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
-                  let list =
-                    [Core_models.Fmt.Rt.impl__new_debug #Libcrux_chacha20poly1305.t_AeadError args]
-                  in
-                  FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-                  Rust_primitives.Hax.array_of_list 1 list
-                in
-                Anyhow.Error.impl__msg #Alloc.String.t_String
-                  (Core_models.Hint.must_use #Alloc.String.t_String
-                      (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
-                              (mk_usize 1)
-                              (let list = ["ChaCha20-Poly1305 encryption failed: "] in
-                                FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-                                Rust_primitives.Hax.array_of_list 1 list)
-                              args
-                            <:
-                            Core_models.Fmt.t_Arguments)
-                        <:
-                        Alloc.String.t_String)
-                    <:
-                    Alloc.String.t_String))
+          out
           <:
-          Core_models.Result.t_Result (t_Slice u8 & t_Array u8 (mk_usize 16)) Anyhow.t_Error
+          Core_models.Result.t_Result (t_Slice u8 & t_Array u8 (mk_usize 16))
+            Libcrux_chacha20poly1305.t_AeadError
         with
         | Core_models.Result.Result_Ok _ ->
           let output:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
@@ -156,9 +129,33 @@ let encrypt_message_id
           <:
           (v_R &
             Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
-        | Core_models.Result.Result_Err err ->
+        | Core_models.Result.Result_Err e ->
+          let args:Libcrux_chacha20poly1305.t_AeadError =
+            e <: Libcrux_chacha20poly1305.t_AeadError
+          in
+          let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
+            let list =
+              [Core_models.Fmt.Rt.impl__new_debug #Libcrux_chacha20poly1305.t_AeadError args]
+            in
+            FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+            Rust_primitives.Hax.array_of_list 1 list
+          in
           rng,
-          (Core_models.Result.Result_Err err
+          (Core_models.Result.Result_Err
+            (Anyhow.Error.impl__msg #Alloc.String.t_String
+                (Core_models.Hint.must_use #Alloc.String.t_String
+                    (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
+                            (mk_usize 1)
+                            (let list = ["ChaCha20-Poly1305 encryption failed: "] in
+                              FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                              Rust_primitives.Hax.array_of_list 1 list)
+                            args
+                          <:
+                          Core_models.Fmt.t_Arguments)
+                      <:
+                      Alloc.String.t_String)
+                  <:
+                  Alloc.String.t_String))
             <:
             Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
           <:
@@ -206,23 +203,22 @@ let decrypt_message_id (key encrypted_data: t_Slice u8)
       <:
       Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
     else
+      let nonce_r:Core_models.Result.t_Result (t_Array u8 (mk_usize 12))
+        Core_models.Array.t_TryFromSliceError =
+        Core_models.Convert.f_try_into #(t_Slice u8)
+          #(t_Array u8 (mk_usize 12))
+          #FStar.Tactics.Typeclasses.solve
+          (encrypted_data.[ { Core_models.Ops.Range.f_end = Libcrux_chacha20poly1305.v_NONCE_LEN }
+              <:
+              Core_models.Ops.Range.t_RangeTo usize ]
+            <:
+            t_Slice u8)
+      in
       match
         Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 12))
           #Core_models.Array.t_TryFromSliceError
           #Anyhow.t_Error
-          (Core_models.Convert.f_try_into #(t_Slice u8)
-              #(t_Array u8 (mk_usize 12))
-              #FStar.Tactics.Typeclasses.solve
-              (encrypted_data.[ {
-                    Core_models.Ops.Range.f_end = Libcrux_chacha20poly1305.v_NONCE_LEN
-                  }
-                  <:
-                  Core_models.Ops.Range.t_RangeTo usize ]
-                <:
-                t_Slice u8)
-            <:
-            Core_models.Result.t_Result (t_Array u8 (mk_usize 12))
-              Core_models.Array.t_TryFromSliceError)
+          nonce_r
           (fun temp_0_ ->
               let _:Core_models.Array.t_TryFromSliceError = temp_0_ in
               let error:Anyhow.t_Error =
@@ -251,17 +247,18 @@ let decrypt_message_id (key encrypted_data: t_Slice u8)
               <:
               usize)
         in
+        let key_arr_res:Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
+          Core_models.Array.t_TryFromSliceError =
+          Core_models.Convert.f_try_into #(t_Slice u8)
+            #(t_Array u8 (mk_usize 32))
+            #FStar.Tactics.Typeclasses.solve
+            key
+        in
         (match
             Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
               #Core_models.Array.t_TryFromSliceError
               #Anyhow.t_Error
-              (Core_models.Convert.f_try_into #(t_Slice u8)
-                  #(t_Array u8 (mk_usize 32))
-                  #FStar.Tactics.Typeclasses.solve
-                  key
-                <:
-                Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
-                  Core_models.Array.t_TryFromSliceError)
+              key_arr_res
               (fun temp_0_ ->
                   let _:Core_models.Array.t_TryFromSliceError = temp_0_ in
                   let error:Anyhow.t_Error =
@@ -292,49 +289,38 @@ let decrypt_message_id (key encrypted_data: t_Slice u8)
             in
             let plaintext:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = tmp0 in
             (match
-                Core_models.Result.impl__map_err #(t_Slice u8)
-                  #Libcrux_chacha20poly1305.t_AeadError
-                  #Anyhow.t_Error
-                  out
-                  (fun e ->
-                      let e:Libcrux_chacha20poly1305.t_AeadError = e in
-                      let args:Libcrux_chacha20poly1305.t_AeadError =
-                        e <: Libcrux_chacha20poly1305.t_AeadError
-                      in
-                      let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
-                        let list =
-                          [
-                            Core_models.Fmt.Rt.impl__new_debug #Libcrux_chacha20poly1305.t_AeadError
-                              args
-                          ]
-                        in
-                        FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-                        Rust_primitives.Hax.array_of_list 1 list
-                      in
-                      Anyhow.Error.impl__msg #Alloc.String.t_String
-                        (Core_models.Hint.must_use #Alloc.String.t_String
-                            (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
-                                    (mk_usize 1)
-                                    (let list = ["ChaCha20-Poly1305 decryption failed: "] in
-                                      FStar.Pervasives.assert_norm
-                                      (Prims.eq2 (List.Tot.length list) 1);
-                                      Rust_primitives.Hax.array_of_list 1 list)
-                                    args
-                                  <:
-                                  Core_models.Fmt.t_Arguments)
-                              <:
-                              Alloc.String.t_String)
-                          <:
-                          Alloc.String.t_String))
-                <:
-                Core_models.Result.t_Result (t_Slice u8) Anyhow.t_Error
+                out <: Core_models.Result.t_Result (t_Slice u8) Libcrux_chacha20poly1305.t_AeadError
               with
               | Core_models.Result.Result_Ok _ ->
                 Core_models.Result.Result_Ok plaintext
                 <:
                 Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
-              | Core_models.Result.Result_Err err ->
-                Core_models.Result.Result_Err err
+              | Core_models.Result.Result_Err e ->
+                let args:Libcrux_chacha20poly1305.t_AeadError =
+                  e <: Libcrux_chacha20poly1305.t_AeadError
+                in
+                let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
+                  let list =
+                    [Core_models.Fmt.Rt.impl__new_debug #Libcrux_chacha20poly1305.t_AeadError args]
+                  in
+                  FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                  Rust_primitives.Hax.array_of_list 1 list
+                in
+                Core_models.Result.Result_Err
+                (Anyhow.Error.impl__msg #Alloc.String.t_String
+                    (Core_models.Hint.must_use #Alloc.String.t_String
+                        (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
+                                (mk_usize 1)
+                                (let list = ["ChaCha20-Poly1305 decryption failed: "] in
+                                  FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                                  Rust_primitives.Hax.array_of_list 1 list)
+                                args
+                              <:
+                              Core_models.Fmt.t_Arguments)
+                          <:
+                          Alloc.String.t_String)
+                      <:
+                      Alloc.String.t_String))
                 <:
                 Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
             )
