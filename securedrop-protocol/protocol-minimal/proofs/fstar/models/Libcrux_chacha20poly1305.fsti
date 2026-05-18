@@ -11,9 +11,12 @@ let v_TAG_LEN: usize = mk_usize 16
 
 /// The length of ChaCha20-Poly1305 nonces.
 let v_NONCE_LEN: usize = mk_usize 12
-/// STUB (AUTO INSERT BY MAKEFILE)
-/// Stub: Extraction of libcrux-chacha20poly1305 fails
-/// because the crate does not extract cleanly. Extract
-/// this error type opaquely for use with encrypt/decrypt.
 
-type t_AeadError
+/// Describes the error conditions of the  ChaCha20-Poly1305 AEAD.
+type t_AeadError =
+  | AeadError_PlaintextTooLarge : t_AeadError
+  | AeadError_CiphertextTooLarge : t_AeadError
+  | AeadError_AadTooLarge : t_AeadError
+  | AeadError_CiphertextTooShort : t_AeadError
+  | AeadError_PlaintextTooShort : t_AeadError
+  | AeadError_InvalidCiphertext : t_AeadError
