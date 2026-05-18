@@ -39,9 +39,8 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
     output.extend_from_slice(&nonce);
 
     let mut ciphertext = alloc::vec![0u8; message_id.len() + TAG_LEN];
-    let key_array: [u8; KEY_LEN] = key
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
+    let result = key.try_into();
+    let key_array = result.map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
 
     // Encrypt the message ID
     match provider::chacha20poly1305::encrypt(&key_array, message_id, &mut ciphertext, &[], &nonce)
@@ -73,16 +72,15 @@ pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, 
     }
 
     // Extract nonce and ciphertext
-    let nonce: [u8; NONCE_LEN] = encrypted_data[..NONCE_LEN]
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("Nonce extraction failed"))?;
+    let nonce_r = encrypted_data[..NONCE_LEN].try_into();
+    let nonce: [u8; NONCE_LEN] = nonce_r.map_err(|_| anyhow::anyhow!("Nonce extraction failed"))?;
     let ciphertext = &encrypted_data[NONCE_LEN..];
 
     // Prepare output buffer
     let mut plaintext = alloc::vec![0u8; ciphertext.len() - TAG_LEN];
-    let key_array: [u8; KEY_LEN] = key
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
+    let key_arr_res = key.try_into();
+    let key_array: [u8; KEY_LEN] =
+        key_arr_res.map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
 
     // Decrypt the message ID
     provider::chacha20poly1305::decrypt(
