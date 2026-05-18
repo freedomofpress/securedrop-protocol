@@ -5,6 +5,15 @@ open Core_models
 
 /// The ML-KEM 768 algorithms
 type t_MlKem768 = | MlKem768 : t_MlKem768
+
+/// Generate ML-KEM 768 Key Pair
+/// Generate an ML-KEM key pair. The input is a byte array of size
+/// [`KEY_GENERATION_SEED_SIZE`].
+/// This function returns an [`MlKem768KeyPair`].
+val generate_key_pair (randomness: t_Array u8 (mk_usize 64))
+    : Prims.Pure (Libcrux_ml_kem.Types.t_MlKemKeyPair (mk_usize 2400) (mk_usize 1184))
+      Prims.l_True
+      (fun _ -> Prims.l_True)
 /// STUB (AUTO INSERT BY MAKEFILE)
 /// Axiomatic stub: hax cannot extract this typeclass instance because libcrux's
 /// `arrayref::Kem` impl on `MlKem768` is `#[hax_lib::exclude]`-marked, and the

@@ -9,5 +9,31 @@ type t_MlKemCiphertext (v_SIZE: usize) = { f_value:t_Array u8 v_SIZE }
 ///An ML-KEM Private key
 type t_MlKemPrivateKey (v_SIZE: usize) = { f_value:t_Array u8 v_SIZE }
 
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_14 (v_SIZE: usize)
+    : Core_models.Convert.t_From (t_MlKemPrivateKey v_SIZE) (t_Array u8 v_SIZE)
+
 ///An ML-KEM Public key
 type t_MlKemPublicKey (v_SIZE: usize) = { f_value:t_Array u8 v_SIZE }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_22 (v_SIZE: usize)
+    : Core_models.Convert.t_From (t_MlKemPublicKey v_SIZE) (t_Array u8 v_SIZE)
+
+/// An ML-KEM key pair
+type t_MlKemKeyPair (v_PRIVATE_KEY_SIZE: usize) (v_PUBLIC_KEY_SIZE: usize) = {
+  f_sk:t_MlKemPrivateKey v_PRIVATE_KEY_SIZE;
+  f_pk:t_MlKemPublicKey v_PUBLIC_KEY_SIZE
+}
+
+/// Create a new [`MlKemKeyPair`] from the secret and public key.
+val impl_24__from
+      (v_PRIVATE_KEY_SIZE v_PUBLIC_KEY_SIZE: usize)
+      (sk: t_MlKemPrivateKey v_PRIVATE_KEY_SIZE)
+      (pk: t_MlKemPublicKey v_PUBLIC_KEY_SIZE)
+    : Prims.Pure (t_MlKemKeyPair v_PRIVATE_KEY_SIZE v_PUBLIC_KEY_SIZE)
+      Prims.l_True
+      (ensures
+        fun result ->
+          let result:t_MlKemKeyPair v_PRIVATE_KEY_SIZE v_PUBLIC_KEY_SIZE = result in
+          result.f_sk == sk /\ result.f_pk == pk)

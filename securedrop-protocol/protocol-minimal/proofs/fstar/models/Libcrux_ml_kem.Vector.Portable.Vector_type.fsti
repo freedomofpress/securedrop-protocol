@@ -1,0 +1,58 @@
+module Libcrux_ml_kem.Vector.Portable.Vector_type
+#set-options "--fuel 0 --ifuel 1 --z3rlimit 15"
+open FStar.Mul
+open Core_models
+
+let _ =
+  (* This module has implicit dependencies, here we make them explicit. *)
+  (* The implicit dependencies arise from typeclasses instances. *)
+  let open Libcrux_secrets.Int in
+  let open Libcrux_secrets.Int.Public_integers in
+  let open Libcrux_secrets.Traits in
+  ()
+
+type t_PortableVector = { f_elements:t_Array i16 (mk_usize 16) }
+
+let impl: Core_models.Clone.t_Clone t_PortableVector =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_1:Core_models.Marker.t_Copy t_PortableVector
+
+val zero: Prims.unit
+  -> Prims.Pure t_PortableVector
+      Prims.l_True
+      (ensures
+        fun result ->
+          let result:t_PortableVector = result in
+          result.f_elements == Seq.create 16 (mk_i16 0))
+
+val to_i16_array (x: t_PortableVector)
+    : Prims.Pure (t_Array i16 (mk_usize 16))
+      Prims.l_True
+      (ensures
+        fun result ->
+          let result:t_Array i16 (mk_usize 16) = result in
+          result == x.f_elements)
+
+val from_i16_array (array: t_Slice i16)
+    : Prims.Pure t_PortableVector
+      (requires (Core_models.Slice.impl__len #i16 array <: usize) =. mk_usize 16)
+      (ensures
+        fun result ->
+          let result:t_PortableVector = result in
+          result.f_elements == array)
+
+val from_bytes (array: t_Slice u8)
+    : Prims.Pure t_PortableVector
+      (requires (Core_models.Slice.impl__len #u8 array <: usize) >=. mk_usize 32)
+      (fun _ -> Prims.l_True)
+
+val to_bytes (x: t_PortableVector) (bytes: t_Slice u8)
+    : Prims.Pure (t_Slice u8)
+      (requires (Core_models.Slice.impl__len #u8 bytes <: usize) >=. mk_usize 32)
+      (ensures
+        fun bytes_future ->
+          let bytes_future:t_Slice u8 = bytes_future in
+          (Core_models.Slice.impl__len #u8 bytes_future <: usize) =.
+          (Core_models.Slice.impl__len #u8 bytes <: usize))

@@ -11,3 +11,8 @@ let v_EK_LEN: usize = mk_usize 32
 
 /// The length of Curve25519 shared keys.
 let v_SS_LEN: usize = mk_usize 32
+
+/// Indicates that an error occurred
+type t_Error = | Error : t_Error
+
+type t_X25519 = | X25519 : t_X25519
