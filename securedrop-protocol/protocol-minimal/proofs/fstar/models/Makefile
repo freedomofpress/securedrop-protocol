@@ -86,20 +86,39 @@ check-targets:
 	libcrux-traits \
 	libcrux-curve25519 \
 	libcrux-chacha20poly1305 \
+	libcrux-copy-fsti \
 	libcrux-append-stubs
 
-
-libcrux: \
-	libcrux-clone \
-	libcrux-ecdh \
-	libcrux-kem \
-	libcrux-ml-kem \
-	libcrux-traits \
-	libcrux-curve25519 \
-	libcrux-chacha20poly1305 \
-	libcrux-append-stubs
-	@echo "Done."
-
+libcrux:
+	@$(MAKE) libcrux-clone
+	@FAILURES=""; \
+	\
+	for target in \
+		libcrux-ecdh \
+		libcrux-kem \
+		libcrux-ml-kem \
+		libcrux-traits \
+		libcrux-curve25519 \
+		libcrux-chacha20poly1305 \
+	; do \
+		if ! $(MAKE) $$target; then \
+			FAILURES="$$FAILURES $$target"; \
+		fi; \
+	done; \
+	\
+	$(MAKE) libcrux-copy-fsti || exit $$?; \
+	$(MAKE) libcrux-append-stubs || exit $$?; \
+	if [ -n "$$FAILURES" ]; then \
+		echo ""; \
+		echo "Failed targets:"; \
+		for f in $$FAILURES; do \
+			echo "  - $$f"; \
+		done; \
+		echo ""; \
+		echo "::Warning:: .fsti files are available in proofs/fstar/models, but may contain extraction errors."; \
+		exit 1; \
+	fi
+	echo "Extraction completed successfully and .fsti files are available in proofs/fstar/models"; \
 
 libcrux-clone:
 	@echo "Clone libcrux@$(LIBCRUX_VERSION)"
@@ -124,14 +143,15 @@ libcrux-module:
 		echo ""; \
 		echo "ERROR: hax extraction failed for module $(MODULE)"; \
 		echo ""; \
-		echo "This likely means one or more broken targets:"; \
+		echo "This likely means one or more problem targets:"; \
 		printf '  %s\n' "$(TARGETS)"; \
 		exit $$EXTRACT_STATUS; \
 	fi
 
-	@cp libcrux/*/proofs/fstar/extraction/*.fsti . || true
-	@cp libcrux/crates/algorithms/*/proofs/fstar/extraction/*.fsti . || true
 
+libcrux-copy-fsti:
+	@cp libcrux/*/proofs/fstar/extraction/*.fsti . 2>/dev/null || true
+	@cp libcrux/crates/algorithms/*/proofs/fstar/extraction/*.fsti . 2>/dev/null || true
 
 libcrux-ecdh:
 	$(MAKE) libcrux-module \
