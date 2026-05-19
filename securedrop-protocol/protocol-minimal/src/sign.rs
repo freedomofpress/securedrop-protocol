@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use crate::primitives::provider::ed25519::{LibCruxSigningKey, LibCruxVerifyingKey};
+use crate::primitives::provider::{self, ed25519::{LibCruxSigningKey, LibCruxVerifyingKey}};
 use anyhow::Error;
 use rand_core::CryptoRng;
 
@@ -130,8 +130,8 @@ impl core::fmt::Debug for VerifyingKey {
 
 impl SigningKey {
     /// Generate a signing key from the supplied `rng`.
-    pub fn new(mut rng: &mut impl CryptoRng) -> Result<SigningKey, Error> {
-        let (sk, vk) = libcrux_ed25519::generate_key_pair(&mut rng)
+    pub fn new<R: CryptoRng>(rng: &mut R) -> Result<SigningKey, Error> {
+        let (sk, vk) = provider::ed25519::generate_key_pair(rng)
             .map_err(|_| anyhow::anyhow!("Key generation failed"))?;
         Ok(SigningKey {
             vk: VerifyingKey(vk),
@@ -144,7 +144,7 @@ impl SigningKey {
     /// The actual preimage is `len(tag) || tag || msg` where `tag = D::TAG`.
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         let preimage = tagged_preimage::<D>(msg);
-        let bytes = libcrux_ed25519::sign(&preimage, self.sk.as_ref())
+        let bytes = provider::ed25519::sign(&preimage, self.sk.as_ref())
             .expect("Signing should not fail with valid key");
         Signature::from_bytes(bytes)
     }
@@ -161,7 +161,7 @@ impl VerifyingKey {
     /// Returns an error if the signature is invalid.
     pub fn verify<D: DomainTag>(&self, msg: &[u8], sig: &Signature<D>) -> Result<(), Error> {
         let preimage = tagged_preimage::<D>(msg);
-        libcrux_ed25519::verify(&preimage, self.0.as_ref(), &sig.bytes)
+        provider::ed25519::verify(&preimage, self.0.as_ref(), &sig.bytes)
             .map_err(|_| anyhow::anyhow!("Signature verification failed"))
     }
 }
