@@ -10,7 +10,18 @@ pub mod curve25519 {
     pub(crate) const PK_LEN: usize = libcrux_curve25519::EK_LEN;
 
     pub(crate) const LEN_DH_SHARE: usize = libcrux_curve25519::SS_LEN;
-    pub(crate) use libcrux_curve25519::ecdh;
+    pub(crate) use libcrux_curve25519::{ecdh, secret_to_public};
+
+    use libcrux_traits::kem::arrayref::Kem;
+
+    // #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn x25519_keygen(
+        public_key: &mut [u8; 32],
+        secret_key: &mut [u8; 32],
+        randomness: &[u8; 32],
+    ) -> Result<(), libcrux_traits::kem::arrayref::KeyGenError> {
+        libcrux_curve25519::X25519::keygen(public_key, secret_key, randomness)
+    }
 }
 
 pub mod ed25519 {
@@ -29,8 +40,7 @@ pub mod kem {
 
 pub mod traits {
 
-    pub(crate) use libcrux_traits::kem::arrayref::Kem as ArrayRefKem;
-
+    // todo deprecate
     pub(crate) use libcrux_traits::kem::owned::Kem as OwnedKem;
 }
 
@@ -44,6 +54,7 @@ pub mod mlkem {
 
 #[cfg_attr(hax, hax_lib::opaque)]
 pub mod chacha20poly1305 {
+    use libcrux_chacha20poly1305::AeadError;
 
     #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const KEY_LEN: usize = libcrux_chacha20poly1305::KEY_LEN;
@@ -54,7 +65,30 @@ pub mod chacha20poly1305 {
     #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const TAG_LEN: usize = libcrux_chacha20poly1305::TAG_LEN;
 
-    pub(crate) use libcrux_chacha20poly1305::{decrypt, encrypt};
+    // #[cfg_attr(hax, hax_lib::opaque)]
+    // pub(crate) use libcrux_chacha20poly1305::{decrypt, encrypt};
+
+    // Hax extraction is struggling with the types
+    pub fn encrypt(
+        key: &[u8; KEY_LEN],
+        plaintext: &[u8],
+        ciphertext: &mut [u8],
+        aad: &[u8],
+        nonce: &[u8; NONCE_LEN],
+    ) -> Result<(), AeadError> {
+        libcrux_chacha20poly1305::encrypt(key, plaintext, ciphertext, aad, nonce).map(|_| ())
+    }
+
+    // Hax extraction is struggling with the types
+    pub fn decrypt(
+        key: &[u8; KEY_LEN],
+        plaintext: &mut [u8],
+        ciphertext: &[u8],
+        aad: &[u8],
+        nonce: &[u8; NONCE_LEN],
+    ) -> Result<(), AeadError> {
+        libcrux_chacha20poly1305::decrypt(key, plaintext, ciphertext, aad, nonce).map(|_| ())
+    }
 }
 
 pub mod hpke_rs {

@@ -1,5 +1,4 @@
-use crate::primitives::provider::curve25519::ecdh;
-use crate::primitives::provider::traits::ArrayRefKem as Kem;
+use crate::primitives::provider::{self, curve25519::ecdh};
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 
@@ -56,7 +55,7 @@ pub fn deterministic_dh_keygen(randomness: [u8; 32]) -> Result<(DHPrivateKey, DH
     let mut public_key = [0u8; DH_PUBLIC_KEY_LEN];
     let mut secret_key = [0u8; DH_PRIVATE_KEY_LEN];
 
-    libcrux_curve25519::X25519::keygen(&mut public_key, &mut secret_key, &randomness)
+    provider::curve25519::x25519_keygen(&mut public_key, &mut secret_key, &randomness)
         .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
 
     Ok((DHPrivateKey(secret_key), DHPublicKey(public_key)))
@@ -74,7 +73,7 @@ pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
 
     // Generate the key pair using X25519 from libcrux
     // Parameters: ek (public key), dk (secret key), rand (randomness)
-    libcrux_curve25519::X25519::keygen(&mut public_key, &mut secret_key, &randomness)
+    provider::curve25519::x25519_keygen(&mut public_key, &mut secret_key, &randomness)
         .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
 
     typed(secret_key, public_key)
@@ -100,7 +99,7 @@ pub fn generate_random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Result<[u8
 
     // Generate the key pair using X25519 from libcrux
     // Parameters: ek (public key), dk (secret key), rand (randomness)
-    libcrux_curve25519::X25519::keygen(&mut _public_key, &mut secret_key, &randomness)
+    provider::curve25519::x25519_keygen(&mut _public_key, &mut secret_key, &randomness)
         .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
 
     Ok(secret_key)
@@ -112,7 +111,7 @@ pub fn generate_random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Result<[u8
 /// (defined as [9, 0, 0, 0, ...] in the HACL implementation, see `g25519` in their code)
 pub fn dh_public_key_from_scalar(scalar: [u8; 32]) -> DHPublicKey {
     let mut public_key_bytes = [0u8; 32];
-    libcrux_curve25519::secret_to_public(&mut public_key_bytes, &scalar);
+    provider::curve25519::secret_to_public(&mut public_key_bytes, &scalar);
     DHPublicKey::from_bytes(public_key_bytes)
 }
 
