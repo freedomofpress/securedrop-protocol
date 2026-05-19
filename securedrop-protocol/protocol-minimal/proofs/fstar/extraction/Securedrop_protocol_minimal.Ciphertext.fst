@@ -79,8 +79,8 @@ let impl_Plaintext__to_bytes (self: t_Plaintext) : Alloc.Vec.t_Vec u8 Alloc.Allo
   buf
 
 let impl_Plaintext__len (self: t_Plaintext) : usize =
-  (Securedrop_protocol_minimal.Constants.v_LEN_XWING_ENCAPS_KEY +!
-    Securedrop_protocol_minimal.Constants.v_LEN_DH_ITEM
+  (Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PUBLIC_KEY_LEN +!
+    Securedrop_protocol_minimal.Primitives.X25519.v_DH_PUBLIC_KEY_LEN
     <:
     usize) +!
   (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global self.f_msg <: usize)
@@ -98,14 +98,16 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
             Core_models.Ops.Range.f_start = offset;
             Core_models.Ops.Range.f_end
             =
-            offset +! Securedrop_protocol_minimal.Constants.v_LEN_XWING_ENCAPS_KEY <: usize
+            offset +! Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PUBLIC_KEY_LEN <: usize
           }
           <:
           Core_models.Ops.Range.t_Range usize ]
         <:
         t_Slice u8)
   in
-  let offset:usize = offset +! Securedrop_protocol_minimal.Constants.v_LEN_XWING_ENCAPS_KEY in
+  let offset:usize =
+    offset +! Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PUBLIC_KEY_LEN
+  in
   let sender_fetch_key:t_Array u8 (mk_usize 32) =
     Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
   in
@@ -116,14 +118,14 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
             Core_models.Ops.Range.f_start = offset;
             Core_models.Ops.Range.f_end
             =
-            offset +! Securedrop_protocol_minimal.Constants.v_LEN_DH_ITEM <: usize
+            offset +! Securedrop_protocol_minimal.Primitives.X25519.v_DH_PUBLIC_KEY_LEN <: usize
           }
           <:
           Core_models.Ops.Range.t_Range usize ]
         <:
         t_Slice u8)
   in
-  let offset:usize = offset +! Securedrop_protocol_minimal.Constants.v_LEN_DH_ITEM in
+  let offset:usize = offset +! Securedrop_protocol_minimal.Primitives.X25519.v_DH_PUBLIC_KEY_LEN in
   let msg:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Alloc.Slice.impl__to_vec #u8
       (pt_bytes.[ { Core_models.Ops.Range.f_start = offset }

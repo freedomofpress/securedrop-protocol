@@ -3,6 +3,8 @@ module Securedrop_protocol_minimal.Primitives.X25519
 open FStar.Mul
 open Core_models
 
+let v_DH_PUBLIC_KEY_LEN: usize = Securedrop_protocol_minimal.Primitives.Provider.Curve25519.v_PK_LEN
+
 /// An X25519 public key.
 type t_DHPublicKey = | DHPublicKey : t_Array u8 (mk_usize 32) -> t_DHPublicKey
 
