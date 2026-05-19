@@ -44,15 +44,16 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
         .map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
 
     // Encrypt the message ID
-    provider::chacha20poly1305::encrypt(
-        &key_array,
-        message_id,
-        &mut ciphertext,
-        &[], // empty AAD
-        &nonce,
-    )
-    .map_err(|e| anyhow::anyhow!("ChaCha20-Poly1305 encryption failed: {:?}", e))?;
-
+    match provider::chacha20poly1305::encrypt(&key_array, message_id, &mut ciphertext, &[], &nonce)
+    {
+        Ok(_) => {}
+        Err(e) => {
+            return Err(anyhow::anyhow!(
+                "ChaCha20-Poly1305 encryption failed: {:?}",
+                e
+            ));
+        }
+    }
     output.extend_from_slice(&ciphertext);
     Ok(output)
 }
