@@ -1,7 +1,10 @@
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use crate::primitives::provider::{self, ed25519::{LibCruxSigningKey, LibCruxVerifyingKey}};
+use crate::primitives::provider::{
+    self,
+    ed25519::{LibCruxSigningKey, LibCruxVerifyingKey},
+};
 use anyhow::Error;
 use rand_core::CryptoRng;
 
