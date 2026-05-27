@@ -70,11 +70,7 @@ let impl_Plaintext__to_bytes (self: t_Plaintext) : Alloc.Vec.t_Vec u8 Alloc.Allo
     Alloc.Vec.impl_2__extend_from_slice #u8
       #Alloc.Alloc.t_Global
       buf
-      (Core_models.Ops.Deref.f_deref #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-          #FStar.Tactics.Typeclasses.solve
-          self.f_msg
-        <:
-        t_Slice u8)
+      (Alloc.Vec.impl_1__as_slice self.f_msg <: t_Slice u8)
   in
   buf
 
