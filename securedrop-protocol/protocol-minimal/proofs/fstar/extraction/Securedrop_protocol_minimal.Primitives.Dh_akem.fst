@@ -11,9 +11,11 @@ let _ =
   let open Rand_core in
   ()
 
-let v_DH_AKEM_PUBLIC_KEY_LEN: usize = mk_usize 32
+let v_DH_AKEM_PUBLIC_KEY_LEN: usize =
+  Securedrop_protocol_minimal.Primitives.Provider.Curve25519.v_PK_LEN
 
-let v_DH_AKEM_PRIVATE_KEY_LEN: usize = mk_usize 32
+let v_DH_AKEM_PRIVATE_KEY_LEN: usize =
+  Securedrop_protocol_minimal.Primitives.Provider.Curve25519.v_SK_LEN
 
 /// An DH-AKEM public key.
 type t_DhAkemPublicKey = | DhAkemPublicKey : t_Array u8 (mk_usize 32) -> t_DhAkemPublicKey

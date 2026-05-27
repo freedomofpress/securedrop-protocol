@@ -1,34 +1,36 @@
+use crate::primitives::provider::{self, curve25519::ecdh};
 use anyhow::Error;
-use libcrux_curve25519::ecdh;
-use libcrux_traits::kem::arrayref::Kem;
 use rand_core::{CryptoRng, RngCore};
 
-pub use libcrux_curve25519::{DK_LEN as SK_LEN, EK_LEN as PK_LEN};
+pub const DH_PUBLIC_KEY_LEN: usize = crate::primitives::provider::curve25519::PK_LEN;
+pub(crate) const DH_PRIVATE_KEY_LEN: usize = crate::primitives::provider::curve25519::SK_LEN;
+pub(crate) const DH_SHARED_SECRET_LEN: usize =
+    crate::primitives::provider::curve25519::LEN_DH_SHARE;
 
 /// An X25519 public key.
 #[derive(Debug, Clone, Copy)]
-pub struct DHPublicKey([u8; PK_LEN]);
+pub struct DHPublicKey([u8; DH_PUBLIC_KEY_LEN]);
 
 impl DHPublicKey {
-    pub fn into_bytes(self) -> [u8; PK_LEN] {
+    pub fn into_bytes(self) -> [u8; DH_PUBLIC_KEY_LEN] {
         self.0
     }
 
-    pub fn from_bytes(bytes: [u8; PK_LEN]) -> Self {
+    pub fn from_bytes(bytes: [u8; DH_PUBLIC_KEY_LEN]) -> Self {
         Self(bytes)
     }
 }
 
 /// An X25519 private key.
 #[derive(Debug, Clone)]
-pub struct DHPrivateKey([u8; SK_LEN]);
+pub struct DHPrivateKey([u8; DH_PRIVATE_KEY_LEN]);
 
 impl DHPrivateKey {
-    pub fn into_bytes(self) -> [u8; SK_LEN] {
+    pub fn into_bytes(self) -> [u8; DH_PRIVATE_KEY_LEN] {
         self.0
     }
 
-    pub fn from_bytes(bytes: [u8; SK_LEN]) -> Self {
+    pub fn from_bytes(bytes: [u8; DH_PRIVATE_KEY_LEN]) -> Self {
         Self(bytes)
     }
 }
@@ -50,10 +52,10 @@ impl DHSharedSecret {
 /// Generate DH keypair from external randomness
 /// FOR TEST PURPOSES ONLY
 pub fn deterministic_dh_keygen(randomness: [u8; 32]) -> Result<(DHPrivateKey, DHPublicKey), Error> {
-    let mut public_key = [0u8; PK_LEN];
-    let mut secret_key = [0u8; SK_LEN];
+    let mut public_key = [0u8; DH_PUBLIC_KEY_LEN];
+    let mut secret_key = [0u8; DH_PRIVATE_KEY_LEN];
 
-    libcrux_curve25519::X25519::keygen(&mut public_key, &mut secret_key, &randomness)
+    provider::curve25519::x25519_keygen(&mut public_key, &mut secret_key, &randomness)
         .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
 
     Ok((DHPrivateKey(secret_key), DHPublicKey(public_key)))
@@ -66,12 +68,12 @@ pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
     let mut randomness = [0u8; 32];
     rng.fill_bytes(&mut randomness);
 
-    let mut public_key = [0u8; PK_LEN];
-    let mut secret_key = [0u8; SK_LEN];
+    let mut public_key = [0u8; DH_PUBLIC_KEY_LEN];
+    let mut secret_key = [0u8; DH_PRIVATE_KEY_LEN];
 
     // Generate the key pair using X25519 from libcrux
     // Parameters: ek (public key), dk (secret key), rand (randomness)
-    libcrux_curve25519::X25519::keygen(&mut public_key, &mut secret_key, &randomness)
+    provider::curve25519::x25519_keygen(&mut public_key, &mut secret_key, &randomness)
         .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
 
     typed(secret_key, public_key)
@@ -80,7 +82,10 @@ pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
 // Fixed-sized arrays are enforced by at compile-time, so type-checking
 // implies...
 #[cfg_attr(hax, hax_lib::ensures(|result| result.is_ok()))]
-fn typed(sk: [u8; SK_LEN], pk: [u8; PK_LEN]) -> Result<(DHPrivateKey, DHPublicKey), Error> {
+fn typed(
+    sk: [u8; DH_PRIVATE_KEY_LEN],
+    pk: [u8; DH_PUBLIC_KEY_LEN],
+) -> Result<(DHPrivateKey, DHPublicKey), Error> {
     Ok((DHPrivateKey(sk), DHPublicKey(pk)))
 }
 
@@ -94,7 +99,7 @@ pub fn generate_random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Result<[u8
 
     // Generate the key pair using X25519 from libcrux
     // Parameters: ek (public key), dk (secret key), rand (randomness)
-    libcrux_curve25519::X25519::keygen(&mut _public_key, &mut secret_key, &randomness)
+    provider::curve25519::x25519_keygen(&mut _public_key, &mut secret_key, &randomness)
         .map_err(|_| anyhow::anyhow!("X25519 key generation failed"))?;
 
     Ok(secret_key)
@@ -106,7 +111,7 @@ pub fn generate_random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> Result<[u8
 /// (defined as [9, 0, 0, 0, ...] in the HACL implementation, see `g25519` in their code)
 pub fn dh_public_key_from_scalar(scalar: [u8; 32]) -> DHPublicKey {
     let mut public_key_bytes = [0u8; 32];
-    libcrux_curve25519::secret_to_public(&mut public_key_bytes, &scalar);
+    provider::curve25519::secret_to_public(&mut public_key_bytes, &scalar);
     DHPublicKey::from_bytes(public_key_bytes)
 }
 
@@ -123,7 +128,7 @@ pub fn dh_shared_secret(
 
 #[cfg(test)]
 mod tests {
-    use crate::constants::LEN_DH_ITEM;
+    use crate::primitives::provider::curve25519::LEN_DH_SHARE;
 
     use super::*;
     use proptest::prelude::*;
@@ -156,6 +161,6 @@ mod tests {
         let ss2 = dh_shared_secret(&pk2, sk1.into_bytes()).expect("need shared secret 2");
 
         assert_eq!(ss1.clone().into_bytes(), ss2.into_bytes());
-        assert_ne!(ss1.into_bytes(), [0u8; LEN_DH_ITEM])
+        assert_ne!(ss1.into_bytes(), [0u8; LEN_DH_SHARE])
     }
 }

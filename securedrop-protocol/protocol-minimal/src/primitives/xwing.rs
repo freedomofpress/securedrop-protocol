@@ -1,10 +1,11 @@
-use hpke_rs::{HpkePrivateKey, HpkePublicKey};
-use libcrux_kem::{PrivateKey, PublicKey};
+use crate::primitives::provider::hpke_rs::{HpkePrivateKey, HpkePublicKey};
+use crate::primitives::provider::kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
 
-// From: https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/
-pub(crate) const XWING_PUBLIC_KEY_LEN: usize = 1216;
+// From: https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/#name-encoding-and-sizes
+pub const XWING_PUBLIC_KEY_LEN: usize = 1216;
 pub(crate) const XWING_PRIVATE_KEY_LEN: usize = 32;
+pub(crate) const LEN_XWING_SHAREDSECRET_ENCAPS: usize = 1120;
 
 /// XWING public key.
 #[derive(Debug, Clone)]
@@ -55,7 +56,7 @@ impl From<XWingPublicKey> for HpkePublicKey {
 pub(crate) fn deterministic_keygen(
     randomness: [u8; 32],
 ) -> Result<(XWingPrivateKey, XWingPublicKey), anyhow::Error> {
-    use libcrux_kem::{Algorithm, key_gen_derand};
+    use crate::primitives::provider::kem::{Algorithm, key_gen_derand};
 
     // Generate XWING keypair using libcrux_kem with deterministic randomness
     let (sk, pk) = key_gen_derand(Algorithm::XWingKemDraft06, &randomness)
@@ -122,7 +123,7 @@ fn typed(
 pub(crate) fn generate_xwing_keypair<R: RngCore + CryptoRng>(
     rng: &mut R,
 ) -> Result<(XWingPrivateKey, XWingPublicKey), anyhow::Error> {
-    use libcrux_kem::{Algorithm, key_gen};
+    use crate::primitives::provider::kem::{Algorithm, key_gen};
 
     // Generate XWING keypair using libcrux_kem
     let (sk, pk) = key_gen(Algorithm::XWingKemDraft06, rng)

@@ -1,11 +1,11 @@
-use crate::constants::{LEN_DH_ITEM, LEN_KMID, LEN_XWING_ENCAPS_KEY};
 use crate::message::MessagePublicKey;
 use crate::metadata;
-use crate::primitives::x25519::DHPublicKey;
-use crate::primitives::x25519::DHSharedSecret;
-use crate::primitives::x25519::dh_shared_secret;
-use crate::primitives::x25519::generate_dh_keypair;
-use crate::primitives::x25519::generate_random_scalar;
+use crate::primitives::provider::constants::LEN_KMID;
+use crate::primitives::x25519::{
+    DH_PUBLIC_KEY_LEN, DHPublicKey, DHSharedSecret, dh_shared_secret, generate_dh_keypair,
+    generate_random_scalar,
+};
+use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use crate::primitives::{decrypt_message_id, encrypt_message_id};
 use crate::storage::ServerMessageStore;
 use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, UserSecret};
@@ -152,7 +152,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
         let mut pad_kmid: [u8; LEN_KMID] = [0u8; LEN_KMID];
         rng.fill_bytes(&mut pad_kmid);
 
-        let mut pad_pmgdh: [u8; LEN_DH_ITEM] = [0u8; LEN_DH_ITEM];
+        let mut pad_pmgdh: [u8; DH_PUBLIC_KEY_LEN] = [0u8; DH_PUBLIC_KEY_LEN];
         rng.fill_bytes(&mut pad_pmgdh);
 
         responses.push(FetchResponse {
@@ -203,10 +203,10 @@ pub fn solve_fetch_challenges<S: UserSecret>(
 /// TODO: only sources need to attach their pubkeys (for replies),
 /// but for toy purposes, everyone builds a Plaintext message the same way
 pub fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
-    let mut fetch_pk = [0u8; LEN_DH_ITEM];
+    let mut fetch_pk = [0u8; DH_PUBLIC_KEY_LEN];
     fetch_pk.copy_from_slice(&sender.fetch_pk().clone().into_bytes());
 
-    let mut reply_key_pq_hybrid = [0u8; LEN_XWING_ENCAPS_KEY];
+    let mut reply_key_pq_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
     reply_key_pq_hybrid.copy_from_slice(sender.message_metadata_pk().as_bytes());
 
     Plaintext {
@@ -261,7 +261,7 @@ mod tests {
         );
         assert_eq!(
             pt.len(),
-            &pt_ref.msg.len() + LEN_DH_ITEM + LEN_XWING_ENCAPS_KEY
+            &pt_ref.msg.len() + DH_PUBLIC_KEY_LEN + XWING_PUBLIC_KEY_LEN
         );
     }
 
