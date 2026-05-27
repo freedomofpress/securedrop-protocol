@@ -20,3 +20,6 @@ type t_AeadError =
   | AeadError_CiphertextTooShort : t_AeadError
   | AeadError_PlaintextTooShort : t_AeadError
   | AeadError_InvalidCiphertext : t_AeadError
+
+val t_AeadError_cast_to_repr (x: t_AeadError)
+    : Prims.Pure isize Prims.l_True (fun _ -> Prims.l_True)

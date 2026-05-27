@@ -3,15 +3,19 @@ module Securedrop_protocol_minimal.Primitives.X25519
 open FStar.Mul
 open Core_models
 
-let v_DH_PUBLIC_KEY_LEN: usize = Securedrop_protocol_minimal.Primitives.Provider.Curve25519.v_PK_LEN
-
 let _ =
   (* This module has implicit dependencies, here we make them explicit. *)
   (* The implicit dependencies arise from typeclasses instances. *)
-  let open Libcrux_curve25519 in
-  let open Libcrux_traits.Kem.Arrayref in
   let open Rand_core in
   ()
+
+let v_DH_PUBLIC_KEY_LEN: usize = Securedrop_protocol_minimal.Primitives.Provider.Curve25519.v_PK_LEN
+
+let v_DH_PRIVATE_KEY_LEN: usize =
+  Securedrop_protocol_minimal.Primitives.Provider.Curve25519.v_SK_LEN
+
+let v_DH_SHARED_SECRET_LEN: usize =
+  Securedrop_protocol_minimal.Primitives.Provider.Curve25519.v_LEN_DH_SHARE
 
 /// An X25519 public key.
 type t_DHPublicKey = | DHPublicKey : t_Array u8 (mk_usize 32) -> t_DHPublicKey
@@ -84,9 +88,9 @@ let deterministic_dh_keygen (randomness: t_Array u8 (mk_usize 32))
   (tmp0: t_Array u8 (mk_usize 32)),
   (tmp1: t_Array u8 (mk_usize 32)),
   (out: Core_models.Result.t_Result Prims.unit Libcrux_traits.Kem.Arrayref.t_KeyGenError) =
-    Libcrux_traits.Kem.Arrayref.f_keygen #Libcrux_curve25519.t_X25519 #(mk_usize 32) #(mk_usize 32)
-      #(mk_usize 32) #(mk_usize 32) #(mk_usize 32) #(mk_usize 32) #FStar.Tactics.Typeclasses.solve
-      public_key secret_key randomness
+    Securedrop_protocol_minimal.Primitives.Provider.Curve25519.x25519_keygen public_key
+      secret_key
+      randomness
   in
   let public_key:t_Array u8 (mk_usize 32) = tmp0 in
   let secret_key:t_Array u8 (mk_usize 32) = tmp1 in
@@ -157,9 +161,9 @@ let generate_dh_keypair
   (tmp0: t_Array u8 (mk_usize 32)),
   (tmp1: t_Array u8 (mk_usize 32)),
   (out: Core_models.Result.t_Result Prims.unit Libcrux_traits.Kem.Arrayref.t_KeyGenError) =
-    Libcrux_traits.Kem.Arrayref.f_keygen #Libcrux_curve25519.t_X25519 #(mk_usize 32) #(mk_usize 32)
-      #(mk_usize 32) #(mk_usize 32) #(mk_usize 32) #(mk_usize 32) #FStar.Tactics.Typeclasses.solve
-      public_key secret_key randomness
+    Securedrop_protocol_minimal.Primitives.Provider.Curve25519.x25519_keygen public_key
+      secret_key
+      randomness
   in
   let public_key:t_Array u8 (mk_usize 32) = tmp0 in
   let secret_key:t_Array u8 (mk_usize 32) = tmp1 in
@@ -218,9 +222,9 @@ let generate_random_scalar
   (tmp0: t_Array u8 (mk_usize 32)),
   (tmp1: t_Array u8 (mk_usize 32)),
   (out: Core_models.Result.t_Result Prims.unit Libcrux_traits.Kem.Arrayref.t_KeyGenError) =
-    Libcrux_traits.Kem.Arrayref.f_keygen #Libcrux_curve25519.t_X25519 #(mk_usize 32) #(mk_usize 32)
-      #(mk_usize 32) #(mk_usize 32) #(mk_usize 32) #(mk_usize 32) #FStar.Tactics.Typeclasses.solve
-      e_public_key secret_key randomness
+    Securedrop_protocol_minimal.Primitives.Provider.Curve25519.x25519_keygen e_public_key
+      secret_key
+      randomness
   in
   let e_public_key:t_Array u8 (mk_usize 32) = tmp0 in
   let secret_key:t_Array u8 (mk_usize 32) = tmp1 in

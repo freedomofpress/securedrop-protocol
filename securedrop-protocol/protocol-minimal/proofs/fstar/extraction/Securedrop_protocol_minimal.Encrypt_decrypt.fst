@@ -413,7 +413,9 @@ let compute_fetch_challenges
               #Anyhow.t_Error
               out
           in
-          let args:usize = Securedrop_protocol_minimal.Constants.v_LEN_KMID <: usize in
+          let args:usize =
+            Securedrop_protocol_minimal.Primitives.Provider.Constants.v_LEN_KMID <: usize
+          in
           let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
             let list = [Core_models.Fmt.Rt.impl__new_display #usize args] in
             FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
