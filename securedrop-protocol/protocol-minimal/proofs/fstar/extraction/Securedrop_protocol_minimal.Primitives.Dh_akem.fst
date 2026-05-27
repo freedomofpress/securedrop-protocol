@@ -165,6 +165,7 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
         #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
         #Anyhow.t_Error
+        #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global -> Anyhow.t_Error)
         (Core_models.Convert.f_try_into #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
             #(t_Array u8 (mk_usize 32))
             #FStar.Tactics.Typeclasses.solve
@@ -192,6 +193,7 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
           Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
             #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
             #Anyhow.t_Error
+            #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global -> Anyhow.t_Error)
             (Core_models.Convert.f_try_into #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
                 #(t_Array u8 (mk_usize 32))
                 #FStar.Tactics.Typeclasses.solve
@@ -242,6 +244,7 @@ let deterministic_keygen (randomness: t_Array u8 (mk_usize 32))
     Core_models.Result.impl__map_err #(Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey)
       #Libcrux_kem.t_Error
       #Anyhow.t_Error
+      #(Libcrux_kem.t_Error -> Anyhow.t_Error)
       (Libcrux_kem.key_gen_derand (Libcrux_kem.Algorithm_X25519 <: Libcrux_kem.t_Algorithm)
           (clamped_randomness <: t_Slice u8)
         <:
@@ -297,6 +300,7 @@ let generate_dh_akem_keypair
     Core_models.Result.impl__map_err #(Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey)
       #Libcrux_kem.t_Error
       #Anyhow.t_Error
+      #(Libcrux_kem.t_Error -> Anyhow.t_Error)
       out
       (fun e ->
           let e:Libcrux_kem.t_Error = e in

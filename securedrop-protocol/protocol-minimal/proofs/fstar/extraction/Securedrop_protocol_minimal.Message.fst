@@ -356,6 +356,7 @@ let auth_enc
     Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32) & t_Array u8 (mk_usize 1088))
       #Libcrux_traits.Kem.Arrayref.t_EncapsError
       #Anyhow.t_Error
+      #(Libcrux_traits.Kem.Arrayref.t_EncapsError -> Anyhow.t_Error)
       (Libcrux_traits.Kem.Owned.f_encaps #Libcrux_ml_kem.Mlkem768.t_MlKem768 #(mk_usize 1184)
           #(mk_usize 2400) #(mk_usize 1088) #(mk_usize 32) #(mk_usize 64) #(mk_usize 32)
           #FStar.Tactics.Typeclasses.solve
@@ -432,11 +433,7 @@ let auth_enc
       Hpke_rs.impl_7__seal #Hpke_rs_libcrux.t_HpkeLibcrux
         hpke
         pkr1
-        (Core_models.Ops.Deref.f_deref #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-            #FStar.Tactics.Typeclasses.solve
-            full_info
-          <:
-          t_Slice u8)
+        (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8)
         ad
         m
         (Core_models.Option.Option_Some (k2 <: t_Slice u8)
@@ -452,6 +449,7 @@ let auth_enc
             Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
           #Hpke_rs.t_HpkeError
           #Anyhow.t_Error
+          #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
           out
           (fun e ->
               let e:Hpke_rs.t_HpkeError = e in
@@ -540,6 +538,7 @@ let auth_dec
     Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
       #Libcrux_traits.Kem.Arrayref.t_DecapsError
       #Anyhow.t_Error
+      #(Libcrux_traits.Kem.Arrayref.t_DecapsError -> Anyhow.t_Error)
       (Libcrux_traits.Kem.Owned.f_decaps #Libcrux_ml_kem.Mlkem768.t_MlKem768 #(mk_usize 1184)
           #(mk_usize 2400) #(mk_usize 1088) #(mk_usize 32) #(mk_usize 64) #(mk_usize 32)
           #FStar.Tactics.Typeclasses.solve ct.f_c2
@@ -612,17 +611,10 @@ let auth_dec
     Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
       #Hpke_rs.t_HpkeError
       #Anyhow.t_Error
+      #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
       (Hpke_rs.impl_7__open #Hpke_rs_libcrux.t_HpkeLibcrux hpke (ct.f_c1 <: t_Slice u8) skr1
-          (Core_models.Ops.Deref.f_deref #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-              #FStar.Tactics.Typeclasses.solve
-              full_info
-            <:
-            t_Slice u8) ad
-          (Core_models.Ops.Deref.f_deref #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-              #FStar.Tactics.Typeclasses.solve
-              ct.f_cp
-            <:
-            t_Slice u8)
+          (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8) ad
+          (Alloc.Vec.impl_1__as_slice ct.f_cp <: t_Slice u8)
           (Core_models.Option.Option_Some (k2 <: t_Slice u8)
             <:
             Core_models.Option.t_Option (t_Slice u8))

@@ -17,19 +17,21 @@ license = "GPL-3.0"
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-interfaces-extracted-from-our-dependencies
 
 # no rand/getrandom in core library!
-# crypto stack, pinned to cryspen/libcrux#1312
-libcrux-ed25519 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f", features = ["rand"] }
-libcrux-curve25519 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
-libcrux-chacha20poly1305 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
-libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
-libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
-libcrux-ml-kem = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
-libcrux-sha2 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
 
-# fork of cryspen/hpke-rs, transitively pinned to cryspen/libcrux#1312
-hpke-rs = { git = "https://github.com/cfm/hpke-rs", rev = "9325551537d642d308edc60f3b271742b3a25b00", features = ["libcrux"] }
+# Crypto stack, pinned to cfm/libcrux@hax-lib-0.3.7 until published crates use hax-lib 0.3.7:
+libcrux-ed25519 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf", features = ["rand"] }
+libcrux-curve25519 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-chacha20poly1305 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-traits = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-ml-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-sha2 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
 
-rand_core = { version = "0.9" }
+# See workspace-level `Cargo.toml` for patching to enforce hax-lib 0.3.7.
+# Pinned here until published crates use hax-lib 0.3.7 and libcrux-sha3 0.0.9.
+hpke-rs = { git = "https://github.com/cryspen/hpke-rs", rev = "634caf8", features = ["libcrux"] }
+
+rand_core = { version = "0.10" }
 
 anyhow = "1.0"
 hashbrown = { version = "0.14", features = ["raw"] }
@@ -55,4 +57,4 @@ panic = "abort"
 strip = true
 
 [target."cfg(hax)".dependencies]
-hax-lib = { version = "0.3.6" }
+hax-lib = { version = "0.3.7" }
