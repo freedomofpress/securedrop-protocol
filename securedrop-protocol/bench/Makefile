@@ -21,7 +21,7 @@ CRATE_WASM := $(TARGET_DIR)/$(WASM_TARGET)/release/securedrop_protocol_bench.was
 PKG_DIR := pkg
 
 # Keep consistent with wasm-bindgen version in Cargo.toml
-WASM_BINDGEN_CLI_VERSION := 0.2.106
+WASM_BINDGEN_CLI_VERSION := 0.2.121
 
 RUSTFLAGS := --cfg getrandom_backend="wasm_js"
 
