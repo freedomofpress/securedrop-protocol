@@ -245,26 +245,45 @@ For each key bundle $i$:[^11]
 
 #### Protocol Step 4: Source key setup
 
-To begin each session, a source MUST enter (on their first visit) or reenter (on
-a subsequent visit) some $passphrase$. A master key $mk$ is derived from the
-passphrase using a password-based KDF.
+To begin each session, a source MUST enter (on their first visit) or reenter
+(on a subsequent visit) a $passphrase$ encoded as a 12 word [BIP39] mnemonic.
+The mnemonic encodes 128 bits of entropy plus a 4 bit checksum carried in the
+trailing bits of the final word, which checks for single-word typos. The
+application SHOULD verify the checksum before passing $passphrase$ to the
+key-derivation procedure specified below.
 
-Three private keys are then derived from $mk$ using a
-domain-separated KDF: one for message fetching and three for encryption (two for the APKE key tuple and
-one for PKE). All source keys are long-term and fully determined by the passphrase.
+The 16 byte BIP39 entropy is used directly as the master key $mk$. From $mk$,
+four private keys are derived using a domain-separated $\text{KDF}$,
+instantiated as [HKDF-SHA256][RFC 5869] with $mk$ as the input keying material,
+the fixed ASCII application-specific salt $`\texttt{securedrop-source-v1}`$ as
+the $salt$ parameter, the per-key label below as the $info$ parameter, and an
+output length of $n$ bits as required by each consumer:
+
+- 256 bits for $sk_S^{APKE}(\text{DH})$ and $sk_S^{PKE}$
+- 512 bits for $sk_S^{fetch}$ and $sk_S^{APKE}(\text{ML-KEM})$
+
+All source keys are long term and fully determined by the passphrase.
 
 | Source                                                                            |
 | --------------------------------------------------------------------------------- |
-| $`mk \gets \text{PBKDF}(passphrase)`$                                             |
+| $`mk \gets \text{BIP39.Entropy}(passphrase)`$                                     |
 | $`sk_S^{fetch} \gets \text{KDF}(mk, \texttt{sourcefetchkey})`$                    |
 | $`sk_S^{APKE}(\text{DH}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-dh})`$        |
 | $`sk_S^{APKE}(\text{ML-KEM}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-mlkem})`$ |
 | $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$                        |
 
-Note that $sk_S^{APKE}$ is a key tuple: SD-APKE requires separate DH-AKEM and ML-KEM-768
-components, each derived independently using its own label.
+$\text{BIP39.Entropy}$ parses the mnemonic and returns the 16 byte entropy, or
+returns $\bot$ if the checksum failed to verify.
 
-As with the journalist, $`(sk_S^{fetch}, pk_S^{fetch})`$ key generation uses the ristretto255 prime order group.
+The BIP39 wordlist is static, a source's mnemonic remains valid indefinitely.
+BIP39 also defines wordlists for nine other languages, implementations MAY
+support any. Note that $mk$ is a 128-bit symmetric secret and is not threatened by quantum
+attack (see [NIST IR 8547][nist-ir-8547] §4.1.3).
+
+Note that $sk_S^{APKE}$ is a key tuple: SD-APKE requires separate DH-AKEM and ML-KEM-768
+components, each derived independently using its own info label.
+
+As with the journalist, $`(sk_S^{fetch}, pk_S^{fetch})`$ key generation uses the ristretto255 prime order group [RFC 9496].
 
 ## Messaging Protocol
 
@@ -275,7 +294,6 @@ Overview TK
 | Scheme               | Function                                                                           | Use                                                                                                                                                                                                                       |
 | -------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 |                      | $`k \gets \text{KDF}(ik, params)`$                                                 | Derive a key from input key $ik$ and $params$                                                                                                                                                                             |
-|                      | $`k \gets \text{PBKDF}(pw)`$                                                       | Derive a key from password $pw$ (including any parameters)                                                                                                                                                                |
 | `SIG`                | Signature scheme                                                                   |                                                                                                                                                                                                                           |
 |                      | $`(sk, vk) \gets^{\$} \text{KGen}()`$                                              | Generate keys                                                                                                                                                                                                             |
 |                      | $`\sigma \gets^{\$} \text{Sign}(sk, \text{len}(tag) \Vert tag \Vert m)`$           | Sign a preimage[^12] $m$ with tag $tag$ using a signing key $sk$                                                                                                                                                          |
@@ -756,10 +774,13 @@ insertion order.
 [0.3]: https://github.com/freedomofpress/securedrop-protocol/blob/v0.3/docs/protocol.md
 [#127]: https://github.com/freedomofpress/securedrop-protocol/issues/127
 [alwen2020]: https://eprint.iacr.org/2020/1499
+[BIP39]: https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
 [alwen2023]: https://eprint.iacr.org/2023/1480
 [maier2025]: https://github.com/lumaier/securedrop-formalanalysis/tree/fd0daf0ce90144e12956032abf1817e18cec48e0
 [milestones]: https://github.com/freedomofpress/securedrop-protocol/milestones
+[nist-ir-8547]: https://nvlpubs.nist.gov/nistpubs/ir/2024/NIST.IR.8547.ipd.pdf
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
+[RFC 5869]: https://datatracker.ietf.org/doc/html/rfc5869
 [RFC 9180]: https://datatracker.ietf.org/doc/html/rfc9180
 [RFC 9180 §4.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-dh-based-kem-dhkem
 [RFC 9180 §5]: https://datatracker.ietf.org/doc/html/rfc9180#name-hybrid-public-key-encryptio
@@ -770,5 +791,6 @@ insertion order.
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
 [RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
 [RFC 9180 §9.9]: https://datatracker.ietf.org/doc/html/rfc9180#name-metadata-protection
+[RFC 9496]: https://datatracker.ietf.org/doc/html/rfc9496
 [semantic versioning]: https://semver.org
 [v0.1-config]: https://github.com/freedomofpress/securedrop-protocol/blob/d512528f42760f7ccb5205291ba11a377333cc0e/README.md?plain=1#L29
