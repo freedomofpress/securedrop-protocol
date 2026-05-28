@@ -188,6 +188,26 @@ pub mod chacha20poly1305 {
     }
 }
 
+pub mod hkdf {
+
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) use libcrux_hkdf::ExpandError;
+
+    #[cfg_attr(hax, hax_lib::opaque)]
+    use libcrux_hkdf::Algorithm;
+
+    /// HKDF-SHA256
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn sha256(
+        okm: &mut [u8],
+        salt: &[u8],
+        ikm: &[u8],
+        info: &[u8],
+    ) -> Result<(), ExpandError> {
+        libcrux_hkdf::hkdf(Algorithm::Sha256, okm, salt, ikm, info)
+    }
+}
+
 pub mod hpke_rs {
 
     #[cfg_attr(hax, hax_lib::opaque)]
