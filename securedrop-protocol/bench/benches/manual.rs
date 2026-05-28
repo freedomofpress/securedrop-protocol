@@ -3,7 +3,7 @@ use std::env;
 use std::time::{Duration, Instant};
 
 use rand_chacha::ChaCha20Rng;
-use rand_core::{RngCore, SeedableRng};
+use rand_core::{Rng, SeedableRng};
 use serde::Serialize;
 use uuid::Uuid;
 

@@ -229,7 +229,7 @@ mod tests {
     use super::*;
     use crate::primitives::xwing::XWING_PRIVATE_KEY_LEN;
     use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
+    use rand_core::{Rng, SeedableRng};
 
     #[test]
     fn test_initialize_with_passphrase() {
