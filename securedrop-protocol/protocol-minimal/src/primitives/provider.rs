@@ -57,26 +57,6 @@ pub mod ed25519 {
     }
 }
 
-pub mod argon2 {
-
-    /// Derive a 64-byte master key from `passphrase` and `salt` via Argon2id
-    /// using OWASP-recommended params
-    #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn derive_master_key(passphrase: &[u8], salt: &[u8]) -> [u8; 64] {
-        let params = ::argon2::Params::new(19456, 2, 1, Some(64)).expect("valid Argon2id params");
-        let hasher = ::argon2::Argon2::new(
-            ::argon2::Algorithm::Argon2id,
-            ::argon2::Version::V0x13,
-            params,
-        );
-        let mut mk = [0u8; 64];
-        hasher
-            .hash_password_into(passphrase, salt, &mut mk)
-            .expect("Argon2id master key derivation failed");
-        mk
-    }
-}
-
 pub mod rng {
     use rand_core::{CryptoRng, RngCore};
 

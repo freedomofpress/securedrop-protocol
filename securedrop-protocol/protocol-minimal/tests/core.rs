@@ -15,6 +15,10 @@ use securedrop_protocol_minimal::{Journalist, JournalistPublic, Source, UserPubl
 // TODO: better way (eg parameterize as in benchmarks)
 pub const DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST: usize = 3;
 
+// Canonical BIP39 test vector: 16 zero bytes of entropy.
+const TEST_MNEMONIC: &str =
+    "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+
 // Toy implementation purposes
 fn get_rng() -> ChaCha20Rng {
     let mut seed = [0u8; 32];
@@ -71,7 +75,7 @@ fn protocol_step_5_source_fetch_keys() {
         .expect("Can handle ephemeral key request");
 
     // Step 4: Generate source session from passphrase
-    let mut source_session = Source::from_passphrase(&[1u8; 32]);
+    let mut source_session = Source::from_passphrase(TEST_MNEMONIC).expect("valid test mnemonic");
 
     // Step 5: Source fetches newsroom keys
     let newsroom_key_request = source_session.fetch_newsroom_keys();
@@ -306,7 +310,7 @@ fn protocol_step_7_message_id_fetch() {
         .expect("Can handle ephemeral key request");
 
     // Source setup
-    let mut source = Source::from_passphrase(&[1u8; 32]);
+    let mut source = Source::from_passphrase(TEST_MNEMONIC).expect("valid test mnemonic");
 
     // Source fetches keys (Step 5)
     let newsroom_key_request = source.fetch_newsroom_keys();

@@ -36,7 +36,7 @@ rand_core = { version = "0.10" }
 anyhow = "1.0"
 hashbrown = { version = "0.14", features = ["raw"] }
 uuid = { version = "1.0", default-features = false, features = ["v4", "js"] }
-argon2 = "0.5"
+bip39 = { version = "2", default-features = false, features = ["alloc"] }
 
 # pin an exact version to resolve wasm-bindgen schema compatibility issue
 rand_chacha = {  version = "0.10.0", default-features = false  }
