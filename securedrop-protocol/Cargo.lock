@@ -1048,6 +1048,7 @@ dependencies = [
  "libcrux-chacha20poly1305",
  "libcrux-curve25519",
  "libcrux-ed25519",
+ "libcrux-hkdf",
  "libcrux-kem",
  "libcrux-ml-kem",
  "libcrux-sha2",
