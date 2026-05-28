@@ -11,6 +11,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
 use crate::keys::*;
+use crate::primitives::provider::hkdf;
 use crate::primitives::x25519::DH_PUBLIC_KEY_LEN;
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use crate::traits::{UserPublic, UserSecret};
@@ -19,10 +20,8 @@ use crate::traits::{UserPublic, UserSecret};
 use crate::sealed;
 impl sealed::Sealed for Source {}
 
-/// Fixed public salt for Argon2id. Argon2id requires a salt; since source
-/// keys must be deterministic from the passphrase alone, we use a fixed
-/// application-specific value rather than a random one.
-const SOURCE_PBKDF_SALT: &[u8] = b"securedrop-source-v1";
+/// Fixed, public, application-specific salt for source key derivation.
+const SOURCE_KDF_SALT: &[u8] = b"securedrop-source-v1";
 
 /// A source and their long-term key material (step 4).
 ///
@@ -150,7 +149,7 @@ impl Source {
 
         let mut mk = [0u8; 64];
         argon2
-            .hash_password_into(passphrase, SOURCE_PBKDF_SALT, &mut mk)
+            .hash_password_into(passphrase, SOURCE_KDF_SALT, &mut mk)
             .expect("Argon2id master key derivation failed");
         mk
     }
@@ -160,42 +159,46 @@ impl Source {
     /// Derives a master key via [`Source::derive_master_key`], then derives
     /// each private key from the master key using a domain-separated KDF.
     pub fn from_passphrase(passphrase: &[u8]) -> Self {
-        use blake2::{Blake2b, Digest};
-
         let mk = Self::derive_master_key(passphrase);
 
-        let mut fetch_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        fetch_hasher.update(b"sourcefetchkey");
-        fetch_hasher.update(mk);
-        let fetch_result = fetch_hasher.finalize();
+        // TEMP: The spec specifies a 512-bit output here because fetch
+        // keys are intended to use the ristretto255 group, whose scalar
+        // derivation requires wide (64 byte) input. We currently use X25519,
+        // which takes a 32 byte seed, so we derive 32 bytes for now.
+        //
+        // TODO: Switch to 64 bytes when migrating the fetch key to ristretto255.
+        let mut fetch_seed = [0u8; 32];
+        hkdf::sha256(&mut fetch_seed, SOURCE_KDF_SALT, &mk, b"sourcefetchkey")
+            .expect("HKDF fetch key derivation failed");
 
         // sk_S^APKE is a hybrid key requiring two sub-derivations:
         // the DH-AKEM and ML-KEM components are each derived with their own
         // label under the "sourceAPKEkey" namespace.
-        let mut dh_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        dh_hasher.update(b"sourceAPKEkey-dh");
-        dh_hasher.update(mk);
-        let dh_result = dh_hasher.finalize();
+        let mut dh_seed = [0u8; 32];
+        hkdf::sha256(&mut dh_seed, SOURCE_KDF_SALT, &mk, b"sourceAPKEkey-dh")
+            .expect("HKDF APKE DH key derivation failed");
 
-        let mut kem_hasher = Blake2b::<blake2::digest::typenum::U64>::new();
-        kem_hasher.update(b"sourceAPKEkey-mlkem");
-        kem_hasher.update(mk);
-        let kem_result = kem_hasher.finalize();
+        let mut mlkem_seed = [0u8; 64];
+        hkdf::sha256(
+            &mut mlkem_seed,
+            SOURCE_KDF_SALT,
+            &mk,
+            b"sourceAPKEkey-mlkem",
+        )
+        .expect("HKDF APKE ML-KEM key derivation failed");
 
-        let mut pke_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        pke_hasher.update(b"sourcePKEkey");
-        pke_hasher.update(mk);
-        let pke_result = pke_hasher.finalize();
+        let mut pke_seed = [0u8; 32];
+        hkdf::sha256(&mut pke_seed, SOURCE_KDF_SALT, &mk, b"sourcePKEkey")
+            .expect("HKDF PKE key derivation failed");
 
         // Create key pairs
         let (fetch_sk, fetch_pk): (DHPrivateKey, DHPublicKey) =
-            deterministic_dh_keygen(fetch_result.into()).expect("Need Fetch keygen");
+            deterministic_dh_keygen(fetch_seed).expect("Need Fetch keygen");
 
-        let message_kp = kgen_deterministic_message(dh_result.into(), kem_result.into())
-            .expect("Need SD-APKE keygen");
+        let message_kp =
+            kgen_deterministic_message(dh_seed, mlkem_seed).expect("Need SD-APKE keygen");
 
-        let metadata_kp =
-            kgen_deterministic_metadata(pke_result.into()).expect("Need X-Wing keygen");
+        let metadata_kp = kgen_deterministic_metadata(pke_seed).expect("Need X-Wing keygen");
 
         let session = SessionStorage {
             fpf_key: None,
