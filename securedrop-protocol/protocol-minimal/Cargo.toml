@@ -37,7 +37,7 @@ uuid = { version = "1.0", default-features = false, features = ["v4", "js"] }
 argon2 = "0.5"
 blake2 = "0.10"
 
-rand_chacha = {  version = "0.9", default-features = false  }
+rand_chacha = {  version = "0.10", default-features = false  }
 
 [dev-dependencies]
 proptest = "1.11"
