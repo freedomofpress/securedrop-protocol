@@ -360,7 +360,7 @@ dependencies = [
  "hpke-rs-libcrux",
  "libcrux-sha3 0.0.7",
  "log",
- "rand_core 0.9.3",
+ "rand_core 0.9.5",
  "subtle",
  "zeroize",
 ]
@@ -370,7 +370,7 @@ name = "hpke-rs-crypto"
 version = "0.6.0"
 source = "git+https://github.com/cfm/hpke-rs?rev=9325551537d642d308edc60f3b271742b3a25b00#9325551537d642d308edc60f3b271742b3a25b00"
 dependencies = [
- "rand_core 0.9.3",
+ "rand_core 0.9.5",
  "zeroize",
 ]
 
@@ -502,7 +502,7 @@ dependencies = [
  "libcrux-hacl-rs",
  "libcrux-macros",
  "libcrux-sha2",
- "rand_core 0.9.3",
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -901,7 +901,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44c5af06bb1b7d3216d91932aed5265164bf384dc89cd6ba05cf59a35f5f76ea"
 dependencies = [
  "rand_chacha 0.9.0",
- "rand_core 0.9.3",
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -921,7 +921,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
 dependencies = [
  "ppv-lite86",
- "rand_core 0.9.3",
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -942,9 +942,9 @@ checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 
 [[package]]
 name = "rand_core"
-version = "0.9.3"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99d9a13982dcf210057a8a78572b2217b667c3beacbf3a0d8b454f6f82837d38"
+checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
 dependencies = [
  "getrandom 0.3.4",
 ]
@@ -961,7 +961,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
 dependencies = [
- "rand_core 0.9.3",
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -1025,7 +1025,7 @@ dependencies = [
  "hashbrown 0.14.5",
  "js-sys",
  "rand_chacha 0.9.0",
- "rand_core 0.9.3",
+ "rand_core 0.10.0",
  "securedrop-protocol-minimal",
  "serde",
  "serde_json",
@@ -1054,7 +1054,7 @@ dependencies = [
  "libcrux-traits 0.0.5",
  "proptest",
  "rand_chacha 0.9.0",
- "rand_core 0.9.3",
+ "rand_core 0.10.0",
  "serde",
  "serde_json",
  "uuid",
