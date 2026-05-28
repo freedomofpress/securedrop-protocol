@@ -10,6 +10,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
 use crate::keys::*;
+use crate::primitives::provider::hkdf;
 use crate::primitives::x25519::DH_PUBLIC_KEY_LEN;
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use crate::traits::{UserPublic, UserSecret};
@@ -20,10 +21,8 @@ use crate::sealed;
 #[cfg(not(hax))]
 impl sealed::Sealed for Source {}
 
-/// Fixed public salt for Argon2id. Argon2id requires a salt; since source
-/// keys must be deterministic from the passphrase alone, we use a fixed
-/// application-specific value rather than a random one.
-const SOURCE_PBKDF_SALT: &[u8] = b"securedrop-source-v1";
+/// Fixed, public, application-specific salt for source key derivation.
+const SOURCE_KDF_SALT: &[u8] = b"securedrop-source-v1";
 
 /// A source and their long-term key material (step 4).
 ///
@@ -147,7 +146,7 @@ impl Source {
     /// Uses a fixed, public, domain-specific salt. The security of the master
     /// key rests entirely on the entropy of the passphrase.
     fn derive_master_key(passphrase: &[u8]) -> [u8; 64] {
-        crate::primitives::provider::argon2::derive_master_key(passphrase, SOURCE_PBKDF_SALT)
+        crate::primitives::provider::argon2::derive_master_key(passphrase, SOURCE_KDF_SALT)
     }
 
     /// Reconstruct source keys from a passphrase (step 4).
@@ -156,27 +155,46 @@ impl Source {
     /// each private key from the master key using a domain-separated KDF.
     #[cfg_attr(hax, hax_lib::opaque)]
     pub fn from_passphrase(passphrase: &[u8]) -> Self {
-        use crate::primitives::provider::blake2;
-
         let mk = Self::derive_master_key(passphrase);
 
-        let fetch_result = blake2::derive32(b"sourcefetchkey", &mk);
+        // TEMP: The spec specifies a 512-bit output here because fetch
+        // keys are intended to use the ristretto255 group, whose scalar
+        // derivation requires wide (64 byte) input. We currently use X25519,
+        // which takes a 32 byte seed, so we derive 32 bytes for now.
+        //
+        // TODO: Switch to 64 bytes when migrating the fetch key to ristretto255.
+        let mut fetch_seed = [0u8; 32];
+        hkdf::sha256(&mut fetch_seed, SOURCE_KDF_SALT, &mk, b"sourcefetchkey")
+            .expect("HKDF fetch key derivation failed");
 
         // sk_S^APKE is a hybrid key requiring two sub-derivations:
         // the DH-AKEM and ML-KEM components are each derived with their own
         // label under the "sourceAPKEkey" namespace.
-        let dh_result = blake2::derive32(b"sourceAPKEkey-dh", &mk);
-        let kem_result = blake2::derive64(b"sourceAPKEkey-mlkem", &mk);
-        let pke_result = blake2::derive32(b"sourcePKEkey", &mk);
+        let mut dh_seed = [0u8; 32];
+        hkdf::sha256(&mut dh_seed, SOURCE_KDF_SALT, &mk, b"sourceAPKEkey-dh")
+            .expect("HKDF APKE DH key derivation failed");
+
+        let mut mlkem_seed = [0u8; 64];
+        hkdf::sha256(
+            &mut mlkem_seed,
+            SOURCE_KDF_SALT,
+            &mk,
+            b"sourceAPKEkey-mlkem",
+        )
+        .expect("HKDF APKE ML-KEM key derivation failed");
+
+        let mut pke_seed = [0u8; 32];
+        hkdf::sha256(&mut pke_seed, SOURCE_KDF_SALT, &mk, b"sourcePKEkey")
+            .expect("HKDF PKE key derivation failed");
 
         // Create key pairs
         let (fetch_sk, fetch_pk): (DHPrivateKey, DHPublicKey) =
-            deterministic_dh_keygen(fetch_result).expect("Need Fetch keygen");
+            deterministic_dh_keygen(fetch_seed).expect("Need Fetch keygen");
 
         let message_kp =
-            kgen_deterministic_message(dh_result, kem_result).expect("Need SD-APKE keygen");
+            kgen_deterministic_message(dh_seed, mlkem_seed).expect("Need SD-APKE keygen");
 
-        let metadata_kp = kgen_deterministic_metadata(pke_result).expect("Need X-Wing keygen");
+        let metadata_kp = kgen_deterministic_metadata(pke_seed).expect("Need X-Wing keygen");
 
         let session = SessionStorage {
             fpf_key: None,

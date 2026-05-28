@@ -77,29 +77,6 @@ pub mod argon2 {
     }
 }
 
-pub mod blake2 {
-
-    /// Domain-separated KDF: `Blake2b(domain || input)` truncated to 32 bytes
-    #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn derive32(domain: &[u8], input: &[u8]) -> [u8; 32] {
-        use ::blake2::{Blake2b, Digest};
-        let mut h = Blake2b::<::blake2::digest::typenum::U32>::new();
-        h.update(domain);
-        h.update(input);
-        h.finalize().into()
-    }
-
-    /// Domain-separated KDF: `Blake2b(domain || input)` truncated to 64 bytes
-    #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn derive64(domain: &[u8], input: &[u8]) -> [u8; 64] {
-        use ::blake2::{Blake2b, Digest};
-        let mut h = Blake2b::<::blake2::digest::typenum::U64>::new();
-        h.update(domain);
-        h.update(input);
-        h.finalize().into()
-    }
-}
-
 pub mod rng {
     use rand_core::{CryptoRng, RngCore};
 
