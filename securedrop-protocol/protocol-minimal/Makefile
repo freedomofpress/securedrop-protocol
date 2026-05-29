@@ -45,7 +45,7 @@ hax: compat extract verify  ## Run hax extraction, then verify extracted proofs.
 
 .PHONY: verify
 verify:  # Internal/CI: Verify extracted proofs.
-	$(MAKE) -C $(PROOF_DIR)
+	$(MAKE) -C $(PROOF_DIR) all-keep-going
 
 .PHONY: hax-lib-version
 hax-lib-version:  # Internal: Query Cargo for the hax-lib version.
