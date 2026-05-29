@@ -41,13 +41,10 @@ extract:  # Internal/CI: Run hax extraction.
 	cargo hax into -i '$(HAX_TARGETS)' fstar
 
 .PHONY: hax
-hax: compat extract verify  ## Run hax extraction, then type-check and verify extracted proofs.
+hax: compat extract verify  ## Run hax extraction, then verify extracted proofs.
 
 .PHONY: verify
-verify:  # Internal/CI: Type-check and verify extracted proofs.
-	# Type-check (fail fast):
-	OTHERFLAGS="--lax" $(MAKE) -C $(PROOF_DIR)
-	# Verify:
+verify:  # Internal/CI: Verify extracted proofs.
 	$(MAKE) -C $(PROOF_DIR)
 
 .PHONY: hax-lib-version

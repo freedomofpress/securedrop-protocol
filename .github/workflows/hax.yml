@@ -30,6 +30,6 @@ jobs:
         run: git diff --exit-code .
         working-directory: securedrop-protocol/protocol-minimal/proofs
 
-      - name: Type-check and verify
+      - name: Verify
         run: make verify
         working-directory: securedrop-protocol/protocol-minimal
