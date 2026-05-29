@@ -1,0 +1,18 @@
+[package]
+name = "securedrop-source-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors = ["SecureDrop Team <securedrop@freedom.press>"]
+description = "Demo source CLI for the SecureDrop protocol"
+
+[[bin]]
+name = "source-cli"
+path = "src/main.rs"
+
+[dependencies]
+securedrop-protocol-minimal = { path = "../protocol-minimal" }
+
+anyhow = "1.0"
+clap = { version = "4", features = ["derive"] }
+rand_core = { version = "0.9", features = ["os_rng"] }
