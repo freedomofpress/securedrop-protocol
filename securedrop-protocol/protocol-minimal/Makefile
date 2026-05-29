@@ -48,7 +48,7 @@ verify:  # Internal/CI: Type-check and verify extracted proofs.
 	# Type-check (fail fast):
 	OTHERFLAGS="--lax" $(MAKE) -C $(PROOF_DIR)
 	# Verify:
-	$(MAKE) -C $(PROOF_DIR)
+	$(MAKE) -C $(PROOF_DIR) all-keep-going
 
 .PHONY: hax-lib-version
 hax-lib-version:  # Internal: Query Cargo for the hax-lib version.
