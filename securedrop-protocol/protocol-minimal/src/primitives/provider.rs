@@ -35,8 +35,26 @@ pub mod ed25519 {
         SigningKey as LibCruxSigningKey, VerificationKey as LibCruxVerifyingKey,
     };
 
+    // todo: avoid exposing libcrux types
     #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) use libcrux_ed25519::{generate_key_pair, sign, verify};
+use rand_core::{CryptoRng, RngCore};
+
+    pub(crate) fn to_libcrux_sk(sk: [u8; 32]) -> LibCruxSigningKey {
+        LibCruxSigningKey::from_bytes(sk)
+    }
+    pub(crate) fn to_libcrux_vk(vk: [u8; 32]) -> LibCruxVerifyingKey {
+        LibCruxVerifyingKey::from_bytes(vk)
+    }
+
+    pub(crate) fn keygen<R: RngCore + CryptoRng>(rng: &mut R) -> crate::SigningKey {
+        let (sk, vk) = generate_key_pair(rng)
+            .map_err(|_| anyhow::anyhow!("Key generation failed"))?;
+        Ok(crate::SigningKey {
+            VerificationKey(vk),
+            SigningSecretKey(sk),
+        })
+    }
 }
 
 pub mod kem {

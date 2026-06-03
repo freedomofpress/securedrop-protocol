@@ -1,12 +1,12 @@
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use crate::primitives::provider::{
-    self,
-    ed25519::{LibCruxSigningKey, LibCruxVerifyingKey},
-};
 use anyhow::Error;
 use rand_core::CryptoRng;
+
+use crate::primitives::provider::{self, ed25519::*};
+
+const KEY_LEN_ED25519: usize = 32;
 
 // Sealing module: prevents external crates from implementing `DomainTag`.
 #[cfg(not(hax))]
@@ -121,10 +121,36 @@ fn tagged_preimage<D: DomainTag>(msg: &[u8]) -> Vec<u8> {
     preimage
 }
 
+/// An Ed25519 verification key.
+#[derive(Copy, Clone)]
+pub(crate) struct VerifyingKey([u8; KEY_LEN_ED25519]);
+
 /// An Ed25519 signing key.
+pub(crate) struct SigningSecretKey([u8; KEY_LEN_ED25519]);
+
+impl VerifyingKey {
+    pub(crate) fn as_bytes(&self) -> &[u8; KEY_LEN_ED25519] {
+        &self.0
+    }
+
+    pub(crate) fn from_bytes(bytes: [u8; KEY_LEN_ED25519]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl SigningSecretKey {
+    pub(crate) fn as_bytes(&self) -> &[u8; KEY_LEN_ED25519] {
+        &self.0
+    }
+
+    pub(crate) fn from_bytes(bytes: [u8; KEY_LEN_ED25519]) -> Self {
+        Self(bytes)
+    }
+}
+
 pub struct SigningKey {
     pub vk: VerifyingKey,
-    sk: LibCruxSigningKey,
+    sk: SigningSecretKey,
 }
 
 // hax struggles with the debug format function signature, but it is
@@ -137,10 +163,6 @@ impl core::fmt::Debug for SigningKey {
             .finish_non_exhaustive()
     }
 }
-
-/// An Ed25519 verification key.
-#[derive(Copy, Clone)]
-pub struct VerifyingKey(LibCruxVerifyingKey);
 
 // hax struggles with the debug format function signature, but it is
 // debug only, so we can exclude it from extraction
@@ -159,7 +181,7 @@ impl SigningKey {
         let (sk, vk) = provider::ed25519::generate_key_pair(rng)
             .map_err(|_| anyhow::anyhow!("Key generation failed"))?;
         Ok(SigningKey {
-            vk: VerifyingKey(vk),
+            vk,
             sk,
         })
     }
@@ -178,7 +200,7 @@ impl SigningKey {
 impl VerifyingKey {
     /// Get the raw bytes of this verification key.
     pub fn into_bytes(self) -> [u8; 32] {
-        self.0.into_bytes()
+        self.0
     }
 
     /// Verify `sig` over `msg`. The domain is determined by the type of `sig`.
@@ -186,7 +208,7 @@ impl VerifyingKey {
     /// Returns an error if the signature is invalid.
     pub fn verify<D: DomainTag>(&self, msg: &[u8], sig: &Signature<D>) -> Result<(), Error> {
         let preimage = tagged_preimage::<D>(msg);
-        provider::ed25519::verify(&preimage, self.0.as_ref(), &sig.bytes)
+        provider::ed25519::verify(&preimage, self.as_bytes(), &sig.bytes)
             .map_err(|_| anyhow::anyhow!("Signature verification failed"))
     }
 }
