@@ -352,7 +352,7 @@ const {
     }
     console.log(`\n${kleur.bold(`=== Summary by browser (iterations: ${cfg.iterations}) ===`)}`);
     console.log(makeTable(headers, rows));
-  } else {
+  } else if (!RUN_ANY_SWEEP) {
     logWarn('No browser results.');
   }
 
