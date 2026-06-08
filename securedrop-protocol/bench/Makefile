@@ -47,13 +47,13 @@ $(SELENIUM_STAMP):
 	@echo 'force-browser-download = true'            >> "$(SELENIUM_TOML)"
 	@touch "$(SELENIUM_STAMP)"
 
-# Note: this does not update an outdated wasm-bindgen-cli version if
-# already installed, but a warning is printed to the user's console
+# Installs wasm-bindgen-cli if absent, or reinstalls if the installed version
+# does not match WASM_BINDGEN_CLI_VERSION
 rust-target:
 	rustup target add $(WASM_TARGET)
-	@if ! command -v wasm-bindgen >/dev/null 2>&1; then \
-	  echo "Installing wasm-bindgen-cli..."; \
-	  cargo install wasm-bindgen-cli --version $(WASM_BINDGEN_CLI_VERSION); \
+	@if [ "$$(wasm-bindgen --version 2>/dev/null | awk '{print $$2}')" != "$(WASM_BINDGEN_CLI_VERSION)" ]; then \
+	  echo "Installing wasm-bindgen-cli $(WASM_BINDGEN_CLI_VERSION)..."; \
+	  cargo install wasm-bindgen-cli --version $(WASM_BINDGEN_CLI_VERSION) --force; \
 	fi
 	@echo "Rust target and wasm-bindgen ready."
 

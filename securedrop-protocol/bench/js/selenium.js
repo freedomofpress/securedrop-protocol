@@ -6,6 +6,10 @@ const firefox = require('selenium-webdriver/firefox');
 const { BenchmarkSpec } = require('./specs');
 const { logInfo, makeTmp } = require('./utils');
 
+// Pinned browser versions for reproducible benchmarks
+const CHROME_VERSION = '149.0.7827.54';
+const FIREFOX_VERSION = '140'; // Firefox ESR 140
+
 function expandFlavors(browserSel, flavorsArg) {
   const wantChromium = browserSel === 'chromium' || browserSel === 'all';
   const wantFirefox = browserSel === 'firefox' || browserSel === 'all';
@@ -30,13 +34,13 @@ function expandFlavors(browserSel, flavorsArg) {
 
 function mapFlavorToVersion(family, label) {
   if (family === 'chromium') {
-    if (label === 'bundled' || label === 'chrome') return 'stable';
+    if (label === 'bundled' || label === 'chrome') return CHROME_VERSION;
     if (label === 'chrome-beta') return 'beta';
     if (label === 'chrome-dev') return 'dev';
     return null;
   }
 
-  if (label === 'bundled' || label === 'firefox') return 'stable';
+  if (label === 'bundled' || label === 'firefox') return FIREFOX_VERSION;
   if (label === 'firefox-beta') return 'beta';
   if (label === 'firefox-nightly') return 'nightly';
   return null;
