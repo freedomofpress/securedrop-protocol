@@ -44,24 +44,22 @@ function computeStats(rows) {
   return out;
 }
 
-const infile = process.argv[2];
-if (!infile) {
-  console.error("Usage: node tikzplot.js our/<date>/all_samples.csv");
-  process.exit(1);
-}
+// Build the TikZ chart for a given all_samples.csv and return it as a string
+function renderChart(csvPath) {
+  const rows = parseCSV(fs.readFileSync(csvPath, "utf8"));
+  const stats = computeStats(rows);
 
-const rows = parseCSV(fs.readFileSync(infile, "utf8"));
-const stats = computeStats(rows);
+  const benches = ["encrypt", "decrypt", "solve"];
 
-const benches = ["encrypt", "decrypt", "solve"];
+  const series = [
+    { fam: "native",   label: "Native",   fill: "barred"   },
+    { fam: "chromium", label: "Chromium", fill: "barblue"  },
+    { fam: "firefox",  label: "Firefox",  fill: "bargreen" },
+  ];
 
-const series = [
-  { fam: "native",   label: "Native",   fill: "barred"   },
-  { fam: "chromium", label: "Chromium", fill: "barblue"  },
-  { fam: "firefox",  label: "Firefox",  fill: "bargreen" },
-];
+  const out = [];
 
-console.log(`
+  out.push(`
 \\begin{tikzpicture}[scale=0.8]
 \\begin{axis}[
     ybar,
@@ -97,8 +95,8 @@ console.log(`
 ]
 `);
 
-for (const s of series) {
-  console.log(`
+  for (const s of series) {
+    out.push(`
 \\addplot+[
     fill=${s.fill},
     draw=${s.fill},
@@ -111,20 +109,35 @@ for (const s of series) {
 ] coordinates {
 `);
 
-  for (const bench of benches) {
-    const st = stats[bench]?.[s.fam];
-    if (!st) continue;
-    console.log(
-      `    (${bench}, ${st.mean.toFixed(3)}) +- (0, ${st.std.toFixed(3)})`
-    );
+    for (const bench of benches) {
+      const st = stats[bench]?.[s.fam];
+      if (!st) continue;
+      out.push(
+        `    (${bench}, ${st.mean.toFixed(3)}) +- (0, ${st.std.toFixed(3)})`
+      );
+    }
+
+    out.push("};");
   }
 
-  console.log("};");
-}
-
-console.log(`
+  out.push(`
 \\legend{Native, Chromium, Firefox}
 \\end{axis}
 \\end{tikzpicture}
 `);
+
+  return out.join("\n");
+}
+
+module.exports = { renderChart };
+
+// CLI: `node chart.js out/<date>/all_samples.csv` prints the chart to stdout
+if (require.main === module) {
+  const infile = process.argv[2];
+  if (!infile) {
+    console.error("Usage: node chart.js out/<date>/all_samples.csv");
+    process.exit(1);
+  }
+  console.log(renderChart(infile));
+}
 

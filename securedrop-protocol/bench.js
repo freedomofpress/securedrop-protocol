@@ -19,6 +19,7 @@ const {
 const { runBrowserSweeps } = require('./bench/sweeps');
 const { runNative, runNativeSweeps } = require('./bench/native');
 const { prettyStatsFromUs, makeTable } = require('./bench/reporting');
+const { renderChart } = require('./chart');
 const {
   rangeSweep,
   stamp,
@@ -443,6 +444,17 @@ const isRunFailure = (e) => {
     }
     logErr(`Console errors written to ${outRoot}`);
     process.exitCode = 1;
+  }
+
+  // Generate the TikZ chart from the samples we just wrote
+  if (RUN_BASIC && pivot.size) {
+    try {
+      const chartPath = path.join(outRoot, 'chart.tex');
+      fs.writeFileSync(chartPath, renderChart(path.join(outRoot, 'all_samples.csv')));
+      logInfo(`Chart written to ${chartPath}`);
+    } catch (e) {
+      logWarn(`Chart generation failed: ${e.message}`);
+    }
   }
 
   server.close();
