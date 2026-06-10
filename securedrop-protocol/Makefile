@@ -5,6 +5,9 @@ SHELL := /usr/bin/env bash
 
 # ===== Config =====
 ITER ?= 1000
+# Sweeps re-run the full per-point setup (500 keybundles, etc.) for every data
+# point, so keep their iteration count low and independent of ITER.
+SWEEP_ITER ?= 5
 KEYBUNDLES_START ?= 50
 KEYBUNDLES_END ?= 1000
 KEYBUNDLES_STEP ?= 50
@@ -62,12 +65,12 @@ $(CRATE_WASM):
 	RUSTFLAGS='$(RUSTFLAGS)' cargo build --target $(WASM_TARGET) --release --target-dir $(TARGET_DIR)
 
 bench: deps build
-	@echo "Running bench with ITER=$(ITER)"
+	@echo "Running bench with ITER=$(ITER), SWEEP_ITER=$(SWEEP_ITER)"
 	SE_CACHE_PATH="$(abspath $(SELENIUM_CACHE))" \
 	SE_FORCE_BROWSER_DOWNLOAD=true \
 	node bench.js -n $(ITER) --flavors firefox,chrome --mode profile
 	# Benches for the sweeps charts
-	node bench.js -n $(ITER) --sweeps-only --flavors firefox,chrome --mode profile --j-min $(CHALLENGES_START) --j-max $(CHALLENGES_END) --j-step $(CHALLENGES_STEP) --k-min $(KEYBUNDLES_MIN) --k-max $(KEYBUNDLES_MAX) --k-step $(KEYBUNDLES_STEP)
+	node bench.js -n $(SWEEP_ITER) --sweeps-only --flavors firefox,chrome --mode profile --j-min $(CHALLENGES_START) --j-max $(CHALLENGES_END) --j-step $(CHALLENGES_STEP) --k-min $(KEYBUNDLES_START) --k-max $(KEYBUNDLES_END) --k-step $(KEYBUNDLES_STEP)
 
 quick-bench: deps build
 	@echo "Running bench with ITER=5"
