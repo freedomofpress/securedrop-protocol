@@ -28,9 +28,51 @@ SELENIUM_CACHE ?= .selenium-cache
 SELENIUM_TOML  := $(SELENIUM_CACHE)/se-config.toml
 SELENIUM_STAMP := $(SELENIUM_CACHE)/.ready
 
-.PHONY: all deps rust-target build bench clean clean-cache warm-cache
+.PHONY: all setup deps rust-target build bench clean clean-cache warm-cache
 
 all: deps build
+
+# Detect the OS and install system-level prerequisites
+# Requires sudo on Linux and Homebrew on macOS
+setup:
+	@OS="$$(uname -s)"; \
+	if [ "$$OS" = "Darwin" ]; then \
+	  echo "==> macOS detected"; \
+	  xcode-select --install 2>/dev/null || true; \
+	  if ! command -v brew >/dev/null 2>&1; then \
+	    echo "ERROR: Homebrew is required (https://brew.sh/); install it and re-run 'make setup'."; exit 1; \
+	  fi; \
+	  brew install node; \
+	elif [ "$$OS" = "Linux" ]; then \
+	  ID=""; ID_LIKE=""; \
+	  if [ -r /etc/os-release ]; then . /etc/os-release; fi; \
+	  case " $$ID $$ID_LIKE " in \
+	    *ubuntu*) echo "==> Ubuntu detected";; \
+	    *debian*) echo "==> Debian-like ($$ID) detected; untested but should work, proceeding...";; \
+	    *) echo "WARNING: unsupported distro ($$ID). Trying an apt-based setup anyway; if it fails, install deps manually.";; \
+	  esac; \
+	  if ! command -v apt-get >/dev/null 2>&1; then \
+	    echo "ERROR: apt-get not found. Install build-essential, curl, git, Node 22 and libnss3/libgbm1/libasound2/libgtk-3-0 manually."; exit 1; \
+	  fi; \
+	  sudo apt-get update; \
+	  sudo apt-get install -y build-essential curl git; \
+	  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -; \
+	  sudo apt-get install -y nodejs; \
+	  sudo apt-get install -y libnss3 libgbm1 libasound2t64 libgtk-3-0t64 \
+	    || sudo apt-get install -y libnss3 libgbm1 libasound2 libgtk-3-0; \
+	else \
+	  echo "ERROR: unsupported OS '$$OS'."; exit 1; \
+	fi; \
+	if ! command -v rustup >/dev/null 2>&1 && [ ! -x "$$HOME/.cargo/bin/rustup" ]; then \
+	  echo "==> Installing Rust via rustup"; \
+	  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
+	fi; \
+	echo "==> Installing project dependencies (make deps)"
+	@PATH="$$HOME/.cargo/bin:$$PATH" $(MAKE) deps
+	@echo; \
+	echo "==> Setup complete."; \
+	echo "    If cargo/rustup aren't found in new shells, add Rust to your PATH with:"; \
+	echo "        . \"$$HOME/.cargo/env\""
 
 deps: node_modules selenium-cache rust-target
 	@echo "Deps ok."

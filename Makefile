@@ -54,6 +54,10 @@ build-wasm:  ## Compile securedrop-protocol crate for wasm32-unknown-unknown (br
 	@rustup target list --installed | grep wasm32-unknown-unknown || { echo "Install wasm32 target using \`rustup target add wasm32-unknown-unknown\`"; exit 1; }
 	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo build --manifest-path securedrop-protocol/Cargo.toml --target wasm32-unknown-unknown
 
+.PHONY: setup
+setup:  ## Detect the OS and install system (delegates to securedrop-protocol/Makefile).
+	@$(MAKE) -C securedrop-protocol setup
+
 .PHONY: bench
 bench:  ## Run the benchmark suite (delegates to securedrop-protocol/Makefile).
 	@$(MAKE) -C securedrop-protocol bench
