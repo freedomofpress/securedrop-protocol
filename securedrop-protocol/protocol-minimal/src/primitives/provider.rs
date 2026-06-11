@@ -55,6 +55,10 @@ pub mod ed25519 {
         libcrux_ed25519::verify(payload, public_key, signature)
             .map_err(|_| anyhow::anyhow!("Signature verification failed"))
     }
+
+    /// Derive the Ed25519 public key from a secret key.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) use libcrux_ed25519::secret_to_public;
 }
 
 pub mod rng {
