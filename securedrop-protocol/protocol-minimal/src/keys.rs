@@ -156,7 +156,6 @@ impl FPFKeyPair {
     }
 
     /// The FPF signing key used as a secret.
-    /// The verifying key is derivable from this seed via [`FPFKeyPair::from_bytes`].
     pub fn as_bytes(&self) -> [u8; 32] {
         self.sk.as_bytes()
     }
