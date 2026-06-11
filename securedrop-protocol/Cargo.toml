@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["protocol-minimal", "bench", "source-cli"]
+members = ["protocol-minimal", "bench", "source-cli", "demo-server"]
 
 [patch.crates-io]
 # Force hpke-rs to use our libcrux patched to hax 0.3.7 (pending cryspen/libcrux#1478):
