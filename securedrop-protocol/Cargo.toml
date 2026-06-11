@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["protocol-minimal", "bench", "source-cli"]
+members = ["protocol-minimal", "bench", "source-cli", "demo-server"]
 
 [workspace.package]
 name = "securedrop-protocol"
