@@ -211,6 +211,20 @@ impl SigningKey {
         let bytes = provider::ed25519::sign(&preimage, self.sk.as_bytes());
         Signature::from_bytes(bytes)
     }
+
+    pub(crate) fn as_bytes(&self) -> [u8; 32] {
+        *self.sk.as_ref()
+    }
+
+    pub(crate) fn from_seed(seed: [u8; 32]) -> Self {
+        let sk = LibCruxSigningKey::from_bytes(seed);
+        let mut pk = [0u8; 32];
+        provider::ed25519::secret_to_public(&mut pk, sk.as_ref());
+        Self {
+            vk: VerifyingKey(LibCruxVerifyingKey::from_bytes(pk)),
+            sk,
+        }
+    }
 }
 
 impl VerifyingKey {
