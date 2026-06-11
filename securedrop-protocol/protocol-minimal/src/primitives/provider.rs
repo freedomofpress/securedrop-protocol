@@ -36,7 +36,7 @@ pub mod ed25519 {
     };
 
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) use libcrux_ed25519::{generate_key_pair, sign, verify};
+    pub(crate) use libcrux_ed25519::{generate_key_pair, secret_to_public, sign, verify};
 }
 
 pub mod kem {
