@@ -66,7 +66,7 @@ const isRunFailure = (e) => {
 };
 
 (async () => {
-  const outRoot = path.join(cfg.out, stamp());
+  const outRoot = path.resolve(cfg.out, stamp());
   ensureDir(outRoot);
 
   const consoleErrors = [];

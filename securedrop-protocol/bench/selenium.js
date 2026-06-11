@@ -90,35 +90,45 @@ async function runSpecOnDriver(driver, baseUrl, spec, timeoutMs = 60_000) {
   throw new Error(`Timeout waiting for payload (bench=${spec.name})`);
 }
 
+const PROFILE_MAX_ATTEMPTS = 3;
+
 async function runSpecProfileIsolated(family, versionLabel, baseUrl, spec, iterations) {
   const combined = [];
   for (let i = 0; i < iterations; i++) {
     logInfo(
       `Profile ${i + 1}/${iterations} for ${family} ${versionLabel || 'stable'} (${spec.name})`,
     );
-    const tmpProfile = makeTmp(`bench-${family}-${versionLabel || 'stable'}-iter${i}-`);
-    let driver;
-    try {
-      driver = await buildDriver(family, versionLabel, tmpProfile);
-      // Force a single-iteration page run
-      const oneIter = new BenchmarkSpec(spec.name, { ...spec.params, n: 1 });
-      const res = await runSpecOnDriver(driver, baseUrl, oneIter);
-
-      const samplesUs = Array.isArray(res.samples_us)
-        ? res.samples_us.map((x) => Math.round(x))
-        : Array.isArray(res.samples_ms)
-          ? res.samples_ms.map((x) => Math.round(x * 1000))
-          : [];
-
-      if (samplesUs.length === 1) {
-        combined.push(samplesUs[0]);
-      }
-    } finally {
-      if (driver) await driver.quit();
+    for (let attempt = 1; ; attempt++) {
+      const tmpProfile = makeTmp(`bench-${family}-${versionLabel || 'stable'}-iter${i}-`);
+      let driver;
       try {
-        fs.rmSync(tmpProfile, { recursive: true, force: true });
-      } catch {
-        // ignore cleanup failures
+        driver = await buildDriver(family, versionLabel, tmpProfile);
+        // Force a single-iteration page run
+        const oneIter = new BenchmarkSpec(spec.name, { ...spec.params, n: 1 });
+        const res = await runSpecOnDriver(driver, baseUrl, oneIter);
+
+        const samplesUs = Array.isArray(res.samples_us)
+          ? res.samples_us.map((x) => Math.round(x))
+          : Array.isArray(res.samples_ms)
+            ? res.samples_ms.map((x) => Math.round(x * 1000))
+            : [];
+
+        if (samplesUs.length === 1) {
+          combined.push(samplesUs[0]);
+        }
+        break;
+      } catch (e) {
+        if (attempt >= PROFILE_MAX_ATTEMPTS) throw e;
+        logInfo(
+          `Retrying profile ${i + 1} for ${family} (${spec.name}), attempt ${attempt + 1}/${PROFILE_MAX_ATTEMPTS}: ${e.message}`,
+        );
+      } finally {
+        if (driver) await driver.quit();
+        try {
+          fs.rmSync(tmpProfile, { recursive: true, force: true });
+        } catch {
+          // ignore cleanup failures
+        }
       }
     }
   }
