@@ -11,7 +11,7 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use rand_core::{OsRng, TryRngCore};
-use securedrop_protocol_minimal::keys::FPFKeyPair;
+use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 
 #[derive(Parser)]
 #[command(name = "demo-server", about = "Demo SecureDrop protocol server")]
@@ -27,6 +27,11 @@ enum Role {
         #[command(subcommand)]
         action: FpfAction,
     },
+    /// Newsroom operations.
+    Newsroom {
+        #[command(subcommand)]
+        action: NewsroomAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -39,10 +44,23 @@ enum FpfAction {
     },
 }
 
+#[derive(Subcommand)]
+enum NewsroomAction {
+    /// Generate the newsroom signing keypair and persist it.
+    Init {
+        /// Overwrite an existing newsroom key.
+        #[arg(long)]
+        force: bool,
+    },
+}
+
 fn main() -> Result<()> {
     match Cli::parse().role {
         Role::Fpf { action } => match action {
             FpfAction::Init { force } => fpf_init(force),
+        },
+        Role::Newsroom { action } => match action {
+            NewsroomAction::Init { force } => newsroom_init(force),
         },
     }
 }
@@ -72,6 +90,31 @@ fn fpf_init(force: bool) -> Result<()> {
     Ok(())
 }
 
+fn newsroom_init(force: bool) -> Result<()> {
+    let path = newsroom_key_path()?;
+    if path.exists() && !force {
+        bail!(
+            "a newsroom key already exists at {}\nuse `newsroom init --force` to overwrite it",
+            path.display()
+        );
+    }
+
+    let kp = NewsroomKeyPair::new(OsRng.unwrap_err()).context("generating newsroom keypair")?;
+    let seed = kp.as_bytes();
+    let vk = kp.verifying_key().into_bytes();
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    }
+    write_secret(&path, &seed)?;
+
+    println!("Newsroom signing key generated.\n");
+    println!("Saved to:               {}", path.display());
+    println!("Newsroom verifying key: {}\n", hex(&vk));
+    println!("Hand this verifying key to FPF for signing.");
+    Ok(())
+}
+
 fn data_dir() -> Result<PathBuf> {
     let dirs = ProjectDirs::from("press", "freedom", "securedrop-demo-server")
         .context("locating a home directory for the data dir")?;
@@ -80,6 +123,10 @@ fn data_dir() -> Result<PathBuf> {
 
 fn fpf_key_path() -> Result<PathBuf> {
     Ok(data_dir()?.join("fpf").join("fpf.key"))
+}
+
+fn newsroom_key_path() -> Result<PathBuf> {
+    Ok(data_dir()?.join("newsroom").join("newsroom.key"))
 }
 
 fn write_secret(path: &Path, contents: &[u8]) -> Result<()> {
