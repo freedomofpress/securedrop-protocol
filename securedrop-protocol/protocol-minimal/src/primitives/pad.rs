@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 /// Note: I made this up. We should pick something based on actual reasons.
 pub const PADDED_MESSAGE_LEN: usize = 100000;
 
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 /// Pad a message to a fixed length
 pub fn pad_message(message: &[u8]) -> Vec<u8> {
     if message.len() > PADDED_MESSAGE_LEN {

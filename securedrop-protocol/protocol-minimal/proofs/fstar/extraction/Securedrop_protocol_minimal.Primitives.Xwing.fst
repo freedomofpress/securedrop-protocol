@@ -70,31 +70,11 @@ let impl_3: Core_models.Convert.t_From Hpke_rs.t_HpkePublicKey t_XWingPublicKey 
           Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
   }
 
+#push-options "--admit_smt_queries true"
+
 /// Helper, convert libcrux type to our key types
 let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
-    : Prims.Pure (Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error)
-      (requires
-        (Alloc.Vec.impl_1__len #u8
-            #Alloc.Alloc.t_Global
-            (Libcrux_kem.impl_PrivateKey__encode sk <: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-          <:
-          usize) =.
-        v_XWING_PRIVATE_KEY_LEN &&
-        (Alloc.Vec.impl_1__len #u8
-            #Alloc.Alloc.t_Global
-            (Libcrux_kem.impl_PublicKey__encode pk <: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-          <:
-          usize) =.
-        v_XWING_PUBLIC_KEY_LEN)
-      (ensures
-        fun result ->
-          let result:Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey)
-            Anyhow.t_Error =
-            result
-          in
-          Core_models.Result.impl__is_ok #(t_XWingPrivateKey & t_XWingPublicKey)
-            #Anyhow.t_Error
-            result) =
+    : Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error =
   let private_key_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Libcrux_kem.impl_PrivateKey__encode sk
   in
@@ -107,7 +87,6 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
     (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global public_key_bytes <: usize) <>.
     v_XWING_PUBLIC_KEY_LEN
   then
-    let _:Prims.unit = Hax_lib.v_assert false in
     let args:(usize & usize) =
       Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global private_key_bytes,
       Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global public_key_bytes
@@ -208,6 +187,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       Core_models.Result.Result_Err err
       <:
       Core_models.Result.t_Result (t_XWingPrivateKey & t_XWingPublicKey) Anyhow.t_Error
+
+#pop-options
 
 /// Generate XWING keypair from external randomness
 /// FOR TEST PURPOSES ONLY

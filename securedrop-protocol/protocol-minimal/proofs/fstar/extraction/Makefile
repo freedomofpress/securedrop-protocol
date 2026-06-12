@@ -14,6 +14,9 @@
 # ROOTS contains all the top-level F* files you wish to verify
 # The default target `verify` verified ROOTS and its dependencies
 # To lax-check instead, set `OTHERFLAGS="--lax"` on the command-line
+# Lax/admit runs (`--lax`, `--admit_smt_queries`, or any `ADMIT_MODULES`) use a
+# separate cache directory, so their results are never reused by, or confused
+# with, a full verification run.
 #
 # To make F* emacs mode use the settings in this file, you need to
 # add the following lines to your .emacs
@@ -41,8 +44,6 @@ FSTAR_BIN_DETECT := $(if $(shell command -v fstar.exe), fstar.exe, $(FSTAR_HOME)
 FSTAR_BIN      ?= $(FSTAR_BIN_DETECT)
 
 GIT_ROOT_DIR   := $(shell git rev-parse --show-toplevel)/
-CACHE_DIR      ?= ${GIT_ROOT_DIR}.fstar-cache/checked
-HINT_DIR       ?= ${GIT_ROOT_DIR}.fstar-cache/hints
 
 # Makes command quiet by default
 Q ?= @
@@ -156,6 +157,31 @@ ROOTS ?= $(wildcard *.fst *fsti)
 ADMIT_MODULES ?=
 
 ADMIT_MODULE_FLAGS ?= --admit_smt_queries true
+
+# --- Cache isolation -------------------------------------------------------
+# An F* `.checked` file is validated by a content hash of its sources and of
+# its dependencies' `.checked` files. That hash does NOT record *how* the file
+# was checked, so a `.checked` produced with a soundness-weakening flag
+# (`--lax`, `--admit_smt_queries true`) or for an admitted module is
+# indistinguishable on disk from a soundly verified one. If such files shared a
+# directory with a full run, a later `make` would (1) skip targets whose
+# `.checked` is merely newer than the source and (2) load weakened
+# dependencies without re-verifying them -- so verification could "succeed"
+# unsoundly.
+#
+# To prevent this we key the cache/hint directory on OTHERFLAGS *and* the
+# ADMIT_MODULES set. A clean full run (both empty) uses the base directory;
+# every other configuration gets its own isolated directory. Switching
+# configurations re-verifies from scratch rather than trusting weakened files.
+# (You can still override CACHE_DIR / HINT_DIR explicitly on the command line.)
+CACHE_KEY := $(strip $(OTHERFLAGS) $(ADMIT_MODULES))
+ifeq ($(CACHE_KEY),)
+CACHE_SUBDIR :=
+else
+CACHE_SUBDIR := config-$(shell printf '%s' '$(CACHE_KEY)' | cksum | cut -d' ' -f1)/
+endif
+CACHE_DIR      ?= ${GIT_ROOT_DIR}.fstar-cache/${CACHE_SUBDIR}checked
+HINT_DIR       ?= ${GIT_ROOT_DIR}.fstar-cache/${CACHE_SUBDIR}hints
 
 # Can be useful for debugging purposes
 FINDLIBS.sh:
@@ -278,5 +304,5 @@ SHELL=bash
 
 # Clean target
 clean:
-	rm -rf $(CACHE_DIR)/*
-	rm *.fst
+	rm -rf ${GIT_ROOT_DIR}.fstar-cache/*
+	rm -f *.fst

@@ -23,7 +23,7 @@ jobs:
           hax_reference: cargo-hax-v0.3.6 # keep in sync with "securedrop-protocol/protocol-minimal/Cargo.toml"
 
       - name: Extract F*
-        run: make extract
+        run: make clean extract
         working-directory: securedrop-protocol/protocol-minimal
 
       - name: Confirm no diff from committed proofs

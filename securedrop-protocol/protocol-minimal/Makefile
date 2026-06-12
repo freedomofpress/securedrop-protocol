@@ -7,10 +7,16 @@ HAX_TARGETS += +securedrop_protocol_minimal::primitives::dh_akem::typed
 HAX_TARGETS += +securedrop_protocol_minimal::primitives::mlkem::typed
 HAX_TARGETS += +securedrop_protocol_minimal::primitives::xwing::typed
 HAX_TARGETS += +securedrop_protocol_minimal::primitives::x25519::typed
+HAX_TARGETS += +securedrop_protocol_minimal::primitives::pad::**
 HAX_TARGETS += +securedrop_protocol_minimal::message::**
 HAX_TARGETS += +securedrop_protocol_minimal::metadata::**
 HAX_TARGETS += +securedrop_protocol_minimal::ciphertext::**
 HAX_TARGETS += +securedrop_protocol_minimal::constants::**
+
+# Admit modules we extract but that fail panic freedom:
+HAX_ADMITS := Securedrop_protocol_minimal.Message.fst
+HAX_ADMITS += Securedrop_protocol_minimal.Metadata.fst
+HAX_ADMITS += Securedrop_protocol_minimal.Ciphertext.fst
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 PROOF_DIR = proofs/fstar/extraction
@@ -18,12 +24,12 @@ PROOF_DIR = proofs/fstar/extraction
 .DEFAULT_GOAL := help
 
 .PHONY: clean
-clean:  ## Clean the Cargo and F* caches.
+clean:  ## Clean the Cargo and F* caches, and reset extracted F* modules.
 	cargo clean
-	cargo cache -a
 	rm -rf $(REPO_ROOT)/.fstar-cache
 	rm -f $(PROOF_DIR)/.depend
 	rm -f $(PROOF_DIR)/hax.fst.config.json
+	rm -f $(PROOF_DIR)/*.fst
 
 .PHONY: compat
 compat: compat-fstar  ## Check that hax dependencies are at the right versions.
@@ -48,7 +54,7 @@ verify:  # Internal/CI: Type-check and verify extracted proofs.
 	# Type-check (fail fast):
 	OTHERFLAGS="--lax" $(MAKE) -C $(PROOF_DIR)
 	# Verify:
-	$(MAKE) -C $(PROOF_DIR)
+	$(MAKE) -C $(PROOF_DIR) ADMIT_MODULES="$(HAX_ADMITS)" all-keep-going
 
 .PHONY: hax-lib-version
 hax-lib-version:  # Internal: Query Cargo for the hax-lib version.

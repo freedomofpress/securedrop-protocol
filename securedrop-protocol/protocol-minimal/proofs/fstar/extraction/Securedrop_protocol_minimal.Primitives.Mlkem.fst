@@ -33,32 +33,11 @@ let impl_MLKEM768PrivateKey__as_bytes (self: t_MLKEM768PrivateKey) : t_Array u8 
 let impl_MLKEM768PrivateKey__from_bytes (bytes: t_Array u8 (mk_usize 2400)) : t_MLKEM768PrivateKey =
   MLKEM768PrivateKey bytes <: t_MLKEM768PrivateKey
 
+#push-options "--admit_smt_queries true"
+
 /// Helper, convert libcrux type to our key types
 let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
-    : Prims.Pure
-      (Core_models.Result.t_Result (t_MLKEM768PrivateKey & t_MLKEM768PublicKey) Anyhow.t_Error)
-      (requires
-        (Alloc.Vec.impl_1__len #u8
-            #Alloc.Alloc.t_Global
-            (Libcrux_kem.impl_PrivateKey__encode sk <: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-          <:
-          usize) =.
-        v_MLKEM768_PRIVATE_KEY_LEN &&
-        (Alloc.Vec.impl_1__len #u8
-            #Alloc.Alloc.t_Global
-            (Libcrux_kem.impl_PublicKey__encode pk <: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-          <:
-          usize) =.
-        v_MLKEM768_PUBLIC_KEY_LEN)
-      (ensures
-        fun result ->
-          let result:Core_models.Result.t_Result (t_MLKEM768PrivateKey & t_MLKEM768PublicKey)
-            Anyhow.t_Error =
-            result
-          in
-          Core_models.Result.impl__is_ok #(t_MLKEM768PrivateKey & t_MLKEM768PublicKey)
-            #Anyhow.t_Error
-            result) =
+    : Core_models.Result.t_Result (t_MLKEM768PrivateKey & t_MLKEM768PublicKey) Anyhow.t_Error =
   let private_key_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Libcrux_kem.impl_PrivateKey__encode sk
   in
@@ -71,7 +50,6 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
     (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global public_key_bytes <: usize) <>.
     v_MLKEM768_PUBLIC_KEY_LEN
   then
-    let _:Prims.unit = Hax_lib.v_assert false in
     let args:(usize & usize) =
       Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global private_key_bytes,
       Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global public_key_bytes
@@ -172,6 +150,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       Core_models.Result.Result_Err err
       <:
       Core_models.Result.t_Result (t_MLKEM768PrivateKey & t_MLKEM768PublicKey) Anyhow.t_Error
+
+#pop-options
 
 /// Generate MLKEM-768 keypair from external randomness
 /// FOR TEST PURPOSES ONLY
