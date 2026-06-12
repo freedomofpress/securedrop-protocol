@@ -11,7 +11,9 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use rand_core::{OsRng, TryRngCore};
+use securedrop_protocol_minimal::VerifyingKey;
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
+use securedrop_protocol_minimal::wire::setup::NewsroomSetupRequest;
 
 #[derive(Parser)]
 #[command(name = "demo-server", about = "Demo SecureDrop protocol server")]
@@ -42,6 +44,11 @@ enum FpfAction {
         #[arg(long)]
         force: bool,
     },
+    /// Sign a newsroom verifying key (32-byte hex).
+    SignNewsroom {
+        /// Newsroom verifying key as 64 hex characters.
+        vk: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -52,15 +59,19 @@ enum NewsroomAction {
         #[arg(long)]
         force: bool,
     },
+    /// Print the newsroom verifying key as 64 hex characters on stdout.
+    ShowVk,
 }
 
 fn main() -> Result<()> {
     match Cli::parse().role {
         Role::Fpf { action } => match action {
             FpfAction::Init { force } => fpf_init(force),
+            FpfAction::SignNewsroom { vk } => fpf_sign_newsroom(&vk),
         },
         Role::Newsroom { action } => match action {
             NewsroomAction::Init { force } => newsroom_init(force),
+            NewsroomAction::ShowVk => newsroom_show_vk(),
         },
     }
 }
@@ -85,9 +96,38 @@ fn fpf_init(force: bool) -> Result<()> {
 
     println!("FPF root of trust initialized.\n");
     println!("Saved to:           {}", path.display());
-    println!("FPF verifying key:  {}\n", hex(&vk));
+    println!("FPF verifying key:  {}\n", hex::encode(vk));
     println!("Pin this verifying key into source and journalist clients.");
     Ok(())
+}
+
+fn fpf_sign_newsroom(vk_hex: &str) -> Result<()> {
+    let mut vk_bytes = [0u8; 32];
+    hex::decode_to_slice(vk_hex.trim(), &mut vk_bytes)
+        .context("parsing newsroom verifying key")?;
+    let fpf_kp = load_fpf_keypair()?;
+
+    let req = NewsroomSetupRequest {
+        newsroom_verifying_key: VerifyingKey::from_bytes(vk_bytes),
+    };
+    let resp = req
+        .sign(&fpf_kp)
+        .context("signing newsroom verifying key")?;
+    let sig = resp.sig.as_bytes();
+
+    // Dump signature to stdout
+    println!("{}", hex::encode(sig));
+    Ok(())
+}
+
+fn load_fpf_keypair() -> Result<FPFKeyPair> {
+    let path = fpf_key_path()?;
+    let bytes = fs::read(&path)
+        .with_context(|| format!("reading {} (run `fpf init` first)", path.display()))?;
+    let seed: [u8; 32] = bytes.try_into().map_err(|v: Vec<u8>| {
+        anyhow::anyhow!("{} is {} bytes, expected 32", path.display(), v.len())
+    })?;
+    Ok(FPFKeyPair::from_bytes(seed))
 }
 
 fn newsroom_init(force: bool) -> Result<()> {
@@ -110,9 +150,25 @@ fn newsroom_init(force: bool) -> Result<()> {
 
     println!("Newsroom signing key generated.\n");
     println!("Saved to:               {}", path.display());
-    println!("Newsroom verifying key: {}\n", hex(&vk));
+    println!("Newsroom verifying key: {}\n", hex::encode(vk));
     println!("Hand this verifying key to FPF for signing.");
     Ok(())
+}
+
+fn newsroom_show_vk() -> Result<()> {
+    let kp = load_newsroom_keypair()?;
+    println!("{}", hex::encode(kp.verifying_key().into_bytes()));
+    Ok(())
+}
+
+fn load_newsroom_keypair() -> Result<NewsroomKeyPair> {
+    let path = newsroom_key_path()?;
+    let bytes = fs::read(&path)
+        .with_context(|| format!("reading {} (run `newsroom init` first)", path.display()))?;
+    let seed: [u8; 32] = bytes.try_into().map_err(|v: Vec<u8>| {
+        anyhow::anyhow!("{} is {} bytes, expected 32", path.display(), v.len())
+    })?;
+    Ok(NewsroomKeyPair::from_bytes(seed))
 }
 
 fn data_dir() -> Result<PathBuf> {
@@ -138,8 +194,4 @@ fn write_secret(path: &Path, contents: &[u8]) -> Result<()> {
     }
     file.write_all(contents)?;
     Ok(())
-}
-
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
