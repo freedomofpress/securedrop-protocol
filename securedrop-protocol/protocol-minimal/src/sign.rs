@@ -1,8 +1,10 @@
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use anyhow::Error;
 use rand_core::CryptoRng;
+use serde::de::Error as _;
 
 use crate::primitives::provider;
 
@@ -129,6 +131,21 @@ impl<D: DomainTag> Signature<D> {
     }
 }
 
+impl<D: DomainTag> serde::Serialize for Signature<D> {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.bytes))
+    }
+}
+
+impl<'de, D: DomainTag> serde::Deserialize<'de> for Signature<D> {
+    fn deserialize<De: serde::Deserializer<'de>>(de: De) -> Result<Self, De::Error> {
+        let s = String::deserialize(de)?;
+        let mut bytes = [0u8; 64];
+        hex::decode_to_slice(s.trim(), &mut bytes).map_err(De::Error::custom)?;
+        Ok(Self::from_bytes(bytes))
+    }
+}
+
 /// Construct the tagged signing preimage: `len(tag) || tag || msg`.
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 fn tagged_preimage<D: DomainTag>(msg: &[u8]) -> Vec<u8> {
@@ -251,6 +268,21 @@ impl VerifyingKey {
         let preimage = tagged_preimage::<D>(msg);
         provider::ed25519::verify(&preimage, self.as_bytes(), &sig.bytes)
             .map_err(|_| anyhow::anyhow!("Signature verification failed"))
+    }
+}
+
+impl serde::Serialize for VerifyingKey {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.0.as_ref()))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for VerifyingKey {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let mut bytes = [0u8; 32];
+        hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
+        Ok(Self::from_bytes(bytes))
     }
 }
 

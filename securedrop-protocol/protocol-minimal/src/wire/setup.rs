@@ -8,6 +8,8 @@
 
 use alloc::vec::Vec;
 
+use serde::{Deserialize, Serialize};
+
 use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::{Enrollment, SignedKeyBundlePublic};
 
@@ -31,7 +33,7 @@ pub struct NewsroomSetupResponse {
 /// Request from the journalist to the newsroom for initial onboarding.
 ///
 /// Step 3.1 in the spec.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JournalistSetupRequest {
     pub enrollment: Enrollment,
 }
@@ -39,7 +41,7 @@ pub struct JournalistSetupRequest {
 /// Response from the newsroom to the journalist for initial onboarding.
 ///
 /// Step 3.1 in the spec.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JournalistSetupResponse {
     /// A signature over the journalist enrollment bundle by the newsroom signing key
     pub sig: Signature<NewsroomOnJournalist>,
