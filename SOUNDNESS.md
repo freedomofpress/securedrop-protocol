@@ -55,7 +55,8 @@ explicitly listed in `HAX_TARGETS` are:
 3. verified in F\* for any additional properties we've manually specified.
 
 Eventually, we hope to be able to extract the entirety of the core protocol
-crate without exceptions.
+crate without exceptions (i.e., crate members excluded from `HAX_TARGETS` or
+included in `HAX_ADMITS`).
 
 ### Third-party dependencies
 
@@ -106,7 +107,7 @@ verification status:
 [hpke-rs]: https://github.com/cryspen/hpke-rs
 [bhargavan-2025]: https://eprint.iacr.org/2025/980
 [hax]: https://github.com/cryspen/hax
-[`HAX_TARGETS`]: ./securedrop-protocol/protocol-minimal/Makefile#L1
+[`HAX_TARGETS`]: ./securedrop-protocol/protocol-minimal/Makefile#L5
 [interfaces]: ./securedrop-protocol/protocol-minimal/proofs/fstar/models
 [models]: https://github.com/freedomofpress/securedrop-protocol-models
 [spec]: ./docs/protocol.md
