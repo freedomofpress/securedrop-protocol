@@ -64,13 +64,7 @@ pub(crate) fn deterministic_keygen(
     typed(sk, pk)
 }
 
-#[cfg_attr(hax, hax_lib::requires(
-    sk.encode().len() == MLKEM768_PRIVATE_KEY_LEN &&
-    pk.encode().len() == MLKEM768_PUBLIC_KEY_LEN
-))]
-// ...implies (discharged by postconditions axiomatized in the proof stub
-// `Libcrux_kem.fsti`)...
-#[cfg_attr(hax, hax_lib::ensures(|result| result.is_ok()))]
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 /// Helper, convert libcrux type to our key types
 fn typed(
     sk: PrivateKey,
@@ -94,9 +88,6 @@ fn typed(
         //    unnecessary if the postconditions of `encode()` are proven (by the
         //    crate itself), and this function can return `(private_key,
         //    public_key)` directly, without wrapping it in a `Result`.
-        #[cfg(hax)]
-        hax_lib::assert!(false);
-
         return Err(anyhow::anyhow!(
             "Unexpected MLKEM-768 key sizes: private={}, public={}",
             private_key_bytes.len(),

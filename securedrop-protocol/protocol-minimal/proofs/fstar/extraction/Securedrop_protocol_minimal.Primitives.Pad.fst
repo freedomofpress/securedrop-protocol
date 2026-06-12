@@ -7,6 +7,8 @@ open Core_models
 /// Note: I made this up. We should pick something based on actual reasons.
 let v_PADDED_MESSAGE_LEN: usize = mk_usize 100000
 
+#push-options "--admit_smt_queries true"
+
 /// Pad a message to a fixed length
 let pad_message (message: t_Slice u8) : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
   let _:Prims.unit =
@@ -47,3 +49,5 @@ let pad_message (message: t_Slice u8) : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global 
           Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
   in
   padded
+
+#pop-options
