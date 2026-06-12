@@ -4,9 +4,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
-use axum::{Json, Router, extract::State, routing::get};
+use axum::http::StatusCode;
+use axum::{
+    Json, Router,
+    extract::State,
+    routing::{get, post},
+};
 use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
+use securedrop_protocol_minimal::wire::setup::{JournalistSetupRequest, JournalistSetupResponse};
 use securedrop_protocol_minimal::{FpfOnNewsroom, Signature, VerifyingKey};
 use serde::Serialize;
 
@@ -15,6 +21,7 @@ use crate::state::{data_dir, write_secret};
 #[derive(Clone)]
 struct AppState {
     vk_hex: Arc<String>,
+    newsroom_kp: Arc<NewsroomKeyPair>,
 }
 
 #[derive(Serialize)]
@@ -96,11 +103,13 @@ async fn serve(port: u16) -> Result<()> {
     let kp = load_keypair()?;
     let state = AppState {
         vk_hex: Arc::new(hex::encode(kp.verifying_key().into_bytes())),
+        newsroom_kp: Arc::new(kp),
     };
 
     let app = Router::new()
         .route("/", get(|| async { "securedrop newsroom (demo)\n" }))
         .route("/newsroom", get(get_newsroom))
+        .route("/newsroom/journalists/enroll", post(post_enroll))
         .with_state(state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
@@ -119,6 +128,24 @@ async fn get_newsroom(State(state): State<AppState>) -> Json<NewsroomInfo> {
     Json(NewsroomInfo {
         verifying_key: (*state.vk_hex).clone(),
     })
+}
+
+async fn post_enroll(
+    State(state): State<AppState>,
+    Json(req): Json<JournalistSetupRequest>,
+) -> Result<Json<JournalistSetupResponse>, (StatusCode, String)> {
+    let vk_j = req.enrollment.keys.0;
+    vk_j.verify(req.enrollment.bundle.as_bytes(), &req.enrollment.selfsig)
+        .map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "journalist self-signature does not verify".to_string(),
+            )
+        })?;
+
+    Ok(Json(JournalistSetupResponse {
+        sig: state.newsroom_kp.sign(&vk_j.into_bytes()),
+    }))
 }
 
 async fn shutdown_signal() {
