@@ -1,7 +1,9 @@
 use std::fs;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
+use axum::{Router, routing::get};
 use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
 use securedrop_protocol_minimal::{FpfOnNewsroom, Signature, VerifyingKey};
@@ -71,6 +73,32 @@ pub fn set_fpf_sig(sig_hex: &str, fpf_vk_hex: &str, force: bool) -> Result<()> {
     println!("FPF signature verified and stored.\n");
     println!("Saved to: {}", path.display());
     Ok(())
+}
+
+pub fn start(port: u16) -> Result<()> {
+    let rt = tokio::runtime::Runtime::new().context("starting tokio runtime")?;
+    rt.block_on(serve(port))
+}
+
+async fn serve(port: u16) -> Result<()> {
+    let app = Router::new().route("/", get(|| async { "securedrop newsroom (demo)\n" }));
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("binding to {addr}"))?;
+    println!("Newsroom server listening on http://{addr}");
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .context("server error")?;
+    Ok(())
+}
+
+async fn shutdown_signal() {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("install ctrl-c handler");
+    println!("\nShutting down.");
 }
 
 fn load_keypair() -> Result<NewsroomKeyPair> {

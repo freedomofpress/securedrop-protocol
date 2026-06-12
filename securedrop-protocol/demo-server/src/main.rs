@@ -69,6 +69,12 @@ enum NewsroomAction {
         #[arg(long)]
         force: bool,
     },
+    /// Run the newsroom HTTP server.
+    Start {
+        /// Port to listen on.
+        #[arg(long, default_value_t = 8000)]
+        port: u16,
+    },
 }
 
 fn main() -> Result<()> {
@@ -84,6 +90,7 @@ fn main() -> Result<()> {
             NewsroomAction::SetFpfSig { sig, fpf_vk, force } => {
                 newsroom::set_fpf_sig(&sig, &fpf_vk, force)
             }
+            NewsroomAction::Start { port } => newsroom::start(port),
         },
     }
 }
