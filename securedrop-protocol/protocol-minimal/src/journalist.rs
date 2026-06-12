@@ -335,8 +335,40 @@ pub struct JournalistLongTermBytes {
 mod tests {
     use super::*;
     use crate::Enrollable;
+    use crate::wire::setup::JournalistSetupRequest;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    #[test]
+    fn test_journalist_setup_request_serde_roundtrip() {
+        let mut rng = ChaCha20Rng::seed_from_u64(7);
+        let journalist = Journalist::new(&mut rng, 0);
+        let req = JournalistSetupRequest {
+            enrollment: journalist.enroll(),
+        };
+        let json = serde_json::to_string(&req).expect("serialize");
+        let restored: JournalistSetupRequest = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(
+            req.enrollment.bundle.as_bytes(),
+            restored.enrollment.bundle.as_bytes()
+        );
+        assert_eq!(
+            req.enrollment.selfsig.as_bytes(),
+            restored.enrollment.selfsig.as_bytes()
+        );
+        assert_eq!(
+            req.enrollment.keys.0.into_bytes(),
+            restored.enrollment.keys.0.into_bytes()
+        );
+        assert_eq!(
+            req.enrollment.keys.1.into_bytes(),
+            restored.enrollment.keys.1.into_bytes()
+        );
+        assert_eq!(
+            req.enrollment.keys.2.as_bytes(),
+            restored.enrollment.keys.2.as_bytes()
+        );
+    }
 
     #[test]
     fn test_journalist_setup() {
