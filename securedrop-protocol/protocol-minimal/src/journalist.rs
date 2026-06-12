@@ -260,6 +260,88 @@ impl Journalist {
             (kb.bundle.public(), kb.selfsig),
         )
     }
+
+    /// Extract the long-term keypairs as raw bytes, sufficient to
+    /// reconstruct the long-term Journalist state via
+    /// [`Journalist::from_long_term_bytes`].
+    pub fn long_term_bytes(&self) -> JournalistLongTermBytes {
+        JournalistLongTermBytes {
+            sig_seed: self.signing_key.sk.as_bytes(),
+            fetch_sk: *self.fetch_key.sk.as_bytes(),
+            apke_dhakem_sk: *self.reply_apke.private_key().dhakem.as_bytes(),
+            apke_mlkem_sk: *self.reply_apke.private_key().mlkem.as_bytes(),
+            apke_mlkem_pk: *self.reply_apke.public_key().mlkem.as_bytes(),
+        }
+    }
+
+    /// Reconstruct the long-term Journalist state from raw key bytes.
+    pub fn from_long_term_bytes(parts: JournalistLongTermBytes) -> Self {
+        use crate::message::{MessagePrivateKey, MessagePublicKey};
+        use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey};
+        use crate::primitives::mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey};
+        use crate::primitives::provider;
+        use crate::primitives::x25519::{DHPrivateKey, dh_public_key_from_scalar};
+
+        let signing_key = SigningKey::from_seed(parts.sig_seed);
+        let verifying_key = signing_key.vk;
+
+        let sk_fetch = DHPrivateKey::from_bytes(parts.fetch_sk);
+        let pk_fetch = dh_public_key_from_scalar(parts.fetch_sk);
+
+        let mut apke_dhakem_pk_bytes = [0u8; 32];
+        provider::curve25519::secret_to_public(&mut apke_dhakem_pk_bytes, &parts.apke_dhakem_sk);
+        let apke_dhakem_sk = DhAkemPrivateKey::from_bytes(parts.apke_dhakem_sk);
+        let apke_dhakem_pk = DhAkemPublicKey::from_bytes(apke_dhakem_pk_bytes);
+        let apke_mlkem_sk = MLKEM768PrivateKey::from_bytes(parts.apke_mlkem_sk);
+        let apke_mlkem_pk = MLKEM768PublicKey::from_bytes(parts.apke_mlkem_pk);
+
+        let reply_apke = MessageKeyPair::new(
+            MessagePrivateKey {
+                dhakem: apke_dhakem_sk,
+                mlkem: apke_mlkem_sk,
+            },
+            MessagePublicKey {
+                dhakem: apke_dhakem_pk,
+                mlkem: apke_mlkem_pk,
+            },
+        );
+
+        let signed_longterm_key_bytes =
+            SignedLongtermPubKeyBytes::from_keys(reply_apke.public_key(), &pk_fetch);
+        let self_signature: Signature<JournalistLongTermKey> =
+            signing_key.sign(signed_longterm_key_bytes.as_bytes());
+
+        Self {
+            signing_key: KeyPair {
+                sk: signing_key,
+                pk: verifying_key,
+            },
+            fetch_key: KeyPair {
+                sk: sk_fetch,
+                pk: pk_fetch,
+            },
+            reply_apke,
+            message_keys: Vec::new(),
+            self_signature,
+            signed_longterm_key_bytes,
+            session_storage: SessionStorage {
+                fpf_key: None,
+                nr_key: None,
+                fpf_signature: None,
+            },
+        }
+    }
+}
+
+/// Byte representation of a [`Journalist`]'s long-term keypairs, sufficient
+/// to reconstruct the long-term state via
+/// [`Journalist::from_long_term_bytes`].
+pub struct JournalistLongTermBytes {
+    pub sig_seed: [u8; 32],
+    pub fetch_sk: [u8; 32],
+    pub apke_dhakem_sk: [u8; 32],
+    pub apke_mlkem_sk: [u8; crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN],
+    pub apke_mlkem_pk: [u8; crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN],
 }
 
 #[cfg(test)]
@@ -320,5 +402,32 @@ mod tests {
             .signing_key()
             .verify(e.bundle.as_bytes(), &e.selfsig)
             .expect("Need correct enrollment sig");
+    }
+
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn test_journalist_long_term_bytes_roundtrip(rng_seed: u64) {
+            let mut rng = ChaCha20Rng::seed_from_u64(rng_seed);
+            let original = Journalist::new(&mut rng, 0);
+            let parts = original.long_term_bytes();
+            let restored = Journalist::from_long_term_bytes(parts);
+
+            // Long-term verifying key and self-signature must match.
+            prop_assert_eq!(
+                original.signing_key.pk.into_bytes(),
+                restored.signing_key.pk.into_bytes()
+            );
+            prop_assert_eq!(
+                original.signed_longterm_key_bytes.as_bytes(),
+                restored.signed_longterm_key_bytes.as_bytes()
+            );
+            prop_assert_eq!(
+                original.self_signature.as_bytes(),
+                restored.self_signature.as_bytes()
+            );
+            prop_assert!(restored.message_keys.is_empty());
+        }
     }
 }

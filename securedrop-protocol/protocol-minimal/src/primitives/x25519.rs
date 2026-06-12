@@ -26,6 +26,10 @@ impl DHPublicKey {
 pub struct DHPrivateKey([u8; DH_PRIVATE_KEY_LEN]);
 
 impl DHPrivateKey {
+    pub fn as_bytes(&self) -> &[u8; DH_PRIVATE_KEY_LEN] {
+        &self.0
+    }
+
     pub fn into_bytes(self) -> [u8; DH_PRIVATE_KEY_LEN] {
         self.0
     }
