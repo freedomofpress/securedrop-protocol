@@ -11,9 +11,9 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use rand_core::{OsRng, TryRngCore};
-use securedrop_protocol_minimal::VerifyingKey;
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 use securedrop_protocol_minimal::wire::setup::NewsroomSetupRequest;
+use securedrop_protocol_minimal::{FpfOnNewsroom, Signature, VerifyingKey};
 
 #[derive(Parser)]
 #[command(name = "demo-server", about = "Demo SecureDrop protocol server")]
@@ -49,6 +49,8 @@ enum FpfAction {
         /// Newsroom verifying key as 64 hex characters.
         vk: String,
     },
+    /// Print the FPF verifying key as 64 hex characters on stdout.
+    ShowVk,
 }
 
 #[derive(Subcommand)]
@@ -61,6 +63,20 @@ enum NewsroomAction {
     },
     /// Print the newsroom verifying key as 64 hex characters on stdout.
     ShowVk,
+    /// Store the FPF signature over the newsroom verifying key (128 hex characters).
+    ///
+    /// The signature is verified against the supplied FPF verifying key and the
+    /// on-disk newsroom verifying key before being persisted.
+    SetFpfSig {
+        /// FPF signature as 128 hex characters.
+        sig: String,
+        /// FPF verifying key as 64 hex characters (pinned into the newsroom).
+        #[arg(long = "fpf-vk")]
+        fpf_vk: String,
+        /// Overwrite an existing stored FPF signature.
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -68,10 +84,14 @@ fn main() -> Result<()> {
         Role::Fpf { action } => match action {
             FpfAction::Init { force } => fpf_init(force),
             FpfAction::SignNewsroom { vk } => fpf_sign_newsroom(&vk),
+            FpfAction::ShowVk => fpf_show_vk(),
         },
         Role::Newsroom { action } => match action {
             NewsroomAction::Init { force } => newsroom_init(force),
             NewsroomAction::ShowVk => newsroom_show_vk(),
+            NewsroomAction::SetFpfSig { sig, fpf_vk, force } => {
+                newsroom_set_fpf_sig(&sig, &fpf_vk, force)
+            }
         },
     }
 }
@@ -103,8 +123,7 @@ fn fpf_init(force: bool) -> Result<()> {
 
 fn fpf_sign_newsroom(vk_hex: &str) -> Result<()> {
     let mut vk_bytes = [0u8; 32];
-    hex::decode_to_slice(vk_hex.trim(), &mut vk_bytes)
-        .context("parsing newsroom verifying key")?;
+    hex::decode_to_slice(vk_hex.trim(), &mut vk_bytes).context("parsing newsroom verifying key")?;
     let fpf_kp = load_fpf_keypair()?;
 
     let req = NewsroomSetupRequest {
@@ -117,6 +136,12 @@ fn fpf_sign_newsroom(vk_hex: &str) -> Result<()> {
 
     // Dump signature to stdout
     println!("{}", hex::encode(sig));
+    Ok(())
+}
+
+fn fpf_show_vk() -> Result<()> {
+    let kp = load_fpf_keypair()?;
+    println!("{}", hex::encode(kp.verifying_key().into_bytes()));
     Ok(())
 }
 
@@ -161,6 +186,40 @@ fn newsroom_show_vk() -> Result<()> {
     Ok(())
 }
 
+fn newsroom_set_fpf_sig(sig_hex: &str, fpf_vk_hex: &str, force: bool) -> Result<()> {
+    let mut sig_bytes = [0u8; 64];
+    hex::decode_to_slice(sig_hex.trim(), &mut sig_bytes).context("parsing FPF signature")?;
+    let mut fpf_vk_bytes = [0u8; 32];
+    hex::decode_to_slice(fpf_vk_hex.trim(), &mut fpf_vk_bytes)
+        .context("parsing FPF verifying key")?;
+
+    let path = fpf_sig_path()?;
+    if path.exists() && !force {
+        bail!(
+            "an FPF signature already exists at {}\nuse `newsroom set-fpf-sig --force` to overwrite it",
+            path.display()
+        );
+    }
+
+    let nr_kp = load_newsroom_keypair()?;
+    let vk_nr_bytes = nr_kp.verifying_key().into_bytes();
+    let vk_fpf = VerifyingKey::from_bytes(fpf_vk_bytes);
+    let sig = Signature::<FpfOnNewsroom>::from_bytes(sig_bytes);
+
+    vk_fpf
+        .verify(&vk_nr_bytes, &sig)
+        .context("FPF signature does not verify against this newsroom's verifying key")?;
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    }
+    write_secret(&path, &sig_bytes)?;
+
+    println!("FPF signature verified and stored.\n");
+    println!("Saved to: {}", path.display());
+    Ok(())
+}
+
 fn load_newsroom_keypair() -> Result<NewsroomKeyPair> {
     let path = newsroom_key_path()?;
     let bytes = fs::read(&path)
@@ -183,6 +242,10 @@ fn fpf_key_path() -> Result<PathBuf> {
 
 fn newsroom_key_path() -> Result<PathBuf> {
     Ok(data_dir()?.join("newsroom").join("newsroom.key"))
+}
+
+fn fpf_sig_path() -> Result<PathBuf> {
+    Ok(data_dir()?.join("newsroom").join("fpf-sig.bin"))
 }
 
 fn write_secret(path: &Path, contents: &[u8]) -> Result<()> {
