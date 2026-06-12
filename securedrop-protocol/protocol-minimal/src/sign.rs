@@ -85,11 +85,17 @@ impl<D: DomainTag> PartialEq for Signature<D> {
 impl<D: DomainTag> Eq for Signature<D> {}
 
 impl<D: DomainTag> Signature<D> {
-    pub(crate) fn from_bytes(bytes: [u8; 64]) -> Self {
+    /// Reconstruct a [`Signature`] from its serialization.
+    pub fn from_bytes(bytes: [u8; 64]) -> Self {
         Self {
             bytes,
             _phantom: PhantomData,
         }
+    }
+
+    /// The byte serialization of this signature.
+    pub fn as_bytes(&self) -> [u8; 64] {
+        self.bytes
     }
 }
 
@@ -220,6 +226,17 @@ mod tests {
             let signing_key = SigningKey::new(&mut rng).unwrap();
             let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg1);
             assert!(signing_key.vk.verify(&msg2, &sig).is_err());
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_signature_byte_roundtrip(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
+            let mut rng = get_rng();
+            let signing_key = SigningKey::new(&mut rng).unwrap();
+            let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg);
+            let sig2 = Signature::<JournalistLongTermKey>::from_bytes(sig.as_bytes());
+            prop_assert!(signing_key.vk.verify(&msg, &sig2).is_ok());
         }
     }
 
