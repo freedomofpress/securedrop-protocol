@@ -239,6 +239,11 @@ impl VerifyingKey {
         self.0
     }
 
+    /// Reconstruct a [`VerifyingKey`] from its raw bytes.
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(LibCruxVerifyingKey::from_bytes(bytes))
+    }
+
     /// Verify `sig` over `msg`. The domain is determined by the type of `sig`.
     ///
     /// Returns an error if the signature is invalid.
@@ -297,6 +302,17 @@ mod tests {
             let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg);
             let sig2 = Signature::<JournalistLongTermKey>::from_bytes(sig.as_bytes());
             prop_assert!(signing_key.vk.verify(&msg, &sig2).is_ok());
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_verifying_key_byte_roundtrip(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
+            let mut rng = get_rng();
+            let signing_key = SigningKey::new(&mut rng).unwrap();
+            let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg);
+            let vk = VerifyingKey::from_bytes(signing_key.vk.into_bytes());
+            prop_assert!(vk.verify(&msg, &sig).is_ok());
         }
     }
 
