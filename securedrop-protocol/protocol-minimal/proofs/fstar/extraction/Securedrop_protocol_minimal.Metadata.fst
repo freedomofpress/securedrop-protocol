@@ -201,14 +201,14 @@ let encrypt (pk_r: t_MetadataPublicKey) (m: t_Slice u8) : t_MetadataCiphertext =
   in
   let (c: t_Array u8 (mk_usize 1120)):t_Array u8 (mk_usize 1120) =
     Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1120))
-      #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-      (Core_models.Convert.f_try_into #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+      #Core_models.Array.t_TryFromSliceError
+      (Core_models.Convert.f_try_into #(t_Slice u8)
           #(t_Array u8 (mk_usize 1120))
           #FStar.Tactics.Typeclasses.solve
-          c_vec
+          (Alloc.Vec.impl_1__as_slice #u8 #Alloc.Alloc.t_Global c_vec <: t_Slice u8)
         <:
         Core_models.Result.t_Result (t_Array u8 (mk_usize 1120))
-          (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
+          Core_models.Array.t_TryFromSliceError)
       "X-Wing encapsulation output has unexpected length"
   in
   { f_c = c; f_cp = cp } <: t_MetadataCiphertext

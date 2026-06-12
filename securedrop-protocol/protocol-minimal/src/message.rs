@@ -232,6 +232,7 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
 
     // c1 is always LEN_DHKEM_SHAREDSECRET_ENCAPS bytes for DHKEM(X25519)
     let c1: [u8; DH_AKEM_ENCAPS_SECRET_LEN] = c1_vec
+        .as_slice()
         .try_into()
         .expect("DHKEM(X25519) encapsulation output has unexpected length");
 

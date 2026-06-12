@@ -98,11 +98,13 @@ fn typed(
 
     let private_key = XWingPrivateKey::from_bytes(
         private_key_bytes
+            .as_slice()
             .try_into()
             .map_err(|_| anyhow::anyhow!("Failed to convert private key bytes"))?,
     );
     let public_key = XWingPublicKey::from_bytes(
         public_key_bytes
+            .as_slice()
             .try_into()
             .map_err(|_| anyhow::anyhow!("Failed to convert public key bytes"))?,
     );
