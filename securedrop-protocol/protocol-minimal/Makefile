@@ -24,12 +24,12 @@ PROOF_DIR = proofs/fstar/extraction
 .DEFAULT_GOAL := help
 
 .PHONY: clean
-clean:  ## Clean the Cargo and F* caches.
+clean:  ## Clean the Cargo and F* caches, and reset extracted F* modules.
 	cargo clean
-	cargo cache -a
 	rm -rf $(REPO_ROOT)/.fstar-cache
 	rm -f $(PROOF_DIR)/.depend
 	rm -f $(PROOF_DIR)/hax.fst.config.json
+	rm -f $(PROOF_DIR)/*.fst
 
 .PHONY: compat
 compat: compat-fstar  ## Check that hax dependencies are at the right versions.
