@@ -14,7 +14,9 @@ path = "src/main.rs"
 securedrop-protocol-minimal = { path = "../protocol-minimal" }
 
 anyhow = "1.0"
+axum = "0.7"
 clap = { version = "4", features = ["derive"] }
 directories = "5"
 hex = "0.4"
 rand_core = { version = "0.9", features = ["os_rng"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "signal"] }
