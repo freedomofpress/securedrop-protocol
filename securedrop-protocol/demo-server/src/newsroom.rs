@@ -1,14 +1,26 @@
 use std::fs;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
-use axum::{Router, routing::get};
+use axum::{Json, Router, extract::State, routing::get};
 use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
 use securedrop_protocol_minimal::{FpfOnNewsroom, Signature, VerifyingKey};
+use serde::Serialize;
 
 use crate::state::{data_dir, write_secret};
+
+#[derive(Clone)]
+struct AppState {
+    vk_hex: Arc<String>,
+}
+
+#[derive(Serialize)]
+struct NewsroomInfo {
+    verifying_key: String,
+}
 
 pub fn init(force: bool) -> Result<()> {
     let path = key_path()?;
@@ -81,7 +93,16 @@ pub fn start(port: u16) -> Result<()> {
 }
 
 async fn serve(port: u16) -> Result<()> {
-    let app = Router::new().route("/", get(|| async { "securedrop newsroom (demo)\n" }));
+    let kp = load_keypair()?;
+    let state = AppState {
+        vk_hex: Arc::new(hex::encode(kp.verifying_key().into_bytes())),
+    };
+
+    let app = Router::new()
+        .route("/", get(|| async { "securedrop newsroom (demo)\n" }))
+        .route("/newsroom", get(get_newsroom))
+        .with_state(state);
+
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = tokio::net::TcpListener::bind(addr)
         .await
@@ -92,6 +113,12 @@ async fn serve(port: u16) -> Result<()> {
         .await
         .context("server error")?;
     Ok(())
+}
+
+async fn get_newsroom(State(state): State<AppState>) -> Json<NewsroomInfo> {
+    Json(NewsroomInfo {
+        verifying_key: (*state.vk_hex).clone(),
+    })
 }
 
 async fn shutdown_signal() {

@@ -19,4 +19,5 @@ clap = { version = "4", features = ["derive"] }
 directories = "5"
 hex = "0.4"
 rand_core = { version = "0.9", features = ["os_rng"] }
+serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "net", "signal"] }
