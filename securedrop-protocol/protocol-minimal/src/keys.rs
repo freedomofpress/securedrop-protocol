@@ -151,6 +151,37 @@ impl FPFKeyPair {
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         self.sk.sign(msg)
     }
+
+    /// The FPF signing key used as a secret.
+    pub fn as_bytes(&self) -> [u8; 32] {
+        self.sk.as_bytes()
+    }
+
+    /// Reconstruct an [`FPFKeyPair`] from its secret.
+    pub fn from_bytes(seed: [u8; 32]) -> Self {
+        let sk = SigningKey::from_seed(seed);
+        let vk = sk.vk;
+        Self { sk, vk }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn fpf_keypair_seed_roundtrip(seed: [u8; 32]) {
+            let kp = FPFKeyPair::from_bytes(seed);
+            prop_assert_eq!(kp.as_bytes(), seed);
+            let kp2 = FPFKeyPair::from_bytes(kp.as_bytes());
+            prop_assert_eq!(
+                kp.verifying_key().into_bytes(),
+                kp2.verifying_key().into_bytes()
+            );
+        }
+    }
 }
 
 pub use newsroom::NewsroomKeyPair;

@@ -85,11 +85,17 @@ impl<D: DomainTag> PartialEq for Signature<D> {
 impl<D: DomainTag> Eq for Signature<D> {}
 
 impl<D: DomainTag> Signature<D> {
-    pub(crate) fn from_bytes(bytes: [u8; 64]) -> Self {
+    /// Reconstruct a [`Signature`] from its serialization.
+    pub fn from_bytes(bytes: [u8; 64]) -> Self {
         Self {
             bytes,
             _phantom: PhantomData,
         }
+    }
+
+    /// The byte serialization of this signature.
+    pub fn as_bytes(&self) -> [u8; 64] {
+        self.bytes
     }
 }
 
@@ -151,12 +157,31 @@ impl SigningKey {
             .expect("Signing should not fail with valid key");
         Signature::from_bytes(bytes)
     }
+
+    pub(crate) fn as_bytes(&self) -> [u8; 32] {
+        *self.sk.as_ref()
+    }
+
+    pub(crate) fn from_seed(seed: [u8; 32]) -> Self {
+        let sk = LibCruxSigningKey::from_bytes(seed);
+        let mut pk = [0u8; 32];
+        provider::ed25519::secret_to_public(&mut pk, sk.as_ref());
+        Self {
+            vk: VerifyingKey(LibCruxVerifyingKey::from_bytes(pk)),
+            sk,
+        }
+    }
 }
 
 impl VerifyingKey {
     /// Get the raw bytes of this verification key.
     pub fn into_bytes(self) -> [u8; 32] {
         self.0.into_bytes()
+    }
+
+    /// Reconstruct a [`VerifyingKey`] from its raw bytes.
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(LibCruxVerifyingKey::from_bytes(bytes))
     }
 
     /// Verify `sig` over `msg`. The domain is determined by the type of `sig`.
@@ -206,6 +231,28 @@ mod tests {
             let signing_key = SigningKey::new(&mut rng).unwrap();
             let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg1);
             assert!(signing_key.vk.verify(&msg2, &sig).is_err());
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_signature_byte_roundtrip(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
+            let mut rng = get_rng();
+            let signing_key = SigningKey::new(&mut rng).unwrap();
+            let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg);
+            let sig2 = Signature::<JournalistLongTermKey>::from_bytes(sig.as_bytes());
+            prop_assert!(signing_key.vk.verify(&msg, &sig2).is_ok());
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_verifying_key_byte_roundtrip(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
+            let mut rng = get_rng();
+            let signing_key = SigningKey::new(&mut rng).unwrap();
+            let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg);
+            let vk = VerifyingKey::from_bytes(signing_key.vk.into_bytes());
+            prop_assert!(vk.verify(&msg, &sig).is_ok());
         }
     }
 
