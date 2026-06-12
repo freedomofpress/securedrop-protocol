@@ -73,6 +73,10 @@ pub struct MessageKeyPair {
 }
 
 impl MessageKeyPair {
+    pub(crate) fn new(sk: MessagePrivateKey, pk: MessagePublicKey) -> Self {
+        Self { sk, pk }
+    }
+
     /// Returns the public key.
     pub fn public_key(&self) -> &MessagePublicKey {
         &self.pk
