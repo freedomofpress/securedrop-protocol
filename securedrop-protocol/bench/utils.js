@@ -33,6 +33,26 @@ function makeTmp(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 
+class TimeoutError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'TimeoutError';
+  }
+}
+
+// Hard wall-clock guard: races `promise` against a rejecting timer so a hung
+// await (e.g. an unresponsive WebDriver command) becomes a thrown error instead
+// of blocking forever.
+function withTimeout(promise, ms, label = 'operation') {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new TimeoutError(`Timed out after ${ms}ms: ${label}`));
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 module.exports = {
   rangeSweep,
   stamp,
@@ -41,4 +61,6 @@ module.exports = {
   logWarn,
   logErr,
   makeTmp,
+  TimeoutError,
+  withTimeout,
 };

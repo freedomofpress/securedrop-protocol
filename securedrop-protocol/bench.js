@@ -13,6 +13,7 @@ const {
   expandFlavors,
   mapFlavorToVersion,
   buildDriver,
+  disposeDriver,
   runSpecOnDriver,
   runSpecProfileIsolated,
 } = require('./bench/selenium');
@@ -70,6 +71,7 @@ const isRunFailure = (e) => {
   ensureDir(outRoot);
 
   const consoleErrors = [];
+  const driverFailures = [];
   let flavorHadErrors = false;
 
   const csvWriter = createObjectCsvWriter({
@@ -91,7 +93,7 @@ const isRunFailure = (e) => {
   });
 
   // Banner to confirm parameters
-  logInfo(`Params locked: n=${cfg.iterations}, k=${cfg.k}, j=${cfg.j}, rng=${cfg.rng}, mode=${cfg.mode}`);
+  logInfo(`Params locked: n=${cfg.iterations}, k=${cfg.k}, j=${cfg.j}, rng=${cfg.rng}, mode=${cfg.mode}, iter_timeout=${cfg.iter_timeout}s, attempts=${cfg.attempts}`);
 
   const jSweep = (cfg.j_min != null && cfg.j_max != null && cfg.j_step != null)
     ? rangeSweep(cfg.j_min, cfg.j_max, cfg.j_step)
@@ -235,6 +237,23 @@ const isRunFailure = (e) => {
     }
   }
 
+  async function startFlavorDriver(flavor, versionLabel, profileDir) {
+    for (let attempt = 1; ; attempt++) {
+      let handle;
+      try {
+        handle = await buildDriver(flavor.family, versionLabel, profileDir);
+        const caps = await handle.driver.getCapabilities();
+        const version = caps.get('browserVersion') || 'unknown';
+        await handle.driver.get(baseUrl); // initial load to evaluate capabilities
+        return { handle, version };
+      } catch (e) {
+        await disposeDriver(handle);
+        if (attempt >= cfg.attempts) throw e;
+        logWarn(`${flavor.family}:${flavor.label} driver start failed (attempt ${attempt}/${cfg.attempts}): ${e.message}; retrying`);
+      }
+    }
+  }
+
   // store a traditional summary for per-flavor tables, and build a pivot for the final table
   const pivot = new Map(); // flavorKey -> { encrypt: "1.234 (x2.00)", decrypt: "...", fetch: "..." }
 
@@ -245,15 +264,14 @@ const isRunFailure = (e) => {
     const tmpProfile = makeTmp(`bench-${flavor.family}-${flavor.label}-`);
     const jsonOutFile = path.join(outRoot, `${flavor.family}-${flavor.label}.json`);
 
+    let handle;
     let driver;
     try {
-      driver = await buildDriver(flavor.family, versionLabel, tmpProfile);
+      let version;
+      ({ handle, version } = await startFlavorDriver(flavor, versionLabel, tmpProfile));
+      driver = handle.driver;
 
-      const caps = await driver.getCapabilities();
-      const version = caps.get('browserVersion') || 'unknown';
       const flavorKey = `${flavor.family}:${flavor.label} (${version})`;
-
-      await driver.get(baseUrl); // initial load to evaluate capabilities
 
       // See if there are errors, and if there are, don't keep re-trying this driver
       await collectConsoleErrors(driver, flavorKey);
@@ -282,6 +300,7 @@ const isRunFailure = (e) => {
               baseUrl,
               spec,
               cfg.iterations,
+              { attempts: cfg.attempts, iterTimeoutMs: cfg.iter_timeout * 1000 },
             );
 
             await collectConsoleErrors(driver, flavorKey);
@@ -291,7 +310,7 @@ const isRunFailure = (e) => {
             }
           } else {
             const specWithMode = new BenchmarkSpec(spec.name, { ...spec.params });
-            const res = await runSpecOnDriver(driver, baseUrl, specWithMode);
+            const res = await runSpecOnDriver(driver, baseUrl, specWithMode, cfg.iter_timeout * 1000);
 
             await collectConsoleErrors(driver, flavorKey);
             if (flavorHadErrors) {
@@ -402,12 +421,13 @@ const isRunFailure = (e) => {
         ));
       }
     } catch (e) {
-      logErr(`Failed ${flavor.family}:${flavor.label}: ${e.message}`);
-      consoleErrors.push({
-        flavor: `${flavor.family}:${flavor.label} ${e.message}`
+      logWarn(`Skipping ${flavor.family}:${flavor.label}: ${e.message}`);
+      driverFailures.push({
+        flavor: `${flavor.family}:${flavor.label}`,
+        message: e.message,
       });
     } finally {
-      if (driver) await driver.quit();
+      await disposeDriver(handle);
       try {
         fs.rmSync(tmpProfile, { recursive: true, force: true });
       } catch {
@@ -434,7 +454,7 @@ const isRunFailure = (e) => {
     logWarn('No browser results.');
   }
 
-  // Did we hit any console errors?
+  // Real in-page errors (WASM/JS/404) mean the artifact itself is broken — always fatal.
   if (consoleErrors.length > 0) {
     const errorPath = path.join(outRoot, 'errors.log');
     console.error(`\n${kleur.bold(`=== Console Errors Detected ===`)}`);
@@ -444,6 +464,17 @@ const isRunFailure = (e) => {
     }
     logErr(`Console errors written to ${outRoot}`);
     process.exitCode = 1;
+  }
+
+  // Handle driver/browser startup flakes
+  if (driverFailures.length > 0) {
+    const errorPath = path.join(outRoot, 'driver-failures.log');
+    console.warn(`\n${kleur.bold(`=== Driver/browser failures (${cfg.strict ? 'fatal: --strict' : 'non-fatal'}) ===`)}`);
+    for (const { flavor, message } of driverFailures) {
+      logWarn(`[${flavor}] ${message}`);
+      fs.appendFileSync(errorPath, `[${flavor}] ${message}\n`);
+    }
+    if (cfg.strict) process.exitCode = 1;
   }
 
   // Generate the TikZ chart from the samples we just wrote
@@ -459,6 +490,9 @@ const isRunFailure = (e) => {
 
   server.close();
   logInfo(`Artifacts written to ${outRoot}`);
+
+  // Force a clean exit
+  process.exit(process.exitCode || 0);
 })().catch((err) => {
   logErr(err.stack || err);
   process.exit(1);

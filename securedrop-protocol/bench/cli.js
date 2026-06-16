@@ -11,6 +11,9 @@ const CliSchema = z.object({
   k: z.number().int().nonnegative().default(500),
   j: z.number().int().nonnegative().default(1),
   rng: z.enum(['on', 'off']).default('off'),
+  iter_timeout: z.number().int().positive().default(120), // seconds, per profile iteration
+  attempts: z.number().int().positive().default(3), // retries per profile iteration on hang/error
+  strict: z.boolean().default(false), // treat driver/browser startup failures as fatal
   out: z.string().default('out'),
   root: z.string().default(process.cwd()),
   j_min: z.number().int().nonnegative().nullable().default(null),
@@ -34,6 +37,9 @@ function parseCli(argvInput = process.argv) {
     .option('k', { type: 'number', describe: 'Keybundles per journalist' })
     .option('j', { type: 'number', describe: 'Challenges per iter (fetch)' })
     .option('rng', { type: 'string', describe: 'Include RNG time inside encrypt loop (on|off)' })
+    .option('iter-timeout', { type: 'number', describe: 'Per-iteration timeout in seconds (profile mode); a hung iteration is retried (default 120)' })
+    .option('attempts', { type: 'number', describe: 'Attempts per profile iteration before failing (default 3)' })
+    .option('strict', { type: 'boolean', default: false, describe: 'Fail (exit 1) if a browser/driver never starts after retries (default: non-fatal)' })
     .option('out', { type: 'string', describe: 'Output directory root' })
     .option('root', { type: 'string', describe: 'Static server root (contains /www/index.html)' })
     .option('j-min', { type: 'number', describe: 'Min challenges for fetch sweep' })
@@ -58,6 +64,9 @@ function parseCli(argvInput = process.argv) {
     k: argv.k,
     j: argv.j,
     rng: argv.rng,
+    iter_timeout: argv['iter-timeout'],
+    attempts: argv.attempts,
+    strict: argv.strict,
     out: argv.out,
     root: argv.root,
     j_min: argv['j-min'] ?? null,
