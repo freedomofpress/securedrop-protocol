@@ -1,20 +1,16 @@
 ## Setup instructions
 
-Install the Rust toolchain. To view browsable documentation, install `doxygen` and `dot` (Graphviz). Use `make help` from the project root to see available make targets, e.g. to install lint tools, run formatting checks, or build crates.
+On Ubuntu 24.04 or Mac (Apple Silicon) with Homebrew, run:
 
-Lint tools are installed in the `lint-tools` directory to avoid interfering with the user's system dependencies; cargo will suggest adding the directory to your $PATH, but that's not required.
+```bash
+make setup
+```
+
+This detects the OS and installs all system-level prerequisites automatically (Node 22, the Rust toolchain via `rustup`, the wasm target, and the required browser libraries). It needs `sudo` on Linux and Homebrew on macOS.
 
 ### Benchmarking
 
-The benchmarks were performed on an Apple MacBook Air M4 to assess the protocol's performance on typical consumer hardware. All source code and the Makefile are located in the `securedrop-protocol` subfolder.
-
-**Dependencies** (install via Homebrew unless noted):
-
-- `rustc` 1.92.0 (via rustup)
-- Node ≥ 22
-- GCC (required for Rust compilation)
-- Firefox
-- Chrome
+The benchmarks were performed on an Apple MacBook Air M4 to assess the protocol's performance on typical consumer hardware.
 
 Run a quick sanity‑check with a few iterations:
 
@@ -40,30 +36,16 @@ Sweep benchmarks evaluate client performance as configurable system parameters g
 
 Results are saved in the `out` directory in both JSON and CSV formats. By default each benchmark iteration uses a fresh browser profile. The underlying Node script also supports a mode that runs without restarting the browser, looping over the WebAssembly functions. This mode yields extremely fast numbers in some cases because of optimisations and predictions that would not occur in real‑world usage, and therefore can produce misleading results.
 
+Browser benchmarks are inherently flaky, so a hung or failed iteration is retried automatically. You may therefore see yellow `[!]` warnings during a run (for example `Retrying profile …`, a `driver.quit()` that had to be force‑killed, or a native bench that produced no samples); these are non‑fatal and the run still completes. 
+
 ##### Charts
 
-A TikZ chart of the iterative benchmark can be generated with the `chart.js` script. After running the benchmark at least once, note the folder shown in the output, for example `out/20260112-222635/`. Then execute:
+A TikZ chart of the iterative benchmark is generated automatically at the end of every run and written to `chart.tex` in the run's output folder (for example `out/20260112-222635/chart.tex`), ready to include in a LaTeX document. If chart generation fails it prints a `Chart generation failed` warning but does not fail the run.
+
+You can also regenerate the chart manually from a previous run's samples:
 
 ```bash
 node chart.js out/20260112-222635/all_samples.csv
 ```
 
-The script prints the TikZ code for the chart to the console, which you can copy into a LaTeX document.
-
-#### Debugging wasm and benchmarking code
-
-[`wasm-bindgen`](https://crates.io/crates/wasm-bindgen) exposes Rust objects and functions in Javascript in the benchmarking code. If troubleshooting, ensure you are using the same version of the wasm-bindgen cli as is specified in Cargo.toml (`wasm-bindgen -V`).
-
-`wasm-bindgen` requires wrapper classes for Rust objects to marshall in and out of Javascript. If any structs or function signatures that are being used in `www/index.html` (rendering benchmarks) are changed, the corresponding wrapper structs, annotated with `#[wasm_bindgen]`, will need to change accordingly.
-
-If the wasm-compiled Rust code panics, the browser may display a fairly generic/unhelpful message with limited information (for example, `{"error":"unreachable executed"}`). Add the [`console_error_panic_hook`](https://crates.io/crates/console_error_panic_hook) crate and use the `console_error_panic_hook::set_once();` method in a common codepath annotated by `#[wasm-bindgen]` in order to log further information to the browser console. You will also need to temporarily adjust Cargo.toml:
-
-```
-[profile.release]
-panic = "unwind"
-
-[profile.dev]
-panic = "unwind"
-```
-
-You may also need to follow the console_error_panic_hook docs to increase the stacktrace lines printed by your browser.
+This prints the TikZ code to the console.
