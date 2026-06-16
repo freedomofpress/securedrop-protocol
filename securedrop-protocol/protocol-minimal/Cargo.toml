@@ -25,6 +25,7 @@ libcrux-traits = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cb
 libcrux-kem = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
 libcrux-ml-kem = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
 libcrux-sha2 = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
+libcrux-hkdf = { git = "https://github.com/cryspen/libcrux", rev = "c1e75990cbcf1bf476199fb1367df680c6de570f" }
 
 # fork of cryspen/hpke-rs, transitively pinned to cryspen/libcrux#1312
 hpke-rs = { git = "https://github.com/cfm/hpke-rs", rev = "9325551537d642d308edc60f3b271742b3a25b00", features = ["libcrux"] }
@@ -34,8 +35,7 @@ rand_core = { version = "0.9" }
 anyhow = "1.0"
 hashbrown = { version = "0.14", features = ["raw"] }
 uuid = { version = "1.0", default-features = false, features = ["v4", "js"] }
-argon2 = "0.5"
-blake2 = "0.10"
+bip39 = { version = "2", default-features = false, features = ["alloc"] }
 
 rand_chacha = {  version = "0.9", default-features = false  }
 
