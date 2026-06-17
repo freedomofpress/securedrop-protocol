@@ -33,3 +33,9 @@ jobs:
       - name: Type-check and verify
         run: make verify
         working-directory: securedrop-protocol/protocol-minimal
+
+      - name: Libcrux extraction completes and is reproducible
+        run: |
+          make libcrux
+          git diff --exit-code .
+        working-directory: securedrop-protocol/protocol-minimal/proofs/fstar/models
