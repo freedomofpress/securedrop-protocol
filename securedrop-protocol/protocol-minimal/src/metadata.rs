@@ -127,6 +127,7 @@ pub fn encrypt(pk_r: &MetadataPublicKey, m: &[u8]) -> MetadataCiphertext {
 
     // XWing will always produce this length ciphertext, so this .expect is fine.
     let c: [u8; LEN_XWING_SHAREDSECRET_ENCAPS] = c_vec
+        .as_slice()
         .try_into()
         .expect("X-Wing encapsulation output has unexpected length");
 

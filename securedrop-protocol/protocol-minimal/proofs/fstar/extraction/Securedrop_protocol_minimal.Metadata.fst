@@ -201,14 +201,14 @@ let encrypt (pk_r: t_MetadataPublicKey) (m: t_Slice u8) : t_MetadataCiphertext =
   in
   let (c: t_Array u8 (mk_usize 1120)):t_Array u8 (mk_usize 1120) =
     Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1120))
-      #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-      (Core_models.Convert.f_try_into #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+      #Core_models.Array.t_TryFromSliceError
+      (Core_models.Convert.f_try_into #(t_Slice u8)
           #(t_Array u8 (mk_usize 1120))
           #FStar.Tactics.Typeclasses.solve
-          c_vec
+          (Alloc.Vec.impl_1__as_slice #u8 #Alloc.Alloc.t_Global c_vec <: t_Slice u8)
         <:
         Core_models.Result.t_Result (t_Array u8 (mk_usize 1120))
-          (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
+          Core_models.Array.t_TryFromSliceError)
       "X-Wing encapsulation output has unexpected length"
   in
   { f_c = c; f_cp = cp } <: t_MetadataCiphertext
@@ -238,6 +238,7 @@ let decrypt (sk_r: t_MetadataPrivateKey) (ct: t_MetadataCiphertext)
   Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
     #Hpke_rs.t_HpkeError
     #Anyhow.t_Error
+    #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
     (Hpke_rs.impl_7__open #Hpke_rs_libcrux.t_HpkeLibcrux hpke (ct.f_c <: t_Slice u8) sk_r_hpke
         ((let list:Prims.list u8 = [] in
             FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
@@ -248,12 +249,8 @@ let decrypt (sk_r: t_MetadataPrivateKey) (ct: t_MetadataCiphertext)
             FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
             Rust_primitives.Hax.array_of_list 0 list)
           <:
-          t_Slice u8)
-        (Core_models.Ops.Deref.f_deref #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-            #FStar.Tactics.Typeclasses.solve
-            ct.f_cp
-          <:
-          t_Slice u8) (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
+          t_Slice u8) (Alloc.Vec.impl_1__as_slice ct.f_cp <: t_Slice u8)
+        (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
         (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
         (Core_models.Option.Option_None <: Core_models.Option.t_Option Hpke_rs.t_HpkePublicKey)
       <:

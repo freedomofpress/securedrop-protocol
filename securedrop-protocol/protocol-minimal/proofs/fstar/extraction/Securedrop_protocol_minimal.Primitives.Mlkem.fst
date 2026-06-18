@@ -86,17 +86,18 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
   else
     match
       Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 2400))
-        #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+        #Core_models.Array.t_TryFromSliceError
         #Anyhow.t_Error
-        (Core_models.Convert.f_try_into #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+        #(Core_models.Array.t_TryFromSliceError -> Anyhow.t_Error)
+        (Core_models.Convert.f_try_into #(t_Slice u8)
             #(t_Array u8 (mk_usize 2400))
             #FStar.Tactics.Typeclasses.solve
-            private_key_bytes
+            (Alloc.Vec.impl_1__as_slice #u8 #Alloc.Alloc.t_Global private_key_bytes <: t_Slice u8)
           <:
           Core_models.Result.t_Result (t_Array u8 (mk_usize 2400))
-            (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
+            Core_models.Array.t_TryFromSliceError)
         (fun temp_0_ ->
-            let _:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = temp_0_ in
+            let _:Core_models.Array.t_TryFromSliceError = temp_0_ in
             let error:Anyhow.t_Error =
               Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
                     (let list = ["Failed to convert private key bytes"] in
@@ -113,17 +114,19 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       let private_key:t_MLKEM768PrivateKey = impl_MLKEM768PrivateKey__from_bytes hoist7 in
       (match
           Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 1184))
-            #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+            #Core_models.Array.t_TryFromSliceError
             #Anyhow.t_Error
-            (Core_models.Convert.f_try_into #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+            #(Core_models.Array.t_TryFromSliceError -> Anyhow.t_Error)
+            (Core_models.Convert.f_try_into #(t_Slice u8)
                 #(t_Array u8 (mk_usize 1184))
                 #FStar.Tactics.Typeclasses.solve
-                public_key_bytes
+                (Alloc.Vec.impl_1__as_slice #u8 #Alloc.Alloc.t_Global public_key_bytes <: t_Slice u8
+                )
               <:
               Core_models.Result.t_Result (t_Array u8 (mk_usize 1184))
-                (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
+                Core_models.Array.t_TryFromSliceError)
             (fun temp_0_ ->
-                let _:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = temp_0_ in
+                let _:Core_models.Array.t_TryFromSliceError = temp_0_ in
                 let error:Anyhow.t_Error =
                   Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
                         (let list = ["Failed to convert public key bytes"] in
@@ -161,6 +164,7 @@ let deterministic_keygen (randomness: t_Array u8 (mk_usize 64))
     Core_models.Result.impl__map_err #(Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey)
       #Libcrux_kem.t_Error
       #Anyhow.t_Error
+      #(Libcrux_kem.t_Error -> Anyhow.t_Error)
       (Libcrux_kem.key_gen_derand (Libcrux_kem.Algorithm_MlKem768 <: Libcrux_kem.t_Algorithm)
           (randomness <: t_Slice u8)
         <:
@@ -217,6 +221,7 @@ let generate_mlkem768_keypair
     Core_models.Result.impl__map_err #(Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey)
       #Libcrux_kem.t_Error
       #Anyhow.t_Error
+      #(Libcrux_kem.t_Error -> Anyhow.t_Error)
       out
       (fun e ->
           let e:Libcrux_kem.t_Error = e in

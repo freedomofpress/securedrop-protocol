@@ -2,6 +2,15 @@
 resolver = "2"
 members = ["protocol-minimal", "bench"]
 
+[patch.crates-io]
+# Force hpke-rs to use our libcrux patched to hax 0.3.7 (pending cryspen/libcrux#1478):
+libcrux-aead = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-ecdh = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-hkdf = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-sha3 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-traits = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+
 [workspace.package]
 name = "securedrop-protocol"
 version = "0.4.0"

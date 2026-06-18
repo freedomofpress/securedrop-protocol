@@ -14,3 +14,14 @@ type t_Error =
   | Error_KeyGenError : t_Error
   | Error_Custom : Alloc.String.t_String -> t_Error
   | Error_Wrap : t_LowLevelError -> t_Error
+
+/// ECDH algorithm.
+type t_Algorithm =
+  | Algorithm_X25519 : t_Algorithm
+  | Algorithm_X448 : t_Algorithm
+  | Algorithm_P256 : t_Algorithm
+  | Algorithm_P384 : t_Algorithm
+  | Algorithm_P521 : t_Algorithm
+
+val t_Algorithm_cast_to_repr (x: t_Algorithm)
+    : Prims.Pure isize Prims.l_True (fun _ -> Prims.l_True)

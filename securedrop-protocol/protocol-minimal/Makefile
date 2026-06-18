@@ -35,7 +35,7 @@ clean:  ## Clean the Cargo and F* caches, and reset extracted F* modules.
 compat: compat-fstar  ## Check that hax dependencies are at the right versions.
 
 # Keep in sync with ".github/workflows/hax.yml":
-FSTAR_EXPECTED_VERSION = F* 2025.12.15
+FSTAR_EXPECTED_VERSION = F* 2026.03.24
 FSTAR_ACTUAL_VERSION   = $(shell fstar.exe --version 2>/dev/null | head -1)
 .PHONY: compat-fstar
 compat-fstar:  # Internal: Check F* version.

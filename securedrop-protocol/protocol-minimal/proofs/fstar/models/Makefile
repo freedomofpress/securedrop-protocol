@@ -6,23 +6,23 @@ HAX_LIB_VERSION=$(shell make -C ../../.. -s hax-lib-version)
 
 # include pattern modifiers (e.g. `+`, `+!`, `+:`) are documented
 # in `cargo hax into --help`
-LIBCRUX_VERSION=41e1b3d57f8f6c2e49f3fb1e6c33dbb92279023d  # FIXME: cfm/libcrux@41e1b3d
+LIBCRUX_VERSION=3cd1843b0f029b2c8499d1af4234670ad04341bf  # cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478
 LIBCRUX_ECDH_TARGETS := -**
+LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::Algorithm
 LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::Error
 LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::*::PrivateKey
 LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::*::PublicKey
 LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::*::SharedSecret
 LIBCRUX_KEM_TARGETS := -**
-LIBCRUX_KEM_TARGETS += +libcrux_kem::Algorithm
-LIBCRUX_KEM_TARGETS += +libcrux_kem::Error
-LIBCRUX_KEM_TARGETS += +libcrux_kem::PrivateKey
-LIBCRUX_KEM_TARGETS += +libcrux_kem::PublicKey
-LIBCRUX_KEM_TARGETS += +libcrux_kem::Ct
-LIBCRUX_KEM_TARGETS += +libcrux_kem::Ss
 # `+!` (no transitive deps): plain `+` pulls in items that cross the
 # `Libcrux_kem.Xwing` submodule boundary
-LIBCRUX_KEM_TARGETS += +!libcrux_kem::key_gen
-LIBCRUX_KEM_TARGETS += +!libcrux_kem::key_gen_derand
+LIBCRUX_KEM_TARGETS += +!libcrux_kem::*
+# `+!libcrux_kem::*` doesn't reach into inherent-impl blocks; explicitly specify
+# the methods whose implementations we need:
+LIBCRUX_KEM_TARGETS += +!**::encode
+LIBCRUX_KEM_TARGETS += +!**::decode
+LIBCRUX_KEM_TARGETS += +!**::encapsulate
+LIBCRUX_KEM_TARGETS += +!**::encapsulate_derand
 LIBCRUX_ML_KEM_TARGETS := -**
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemPrivateKey
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemPublicKey
@@ -45,7 +45,7 @@ LIBCRUX_CHACHA20POLY1305_TARGETS += +libcrux_chacha20poly1305::NONCE_LEN
 .PHONY: libcrux
 libcrux:
 	rm -rf $@
-	git clone https://github.com/cfm/libcrux  # FIXME: cfm/libcrux@41e1b3d
+	git clone https://github.com/cfm/libcrux # cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478
 	cd $@ && git checkout $(LIBCRUX_VERSION)
 
 	cd $@/libcrux-ecdh && cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
