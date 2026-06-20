@@ -331,6 +331,56 @@ pub struct JournalistLongTermBytes {
     pub apke_mlkem_pk: [u8; crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN],
 }
 
+impl JournalistLongTermBytes {
+    /// Serialized length of `sig_seed || fetch_sk || apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk`.
+    pub const LEN: usize = 32
+        + 32
+        + 32
+        + crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN
+        + crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
+
+    /// Serialize as `sig_seed || fetch_sk || apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk`.
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(Self::LEN);
+        out.extend_from_slice(&self.sig_seed);
+        out.extend_from_slice(&self.fetch_sk);
+        out.extend_from_slice(&self.apke_dhakem_sk);
+        out.extend_from_slice(&self.apke_mlkem_sk);
+        out.extend_from_slice(&self.apke_mlkem_pk);
+        out
+    }
+
+    /// Deserialize from `sig_seed || fetch_sk || apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk` bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the byte slice has the incorrect length.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
+        if bytes.len() != Self::LEN {
+            return Err(anyhow::anyhow!(
+                "Invalid JournalistLongTermBytes length: expected {}, got {}",
+                Self::LEN,
+                bytes.len()
+            ));
+        }
+
+        let (sig_seed, rest) = bytes.split_at(32);
+        let (fetch_sk, rest) = rest.split_at(32);
+        let (apke_dhakem_sk, rest) = rest.split_at(32);
+        let (apke_mlkem_sk, apke_mlkem_pk) =
+            rest.split_at(crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN);
+
+        // the expects here are fine because the length check above ensures we have the correct length
+        Ok(Self {
+            sig_seed: sig_seed.try_into().expect("wrong checked length"),
+            fetch_sk: fetch_sk.try_into().expect("wrong checked length"),
+            apke_dhakem_sk: apke_dhakem_sk.try_into().expect("wrong checked length"),
+            apke_mlkem_sk: apke_mlkem_sk.try_into().expect("wrong checked length"),
+            apke_mlkem_pk: apke_mlkem_pk.try_into().expect("wrong checked length"),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -448,5 +498,32 @@ mod tests {
             );
             prop_assert!(restored.message_keys.is_empty());
         }
+
+        #[test]
+        fn test_journalist_long_term_bytes_serde_roundtrip(rng_seed: u64) {
+            let mut rng = ChaCha20Rng::seed_from_u64(rng_seed);
+            let parts = Journalist::new(&mut rng, 0).long_term_bytes();
+
+            let bytes = parts.as_bytes();
+            prop_assert_eq!(bytes.len(), JournalistLongTermBytes::LEN);
+
+            let restored = JournalistLongTermBytes::from_bytes(&bytes).expect("valid length");
+            prop_assert_eq!(restored.sig_seed, parts.sig_seed);
+            prop_assert_eq!(restored.fetch_sk, parts.fetch_sk);
+            prop_assert_eq!(restored.apke_dhakem_sk, parts.apke_dhakem_sk);
+            prop_assert_eq!(restored.apke_mlkem_sk, parts.apke_mlkem_sk);
+            prop_assert_eq!(restored.apke_mlkem_pk, parts.apke_mlkem_pk);
+        }
+    }
+
+    #[test]
+    fn test_journalist_long_term_bytes_from_bytes_rejects_wrong_length() {
+        assert!(JournalistLongTermBytes::from_bytes(&[]).is_err());
+        assert!(
+            JournalistLongTermBytes::from_bytes(&[0u8; JournalistLongTermBytes::LEN - 1]).is_err()
+        );
+        assert!(
+            JournalistLongTermBytes::from_bytes(&[0u8; JournalistLongTermBytes::LEN + 1]).is_err()
+        );
     }
 }
