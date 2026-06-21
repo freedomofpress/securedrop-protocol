@@ -15,6 +15,7 @@ pub mod server;
 pub mod setup;
 mod traits;
 pub mod wire;
+pub mod wire_format;
 
 pub mod journalist;
 pub mod source;

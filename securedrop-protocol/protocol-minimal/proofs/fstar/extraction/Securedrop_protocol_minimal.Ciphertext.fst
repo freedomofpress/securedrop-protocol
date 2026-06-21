@@ -52,6 +52,27 @@ let impl_5 = impl_5'
 let impl_6: Core_models.Clone.t_Clone t_Plaintext =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_7': Core_models.Marker.t_StructuralPartialEq t_Plaintext
+
+unfold
+let impl_7 = impl_7'
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_8': Core_models.Cmp.t_PartialEq t_Plaintext t_Plaintext
+
+unfold
+let impl_8 = impl_8'
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_9': Core_models.Cmp.t_Eq t_Plaintext
+
+unfold
+let impl_9 = impl_9'
+
 let impl_Plaintext__to_bytes (self: t_Plaintext) : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
   let buf:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = Alloc.Vec.impl__new #u8 () in
   let buf:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
@@ -146,15 +167,15 @@ type t_FetchResponse = {
   f_pmgdh:t_Array u8 (mk_usize 32)
 }
 
-let impl_7: Core_models.Clone.t_Clone t_FetchResponse =
+let impl_10: Core_models.Clone.t_Clone t_FetchResponse =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_8': Core_models.Fmt.t_Debug t_FetchResponse
+val impl_11': Core_models.Fmt.t_Debug t_FetchResponse
 
 unfold
-let impl_8 = impl_8'
+let impl_11 = impl_11'
 
 let impl_FetchResponse__new (enc_id: t_Array u8 (mk_usize 44)) (pmgdh: t_Array u8 (mk_usize 32))
     : t_FetchResponse = { f_enc_id = enc_id; f_pmgdh = pmgdh } <: t_FetchResponse

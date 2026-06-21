@@ -44,7 +44,7 @@ impl Envelope {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 /// Toy pt structure - TODO: provide params in correct order
 pub struct Plaintext {
     /// Metadata key: $pk_S^{PKE}$ in the spec
