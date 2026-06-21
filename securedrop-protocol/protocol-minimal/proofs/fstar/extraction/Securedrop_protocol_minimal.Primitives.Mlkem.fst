@@ -110,8 +110,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       <:
       Core_models.Result.t_Result (t_Array u8 (mk_usize 2400)) Anyhow.t_Error
     with
-    | Core_models.Result.Result_Ok hoist7 ->
-      let private_key:t_MLKEM768PrivateKey = impl_MLKEM768PrivateKey__from_bytes hoist7 in
+    | Core_models.Result.Result_Ok hoist10 ->
+      let private_key:t_MLKEM768PrivateKey = impl_MLKEM768PrivateKey__from_bytes hoist10 in
       (match
           Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 1184))
             #Core_models.Array.t_TryFromSliceError
@@ -139,8 +139,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
           <:
           Core_models.Result.t_Result (t_Array u8 (mk_usize 1184)) Anyhow.t_Error
         with
-        | Core_models.Result.Result_Ok hoist8 ->
-          let public_key:t_MLKEM768PublicKey = impl_MLKEM768PublicKey__from_bytes hoist8 in
+        | Core_models.Result.Result_Ok hoist11 ->
+          let public_key:t_MLKEM768PublicKey = impl_MLKEM768PublicKey__from_bytes hoist11 in
           Core_models.Result.Result_Ok
           (private_key, public_key <: (t_MLKEM768PrivateKey & t_MLKEM768PublicKey))
           <:

@@ -11,6 +11,7 @@ HAX_TARGETS += +securedrop_protocol_minimal::primitives::pad::**
 HAX_TARGETS += +securedrop_protocol_minimal::message::**
 HAX_TARGETS += +securedrop_protocol_minimal::metadata::**
 HAX_TARGETS += +securedrop_protocol_minimal::ciphertext::**
+HAX_TARGETS += +securedrop_protocol_minimal::wire_format::**
 HAX_TARGETS += +securedrop_protocol_minimal::constants::**
 
 # Admit modules we extract but that fail panic freedom:
