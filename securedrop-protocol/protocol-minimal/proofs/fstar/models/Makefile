@@ -7,7 +7,7 @@ HAX_LIB_VERSION=$(shell make -C ../../.. -s hax-lib-version)
 # include pattern modifiers (e.g. `+`, `+!`, `+:`) are documented
 # in `cargo hax into --help`
 
-LIBCRUX_VERSION=41e1b3d57f8f6c2e49f3fb1e6c33dbb92279023d  # FIXME: cfm/libcrux@41e1b3d
+LIBCRUX_VERSION=3cd1843b0f029b2c8499d1af4234670ad04341bf  # cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478
 
 # Extraction targets: default exclude
 LIBCRUX_ECDH_TARGETS := -**
@@ -31,6 +31,7 @@ LIBCRUX_KEM_TARGETS += +!libcrux_kem::key_gen_derand
 
 # Targets not found using the rust hir-tree, so they are candidates
 # for removal
+LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::Algorithm
 LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::Error
 LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::*::PrivateKey
 LIBCRUX_ECDH_TARGETS += +libcrux_ecdh::*::PublicKey
@@ -44,10 +45,14 @@ LIBCRUX_KEM_TARGETS += +libcrux_kem::Ss
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemCiphertext
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemPrivateKey
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemPublicKey
+LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemKeyPair
+LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::**::into_parts
 
 LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::DecapsError
 LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::EncapsError
 LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::KeyGenError
+
+LIBCRUX_CHACHA20POLY1305_TARGETS += -libcrux_chacha20poly1305::impl_hacl::**
 
 ## End manual extractions ##
 
@@ -123,7 +128,7 @@ libcrux:
 libcrux-clone:
 	@echo "Clone libcrux@$(LIBCRUX_VERSION)"
 	@rm -rf libcrux
-	@git clone --quiet https://github.com/cfm/libcrux  # FIXME: cfm/libcrux@41e1b3d
+	@git clone --quiet https://github.com/cfm/libcrux  # cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478
 	@cd libcrux && git checkout $(LIBCRUX_VERSION) --quiet
 
 libcrux-module:
