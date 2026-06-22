@@ -26,6 +26,14 @@ type t_MlKemKeyPair (v_PRIVATE_KEY_SIZE: usize) (v_PUBLIC_KEY_SIZE: usize) = {
   f_pk:t_MlKemPublicKey v_PUBLIC_KEY_SIZE
 }
 
+/// Separate this key into the public and private key.
+val impl_24__into_parts
+      (v_PRIVATE_KEY_SIZE v_PUBLIC_KEY_SIZE: usize)
+      (self: t_MlKemKeyPair v_PRIVATE_KEY_SIZE v_PUBLIC_KEY_SIZE)
+    : Prims.Pure (t_MlKemPrivateKey v_PRIVATE_KEY_SIZE & t_MlKemPublicKey v_PUBLIC_KEY_SIZE)
+      Prims.l_True
+      (fun _ -> Prims.l_True)
+
 /// Create a new [`MlKemKeyPair`] from the secret and public key.
 val impl_24__from
       (v_PRIVATE_KEY_SIZE v_PUBLIC_KEY_SIZE: usize)

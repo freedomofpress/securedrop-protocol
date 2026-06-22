@@ -18,7 +18,7 @@ class t_Variant (v_Self: Type0) = {
       v_K: usize ->
       v_CIPHERTEXT_SIZE: usize ->
       #v_Hasher: Type0 ->
-      {| i0: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
+      {| i1: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
       shared_secret: t_Slice u8 ->
       ciphertext: t_Array u8 v_CIPHERTEXT_SIZE
     -> pred: Type0{(Core_models.Slice.impl__len #u8 shared_secret <: usize) =. mk_usize 32 ==> pred};
@@ -26,7 +26,7 @@ class t_Variant (v_Self: Type0) = {
       v_K: usize ->
       v_CIPHERTEXT_SIZE: usize ->
       #v_Hasher: Type0 ->
-      {| i0: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
+      {| i1: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
       shared_secret: t_Slice u8 ->
       ciphertext: t_Array u8 v_CIPHERTEXT_SIZE ->
       res: t_Array u8 (mk_usize 32)
@@ -35,43 +35,43 @@ class t_Variant (v_Self: Type0) = {
       v_K: usize ->
       v_CIPHERTEXT_SIZE: usize ->
       #v_Hasher: Type0 ->
-      {| i0: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
+      {| i1: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
       x0: t_Slice u8 ->
       x1: t_Array u8 v_CIPHERTEXT_SIZE
     -> Prims.Pure (t_Array u8 (mk_usize 32))
-        (f_kdf_pre v_K v_CIPHERTEXT_SIZE #v_Hasher #i0 x0 x1)
-        (fun result -> f_kdf_post v_K v_CIPHERTEXT_SIZE #v_Hasher #i0 x0 x1 result);
+        (f_kdf_pre v_K v_CIPHERTEXT_SIZE #v_Hasher #i1 x0 x1)
+        (fun result -> f_kdf_post v_K v_CIPHERTEXT_SIZE #v_Hasher #i1 x0 x1 result);
   f_entropy_preprocess_pre:
       v_K: usize ->
       #v_Hasher: Type0 ->
-      {| i0: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
+      {| i1: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
       randomness: t_Slice u8
     -> pred: Type0{(Core_models.Slice.impl__len #u8 randomness <: usize) =. mk_usize 32 ==> pred};
   f_entropy_preprocess_post:
       v_K: usize ->
       #v_Hasher: Type0 ->
-      {| i0: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
+      {| i1: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
       randomness: t_Slice u8 ->
       res: t_Array u8 (mk_usize 32)
     -> pred: Type0{pred ==> res == randomness};
   f_entropy_preprocess:
       v_K: usize ->
       #v_Hasher: Type0 ->
-      {| i0: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
+      {| i1: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
       x0: t_Slice u8
     -> Prims.Pure (t_Array u8 (mk_usize 32))
-        (f_entropy_preprocess_pre v_K #v_Hasher #i0 x0)
-        (fun result -> f_entropy_preprocess_post v_K #v_Hasher #i0 x0 result);
+        (f_entropy_preprocess_pre v_K #v_Hasher #i1 x0)
+        (fun result -> f_entropy_preprocess_post v_K #v_Hasher #i1 x0 result);
   f_cpa_keygen_seed_pre:
       v_K: usize ->
       #v_Hasher: Type0 ->
-      {| i0: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
+      {| i1: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
       seed: t_Slice u8
     -> pred: Type0{(Core_models.Slice.impl__len #u8 seed <: usize) =. mk_usize 32 ==> pred};
   f_cpa_keygen_seed_post:
       v_K: usize ->
       #v_Hasher: Type0 ->
-      {| i0: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
+      {| i1: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
       seed: t_Slice u8 ->
       res: t_Array u8 (mk_usize 64)
     -> pred:
@@ -82,11 +82,11 @@ class t_Variant (v_Self: Type0) = {
   f_cpa_keygen_seed:
       v_K: usize ->
       #v_Hasher: Type0 ->
-      {| i0: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
+      {| i1: Libcrux_ml_kem.Hash_functions.t_Hash v_Hasher v_K |} ->
       x0: t_Slice u8
     -> Prims.Pure (t_Array u8 (mk_usize 64))
-        (f_cpa_keygen_seed_pre v_K #v_Hasher #i0 x0)
-        (fun result -> f_cpa_keygen_seed_post v_K #v_Hasher #i0 x0 result)
+        (f_cpa_keygen_seed_pre v_K #v_Hasher #i1 x0)
+        (fun result -> f_cpa_keygen_seed_post v_K #v_Hasher #i1 x0 result)
 }
 
 /// Implements [`Variant`], to perform the ML-KEM-specific actions

@@ -9,7 +9,6 @@ let _ =
   let open Libcrux_ecdh.P256_internal in
   let open Libcrux_ecdh.X25519 in
   let open Libcrux_ml_kem.Types in
-  let open Rand.Rng in
   let open Rand_core in
   ()
 
@@ -100,26 +99,6 @@ type t_Ct =
     -> t_Ct
   | Ct_MlKem1024 : Libcrux_ml_kem.Types.t_MlKemCiphertext (mk_usize 1568) -> t_Ct
 
-/// Encode a private key.
-val impl_20__encode (self: t_PrivateKey)
-    : Prims.Pure (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Prims.l_True (fun _ -> Prims.l_True)
-
-/// Decode a private key.
-val impl_20__decode (alg: t_Algorithm) (bytes: t_Slice u8)
-    : Prims.Pure (Core_models.Result.t_Result t_PrivateKey t_Error)
-      Prims.l_True
-      (fun _ -> Prims.l_True)
-
-/// Encode public key.
-val impl_21__encode (self: t_PublicKey)
-    : Prims.Pure (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Prims.l_True (fun _ -> Prims.l_True)
-
-/// Decode a public key.
-val impl_21__decode (alg: t_Algorithm) (bytes: t_Slice u8)
-    : Prims.Pure (Core_models.Result.t_Result t_PublicKey t_Error)
-      Prims.l_True
-      (fun _ -> Prims.l_True)
-
 val random_array
       (v_L: usize)
       (#iimpl_447424039_: Type0)
@@ -153,22 +132,6 @@ type t_Ss =
     -> t_Ss
   | Ss_XWingKemDraft06 : t_XWingSharedSecret -> t_Ss
   | Ss_MlKem1024 : t_Array u8 (mk_usize 32) -> t_Ss
-
-/// Encapsulate a shared secret to the provided `pk` and return the `(Key, Enc)` tuple.
-val impl_21__encapsulate
-      (#iimpl_447424039_: Type0)
-      {| i0: Rand_core.t_CryptoRng iimpl_447424039_ |}
-      (self: t_PublicKey)
-      (rng: iimpl_447424039_)
-    : Prims.Pure (iimpl_447424039_ & Core_models.Result.t_Result (t_Ss & t_Ct) t_Error)
-      Prims.l_True
-      (fun _ -> Prims.l_True)
-
-/// Encapsulate a shared secret to the provided `pk` and return the `(Key, Enc)` tuple.
-val impl_21__encapsulate_derand (self: t_PublicKey) (seed: t_Slice u8)
-    : Prims.Pure (Core_models.Result.t_Result (t_Ss & t_Ct) t_Error)
-      Prims.l_True
-      (fun _ -> Prims.l_True)
 
 /// Expand the `seed` to the ML-KEM and x25519 key pairs.
 val expand_decap_key (seed: t_Array u8 (mk_usize 32))
