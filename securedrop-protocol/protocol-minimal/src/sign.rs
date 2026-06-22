@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use anyhow::Error;
 use rand_core::CryptoRng;
 
-use crate::primitives::provider::{self, ed25519::*};
+use crate::primitives::provider;
 
 const KEY_LEN_ED25519: usize = 32;
 
@@ -112,8 +112,11 @@ impl<D: DomainTag> Signature<D> {
 /// Construct the tagged signing preimage: `len(tag) || tag || msg`.
 fn tagged_preimage<D: DomainTag>(msg: &[u8]) -> Vec<u8> {
     let tag = D::TAG;
-    debug_assert!(tag.len() <= 255, "tag length exceeds u8::MAX");
-    debug_assert!(tag.is_ascii(), "tag contains non-ASCII bytes");
+    #[cfg(not(hax))]
+    {
+        debug_assert!(tag.len() <= 255, "tag length exceeds u8::MAX");
+        debug_assert!(tag.is_ascii(), "tag contains non-ASCII bytes");
+    }
     let mut preimage = Vec::with_capacity(1 + tag.len() + msg.len());
     preimage.push(tag.len() as u8);
     preimage.extend_from_slice(tag);
@@ -123,7 +126,7 @@ fn tagged_preimage<D: DomainTag>(msg: &[u8]) -> Vec<u8> {
 
 /// An Ed25519 verification key.
 #[derive(Copy, Clone)]
-pub(crate) struct VerifyingKey([u8; KEY_LEN_ED25519]);
+pub struct VerifyingKey([u8; KEY_LEN_ED25519]);
 
 /// An Ed25519 signing key.
 pub(crate) struct SigningSecretKey([u8; KEY_LEN_ED25519]);
@@ -178,11 +181,10 @@ impl core::fmt::Debug for VerifyingKey {
 impl SigningKey {
     /// Generate a signing key from the supplied `rng`.
     pub fn new<R: CryptoRng>(rng: &mut R) -> Result<SigningKey, Error> {
-        let (sk, vk) = provider::ed25519::generate_key_pair(rng)
-            .map_err(|_| anyhow::anyhow!("Key generation failed"))?;
+        let (sk, vk) = provider::ed25519::keygen(rng)?;
         Ok(SigningKey {
-            vk,
-            sk,
+            vk: VerifyingKey(vk),
+            sk: SigningSecretKey(sk),
         })
     }
 
@@ -191,7 +193,7 @@ impl SigningKey {
     /// The actual preimage is `len(tag) || tag || msg` where `tag = D::TAG`.
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         let preimage = tagged_preimage::<D>(msg);
-        let bytes = provider::ed25519::sign(&preimage, self.sk.as_ref())
+        let bytes = provider::ed25519::sign(&preimage, self.sk.as_bytes())
             .expect("Signing should not fail with valid key");
         Signature::from_bytes(bytes)
     }
