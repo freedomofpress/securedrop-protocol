@@ -29,31 +29,31 @@ pub mod curve25519 {
 }
 
 pub mod ed25519 {
+    use rand_core::CryptoRng;
 
+    /// Generate an ed25519 keypair
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) use libcrux_ed25519::{
-        SigningKey as LibCruxSigningKey, VerificationKey as LibCruxVerifyingKey,
-    };
-
-    // todo: avoid exposing libcrux types
-    #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) use libcrux_ed25519::{generate_key_pair, sign, verify};
-use rand_core::{CryptoRng, RngCore};
-
-    pub(crate) fn to_libcrux_sk(sk: [u8; 32]) -> LibCruxSigningKey {
-        LibCruxSigningKey::from_bytes(sk)
-    }
-    pub(crate) fn to_libcrux_vk(vk: [u8; 32]) -> LibCruxVerifyingKey {
-        LibCruxVerifyingKey::from_bytes(vk)
-    }
-
-    pub(crate) fn keygen<R: RngCore + CryptoRng>(rng: &mut R) -> crate::SigningKey {
-        let (sk, vk) = generate_key_pair(rng)
+    pub(crate) fn keygen<R: CryptoRng>(rng: &mut R) -> Result<([u8; 32], [u8; 32]), anyhow::Error> {
+        let (sk, vk) = libcrux_ed25519::generate_key_pair(rng)
             .map_err(|_| anyhow::anyhow!("Key generation failed"))?;
-        Ok(crate::SigningKey {
-            VerificationKey(vk),
-            SigningSecretKey(sk),
-        })
+        Ok((sk.into_bytes(), vk.into_bytes()))
+    }
+
+    /// Sign `payload` with Ed25519 secret key bytes.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn sign(payload: &[u8], private_key: &[u8; 32]) -> Result<[u8; 64], anyhow::Error> {
+        libcrux_ed25519::sign(payload, private_key).map_err(|_| anyhow::anyhow!("Signing failed"))
+    }
+
+    /// Verify an Ed25519 `signature` over `payload` with verifying key bytes.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn verify(
+        payload: &[u8],
+        public_key: &[u8; 32],
+        signature: &[u8; 64],
+    ) -> Result<(), anyhow::Error> {
+        libcrux_ed25519::verify(payload, public_key, signature)
+            .map_err(|_| anyhow::anyhow!("Signature verification failed"))
     }
 }
 
