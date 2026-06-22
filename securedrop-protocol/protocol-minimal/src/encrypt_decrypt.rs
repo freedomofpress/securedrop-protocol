@@ -73,8 +73,7 @@ pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Pla
     // the intended recipient's bundle. There should be exactly 1 result.
     let mut results: Vec<(&MessageKeyBundle, Vec<u8>)> = Vec::new();
 
-    // hax doesn't support FnMut closures (cryspen/hax/issues/1060), so avoid filter_map() etc
-    for bundle in receiver.keybundles() {
+    for &bundle in receiver.keybundles().iter() {
         if let Ok(m) = metadata::decrypt(bundle.metadata_kp.private_key(), &envelope.ct_pke) {
             results.push((bundle, m));
         }

@@ -199,7 +199,7 @@ impl Server {
         // Get all journalists and their ephemeral keys
         let journalist_ephemeral_keys = self.storage.get_all_ephemeral_keys(rng);
 
-        for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys {
+        for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys.iter() {
             // Get the journalist's long-term keys
             // TODO: Do something better than expect here
             let (
@@ -212,7 +212,7 @@ impl Server {
             ) = self
                 .storage
                 .get_journalists()
-                .get(&journalist_id)
+                .get(journalist_id)
                 .expect("Journalist should exist in storage")
                 .clone();
 
@@ -222,7 +222,7 @@ impl Server {
                 reply_apke_pk,
                 journalist_self_sig,
                 signed_pubkey_bytes,
-                ephemeral_bundle,
+                ephemeral_bundle.clone(),
             );
 
             // Create response for this journalist
