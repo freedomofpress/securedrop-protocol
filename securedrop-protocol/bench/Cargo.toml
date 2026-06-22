@@ -14,7 +14,7 @@ securedrop-protocol-minimal = { path = "../protocol-minimal" }
 
 # Force all versions of getrandom in the dependency tree to build with
 # `wasm_js`:
-getrandom = { version = "0.3", default-features = false, features = ["wasm_js"] }
+getrandom = { version = "0.4", default-features = false, features = ["wasm_js"] }
 getrandom04 = { package = "getrandom", version = "0.4", default-features = false, features = ["wasm_js"] }
 
 js-sys = "0.3"
