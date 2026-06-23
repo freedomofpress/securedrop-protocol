@@ -23,6 +23,7 @@ const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
 /// - `ct^APKE`: SD-APKE ciphertext (encrypted message)
 /// - `ct^PKE`: SD-PKE ciphertext (encrypted sender APKE public key)
 /// - `(X, Z)`: hint for privacy-preserving message fetching
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn encrypt<R, Sender, Recipient>(
     rng: &mut R,
     sender: &Sender,
@@ -68,22 +69,22 @@ where
     }
 }
 
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Plaintext {
     // Trial-decrypt ct^PKE with each keybundle's metadata private key to find
     // the intended recipient's bundle. There should be exactly 1 result.
-    let mut results: Vec<(&MessageKeyBundle, Vec<u8>)> = Vec::new();
-
+    let mut found: Option<(&MessageKeyBundle, Vec<u8>)> = None;
     for &bundle in receiver.keybundles().iter() {
         if let Ok(m) = metadata::decrypt(bundle.metadata_kp.private_key(), &envelope.ct_pke) {
-            results.push((bundle, m));
+            found = Some((bundle, m));
         }
     }
 
     // TODO: only true for test purposes!
-    let (bundle, raw_metadata) = results.first().expect("we should find exactly 1 result");
+    let (bundle, raw_metadata) = found.expect("we should find exactly 1 result");
 
     // spec: pk_S^APKE - reconstruct sender's APKE public key from decrypted metadata
-    let sender_pk = MessagePublicKey::from_bytes(raw_metadata)
+    let sender_pk = MessagePublicKey::from_bytes(&raw_metadata)
         .expect("Metadata must contain valid sender APKE key tuple");
 
     // spec: pk_R^fetch
@@ -164,6 +165,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 
 /// Solve fetch challenges (encrypted message IDs) and return array of valid message_ids.
 /// TODO: For simplicity, serialize/deserialize is skipped
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn solve_fetch_challenges<S: UserSecret>(
     recipient: &S,
     challenges: &[FetchResponse],
@@ -182,10 +184,7 @@ pub fn solve_fetch_challenges<S: UserSecret>(
         // Convert to UUID (v4) format and add to message ID list on success
         match decrypt_message_id(&maybe_kmid_secret.into_bytes(), &chall.enc_id) {
             Ok(message_id_bytes) => {
-                let uuid = Uuid::from_slice(&message_id_bytes)
-                    // TODO: return Result<Vec<Uuid>, Error> instead of panic
-                    // (will change wasm stuff too so deferring for now)
-                    .expect("Need uuid from decrypted message_id_bytes");
+                let uuid = crate::primitives::provider::uuid_parse::from_slice(&message_id_bytes);
 
                 message_ids.push(uuid);
             }
@@ -201,6 +200,7 @@ pub fn solve_fetch_challenges<S: UserSecret>(
 /// Build plaintext message, including pubkeys (for replies).
 /// TODO: only sources need to attach their pubkeys (for replies),
 /// but for toy purposes, everyone builds a Plaintext message the same way
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
     let mut fetch_pk = [0u8; DH_PUBLIC_KEY_LEN];
     fetch_pk.copy_from_slice(&sender.fetch_pk().clone().into_bytes());

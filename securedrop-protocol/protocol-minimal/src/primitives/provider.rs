@@ -113,6 +113,15 @@ pub mod rng {
     }
 }
 
+pub mod uuid_parse {
+
+    /// Parse a `Uuid` from bytes
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn from_slice(bytes: &[u8]) -> ::uuid::Uuid {
+        ::uuid::Uuid::from_slice(bytes).expect("message id must be 16 bytes")
+    }
+}
+
 pub mod kem {
 
     #[cfg_attr(hax, hax_lib::opaque)]
