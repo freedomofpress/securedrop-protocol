@@ -21,12 +21,12 @@ mod private {
 #[cfg(not(hax))]
 pub trait DomainTag: private::Sealed {
     #[doc(hidden)]
-    const TAG: &'static [u8];
+    fn tag() -> &'static [u8];
 }
 #[cfg(hax)]
 pub trait DomainTag {
     #[doc(hidden)]
-    const TAG: &'static [u8];
+    fn tag() -> &'static [u8];
 }
 
 /// Journalist self-signature over long-term public keys (step 3.1).
@@ -56,16 +56,24 @@ mod sealed_impls {
 }
 
 impl DomainTag for JournalistLongTermKey {
-    const TAG: &'static [u8] = b"j-sig-ltk";
+    fn tag() -> &'static [u8] {
+        b"j-sig-ltk"
+    }
 }
 impl DomainTag for JournalistEphemeralKey {
-    const TAG: &'static [u8] = b"j-sig-eph";
+    fn tag() -> &'static [u8] {
+        b"j-sig-eph"
+    }
 }
 impl DomainTag for NewsroomOnJournalist {
-    const TAG: &'static [u8] = b"nr-sig";
+    fn tag() -> &'static [u8] {
+        b"nr-sig"
+    }
 }
 impl DomainTag for FpfOnNewsroom {
-    const TAG: &'static [u8] = b"fpf-sig-nr";
+    fn tag() -> &'static [u8] {
+        b"fpf-sig-nr"
+    }
 }
 
 /// An Ed25519 signature carrying its domain at the type level.
@@ -75,7 +83,9 @@ impl DomainTag for FpfOnNewsroom {
 /// runtime failure.
 pub struct Signature<D: DomainTag> {
     bytes: [u8; 64],
-    _phantom: PhantomData<fn() -> D>,
+    // `PhantomData<D>` rather than `PhantomData<fn() -> D>`: the function type
+    // has no decidable equality in F*, which blocks `t_Signature` extraction.
+    _phantom: PhantomData<D>,
 }
 
 impl<D: DomainTag> Copy for Signature<D> {}
@@ -98,6 +108,10 @@ impl<D: DomainTag> PartialEq for Signature<D> {
         self.bytes == other.bytes
     }
 }
+// `Signature<D>` carries `PhantomData<fn() -> D>`, a function type with no
+// decidable equality in F*; the `Eq` marker would force `t_Signature` to be an
+// eqtype and fail extraction. We only need value equality (`PartialEq`, above).
+#[cfg(not(hax))]
 impl<D: DomainTag> Eq for Signature<D> {}
 
 impl<D: DomainTag> Signature<D> {
@@ -110,8 +124,9 @@ impl<D: DomainTag> Signature<D> {
 }
 
 /// Construct the tagged signing preimage: `len(tag) || tag || msg`.
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 fn tagged_preimage<D: DomainTag>(msg: &[u8]) -> Vec<u8> {
-    let tag = D::TAG;
+    let tag = D::tag();
     #[cfg(not(hax))]
     {
         debug_assert!(tag.len() <= 255, "tag length exceeds u8::MAX");
@@ -193,8 +208,7 @@ impl SigningKey {
     /// The actual preimage is `len(tag) || tag || msg` where `tag = D::TAG`.
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         let preimage = tagged_preimage::<D>(msg);
-        let bytes = provider::ed25519::sign(&preimage, self.sk.as_bytes())
-            .expect("Signing should not fail with valid key");
+        let bytes = provider::ed25519::sign(&preimage, self.sk.as_bytes());
         Signature::from_bytes(bytes)
     }
 }

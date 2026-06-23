@@ -41,8 +41,8 @@ pub mod ed25519 {
 
     /// Sign `payload` with Ed25519 secret key bytes.
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn sign(payload: &[u8], private_key: &[u8; 32]) -> Result<[u8; 64], anyhow::Error> {
-        libcrux_ed25519::sign(payload, private_key).map_err(|_| anyhow::anyhow!("Signing failed"))
+    pub(crate) fn sign(payload: &[u8], private_key: &[u8; 32]) -> [u8; 64] {
+        libcrux_ed25519::sign(payload, private_key).expect("Ed25519 signing is infallible")
     }
 
     /// Verify an Ed25519 `signature` over `payload` with verifying key bytes.

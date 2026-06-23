@@ -5,7 +5,6 @@
 # Goal: extract everything except `storage`
 HAX_TARGETS := +**
 HAX_TARGETS += -securedrop_protocol_minimal::storage::**
-HAX_TARGETS += -securedrop_protocol_minimal::sign::**
 HAX_TARGETS += -securedrop_protocol_minimal::traits::**
 HAX_TARGETS += -securedrop_protocol_minimal::keys::**
 HAX_TARGETS += -securedrop_protocol_minimal::bundle::**
