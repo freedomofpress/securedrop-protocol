@@ -6,10 +6,11 @@ HAX_TARGETS := +**
 HAX_TARGETS += -securedrop_protocol_minimal::storage::**
 HAX_TARGETS += -securedrop_protocol_minimal::encrypt_decrypt::**
 HAX_TARGETS += -securedrop_protocol_minimal::server::**
+
 HAX_TARGETS += -securedrop_protocol_minimal::journalist::**
-HAX_TARGETS += -securedrop_protocol_minimal::wire::**
 HAX_TARGETS += -securedrop_protocol_minimal::api::**
-HAX_TARGETS += -securedrop_protocol_minimal::setup::**
+
+HAX_TARGETS += +securedrop_protocol_minimal::journalist::JournalistPublicView
 HAX_TARGETS += +securedrop_protocol_minimal::api::Client
 
 # Admit modules we extract but that fail panic freedom:
