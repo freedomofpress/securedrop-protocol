@@ -45,8 +45,8 @@ impl KeyBundlePublic {
     /// Layout: `pk_{J,i}^{APKE_E}(DHKEM) || pk_{J,i}^{APKE_E}(ML-KEM) || pk_{J,i}^{PKE_E}(X-Wing)`
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend(self.apke_pk.as_bytes());
-        out.extend(self.metadata_pk.as_bytes());
+        out.extend_from_slice(&self.apke_pk.as_bytes());
+        out.extend_from_slice(&self.metadata_pk.as_bytes());
         out
     }
 }
@@ -122,6 +122,9 @@ pub struct FPFKeyPair {
     vk: VerifyingKey,
 }
 
+// hax struggles with the debug format function signature, but it is
+// debug only, so we can exclude it from extraction
+#[cfg_attr(hax, hax_lib::exclude)]
 impl core::fmt::Debug for FPFKeyPair {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("FPFKeyPair")
@@ -136,8 +139,8 @@ impl FPFKeyPair {
     /// # Errors
     ///
     /// Returns an error if the key generation fails.
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> Result<Self, anyhow::Error> {
-        let sk = SigningKey::new(&mut rng)?;
+    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, anyhow::Error> {
+        let sk = SigningKey::new(rng)?;
         let vk = sk.vk;
         Ok(Self { sk, vk })
     }

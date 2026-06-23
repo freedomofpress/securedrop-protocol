@@ -252,8 +252,13 @@ fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> 
         }
 
         // Generate challenges (not timed)
+        let store_entries: Vec<_> = store
+            .iter()
+            .take(challenges)
+            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+            .collect();
         let challenges: Vec<FetchResponse> =
-            compute_fetch_challenges(&mut prep_rng, &store, challenges);
+            compute_fetch_challenges(&mut prep_rng, &store_entries, challenges);
 
         // Time ONLY the solver
         let t0 = Instant::now();

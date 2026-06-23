@@ -48,9 +48,9 @@ impl Server {
     /// TODO: The caller should persist these keys to disk.
     pub fn create_newsroom_setup_request<R: RngCore + CryptoRng>(
         &mut self,
-        mut rng: R,
+        rng: &mut R,
     ) -> Result<NewsroomSetupRequest, Error> {
-        let newsroom_keys = NewsroomKeyPair::new(&mut rng)?;
+        let newsroom_keys = NewsroomKeyPair::new(rng)?;
         let newsroom_vk = newsroom_keys.verifying_key();
 
         // Store the newsroom keys in the session for later use (e.g., signing journalist keys)
@@ -199,7 +199,7 @@ impl Server {
         // Get all journalists and their ephemeral keys
         let journalist_ephemeral_keys = self.storage.get_all_ephemeral_keys(rng);
 
-        for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys {
+        for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys.iter() {
             // Get the journalist's long-term keys
             // TODO: Do something better than expect here
             let (
@@ -212,7 +212,7 @@ impl Server {
             ) = self
                 .storage
                 .get_journalists()
-                .get(&journalist_id)
+                .get(journalist_id)
                 .expect("Journalist should exist in storage")
                 .clone();
 
@@ -222,7 +222,7 @@ impl Server {
                 reply_apke_pk,
                 journalist_self_sig,
                 signed_pubkey_bytes,
-                ephemeral_bundle,
+                ephemeral_bundle.clone(),
             );
 
             // Create response for this journalist
@@ -259,8 +259,14 @@ impl Server {
         rng: &mut R,
     ) -> Result<MessageChallengeFetchResponse, Error> {
         let total_challenges: usize = primitives::MESSAGE_ID_FETCH_SIZE;
-        let store = self.storage.get_messages();
-        let chall = compute_fetch_challenges(rng, store, total_challenges);
+        let entries: Vec<_> = self
+            .storage
+            .get_messages()
+            .iter()
+            .take(total_challenges)
+            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+            .collect();
+        let chall = compute_fetch_challenges(rng, &entries, total_challenges);
 
         Ok(MessageChallengeFetchResponse {
             count: total_challenges,

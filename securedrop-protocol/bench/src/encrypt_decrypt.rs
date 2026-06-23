@@ -181,7 +181,13 @@ pub fn compute_fetch_challenges_once(
         store.insert(msg_uuid, entry.envelope.inner)
     });
 
-    compute_fetch_challenges(&mut rng, &store, total_responses)
+    let store_entries: Vec<_> = store
+        .iter()
+        .take(total_responses)
+        .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+        .collect();
+
+    compute_fetch_challenges(&mut rng, &store_entries, total_responses)
         .into_iter()
         .map(WFetchResponse::from)
         .collect::<Vec<_>>()

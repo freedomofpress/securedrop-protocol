@@ -58,3 +58,6 @@ strip = true
 
 [target."cfg(hax)".dependencies]
 hax-lib = { version = "0.3.7" }
+
+[lints]
+workspace = true

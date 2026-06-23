@@ -15,7 +15,11 @@ use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, Use
 
 // caution: do not re-export!
 use crate::sealed;
+
+#[cfg(not(hax))]
 impl sealed::Sealed for Journalist {}
+
+#[cfg(not(hax))]
 impl RestrictedApi for Journalist {}
 
 /// Journalists: ingredients.
@@ -113,6 +117,24 @@ impl Client for Journalist {
     }
 }
 
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
+fn keybundle_refs(message_keys: &[SignedMessageKeyBundle]) -> Vec<&MessageKeyBundle> {
+    let mut out = Vec::new();
+    for signed in message_keys.iter() {
+        out.push(&signed.bundle);
+    }
+    out
+}
+
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
+fn signed_keybundle_publics(message_keys: &[SignedMessageKeyBundle]) -> Vec<SignedKeyBundlePublic> {
+    let mut out = Vec::new();
+    for signed in message_keys.iter() {
+        out.push((signed.bundle.public(), signed.selfsig));
+    }
+    out
+}
+
 /// Private, common to all users, implemented for Journalists
 impl UserSecret for Journalist {
     fn num_bundles(&self) -> usize {
@@ -127,7 +149,7 @@ impl UserSecret for Journalist {
         self.reply_apke.private_key()
     }
 
-    fn message_auth_pk(&self) -> &MessagePublicKey {
+    fn own_message_auth_pk(&self) -> &MessagePublicKey {
         self.reply_apke.public_key()
     }
 
@@ -144,10 +166,7 @@ impl UserSecret for Journalist {
     }
 
     fn keybundles(&self) -> Vec<&MessageKeyBundle> {
-        self.message_keys
-            .iter()
-            .map(|signed| &signed.bundle)
-            .collect()
+        keybundle_refs(&self.message_keys)
     }
 }
 
@@ -165,14 +184,7 @@ impl Enrollable for Journalist {
     }
 
     fn signed_keybundles(&self) -> Vec<SignedKeyBundlePublic> {
-        fn extract_public_bundle(signed: &SignedMessageKeyBundle) -> SignedKeyBundlePublic {
-            (signed.bundle.public(), signed.selfsig)
-        }
-
-        self.message_keys
-            .iter()
-            .map(extract_public_bundle)
-            .collect()
+        signed_keybundle_publics(&self.message_keys)
     }
 
     fn signing_key(&self) -> &VerifyingKey {
@@ -181,16 +193,16 @@ impl Enrollable for Journalist {
 }
 
 impl Journalist {
+    #[cfg_attr(hax, hax_lib::opaque)]
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R, num_keybundles: usize) -> Self {
         let mut key_bundles: Vec<SignedMessageKeyBundle> = Vec::with_capacity(num_keybundles);
 
-        let signing_key = SigningKey::new(&mut *rng).expect("Signing keygen failed");
+        let signing_key = SigningKey::new(rng).expect("Signing keygen failed");
         let verifying_key = signing_key.vk;
 
-        let (sk_fetch, pk_fetch) =
-            generate_dh_keypair(&mut *rng).expect("DH Keygen (Fetch) failed");
+        let (sk_fetch, pk_fetch) = generate_dh_keypair(rng).expect("DH Keygen (Fetch) failed");
 
-        let reply_apke = message_keygen(&mut *rng).expect("SD-APKE Keygen (Reply) failed");
+        let reply_apke = message_keygen(rng).expect("SD-APKE Keygen (Reply) failed");
 
         // Self-sign long-term pubkeys (for enrollment).
         // Covers pk_J^APKE = (pk_J^AKEM, pk_J^PQ) and pk_J^fetch
@@ -236,6 +248,7 @@ impl Journalist {
         }
     }
 
+    #[cfg_attr(hax, hax_lib::opaque)]
     pub fn public(&self, idx: usize) -> JournalistPublicView {
         let kb = self.message_keys.get(idx).expect("Bad index");
         JournalistPublicView::new(
