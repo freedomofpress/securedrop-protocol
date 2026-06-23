@@ -2,22 +2,28 @@
 # "securedrop_protocol_minimal" crate, as documented here:
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-modules-extracted-from-protocol-minimal
 
-# HAX_TARGETS := +**
-HAX_TARGETS := -**
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::dh_akem::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::mlkem::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::xwing::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::x25519::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::pad::**
-HAX_TARGETS += +securedrop_protocol_minimal::message::**
-HAX_TARGETS += +securedrop_protocol_minimal::metadata::**
-HAX_TARGETS += +securedrop_protocol_minimal::ciphertext::**
-HAX_TARGETS += +securedrop_protocol_minimal::constants::**
+# Goal: extract everything except `storage`
+HAX_TARGETS := +**
+HAX_TARGETS += -securedrop_protocol_minimal::storage::**
+HAX_TARGETS += -securedrop_protocol_minimal::sign::**
+HAX_TARGETS += -securedrop_protocol_minimal::traits::**
+HAX_TARGETS += -securedrop_protocol_minimal::keys::**
+HAX_TARGETS += -securedrop_protocol_minimal::bundle::**
+HAX_TARGETS += -securedrop_protocol_minimal::journalist::**
+HAX_TARGETS += -securedrop_protocol_minimal::server::**
+HAX_TARGETS += -securedrop_protocol_minimal::source::**
+HAX_TARGETS += -securedrop_protocol_minimal::setup::**
+HAX_TARGETS += -securedrop_protocol_minimal::wire::**
+HAX_TARGETS += -securedrop_protocol_minimal::encrypt_decrypt::**
+HAX_TARGETS += -securedrop_protocol_minimal::api::**
 
 # Admit modules we extract but that fail panic freedom:
 HAX_ADMITS := Securedrop_protocol_minimal.Message.fst
 HAX_ADMITS += Securedrop_protocol_minimal.Metadata.fst
 HAX_ADMITS += Securedrop_protocol_minimal.Ciphertext.fst
+# These both call `RngCore::fill_bytes` which panics
+HAX_ADMITS += Securedrop_protocol_minimal.Primitives.fst
+HAX_ADMITS += Securedrop_protocol_minimal.Primitives.X25519.fst
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 PROOF_DIR = proofs/fstar/extraction

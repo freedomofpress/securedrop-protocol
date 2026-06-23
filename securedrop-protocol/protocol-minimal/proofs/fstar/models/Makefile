@@ -47,6 +47,7 @@ LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemPrivateKey
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemPublicKey
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::MlKemKeyPair
 LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::**::into_parts
+LIBCRUX_ML_KEM_TARGETS += +libcrux_ml_kem::types::**::as_slice
 
 LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::DecapsError
 LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::EncapsError
