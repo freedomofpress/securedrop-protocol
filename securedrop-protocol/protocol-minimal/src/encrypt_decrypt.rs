@@ -1,15 +1,13 @@
 use crate::message::MessagePublicKey;
 use crate::metadata;
-use crate::primitives::provider::constants::LEN_KMID;
+use crate::primitives::provider::constants::{LEN_KMID, LEN_MESSAGE_ID};
 use crate::primitives::x25519::{
     DH_PUBLIC_KEY_LEN, DHPublicKey, DHSharedSecret, dh_shared_secret, generate_dh_keypair,
     generate_random_scalar,
 };
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use crate::primitives::{decrypt_message_id, encrypt_message_id};
-use crate::storage::ServerMessageStore;
 use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, UserSecret};
-use alloc::format;
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
@@ -108,9 +106,12 @@ pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Pla
 /// A challenge is returned as a tuple of DH agreement outputs (or random data tuples of the same length).
 /// For benchmarking purposes, supply the rng as a separable parameter, and allow the total number of expected responses to be specified as a paremeter (worst case performance
 /// when the number of items in the server store approaches num total_responses.)
+///
+/// Note this is marked lax temporaily due to the `.expect()`/`push` panic freedom requirement
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     rng: &mut R,
-    store: &ServerMessageStore,
+    entries: &[([u8; LEN_MESSAGE_ID], Envelope)],
     total_responses: usize,
 ) -> Vec<FetchResponse> {
     let mut responses = Vec::with_capacity(total_responses);
@@ -118,32 +119,28 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     // Generate ephemeral (per request) scalar (don't need full keypair)
     let eph_sk = generate_random_scalar(&mut *rng).expect("Want dh scalar");
 
-    for entry in store.keys() {
-        let message_id = entry.as_bytes();
-        let envelope = store.get(entry).expect("missing message for this uuid");
+    for (message_id, envelope) in entries.iter() {
+        if responses.len() < total_responses {
+            // 3-party DH yields shared_secret used to encrypt message_id
+            let shared_secret = dh_shared_secret(&DHPublicKey::from_bytes(envelope.mgdh), eph_sk)
+                .expect("Need 3-party dh shared secret");
+            let enc_mid = encrypt_message_id(&shared_secret.into_bytes(), message_id, rng).unwrap();
 
-        // 3-party DH yields shared_secret used to encrypt message_id
-        let shared_secret = dh_shared_secret(&DHPublicKey::from_bytes(envelope.mgdh), eph_sk)
-            .expect("Need 3-party dh shared secret");
-        let enc_mid = encrypt_message_id(&shared_secret.into_bytes(), message_id, rng).unwrap();
+            // `copy_from_slice` rather than `try_into()`: Core_models has no
+            // `TryInto<Vec<u8>, [u8; N]>` instance, and this is the codebase's
+            // Vec->array idiom. (Lengths must match; covered by `lax`.)
+            let mut kmid = [0u8; LEN_KMID];
+            kmid.copy_from_slice(&enc_mid);
 
-        let kmid = enc_mid
-            .try_into()
-            .expect(&format!("Need {} bytes", LEN_KMID));
+            // 2-party DH yields per-request clue (pmgdh) used by intended recipient
+            // to compute shared_secret
+            let pmgdh = dh_shared_secret(&DHPublicKey::from_bytes(envelope.mgdh_pubkey), eph_sk)
+                .expect("Need pmgdh");
 
-        // 2-party DH yields per-request clue (pmgdh) used by intended recipient
-        // to compute shared_secret
-        let pmgdh = dh_shared_secret(&DHPublicKey::from_bytes(envelope.mgdh_pubkey), eph_sk)
-            .expect("Need pmgdh");
-
-        responses.push(FetchResponse {
-            enc_id: kmid,
-            pmgdh: pmgdh.into_bytes(),
-        });
-
-        // Are we done?
-        if responses.len() == total_responses {
-            break;
+            responses.push(FetchResponse {
+                enc_id: kmid,
+                pmgdh: pmgdh.into_bytes(),
+            });
         }
     }
 
@@ -319,7 +316,12 @@ mod tests {
 
         store.add_message(message_id, envelope);
 
-        let challenges = compute_fetch_challenges(&mut rng, &store.get_messages(), 2);
+        let entries: Vec<_> = store
+            .get_messages()
+            .iter()
+            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+            .collect();
+        let challenges = compute_fetch_challenges(&mut rng, &entries, 2);
 
         let solved_ids = solve_fetch_challenges(&journalist, &challenges);
 
@@ -348,7 +350,12 @@ mod tests {
 
         store.add_message(message_id, envelope);
 
-        let challenges = compute_fetch_challenges(&mut rng, &store.get_messages(), 2);
+        let entries: Vec<_> = store
+            .get_messages()
+            .iter()
+            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+            .collect();
+        let challenges = compute_fetch_challenges(&mut rng, &entries, 2);
 
         let solved_ids = solve_fetch_challenges(&journalist, &challenges);
 

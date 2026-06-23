@@ -259,8 +259,14 @@ impl Server {
         rng: &mut R,
     ) -> Result<MessageChallengeFetchResponse, Error> {
         let total_challenges: usize = primitives::MESSAGE_ID_FETCH_SIZE;
-        let store = self.storage.get_messages();
-        let chall = compute_fetch_challenges(rng, store, total_challenges);
+        let entries: Vec<_> = self
+            .storage
+            .get_messages()
+            .iter()
+            .take(total_challenges)
+            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+            .collect();
+        let chall = compute_fetch_challenges(rng, &entries, total_challenges);
 
         Ok(MessageChallengeFetchResponse {
             count: total_challenges,
