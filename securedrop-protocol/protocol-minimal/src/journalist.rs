@@ -117,6 +117,24 @@ impl Client for Journalist {
     }
 }
 
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
+fn keybundle_refs(message_keys: &[SignedMessageKeyBundle]) -> Vec<&MessageKeyBundle> {
+    let mut out = Vec::new();
+    for signed in message_keys.iter() {
+        out.push(&signed.bundle);
+    }
+    out
+}
+
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
+fn signed_keybundle_publics(message_keys: &[SignedMessageKeyBundle]) -> Vec<SignedKeyBundlePublic> {
+    let mut out = Vec::new();
+    for signed in message_keys.iter() {
+        out.push((signed.bundle.public(), signed.selfsig));
+    }
+    out
+}
+
 /// Private, common to all users, implemented for Journalists
 impl UserSecret for Journalist {
     fn num_bundles(&self) -> usize {
@@ -148,10 +166,7 @@ impl UserSecret for Journalist {
     }
 
     fn keybundles(&self) -> Vec<&MessageKeyBundle> {
-        self.message_keys
-            .iter()
-            .map(|signed| &signed.bundle)
-            .collect()
+        keybundle_refs(&self.message_keys)
     }
 }
 
@@ -169,14 +184,7 @@ impl Enrollable for Journalist {
     }
 
     fn signed_keybundles(&self) -> Vec<SignedKeyBundlePublic> {
-        fn extract_public_bundle(signed: &SignedMessageKeyBundle) -> SignedKeyBundlePublic {
-            (signed.bundle.public(), signed.selfsig)
-        }
-
-        self.message_keys
-            .iter()
-            .map(extract_public_bundle)
-            .collect()
+        signed_keybundle_publics(&self.message_keys)
     }
 
     fn signing_key(&self) -> &VerifyingKey {
@@ -185,6 +193,7 @@ impl Enrollable for Journalist {
 }
 
 impl Journalist {
+    #[cfg_attr(hax, hax_lib::opaque)]
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R, num_keybundles: usize) -> Self {
         let mut key_bundles: Vec<SignedMessageKeyBundle> = Vec::with_capacity(num_keybundles);
 
@@ -239,6 +248,7 @@ impl Journalist {
         }
     }
 
+    #[cfg_attr(hax, hax_lib::opaque)]
     pub fn public(&self, idx: usize) -> JournalistPublicView {
         let kb = self.message_keys.get(idx).expect("Bad index");
         JournalistPublicView::new(
