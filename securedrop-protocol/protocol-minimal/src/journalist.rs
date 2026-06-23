@@ -131,7 +131,7 @@ impl UserSecret for Journalist {
         self.reply_apke.private_key()
     }
 
-    fn message_auth_pk(&self) -> &MessagePublicKey {
+    fn own_message_auth_pk(&self) -> &MessagePublicKey {
         self.reply_apke.public_key()
     }
 

@@ -99,7 +99,7 @@ impl UserSecret for Source {
         self.message_keys.apke.private_key()
     }
 
-    fn message_auth_pk(&self) -> &crate::message::MessagePublicKey {
+    fn own_message_auth_pk(&self) -> &crate::message::MessagePublicKey {
         self.message_keys.apke.public_key()
     }
 

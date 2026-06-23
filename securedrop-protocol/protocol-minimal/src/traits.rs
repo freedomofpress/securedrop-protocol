@@ -74,8 +74,8 @@ pub trait UserSecret: sealed::Sealed {
     fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey);
     /// The long-term SD-APKE private key `sk^APKE`.
     fn message_auth_key(&self) -> &MessagePrivateKey;
-    /// The long-term SD-APKE public key `pk^APKE`.
-    fn message_auth_pk(&self) -> &MessagePublicKey;
+    /// The holder's own long-term SD-APKE public key `pk^APKE`.
+    fn own_message_auth_pk(&self) -> &MessagePublicKey;
     fn build_message(&self, message: Vec<u8>) -> Plaintext;
     fn keybundles(&self) -> Vec<&MessageKeyBundle>;
 }
@@ -86,8 +86,8 @@ pub trait UserSecret {
     fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey);
     /// The long-term SD-APKE private key `sk^APKE`.
     fn message_auth_key(&self) -> &MessagePrivateKey;
-    /// The long-term SD-APKE public key `pk^APKE`.
-    fn message_auth_pk(&self) -> &MessagePublicKey;
+    /// The holder's own long-term SD-APKE public key `pk^APKE`.
+    fn own_message_auth_pk(&self) -> &MessagePublicKey;
     fn build_message(&self, message: Vec<u8>) -> Plaintext;
     fn keybundles(&self) -> Vec<&MessageKeyBundle>;
 }

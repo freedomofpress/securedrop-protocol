@@ -45,8 +45,8 @@ impl KeyBundlePublic {
     /// Layout: `pk_{J,i}^{APKE_E}(DHKEM) || pk_{J,i}^{APKE_E}(ML-KEM) || pk_{J,i}^{PKE_E}(X-Wing)`
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        out.extend(self.apke_pk.as_bytes());
-        out.extend(self.metadata_pk.as_bytes());
+        out.extend_from_slice(&self.apke_pk.as_bytes());
+        out.extend_from_slice(&self.metadata_pk.as_bytes());
         out
     }
 }

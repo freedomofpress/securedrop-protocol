@@ -121,7 +121,7 @@ fn protocol_step_5_source_fetch_keys() {
     // Verify the journalist's message (APKE) key matches our expectation
     assert_eq!(
         journalist_response.journalist.message_auth_pk().as_bytes(),
-        journalist.message_auth_pk().as_bytes()
+        journalist.own_message_auth_pk().as_bytes()
     );
 
     // Verify that ephemeral keys were consumed (deleted from server storage)
