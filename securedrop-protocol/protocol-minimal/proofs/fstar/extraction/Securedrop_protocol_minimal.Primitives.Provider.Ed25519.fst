@@ -22,8 +22,7 @@ let keygen (#v_R: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_cor
 
 /// Sign `payload` with Ed25519 secret key bytes.
 assume
-val sign': payload: t_Slice u8 -> private_key: t_Array u8 (mk_usize 32)
-  -> Core_models.Result.t_Result (t_Array u8 (mk_usize 64)) Anyhow.t_Error
+val sign': payload: t_Slice u8 -> private_key: t_Array u8 (mk_usize 32) -> t_Array u8 (mk_usize 64)
 
 unfold
 let sign = sign'

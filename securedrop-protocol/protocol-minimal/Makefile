@@ -2,17 +2,15 @@
 # "securedrop_protocol_minimal" crate, as documented here:
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-modules-extracted-from-protocol-minimal
 
-# Goal: extract everything except `storage`
 HAX_TARGETS := +**
 HAX_TARGETS += -securedrop_protocol_minimal::storage::**
-HAX_TARGETS += -securedrop_protocol_minimal::bundle::**
-HAX_TARGETS += -securedrop_protocol_minimal::journalist::**
-HAX_TARGETS += -securedrop_protocol_minimal::server::**
-HAX_TARGETS += -securedrop_protocol_minimal::source::**
-HAX_TARGETS += -securedrop_protocol_minimal::setup::**
-HAX_TARGETS += -securedrop_protocol_minimal::wire::**
 HAX_TARGETS += -securedrop_protocol_minimal::encrypt_decrypt::**
+HAX_TARGETS += -securedrop_protocol_minimal::server::**
+HAX_TARGETS += -securedrop_protocol_minimal::journalist::**
+HAX_TARGETS += -securedrop_protocol_minimal::source::**
+HAX_TARGETS += -securedrop_protocol_minimal::wire::**
 HAX_TARGETS += -securedrop_protocol_minimal::api::**
+HAX_TARGETS += -securedrop_protocol_minimal::setup::**
 
 # Admit modules we extract but that fail panic freedom:
 HAX_ADMITS := Securedrop_protocol_minimal.Message.fst

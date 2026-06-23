@@ -166,8 +166,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       <:
       Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
     with
-    | Core_models.Result.Result_Ok hoist20 ->
-      let private_key:t_XWingPrivateKey = impl_XWingPrivateKey__from_bytes hoist20 in
+    | Core_models.Result.Result_Ok hoist22 ->
+      let private_key:t_XWingPrivateKey = impl_XWingPrivateKey__from_bytes hoist22 in
       (match
           Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 1216))
             #Core_models.Array.t_TryFromSliceError
@@ -195,8 +195,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
           <:
           Core_models.Result.t_Result (t_Array u8 (mk_usize 1216)) Anyhow.t_Error
         with
-        | Core_models.Result.Result_Ok hoist21 ->
-          let public_key:t_XWingPublicKey = impl_XWingPublicKey__from_bytes hoist21 in
+        | Core_models.Result.Result_Ok hoist23 ->
+          let public_key:t_XWingPublicKey = impl_XWingPublicKey__from_bytes hoist23 in
           Core_models.Result.Result_Ok
           (private_key, public_key <: (t_XWingPrivateKey & t_XWingPublicKey))
           <:
