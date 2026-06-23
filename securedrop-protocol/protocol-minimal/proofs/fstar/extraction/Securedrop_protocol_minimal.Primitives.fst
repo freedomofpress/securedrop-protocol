@@ -15,6 +15,8 @@ let _ =
 /// regardless of how many actual messages exist.
 let v_MESSAGE_ID_FETCH_SIZE: usize = mk_usize 10
 
+#push-options "--admit_smt_queries true"
+
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
 /// This is used in step 7 for encrypting message IDs with a shared secret
 let encrypt_message_id
@@ -45,7 +47,7 @@ let encrypt_message_id
   else
     let nonce:t_Array u8 (mk_usize 12) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 12) in
     let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 12)) =
-      Rand_core.f_fill_bytes #v_R #FStar.Tactics.Typeclasses.solve rng nonce
+      Securedrop_protocol_minimal.Primitives.Provider.Rng.fill_bytes #v_R (mk_usize 12) rng nonce
     in
     let rng:v_R = tmp0 in
     let nonce:t_Array u8 (mk_usize 12) = tmp1 in
@@ -161,6 +163,10 @@ let encrypt_message_id
         Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
       <:
       (v_R & Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
+
+#pop-options
+
+#push-options "--admit_smt_queries true"
 
 /// Symmetric decryption for message IDs using ChaCha20-Poly1305
 /// This is used in step 7 for decrypting message IDs with a shared secret
@@ -352,3 +358,5 @@ let decrypt_message_id (key encrypted_data: t_Slice u8)
         Core_models.Result.Result_Err err
         <:
         Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
+
+#pop-options

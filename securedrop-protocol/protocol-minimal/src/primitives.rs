@@ -19,6 +19,7 @@ pub const MESSAGE_ID_FETCH_SIZE: usize = 10;
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
 ///
 /// This is used in step 7 for encrypting message IDs with a shared secret
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn encrypt_message_id<R: RngCore + CryptoRng>(
     key: &[u8],
     message_id: &[u8],
@@ -32,7 +33,7 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
 
     // Generate a random nonce with supplied rng
     let mut nonce = [0u8; NONCE_LEN];
-    rng.fill_bytes(&mut nonce);
+    provider::rng::fill_bytes(rng, &mut nonce);
 
     // Prepare output buffer: nonce + ciphertext + tag
     let mut output = alloc::vec::Vec::new();
@@ -60,6 +61,7 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
 /// Symmetric decryption for message IDs using ChaCha20-Poly1305
 ///
 /// This is used in step 7 for decrypting message IDs with a shared secret
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, Error> {
     use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 

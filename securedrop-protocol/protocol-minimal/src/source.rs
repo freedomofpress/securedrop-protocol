@@ -6,7 +6,6 @@ use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::x25519::deterministic_dh_keygen;
 use alloc::vec::Vec;
-use argon2::{Algorithm, Argon2, Params, Version};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
@@ -129,7 +128,7 @@ impl Source {
     /// of sufficient entropy generated and displayed to the source.
     pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> Self {
         let mut passphrase = [0u8; 32];
-        rng.fill_bytes(&mut passphrase);
+        crate::primitives::provider::rng::fill_bytes(&mut rng, &mut passphrase);
         Self::from_passphrase(&passphrase)
     }
 
@@ -148,59 +147,36 @@ impl Source {
     /// Uses a fixed, public, domain-specific salt. The security of the master
     /// key rests entirely on the entropy of the passphrase.
     fn derive_master_key(passphrase: &[u8]) -> [u8; 64] {
-        // OWASP minimum recommended parameters for Argon2id from here:
-        // https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id
-        let params = Params::new(19456, 2, 1, Some(64)).expect("valid Argon2id params");
-        let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-
-        let mut mk = [0u8; 64];
-        argon2
-            .hash_password_into(passphrase, SOURCE_PBKDF_SALT, &mut mk)
-            .expect("Argon2id master key derivation failed");
-        mk
+        crate::primitives::provider::argon2::derive_master_key(passphrase, SOURCE_PBKDF_SALT)
     }
 
     /// Reconstruct source keys from a passphrase (step 4).
     ///
     /// Derives a master key via [`Source::derive_master_key`], then derives
     /// each private key from the master key using a domain-separated KDF.
+    #[cfg_attr(hax, hax_lib::opaque)]
     pub fn from_passphrase(passphrase: &[u8]) -> Self {
-        use blake2::{Blake2b, Digest};
+        use crate::primitives::provider::blake2;
 
         let mk = Self::derive_master_key(passphrase);
 
-        let mut fetch_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        fetch_hasher.update(b"sourcefetchkey");
-        fetch_hasher.update(mk);
-        let fetch_result = fetch_hasher.finalize();
+        let fetch_result = blake2::derive32(b"sourcefetchkey", &mk);
 
         // sk_S^APKE is a hybrid key requiring two sub-derivations:
         // the DH-AKEM and ML-KEM components are each derived with their own
         // label under the "sourceAPKEkey" namespace.
-        let mut dh_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        dh_hasher.update(b"sourceAPKEkey-dh");
-        dh_hasher.update(mk);
-        let dh_result = dh_hasher.finalize();
-
-        let mut kem_hasher = Blake2b::<blake2::digest::typenum::U64>::new();
-        kem_hasher.update(b"sourceAPKEkey-mlkem");
-        kem_hasher.update(mk);
-        let kem_result = kem_hasher.finalize();
-
-        let mut pke_hasher = Blake2b::<blake2::digest::typenum::U32>::new();
-        pke_hasher.update(b"sourcePKEkey");
-        pke_hasher.update(mk);
-        let pke_result = pke_hasher.finalize();
+        let dh_result = blake2::derive32(b"sourceAPKEkey-dh", &mk);
+        let kem_result = blake2::derive64(b"sourceAPKEkey-mlkem", &mk);
+        let pke_result = blake2::derive32(b"sourcePKEkey", &mk);
 
         // Create key pairs
         let (fetch_sk, fetch_pk): (DHPrivateKey, DHPublicKey) =
-            deterministic_dh_keygen(fetch_result.into()).expect("Need Fetch keygen");
+            deterministic_dh_keygen(fetch_result).expect("Need Fetch keygen");
 
-        let message_kp = kgen_deterministic_message(dh_result.into(), kem_result.into())
-            .expect("Need SD-APKE keygen");
+        let message_kp =
+            kgen_deterministic_message(dh_result, kem_result).expect("Need SD-APKE keygen");
 
-        let metadata_kp =
-            kgen_deterministic_metadata(pke_result.into()).expect("Need X-Wing keygen");
+        let metadata_kp = kgen_deterministic_metadata(pke_result).expect("Need X-Wing keygen");
 
         let session = SessionStorage {
             fpf_key: None,

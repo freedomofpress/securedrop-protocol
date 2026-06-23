@@ -7,18 +7,15 @@ HAX_TARGETS += -securedrop_protocol_minimal::storage::**
 HAX_TARGETS += -securedrop_protocol_minimal::encrypt_decrypt::**
 HAX_TARGETS += -securedrop_protocol_minimal::server::**
 HAX_TARGETS += -securedrop_protocol_minimal::journalist::**
-HAX_TARGETS += -securedrop_protocol_minimal::source::**
 HAX_TARGETS += -securedrop_protocol_minimal::wire::**
 HAX_TARGETS += -securedrop_protocol_minimal::api::**
 HAX_TARGETS += -securedrop_protocol_minimal::setup::**
+HAX_TARGETS += +securedrop_protocol_minimal::api::Client
 
 # Admit modules we extract but that fail panic freedom:
 HAX_ADMITS := Securedrop_protocol_minimal.Message.fst
 HAX_ADMITS += Securedrop_protocol_minimal.Metadata.fst
 HAX_ADMITS += Securedrop_protocol_minimal.Ciphertext.fst
-# These both call `RngCore::fill_bytes` which panics
-HAX_ADMITS += Securedrop_protocol_minimal.Primitives.fst
-HAX_ADMITS += Securedrop_protocol_minimal.Primitives.X25519.fst
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 PROOF_DIR = proofs/fstar/extraction

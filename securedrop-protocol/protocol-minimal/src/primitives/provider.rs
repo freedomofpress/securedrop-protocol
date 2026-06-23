@@ -57,6 +57,62 @@ pub mod ed25519 {
     }
 }
 
+pub mod argon2 {
+
+    /// Derive a 64-byte master key from `passphrase` and `salt` via Argon2id
+    /// using OWASP-recommended params
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn derive_master_key(passphrase: &[u8], salt: &[u8]) -> [u8; 64] {
+        let params = ::argon2::Params::new(19456, 2, 1, Some(64)).expect("valid Argon2id params");
+        let hasher = ::argon2::Argon2::new(
+            ::argon2::Algorithm::Argon2id,
+            ::argon2::Version::V0x13,
+            params,
+        );
+        let mut mk = [0u8; 64];
+        hasher
+            .hash_password_into(passphrase, salt, &mut mk)
+            .expect("Argon2id master key derivation failed");
+        mk
+    }
+}
+
+pub mod blake2 {
+
+    /// Domain-separated KDF: `Blake2b(domain || input)` truncated to 32 bytes
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn derive32(domain: &[u8], input: &[u8]) -> [u8; 32] {
+        use ::blake2::{Blake2b, Digest};
+        let mut h = Blake2b::<::blake2::digest::typenum::U32>::new();
+        h.update(domain);
+        h.update(input);
+        h.finalize().into()
+    }
+
+    /// Domain-separated KDF: `Blake2b(domain || input)` truncated to 64 bytes
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn derive64(domain: &[u8], input: &[u8]) -> [u8; 64] {
+        use ::blake2::{Blake2b, Digest};
+        let mut h = Blake2b::<::blake2::digest::typenum::U64>::new();
+        h.update(domain);
+        h.update(input);
+        h.finalize().into()
+    }
+}
+
+pub mod rng {
+    use rand_core::{CryptoRng, RngCore};
+
+    /// Fill `dest` with random bytes from `rng`
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn fill_bytes<R: RngCore + CryptoRng, const N: usize>(
+        rng: &mut R,
+        dest: &mut [u8; N],
+    ) {
+        rng.fill_bytes(dest);
+    }
+}
+
 pub mod kem {
 
     #[cfg_attr(hax, hax_lib::opaque)]

@@ -151,7 +151,7 @@ let generate_dh_keypair
     : (v_R & Core_models.Result.t_Result (t_DHPrivateKey & t_DHPublicKey) Anyhow.t_Error) =
   let randomness:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
   let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 32)) =
-    Rand_core.f_fill_bytes #v_R #FStar.Tactics.Typeclasses.solve rng randomness
+    Securedrop_protocol_minimal.Primitives.Provider.Rng.fill_bytes #v_R (mk_usize 32) rng randomness
   in
   let rng:v_R = tmp0 in
   let randomness:t_Array u8 (mk_usize 32) = tmp1 in
@@ -213,7 +213,7 @@ let generate_random_scalar
     : (v_R & Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error) =
   let randomness:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
   let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 32)) =
-    Rand_core.f_fill_bytes #v_R #FStar.Tactics.Typeclasses.solve rng randomness
+    Securedrop_protocol_minimal.Primitives.Provider.Rng.fill_bytes #v_R (mk_usize 32) rng randomness
   in
   let rng:v_R = tmp0 in
   let randomness:t_Array u8 (mk_usize 32) = tmp1 in
