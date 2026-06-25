@@ -50,11 +50,20 @@ pub struct JournalistSetupResponse {
 /// Request from the journalist to the SecureDrop server for ephemeral key replenishment.
 ///
 /// Step 3.2 in the spec.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JournalistEphemeralKeyRequest {
     /// The journalist's long-term signing key, used by the server to look up the journalist
     /// and verify each bundle signature.
     pub verifying_key: VerifyingKey,
     /// The signed ephemeral key bundles to be stored by the server.
     pub bundles: Vec<SignedKeyBundlePublic>,
+}
+
+/// Response from the SecureDrop server to the journalist for ephemeral key replenishment.
+///
+/// Step 3.2 in the spec.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JournalistEphemeralKeyResponse {
+    /// The number of ephemeral key bundles now stored by the server for this journalist.
+    pub stored: usize,
 }

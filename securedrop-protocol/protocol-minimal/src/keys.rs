@@ -34,7 +34,7 @@ pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
 pub type SignedKeyBundlePublic = (KeyBundlePublic, Signature<JournalistEphemeralKey>);
 
 /// The public keys that make up one ephemeral key bundle
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyBundlePublic {
     /// SD-APKE ephemeral key `pk_{J,i}^{APKE_E} = (pk1, pk2)`.
     pub apke_pk: MessagePublicKey,
