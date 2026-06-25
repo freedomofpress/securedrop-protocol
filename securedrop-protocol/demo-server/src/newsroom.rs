@@ -1,12 +1,46 @@
+use std::collections::HashMap;
 use std::fs;
+use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, bail};
+use axum::http::StatusCode;
+use axum::{
+    Json, Router,
+    extract::State,
+    routing::{get, post},
+};
 use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
-use securedrop_protocol_minimal::{FpfOnNewsroom, Signature, VerifyingKey};
+use securedrop_protocol_minimal::wire::setup::{
+    JournalistEphemeralKeyRequest, JournalistEphemeralKeyResponse, JournalistSetupRequest,
+    JournalistSetupResponse,
+};
+use securedrop_protocol_minimal::{
+    Enrollment, FpfOnNewsroom, Signature, SignedKeyBundlePublic, VerifyingKey,
+};
+use serde::Serialize;
 
 use crate::state::{data_dir, write_secret};
+
+/// In-memory newsroom state
+///
+/// Note: demo only, in memory only, nothing yet persisted to disk
+#[derive(Clone)]
+struct AppState {
+    vk_hex: Arc<String>,
+    newsroom_kp: Arc<NewsroomKeyPair>,
+    /// Enrolled journalists, keyed by long term verifying key
+    journalists: Arc<Mutex<HashMap<String, Enrollment>>>,
+    /// Stored ephemeral key bundles, keyed by journalist verifying key
+    ephemeral_keys: Arc<Mutex<HashMap<String, Vec<SignedKeyBundlePublic>>>>,
+}
+
+#[derive(Serialize)]
+struct NewsroomInfo {
+    verifying_key: String,
+}
 
 pub fn init(force: bool) -> Result<()> {
     let path = key_path()?;
@@ -71,6 +105,121 @@ pub fn set_fpf_sig(sig_hex: &str, fpf_vk_hex: &str, force: bool) -> Result<()> {
     println!("FPF signature verified and stored.\n");
     println!("Saved to: {}", path.display());
     Ok(())
+}
+
+pub fn start(port: u16) -> Result<()> {
+    let rt = tokio::runtime::Runtime::new().context("starting tokio runtime")?;
+    rt.block_on(serve(port))
+}
+
+async fn serve(port: u16) -> Result<()> {
+    let kp = load_keypair()?;
+    let state = AppState {
+        vk_hex: Arc::new(hex::encode(kp.verifying_key().into_bytes())),
+        newsroom_kp: Arc::new(kp),
+        journalists: Arc::new(Mutex::new(HashMap::new())),
+        ephemeral_keys: Arc::new(Mutex::new(HashMap::new())),
+    };
+
+    let app = Router::new()
+        .route("/", get(|| async { "securedrop newsroom (demo)\n" }))
+        .route("/newsroom", get(get_newsroom))
+        .route("/newsroom/journalists/enroll", post(post_enroll))
+        .route("/newsroom/journalists/keys", post(post_replenish))
+        .with_state(state);
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("binding to {addr}"))?;
+    println!("Newsroom server listening on http://{addr}");
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .context("server error")?;
+    Ok(())
+}
+
+async fn get_newsroom(State(state): State<AppState>) -> Json<NewsroomInfo> {
+    Json(NewsroomInfo {
+        verifying_key: (*state.vk_hex).clone(),
+    })
+}
+
+async fn post_enroll(
+    State(state): State<AppState>,
+    Json(req): Json<JournalistSetupRequest>,
+) -> Result<Json<JournalistSetupResponse>, (StatusCode, String)> {
+    let vk_j = req.enrollment.keys.0;
+    vk_j.verify(req.enrollment.bundle.as_bytes(), &req.enrollment.selfsig)
+        .map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "journalist self-signature does not verify".to_string(),
+            )
+        })?;
+
+    let sig = state.newsroom_kp.sign(&vk_j.into_bytes());
+
+    // Record the enrollment so this journalist can later replenish ephemeral keys.
+    let vk_hex = hex::encode(vk_j.into_bytes());
+    state
+        .journalists
+        .lock()
+        .expect("can get journalist mutex")
+        .insert(vk_hex, req.enrollment);
+
+    Ok(Json(JournalistSetupResponse { sig }))
+}
+
+/// Ephemeral key replenishment
+async fn post_replenish(
+    State(state): State<AppState>,
+    Json(req): Json<JournalistEphemeralKeyRequest>,
+) -> Result<Json<JournalistEphemeralKeyResponse>, (StatusCode, String)> {
+    let vk_j = req.verifying_key;
+    let vk_hex = hex::encode(vk_j.into_bytes());
+
+    // Only enrolled journalists may upload ephemeral keys.
+    if !state
+        .journalists
+        .lock()
+        .expect("journalists mutex poisoned")
+        .contains_key(&vk_hex)
+    {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "journalist is not enrolled with this newsroom".to_string(),
+        ));
+    }
+
+    // Verify each bundle's self-signature against the journalist's verifying key.
+    for (bundle, selfsig) in &req.bundles {
+        vk_j.verify(&bundle.as_bytes(), selfsig).map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "ephemeral key bundle self-signature does not verify".to_string(),
+            )
+        })?;
+    }
+
+    let mut store = state
+        .ephemeral_keys
+        .lock()
+        .expect("ephemeral_keys mutex poisoned");
+    let stored = store.entry(vk_hex).or_default();
+    stored.extend(req.bundles);
+
+    Ok(Json(JournalistEphemeralKeyResponse {
+        stored: stored.len(),
+    }))
+}
+
+async fn shutdown_signal() {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("install ctrl-c handler");
+    println!("\nShutting down.");
 }
 
 fn load_keypair() -> Result<NewsroomKeyPair> {

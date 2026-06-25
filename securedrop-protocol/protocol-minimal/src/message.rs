@@ -25,9 +25,11 @@ use crate::primitives::provider::hpke_rs::{
 };
 use crate::primitives::provider::kem::MlKem768;
 use crate::primitives::provider::traits::OwnedKem as Kem;
+use alloc::string::String;
 use alloc::vec::Vec;
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
+use serde::de::Error as _;
 
 use crate::primitives::dh_akem::{
     DH_AKEM_ENCAPS_SECRET_LEN, deterministic_keygen as dhakem_derand,
@@ -73,6 +75,10 @@ pub struct MessageKeyPair {
 }
 
 impl MessageKeyPair {
+    pub(crate) fn new(sk: MessagePrivateKey, pk: MessagePublicKey) -> Self {
+        Self { sk, pk }
+    }
+
     /// Returns the public key.
     pub fn public_key(&self) -> &MessagePublicKey {
         &self.pk
@@ -121,6 +127,20 @@ impl MessagePublicKey {
             dhakem: DhAkemPublicKey::from_bytes(dhakem_bytes),
             mlkem: MLKEM768PublicKey::from_bytes(mlkem_bytes),
         })
+    }
+}
+
+impl serde::Serialize for MessagePublicKey {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.as_bytes()))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MessagePublicKey {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let bytes = hex::decode(s.trim()).map_err(D::Error::custom)?;
+        Self::from_bytes(&bytes).map_err(D::Error::custom)
     }
 }
 

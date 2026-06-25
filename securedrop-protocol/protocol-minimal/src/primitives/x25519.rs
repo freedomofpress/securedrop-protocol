@@ -1,6 +1,9 @@
+use alloc::string::String;
+
 use crate::primitives::provider::{self, curve25519::ecdh};
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
+use serde::de::Error as _;
 
 pub const DH_PUBLIC_KEY_LEN: usize = crate::primitives::provider::curve25519::PK_LEN;
 pub(crate) const DH_PRIVATE_KEY_LEN: usize = crate::primitives::provider::curve25519::SK_LEN;
@@ -21,11 +24,30 @@ impl DHPublicKey {
     }
 }
 
+impl serde::Serialize for DHPublicKey {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.0))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for DHPublicKey {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let mut bytes = [0u8; DH_PUBLIC_KEY_LEN];
+        hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
+        Ok(Self::from_bytes(bytes))
+    }
+}
+
 /// An X25519 private key.
 #[derive(Debug, Clone)]
 pub struct DHPrivateKey([u8; DH_PRIVATE_KEY_LEN]);
 
 impl DHPrivateKey {
+    pub fn as_bytes(&self) -> &[u8; DH_PRIVATE_KEY_LEN] {
+        &self.0
+    }
+
     pub fn into_bytes(self) -> [u8; DH_PRIVATE_KEY_LEN] {
         self.0
     }

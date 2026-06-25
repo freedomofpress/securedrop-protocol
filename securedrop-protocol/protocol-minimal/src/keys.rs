@@ -13,7 +13,10 @@ use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
 use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
 use crate::primitives::x25519::{DH_PUBLIC_KEY_LEN, DHPrivateKey, DHPublicKey, DHSharedSecret};
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
+use alloc::string::String;
 use alloc::vec::Vec;
+use serde::de::Error as _;
+use serde::{Deserialize, Serialize};
 
 /// Generic KeyPair
 pub struct KeyPair<SK, PK> {
@@ -31,7 +34,7 @@ pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
 pub type SignedKeyBundlePublic = (KeyBundlePublic, Signature<JournalistEphemeralKey>);
 
 /// The public keys that make up one ephemeral key bundle
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyBundlePublic {
     /// SD-APKE ephemeral key `pk_{J,i}^{APKE_E} = (pk1, pk2)`.
     pub apke_pk: MessagePublicKey,
@@ -102,7 +105,22 @@ impl SignedLongtermPubKeyBytes {
     }
 }
 
-#[derive(Clone, Debug)]
+impl Serialize for SignedLongtermPubKeyBytes {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.0))
+    }
+}
+
+impl<'de> Deserialize<'de> for SignedLongtermPubKeyBytes {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let mut bytes = [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN];
+        hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
+        Ok(Self(bytes))
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Enrollment {
     pub bundle: SignedLongtermPubKeyBytes,
     pub selfsig: Signature<JournalistLongTermKey>,
