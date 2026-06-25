@@ -32,7 +32,9 @@ pub use primitives::xwing::XWING_PUBLIC_KEY_LEN;
 
 pub use traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
 
-pub use journalist::{Journalist, JournalistLongTermBytes, JournalistPublicView};
+pub use journalist::{
+    EphemeralBundleBytes, Journalist, JournalistLongTermBytes, JournalistPublicView,
+};
 pub use source::{Source, SourcePublicView};
 
 pub(crate) use keys::MessageKeyBundle;
