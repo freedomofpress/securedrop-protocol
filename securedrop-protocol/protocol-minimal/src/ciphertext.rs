@@ -5,6 +5,31 @@ use crate::primitives::x25519::{DH_PUBLIC_KEY_LEN, DH_SHARED_SECRET_LEN};
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use alloc::vec::Vec;
 use anyhow::Error;
+use serde::{Deserialize, Serialize};
+
+/// Hex string serde for the fixed length DH pubkey byte arrays in [`Envelope`]
+mod hex_dh {
+    use super::DH_PUBLIC_KEY_LEN;
+    use alloc::string::String;
+    use serde::de::Error as _;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(
+        bytes: &[u8; DH_PUBLIC_KEY_LEN],
+        ser: S,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(bytes))
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        de: D,
+    ) -> Result<[u8; DH_PUBLIC_KEY_LEN], D::Error> {
+        let s = String::deserialize(de)?;
+        let mut out = [0u8; DH_PUBLIC_KEY_LEN];
+        hex::decode_to_slice(s.trim(), &mut out).map_err(D::Error::custom)?;
+        Ok(out)
+    }
+}
 
 /// The full submission `(C_S, X, Z)` sent from sender to server in step 6.
 ///
@@ -13,7 +38,7 @@ use anyhow::Error;
 /// - `Z = (pk_R^fetch)^x`: DH share for fetching (hint)
 ///
 /// The server stores `(id, C_S, X, Z)` per message.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Envelope {
     /// `ct^APKE`: SD-APKE ciphertext `((c1, cp), c2)` - the encrypted message
     pub(crate) ct_apke: MessageCiphertext,
@@ -22,9 +47,11 @@ pub struct Envelope {
     pub(crate) ct_pke: MetadataCiphertext,
 
     /// `X = g^x`: ephemeral DH public key for the hint
+    #[serde(with = "hex_dh")]
     pub(crate) mgdh_pubkey: [u8; DH_PUBLIC_KEY_LEN],
 
     /// `Z = (pk_R^fetch)^x`: DH share for fetching
+    #[serde(with = "hex_dh")]
     pub(crate) mgdh: [u8; DH_PUBLIC_KEY_LEN],
 }
 
@@ -103,5 +130,69 @@ pub struct FetchResponse {
 impl FetchResponse {
     pub fn new(enc_id: [u8; LEN_KMID], pmgdh: [u8; DH_SHARED_SECRET_LEN]) -> Self {
         Self { enc_id, pmgdh }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::primitives::dh_akem::DH_AKEM_ENCAPS_SECRET_LEN;
+    use crate::primitives::mlkem::LEN_MLKEM_SHAREDSECRET_ENCAPS;
+    use crate::primitives::xwing::LEN_XWING_SHAREDSECRET_ENCAPS;
+    use proptest::prelude::*;
+
+    fn message_ct(c1: Vec<u8>, cp: Vec<u8>, c2: Vec<u8>) -> MessageCiphertext {
+        MessageCiphertext {
+            c1: c1.try_into().expect("c1 length"),
+            cp,
+            c2: c2.try_into().expect("c2 length"),
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_message_ciphertext_byte_roundtrip(
+            c1 in prop::collection::vec(any::<u8>(), DH_AKEM_ENCAPS_SECRET_LEN),
+            cp in prop::collection::vec(any::<u8>(), 0..128),
+            c2 in prop::collection::vec(any::<u8>(), LEN_MLKEM_SHAREDSECRET_ENCAPS),
+        ) {
+            let ct = message_ct(c1, cp, c2);
+            let restored = MessageCiphertext::from_bytes(&ct.as_bytes()).expect("valid bytes");
+            prop_assert_eq!(ct.as_bytes(), restored.as_bytes());
+        }
+
+        #[test]
+        fn test_metadata_ciphertext_byte_roundtrip(
+            c in prop::collection::vec(any::<u8>(), LEN_XWING_SHAREDSECRET_ENCAPS),
+            cp in prop::collection::vec(any::<u8>(), 0..128),
+        ) {
+            let ct = MetadataCiphertext { c: c.try_into().expect("c length"), cp };
+            let restored = MetadataCiphertext::from_bytes(&ct.as_bytes()).expect("valid bytes");
+            prop_assert_eq!(ct.as_bytes(), restored.as_bytes());
+        }
+
+        #[test]
+        fn test_envelope_serde_roundtrip(
+            c1 in prop::collection::vec(any::<u8>(), DH_AKEM_ENCAPS_SECRET_LEN),
+            cp_a in prop::collection::vec(any::<u8>(), 0..128),
+            c2 in prop::collection::vec(any::<u8>(), LEN_MLKEM_SHAREDSECRET_ENCAPS),
+            c in prop::collection::vec(any::<u8>(), LEN_XWING_SHAREDSECRET_ENCAPS),
+            cp_b in prop::collection::vec(any::<u8>(), 0..128),
+            mgdh_pubkey in prop::array::uniform32(any::<u8>()),
+            mgdh in prop::array::uniform32(any::<u8>()),
+        ) {
+            let env = Envelope {
+                ct_apke: message_ct(c1, cp_a, c2),
+                ct_pke: MetadataCiphertext { c: c.try_into().expect("c length"), cp: cp_b },
+                mgdh_pubkey,
+                mgdh,
+            };
+            let json = serde_json::to_string(&env).expect("serialize");
+            let restored: Envelope = serde_json::from_str(&json).expect("deserialize");
+            prop_assert_eq!(env.ct_apke.as_bytes(), restored.ct_apke.as_bytes());
+            prop_assert_eq!(env.ct_pke.as_bytes(), restored.ct_pke.as_bytes());
+            prop_assert_eq!(env.mgdh_pubkey, restored.mgdh_pubkey);
+            prop_assert_eq!(env.mgdh, restored.mgdh);
+        }
     }
 }
