@@ -13,16 +13,29 @@ use axum::{
 };
 use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
+use securedrop_protocol_minimal::wire::core::{
+    SourceJournalistKeyResponse, SourceNewsroomKeyResponse,
+};
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyRequest, JournalistEphemeralKeyResponse, JournalistSetupRequest,
     JournalistSetupResponse,
 };
 use securedrop_protocol_minimal::{
-    Enrollment, FpfOnNewsroom, Signature, SignedKeyBundlePublic, VerifyingKey,
+    Enrollment, Envelope, FpfOnNewsroom, JournalistPublicView, NewsroomOnJournalist, Signature,
+    SignedKeyBundlePublic, VerifyingKey,
 };
 use serde::Serialize;
+use uuid::Uuid;
 
 use crate::state::{data_dir, write_secret};
+
+/// An enrolled journalist's long term enrollment together with the newsroom's
+/// signature over their verifying key - together so it can be served to sources.
+#[derive(Clone)]
+struct EnrolledJournalist {
+    enrollment: Enrollment,
+    nr_sig: Signature<NewsroomOnJournalist>,
+}
 
 /// In-memory newsroom state
 ///
@@ -31,15 +44,24 @@ use crate::state::{data_dir, write_secret};
 struct AppState {
     vk_hex: Arc<String>,
     newsroom_kp: Arc<NewsroomKeyPair>,
+    /// FPF's signature over the newsroom verifying key
+    fpf_sig: Option<Signature<FpfOnNewsroom>>,
     /// Enrolled journalists, keyed by long term verifying key
-    journalists: Arc<Mutex<HashMap<String, Enrollment>>>,
+    journalists: Arc<Mutex<HashMap<String, EnrolledJournalist>>>,
     /// Stored ephemeral key bundles, keyed by journalist verifying key
     ephemeral_keys: Arc<Mutex<HashMap<String, Vec<SignedKeyBundlePublic>>>>,
+    /// Submitted messages, keyed by server-assigned message ID
+    messages: Arc<Mutex<HashMap<Uuid, Envelope>>>,
 }
 
 #[derive(Serialize)]
 struct NewsroomInfo {
     verifying_key: String,
+}
+
+#[derive(Serialize)]
+struct MessageSubmitResponse {
+    message_id: String,
 }
 
 pub fn init(force: bool) -> Result<()> {
@@ -114,18 +136,33 @@ pub fn start(port: u16) -> Result<()> {
 
 async fn serve(port: u16) -> Result<()> {
     let kp = load_keypair()?;
+    let fpf_sig = load_fpf_sig()?;
+
+    // todo: we might want to allow this?
+    if fpf_sig.is_none() {
+        eprintln!(
+            "warning: no FPF signature stored (run `newsroom set-fpf-sig`); \
+             sources will be unable to fetch newsroom keys"
+        );
+    }
+
     let state = AppState {
         vk_hex: Arc::new(hex::encode(kp.verifying_key().into_bytes())),
         newsroom_kp: Arc::new(kp),
+        fpf_sig,
         journalists: Arc::new(Mutex::new(HashMap::new())),
         ephemeral_keys: Arc::new(Mutex::new(HashMap::new())),
+        messages: Arc::new(Mutex::new(HashMap::new())),
     };
 
     let app = Router::new()
         .route("/", get(|| async { "securedrop newsroom (demo)\n" }))
         .route("/newsroom", get(get_newsroom))
+        .route("/newsroom/keys", get(get_newsroom_keys))
         .route("/newsroom/journalists/enroll", post(post_enroll))
         .route("/newsroom/journalists/keys", post(post_replenish))
+        .route("/journalists/keys", get(get_journalist_keys))
+        .route("/messages", post(post_message))
         .with_state(state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
@@ -161,13 +198,20 @@ async fn post_enroll(
 
     let sig = state.newsroom_kp.sign(&vk_j.into_bytes());
 
-    // Record the enrollment so this journalist can later replenish ephemeral keys.
+    // Record the enrollment (with the newsroom signature) so this journalist can
+    // later replenish ephemeral keys and be served to sources.
     let vk_hex = hex::encode(vk_j.into_bytes());
     state
         .journalists
         .lock()
         .expect("can get journalist mutex")
-        .insert(vk_hex, req.enrollment);
+        .insert(
+            vk_hex,
+            EnrolledJournalist {
+                enrollment: req.enrollment,
+                nr_sig: sig,
+            },
+        );
 
     Ok(Json(JournalistSetupResponse { sig }))
 }
@@ -184,7 +228,7 @@ async fn post_replenish(
     if !state
         .journalists
         .lock()
-        .expect("journalists mutex poisoned")
+        .expect("can get journalists mutex")
         .contains_key(&vk_hex)
     {
         return Err((
@@ -215,6 +259,78 @@ async fn post_replenish(
     }))
 }
 
+/// Retrieves the newsroom verifying key together with FPF's signature over it
+async fn get_newsroom_keys(
+    State(state): State<AppState>,
+) -> Result<Json<SourceNewsroomKeyResponse>, (StatusCode, String)> {
+    let fpf_sig = state.fpf_sig.ok_or((
+        StatusCode::SERVICE_UNAVAILABLE,
+        "newsroom has no FPF signature stored (run `newsroom set-fpf-sig`)".to_string(),
+    ))?;
+
+    Ok(Json(SourceNewsroomKeyResponse {
+        newsroom_verifying_key: state.newsroom_kp.verifying_key(),
+        fpf_sig,
+    }))
+}
+
+/// For each enrolled journalist with ephemeral keys available, the server consumes one one-time bundle
+/// and returns the journalist's long term public view plus the newsroom's signature.
+async fn get_journalist_keys(
+    State(state): State<AppState>,
+) -> Json<Vec<SourceJournalistKeyResponse>> {
+    let journalists = state
+        .journalists
+        .lock()
+        .expect("journalists mutex poisoned");
+    let mut ephemeral_keys = state
+        .ephemeral_keys
+        .lock()
+        .expect("ephemeral_keys mutex poisoned");
+
+    let mut responses = Vec::new();
+    for (vk_hex, enrolled) in journalists.iter() {
+        // Consume one one-time ephemeral bundle and skip any journos with no bundles left.
+        let Some(bundle) = ephemeral_keys.get_mut(vk_hex).and_then(Vec::pop) else {
+            continue;
+        };
+
+        let e = &enrolled.enrollment;
+        let journalist = JournalistPublicView::new(
+            e.keys.0,
+            e.keys.1.clone(),
+            e.keys.2.clone(),
+            e.selfsig,
+            e.bundle.clone(),
+            bundle,
+        );
+
+        responses.push(SourceJournalistKeyResponse {
+            journalist,
+            nr_signature: enrolled.nr_sig,
+        });
+    }
+
+    Json(responses)
+}
+
+/// Stores the source's envelope under a freshly generated message ID and returns the ID.
+async fn post_message(
+    State(state): State<AppState>,
+    Json(envelope): Json<Envelope>,
+) -> Json<MessageSubmitResponse> {
+    let message_id = Uuid::new_v4();
+    state
+        .messages
+        .lock()
+        .expect("can get messages mutex")
+        .insert(message_id, envelope);
+
+    Json(MessageSubmitResponse {
+        message_id: message_id.to_string(),
+    })
+}
+
 async fn shutdown_signal() {
     tokio::signal::ctrl_c()
         .await
@@ -230,6 +346,19 @@ fn load_keypair() -> Result<NewsroomKeyPair> {
         anyhow::anyhow!("{} is {} bytes, expected 32", path.display(), v.len())
     })?;
     Ok(NewsroomKeyPair::from_bytes(seed))
+}
+
+/// Load the stored FPF signature over the newsroom verifying key if present
+fn load_fpf_sig() -> Result<Option<Signature<FpfOnNewsroom>>> {
+    let path = fpf_sig_path()?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let bytes = fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+    let sig_bytes: [u8; 64] = bytes.try_into().map_err(|v: Vec<u8>| {
+        anyhow::anyhow!("{} is {} bytes, expected 64", path.display(), v.len())
+    })?;
+    Ok(Some(Signature::<FpfOnNewsroom>::from_bytes(sig_bytes)))
 }
 
 fn key_path() -> Result<PathBuf> {
