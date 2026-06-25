@@ -39,6 +39,7 @@ pub struct Journalist {
 
 // Public-facing representation of a journalist
 // used to send them a message
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct JournalistPublicView {
     vk: VerifyingKey,
     fetch_pk: DHPublicKey,

@@ -160,6 +160,53 @@ impl MessageCiphertext {
     pub fn len(&self) -> usize {
         self.c1.len() + self.cp.len() + self.c2.len()
     }
+
+    /// Wire encoding `c1 || c2 || cp`
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(self.len());
+        out.extend_from_slice(&self.c1);
+        out.extend_from_slice(&self.c2);
+        out.extend_from_slice(&self.cp);
+        out
+    }
+
+    /// Deserialize from the `c1 || c2 || cp` wire encoding
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the byte slice is shorter than the fixed-length prefix.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        const FIXED: usize = DH_AKEM_ENCAPS_SECRET_LEN + LEN_MLKEM_SHAREDSECRET_ENCAPS;
+        if bytes.len() < FIXED {
+            return Err(anyhow::anyhow!(
+                "MessageCiphertext too short: expected at least {}, got {}",
+                FIXED,
+                bytes.len()
+            ));
+        }
+
+        let (c1, rest) = bytes.split_at(DH_AKEM_ENCAPS_SECRET_LEN);
+        let (c2, cp) = rest.split_at(LEN_MLKEM_SHAREDSECRET_ENCAPS);
+        Ok(Self {
+            c1: c1.try_into().expect("checked length"),
+            cp: cp.to_vec(),
+            c2: c2.try_into().expect("checked length"),
+        })
+    }
+}
+
+impl serde::Serialize for MessageCiphertext {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.as_bytes()))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MessageCiphertext {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let bytes = hex::decode(s.trim()).map_err(D::Error::custom)?;
+        Self::from_bytes(&bytes).map_err(D::Error::custom)
+    }
 }
 
 /// SD-APKE.KGen: generate a `MessageKeyPair`.

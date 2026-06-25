@@ -1,6 +1,7 @@
 use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::{FetchResponse, JournalistPublicView};
 use alloc::vec::Vec;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Source fetches keys for the newsroom
@@ -11,6 +12,7 @@ pub struct SourceNewsroomKeyRequest {}
 /// Newsroom returns their keys and proof of onboarding.
 ///
 /// This is the first response in step 5 of the spec.
+#[derive(Serialize, Deserialize)]
 pub struct SourceNewsroomKeyResponse {
     pub newsroom_verifying_key: VerifyingKey,
     pub fpf_sig: Signature<FpfOnNewsroom>,
@@ -35,6 +37,7 @@ pub struct SourceJournalistKeyRequest {}
 /// - ephemeral_pke_pk: XWING for metadata enc (one-time)
 /// TODO: this may be split into 2 responses, one that contains
 /// static keys and one that contains one-time keys
+#[derive(Serialize, Deserialize)]
 pub struct SourceJournalistKeyResponse {
     pub journalist: JournalistPublicView,
     pub nr_signature: Signature<NewsroomOnJournalist>,
