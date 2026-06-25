@@ -8,8 +8,13 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use rand_core::{OsRng, TryRngCore};
-use securedrop_protocol_minimal::wire::setup::{JournalistSetupRequest, JournalistSetupResponse};
-use securedrop_protocol_minimal::{Enrollable, Journalist, JournalistLongTermBytes, VerifyingKey};
+use securedrop_protocol_minimal::api::JournalistApi;
+use securedrop_protocol_minimal::wire::setup::{
+    JournalistEphemeralKeyResponse, JournalistSetupRequest, JournalistSetupResponse,
+};
+use securedrop_protocol_minimal::{
+    Enrollable, EphemeralBundleBytes, Journalist, JournalistLongTermBytes, VerifyingKey,
+};
 use serde::Deserialize;
 
 #[derive(Parser)]
@@ -36,12 +41,22 @@ enum Command {
         #[arg(long)]
         force: bool,
     },
+    /// Generate fresh ephemeral key bundles and upload them to the server.
+    Replenish {
+        /// Newsroom server URL, e.g. `http://localhost:8000`.
+        #[arg(long)]
+        server: String,
+        /// Number of ephemeral key bundles to generate and upload.
+        #[arg(long, default_value_t = 10)]
+        count: usize,
+    },
 }
 
 fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Init { force } => init(force),
         Command::Enroll { server, force } => enroll(&server, force),
+        Command::Replenish { server, count } => replenish(&server, count),
     }
 }
 
@@ -134,6 +149,62 @@ fn enroll(server: &str, force: bool) -> Result<()> {
     Ok(())
 }
 
+fn replenish(server: &str, count: usize) -> Result<()> {
+    // Journalist has to be enrolled first else we need to bail
+    if !newsroom_vk_path()?.exists() {
+        bail!("not enrolled yet\nrun `enroll --server <url>` first");
+    }
+
+    let mut journalist = load_journalist()?;
+    let mut rng = OsRng.unwrap_err();
+    journalist.generate_ephemeral_bundles(&mut rng, count);
+
+    let request = journalist.create_ephemeral_key_request();
+    let client = reqwest::blocking::Client::new();
+    let response: JournalistEphemeralKeyResponse = client
+        .post(format!("{server}/newsroom/journalists/keys"))
+        .json(&request)
+        .send()
+        .context("posting ephemeral keys")?
+        .error_for_status()
+        .context("newsroom rejected ephemeral key replenishment")?
+        .json()?;
+
+    // We save the secrets so we can use them later
+    append_ephemeral_secrets(&journalist.ephemeral_bundle_bytes())?;
+
+    println!("Uploaded {count} ephemeral key bundles to {server}.\n");
+    println!(
+        "Server now stores {} ephemeral key bundles for this journalist.",
+        response.stored
+    );
+    Ok(())
+}
+
+/// Save ephemeral secrets to disk for later use
+fn append_ephemeral_secrets(bundles: &[EphemeralBundleBytes]) -> Result<()> {
+    let path = ephemeral_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    }
+
+    let mut opts = fs::OpenOptions::new();
+    opts.create(true).append(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    let mut file = opts
+        .open(&path)
+        .with_context(|| format!("opening {}", path.display()))?;
+
+    for bundle in bundles {
+        file.write_all(&bundle.as_bytes())?;
+    }
+    Ok(())
+}
+
 fn load_journalist() -> Result<Journalist> {
     let path = long_term_path()?;
     let bytes = fs::read(&path)
@@ -150,6 +221,10 @@ fn data_dir() -> Result<PathBuf> {
 
 fn long_term_path() -> Result<PathBuf> {
     Ok(data_dir()?.join("long-term.bin"))
+}
+
+fn ephemeral_path() -> Result<PathBuf> {
+    Ok(data_dir()?.join("ephemeral.bin"))
 }
 
 fn newsroom_vk_path() -> Result<PathBuf> {
