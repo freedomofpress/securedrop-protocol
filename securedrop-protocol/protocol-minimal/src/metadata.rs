@@ -96,6 +96,48 @@ impl MetadataCiphertext {
         // This isn't the best, but hax is struggling to parse c.len()
         LEN_XWING_SHAREDSECRET_ENCAPS + LEN_METADATA_CIPHERTEXT
     }
+
+    /// Wire encoding `c || cp`
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(self.len());
+        out.extend_from_slice(&self.c);
+        out.extend_from_slice(&self.cp);
+        out
+    }
+
+    /// Deserialize from the `c || cp` wire encoding.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the byte slice is shorter than the encapsulation `c`.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() < LEN_XWING_SHAREDSECRET_ENCAPS {
+            return Err(anyhow::anyhow!(
+                "MetadataCiphertext too short: expected at least {}, got {}",
+                LEN_XWING_SHAREDSECRET_ENCAPS,
+                bytes.len()
+            ));
+        }
+        let (c, cp) = bytes.split_at(LEN_XWING_SHAREDSECRET_ENCAPS);
+        Ok(Self {
+            c: c.try_into().expect("checked length"),
+            cp: cp.to_vec(),
+        })
+    }
+}
+
+impl serde::Serialize for MetadataCiphertext {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.as_bytes()))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MetadataCiphertext {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let bytes = hex::decode(s.trim()).map_err(D::Error::custom)?;
+        Self::from_bytes(&bytes).map_err(D::Error::custom)
+    }
 }
 
 /// SD-PKE.KGen: generate a `MetadataKeyPair`.
