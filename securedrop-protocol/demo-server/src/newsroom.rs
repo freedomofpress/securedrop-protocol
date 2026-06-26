@@ -166,7 +166,7 @@ async fn serve(port: u16) -> Result<()> {
         .route("/newsroom/journalists/keys", post(post_replenish))
         .route("/journalists/keys", get(get_journalist_keys))
         .route("/messages", post(post_message))
-        .route("/messages/:id", get(get_message))
+        .route("/messages/:id", get(get_message).delete(delete_message))
         .route("/challenges", get(get_challenges))
         .with_state(state);
 
@@ -367,6 +367,28 @@ async fn get_message(
         .cloned()
         .map(Json)
         .ok_or((StatusCode::NOT_FOUND, "no such message".to_string()))
+}
+
+/// A recipient deletes a message once it has been received.
+async fn delete_message(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let message_id = Uuid::parse_str(id.trim())
+        .map_err(|_| (StatusCode::BAD_REQUEST, "invalid message ID".to_string()))?;
+
+    let removed = state
+        .messages
+        .lock()
+        .expect("messages mutex poisoned")
+        .remove(&message_id)
+        .is_some();
+
+    if removed {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err((StatusCode::NOT_FOUND, "no such message".to_string()))
+    }
 }
 
 async fn shutdown_signal() {
