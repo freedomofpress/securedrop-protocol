@@ -8,12 +8,14 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use rand_core::{OsRng, TryRngCore};
-use securedrop_protocol_minimal::api::JournalistApi;
+use securedrop_protocol_minimal::api::{Api, JournalistApi};
+use securedrop_protocol_minimal::encrypt_decrypt::decrypt;
+use securedrop_protocol_minimal::wire::core::MessageChallengeFetchResponse;
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyResponse, JournalistSetupRequest, JournalistSetupResponse,
 };
 use securedrop_protocol_minimal::{
-    Enrollable, EphemeralBundleBytes, Journalist, JournalistLongTermBytes, VerifyingKey,
+    Enrollable, Envelope, EphemeralBundleBytes, Journalist, JournalistLongTermBytes, VerifyingKey,
 };
 use serde::Deserialize;
 
@@ -50,6 +52,12 @@ enum Command {
         #[arg(long, default_value_t = 10)]
         count: usize,
     },
+    /// Fetch and decrypt messages addressed to this journalist.
+    Fetch {
+        /// Newsroom server URL, e.g. `http://localhost:8000`.
+        #[arg(long)]
+        server: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -57,6 +65,7 @@ fn main() -> Result<()> {
         Command::Init { force } => init(force),
         Command::Enroll { server, force } => enroll(&server, force),
         Command::Replenish { server, count } => replenish(&server, count),
+        Command::Fetch { server } => fetch(&server),
     }
 }
 
@@ -203,6 +212,81 @@ fn append_ephemeral_secrets(bundles: &[EphemeralBundleBytes]) -> Result<()> {
         file.write_all(&bundle.as_bytes())?;
     }
     Ok(())
+}
+
+fn fetch(server: &str) -> Result<()> {
+    // Load the long term keys plus the retained ephemeral secrets
+    // The fetch key solves the challenges, and the ephemeral bundles decrypt the messages.
+    let mut journalist = load_journalist()?;
+    journalist.load_ephemeral_bundles(load_ephemeral_secrets()?);
+
+    let client = reqwest::blocking::Client::new();
+
+    // Fetch the challenge set and solve it with our fetch key.
+    let challenges: MessageChallengeFetchResponse = client
+        .get(format!("{server}/challenges"))
+        .send()
+        .with_context(|| format!("fetching {server}/challenges"))?
+        .error_for_status()
+        .context("newsroom rejected challenge request")?
+        .json()?;
+    let message_ids = journalist
+        .solve_fetch_challenges(&challenges.messages)
+        .context("solving fetch challenges")?;
+
+    if message_ids.is_empty() {
+        println!("No messages.");
+        return Ok(());
+    }
+
+    // Download and decrypt each message addressed to us.
+    println!("Found {} message(s).\n", message_ids.len());
+    for id in message_ids {
+        let envelope: Envelope = client
+            .get(format!("{server}/messages/{id}"))
+            .send()
+            .with_context(|| format!("fetching message {id}"))?
+            .error_for_status()
+            .context("newsroom rejected message download")?
+            .json()?;
+
+        let plaintext = decrypt(&journalist, &envelope);
+        let msg = strip_padding(&plaintext.msg);
+
+        println!("[{id}]");
+        println!("{}\n", String::from_utf8_lossy(msg));
+    }
+    Ok(())
+}
+
+/// Strip the trailing zero padding applied at submission time.
+///
+/// TODO: Fix the padding scheme so if a message actually ends in NUL bytes
+/// we don't lose data. We should length prefix it instead?
+fn strip_padding(msg: &[u8]) -> &[u8] {
+    let end = msg.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1);
+    &msg[..end]
+}
+
+/// Load the saved ephemeral secret bundles.
+fn load_ephemeral_secrets() -> Result<Vec<EphemeralBundleBytes>> {
+    let path = ephemeral_path()?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let bytes = fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+    if bytes.len() % EphemeralBundleBytes::LEN != 0 {
+        bail!(
+            "{} is corrupt: length {} is not a multiple of {}",
+            path.display(),
+            bytes.len(),
+            EphemeralBundleBytes::LEN
+        );
+    }
+    bytes
+        .chunks_exact(EphemeralBundleBytes::LEN)
+        .map(EphemeralBundleBytes::from_bytes)
+        .collect()
 }
 
 fn load_journalist() -> Result<Journalist> {
