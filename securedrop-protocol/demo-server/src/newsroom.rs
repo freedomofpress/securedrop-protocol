@@ -8,13 +8,16 @@ use anyhow::{Context, Result, bail};
 use axum::http::StatusCode;
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Path, State},
     routing::{get, post},
 };
 use rand_core::{OsRng, TryRngCore};
+use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
+use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
+use securedrop_protocol_minimal::storage::ServerMessageStore;
 use securedrop_protocol_minimal::wire::core::{
-    SourceJournalistKeyResponse, SourceNewsroomKeyResponse,
+    MessageChallengeFetchResponse, SourceJournalistKeyResponse, SourceNewsroomKeyResponse,
 };
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyRequest, JournalistEphemeralKeyResponse, JournalistSetupRequest,
@@ -51,7 +54,7 @@ struct AppState {
     /// Stored ephemeral key bundles, keyed by journalist verifying key
     ephemeral_keys: Arc<Mutex<HashMap<String, Vec<SignedKeyBundlePublic>>>>,
     /// Submitted messages, keyed by server-assigned message ID
-    messages: Arc<Mutex<HashMap<Uuid, Envelope>>>,
+    messages: Arc<Mutex<ServerMessageStore>>,
 }
 
 #[derive(Serialize)]
@@ -152,7 +155,7 @@ async fn serve(port: u16) -> Result<()> {
         fpf_sig,
         journalists: Arc::new(Mutex::new(HashMap::new())),
         ephemeral_keys: Arc::new(Mutex::new(HashMap::new())),
-        messages: Arc::new(Mutex::new(HashMap::new())),
+        messages: Arc::new(Mutex::new(ServerMessageStore::default())),
     };
 
     let app = Router::new()
@@ -163,6 +166,8 @@ async fn serve(port: u16) -> Result<()> {
         .route("/newsroom/journalists/keys", post(post_replenish))
         .route("/journalists/keys", get(get_journalist_keys))
         .route("/messages", post(post_message))
+        .route("/messages/:id", get(get_message))
+        .route("/challenges", get(get_challenges))
         .with_state(state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
@@ -329,6 +334,39 @@ async fn post_message(
     Json(MessageSubmitResponse {
         message_id: message_id.to_string(),
     })
+}
+
+/// Message ID fetch: the server returns a fixed size set of per-request
+/// challenges (encrypted message IDs + DH clues) computed over all stored
+/// messages, which only the intended recipient can solve with their fetch key.
+async fn get_challenges(State(state): State<AppState>) -> Json<MessageChallengeFetchResponse> {
+    let mut rng = OsRng.unwrap_err();
+    let store = state.messages.lock().expect("messages mutex poisoned");
+    let messages = compute_fetch_challenges(&mut rng, &store, MESSAGE_ID_FETCH_SIZE);
+
+    Json(MessageChallengeFetchResponse {
+        count: messages.len(),
+        messages,
+    })
+}
+
+/// Message download: the server returns the stored envelope for a
+/// message ID that a recipient recovered from the challenges.
+async fn get_message(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Envelope>, (StatusCode, String)> {
+    let message_id = Uuid::parse_str(id.trim())
+        .map_err(|_| (StatusCode::BAD_REQUEST, "invalid message ID".to_string()))?;
+
+    state
+        .messages
+        .lock()
+        .expect("messages mutex poisoned")
+        .get(&message_id)
+        .cloned()
+        .map(Json)
+        .ok_or((StatusCode::NOT_FOUND, "no such message".to_string()))
 }
 
 async fn shutdown_signal() {
