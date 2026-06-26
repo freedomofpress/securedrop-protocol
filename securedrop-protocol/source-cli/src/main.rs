@@ -6,10 +6,11 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::api::{Api, Client};
+use securedrop_protocol_minimal::encrypt_decrypt::decrypt;
 use securedrop_protocol_minimal::wire::core::{
-    SourceJournalistKeyResponse, SourceNewsroomKeyResponse,
+    MessageChallengeFetchResponse, SourceJournalistKeyResponse, SourceNewsroomKeyResponse,
 };
-use securedrop_protocol_minimal::{Source, UserPublic, VerifyingKey};
+use securedrop_protocol_minimal::{Envelope, Source, UserPublic, VerifyingKey};
 use serde::Deserialize;
 
 #[derive(Parser)]
@@ -39,6 +40,12 @@ enum Command {
         #[arg(short, long)]
         message: String,
     },
+    /// Fetch and decrypt replies addressed to this source.
+    Fetch {
+        /// Newsroom server URL.
+        #[arg(long)]
+        server: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -50,6 +57,7 @@ fn main() -> Result<()> {
             fpf_vk,
             message,
         } => submit(&server, &fpf_vk, &message),
+        Command::Fetch { server } => fetch(&server),
     }
 }
 
@@ -151,6 +159,55 @@ fn submit(server: &str, fpf_vk_hex: &str, message: &str) -> Result<()> {
         println!("Message ID: {id}");
     }
     Ok(())
+}
+
+fn fetch(server: &str) -> Result<()> {
+    let passphrase = read_passphrase()?;
+    let source = Source::from_passphrase(passphrase.trim())
+        .context("not a valid BIP39 recovery passphrase")?;
+    let client = reqwest::blocking::Client::new();
+
+    // Fetch the challenge set and solve it with our fetch key
+    let challenges: MessageChallengeFetchResponse = client
+        .get(format!("{server}/challenges"))
+        .send()
+        .with_context(|| format!("fetching {server}/challenges"))?
+        .error_for_status()
+        .context("newsroom rejected challenge request")?
+        .json()?;
+    let message_ids = source
+        .solve_fetch_challenges(&challenges.messages)
+        .context("solving fetch challenges")?;
+
+    if message_ids.is_empty() {
+        println!("No messages.");
+        return Ok(());
+    }
+
+    // Download and decrypt each reply addressed to us
+    println!("Found {} message(s).\n", message_ids.len());
+    for id in message_ids {
+        let envelope: Envelope = client
+            .get(format!("{server}/messages/{id}"))
+            .send()
+            .with_context(|| format!("fetching message {id}"))?
+            .error_for_status()
+            .context("newsroom rejected message download")?
+            .json()?;
+
+        let plaintext = decrypt(&source, &envelope);
+        let msg = strip_padding(&plaintext.msg);
+
+        println!("[{id}]");
+        println!("{}\n", String::from_utf8_lossy(msg));
+    }
+    Ok(())
+}
+
+/// Strip the trailing zero padding applied at submission time
+fn strip_padding(msg: &[u8]) -> &[u8] {
+    let end = msg.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1);
+    &msg[..end]
 }
 
 /// Obtain the source passphrase without persisting it: prefer the
