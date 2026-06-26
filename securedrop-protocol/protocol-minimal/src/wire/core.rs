@@ -51,6 +51,7 @@ pub struct MessageChallengeFetchRequest {}
 /// Server returns encrypted message IDs
 ///
 /// This corresponds to step 7 in the spec.
+#[derive(Serialize, Deserialize)]
 pub struct MessageChallengeFetchResponse {
     /// Number of message entries returned
     /// TODO: constant size array
