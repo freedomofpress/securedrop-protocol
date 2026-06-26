@@ -7,25 +7,24 @@ use alloc::vec::Vec;
 use anyhow::Error;
 use serde::{Deserialize, Serialize};
 
-/// Hex string serde for the fixed length DH pubkey byte arrays in [`Envelope`]
-mod hex_dh {
-    use super::DH_PUBLIC_KEY_LEN;
+/// Hex string serde for fixed length byte arrays
+mod hex_array {
     use alloc::string::String;
     use serde::de::Error as _;
     use serde::{Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer>(
-        bytes: &[u8; DH_PUBLIC_KEY_LEN],
+    pub fn serialize<const N: usize, S: Serializer>(
+        bytes: &[u8; N],
         ser: S,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&hex::encode(bytes))
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(
+    pub fn deserialize<'de, const N: usize, D: Deserializer<'de>>(
         de: D,
-    ) -> Result<[u8; DH_PUBLIC_KEY_LEN], D::Error> {
+    ) -> Result<[u8; N], D::Error> {
         let s = String::deserialize(de)?;
-        let mut out = [0u8; DH_PUBLIC_KEY_LEN];
+        let mut out = [0u8; N];
         hex::decode_to_slice(s.trim(), &mut out).map_err(D::Error::custom)?;
         Ok(out)
     }
@@ -47,11 +46,11 @@ pub struct Envelope {
     pub(crate) ct_pke: MetadataCiphertext,
 
     /// `X = g^x`: ephemeral DH public key for the hint
-    #[serde(with = "hex_dh")]
+    #[serde(with = "hex_array")]
     pub(crate) mgdh_pubkey: [u8; DH_PUBLIC_KEY_LEN],
 
     /// `Z = (pk_R^fetch)^x`: DH share for fetching
-    #[serde(with = "hex_dh")]
+    #[serde(with = "hex_array")]
     pub(crate) mgdh: [u8; DH_PUBLIC_KEY_LEN],
 }
 
@@ -121,9 +120,11 @@ impl Plaintext {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FetchResponse {
-    pub(crate) enc_id: [u8; LEN_KMID],            // aka kmid
+    #[serde(with = "hex_array")]
+    pub(crate) enc_id: [u8; LEN_KMID], // aka kmid
+    #[serde(with = "hex_array")]
     pub(crate) pmgdh: [u8; DH_SHARED_SECRET_LEN], // aka per-request clue
 }
 
@@ -193,6 +194,33 @@ mod tests {
             prop_assert_eq!(env.ct_pke.as_bytes(), restored.ct_pke.as_bytes());
             prop_assert_eq!(env.mgdh_pubkey, restored.mgdh_pubkey);
             prop_assert_eq!(env.mgdh, restored.mgdh);
+        }
+
+        #[test]
+        fn test_fetch_challenge_response_serde_roundtrip(
+            enc_ids in prop::collection::vec(
+                prop::collection::vec(any::<u8>(), LEN_KMID), 0..6),
+            pmgdhs in prop::collection::vec(prop::array::uniform32(any::<u8>()), 0..6),
+        ) {
+            let n = enc_ids.len().min(pmgdhs.len());
+            let messages: Vec<FetchResponse> = (0..n)
+                .map(|i| FetchResponse {
+                    enc_id: enc_ids[i].clone().try_into().expect("enc_id length"),
+                    pmgdh: pmgdhs[i],
+                })
+                .collect();
+            let resp = crate::wire::core::MessageChallengeFetchResponse { count: n, messages };
+
+            let json = serde_json::to_string(&resp).expect("serialize");
+            let restored: crate::wire::core::MessageChallengeFetchResponse =
+                serde_json::from_str(&json).expect("deserialize");
+
+            prop_assert_eq!(restored.count, resp.count);
+            prop_assert_eq!(restored.messages.len(), resp.messages.len());
+            for (a, b) in resp.messages.iter().zip(restored.messages.iter()) {
+                prop_assert_eq!(a.enc_id, b.enc_id);
+                prop_assert_eq!(a.pmgdh, b.pmgdh);
+            }
         }
     }
 }
