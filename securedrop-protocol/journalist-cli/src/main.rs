@@ -9,13 +9,16 @@ use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::api::{Api, JournalistApi};
-use securedrop_protocol_minimal::encrypt_decrypt::decrypt;
+use securedrop_protocol_minimal::encrypt_decrypt::{decrypt, decrypt_with_sender};
+use securedrop_protocol_minimal::metadata::MetadataPublicKey;
+use securedrop_protocol_minimal::primitives::x25519::DHPublicKey;
 use securedrop_protocol_minimal::wire::core::MessageChallengeFetchResponse;
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyResponse, JournalistSetupRequest, JournalistSetupResponse,
 };
 use securedrop_protocol_minimal::{
-    Enrollable, Envelope, EphemeralBundleBytes, Journalist, JournalistLongTermBytes, VerifyingKey,
+    Enrollable, Envelope, EphemeralBundleBytes, Journalist, JournalistLongTermBytes,
+    SourcePublicView, VerifyingKey,
 };
 use serde::Deserialize;
 
@@ -58,6 +61,18 @@ enum Command {
         #[arg(long)]
         server: String,
     },
+    /// Reply to a source message (identified by its message ID from `fetch`).
+    Reply {
+        /// Newsroom server URL, e.g. `http://localhost:8000`.
+        #[arg(long)]
+        server: String,
+        /// The message ID to reply to, as printed by `fetch`.
+        #[arg(long = "message-id")]
+        message_id: String,
+        /// The reply text to send.
+        #[arg(short, long)]
+        message: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -66,12 +81,22 @@ fn main() -> Result<()> {
         Command::Enroll { server, force } => enroll(&server, force),
         Command::Replenish { server, count } => replenish(&server, count),
         Command::Fetch { server } => fetch(&server),
+        Command::Reply {
+            server,
+            message_id,
+            message,
+        } => reply(&server, &message_id, &message),
     }
 }
 
 #[derive(Deserialize)]
 struct NewsroomInfo {
     verifying_key: String,
+}
+
+#[derive(Deserialize)]
+struct MessageSubmitResponse {
+    message_id: String,
 }
 
 fn init(force: bool) -> Result<()> {
@@ -256,6 +281,51 @@ fn fetch(server: &str) -> Result<()> {
         println!("[{id}]");
         println!("{}\n", String::from_utf8_lossy(msg));
     }
+    Ok(())
+}
+
+fn reply(server: &str, message_id: &str, message: &str) -> Result<()> {
+    let mut journalist = load_journalist()?;
+    journalist.load_ephemeral_bundles(load_ephemeral_secrets()?);
+
+    let client = reqwest::blocking::Client::new();
+
+    // Download the source's message and decrypt it and get the source's
+    // reply keys (their fetch key, APKE key, and metadata key).
+    let envelope: Envelope = client
+        .get(format!("{server}/messages/{message_id}"))
+        .send()
+        .with_context(|| format!("fetching message {message_id}"))?
+        .error_for_status()
+        .context("newsroom rejected message download")?
+        .json()?;
+
+    let (plaintext, sender_apke) = decrypt_with_sender(&journalist, &envelope);
+
+    let source = SourcePublicView::from_reply_keys(
+        DHPublicKey::from_bytes(plaintext.sender_fetch_key),
+        sender_apke,
+        MetadataPublicKey::from_bytes(&plaintext.sender_reply_pubkey_hybrid)
+            .context("recovered source metadata key is malformed")?,
+    );
+
+    // Encrypt the reply back to the source and submit it.
+    let mut rng = OsRng.unwrap_err();
+    let reply_envelope = journalist
+        .submit_message(&mut rng, message.as_bytes(), &journalist, &source)
+        .context("encrypting reply")?;
+
+    let submitted: MessageSubmitResponse = client
+        .post(format!("{server}/messages"))
+        .json(&reply_envelope)
+        .send()
+        .context("submitting reply")?
+        .error_for_status()
+        .context("newsroom rejected reply")?
+        .json()?;
+
+    println!("Reply submitted to {server}.\n");
+    println!("Message ID: {}", submitted.message_id);
     Ok(())
 }
 
