@@ -7,19 +7,21 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
-use rand_core::{OsRng, TryRngCore};
+use rand_core::{CryptoRng, OsRng, RngCore, TryRngCore};
 use securedrop_protocol_minimal::api::{Api, JournalistApi};
 use securedrop_protocol_minimal::encrypt_decrypt::decrypt_with_sender;
 use securedrop_protocol_minimal::message::MessagePublicKey;
 use securedrop_protocol_minimal::metadata::MetadataPublicKey;
 use securedrop_protocol_minimal::primitives::x25519::DHPublicKey;
-use securedrop_protocol_minimal::wire::core::MessageChallengeFetchResponse;
+use securedrop_protocol_minimal::wire::core::{
+    MessageChallengeFetchResponse, SourceJournalistKeyResponse,
+};
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyResponse, JournalistSetupRequest, JournalistSetupResponse,
 };
 use securedrop_protocol_minimal::{
     Enrollable, Envelope, EphemeralBundleBytes, Journalist, JournalistLongTermBytes,
-    SourcePublicView, VerifyingKey,
+    JournalistPublic, SourcePublicView, UserPublic, VerifyingKey,
 };
 use serde::{Deserialize, Serialize};
 
@@ -332,6 +334,7 @@ fn fetch(server: &str) -> Result<()> {
 
 fn reply(server: &str, message_id: &str, message: &str) -> Result<()> {
     let journalist = load_journalist()?;
+    let own_vk = journalist.signing_key().into_bytes();
 
     let inbox = load_inbox()?;
     let entry = inbox
@@ -345,25 +348,85 @@ fn reply(server: &str, message_id: &str, message: &str) -> Result<()> {
         entry.sender_metadata_pk.clone(),
     );
 
-    // Encrypt the reply back to the source and submit it.
+    let newsroom_vk = load_newsroom_vk()?;
+    let client = reqwest::blocking::Client::new();
+
+    let journalists: Vec<SourceJournalistKeyResponse> = client
+        .get(format!("{server}/journalists/keys"))
+        .send()
+        .with_context(|| format!("fetching {server}/journalists/keys"))?
+        .error_for_status()
+        .context("newsroom rejected journalist key request")?
+        .json()?;
+
+    let mut co_journalists = Vec::new();
+    for resp in &journalists {
+        // Don't reply to ourselves.
+        if resp.journalist.verifying_key().into_bytes() == own_vk {
+            continue;
+        }
+        journalist
+            .handle_journalist_key_response(resp, &newsroom_vk)
+            .context("co-journalist key response failed verification")?;
+        co_journalists.push(resp);
+    }
+
+    // Send the reply to the source and to every other journalist so they have the convo history
     let mut rng = OsRng.unwrap_err();
-    let reply_envelope = journalist
-        .submit_message(&mut rng, message.as_bytes(), &journalist, &source)
+    let mut message_ids = Vec::new();
+    message_ids.push(send_reply(
+        &client,
+        server,
+        &journalist,
+        &source,
+        message,
+        &mut rng,
+    )?);
+    for resp in co_journalists {
+        message_ids.push(send_reply(
+            &client,
+            server,
+            &journalist,
+            &resp.journalist,
+            message,
+            &mut rng,
+        )?);
+    }
+
+    println!(
+        "Reply submitted to {} recipient(s) (source + {} other journalist(s)) at {server}.\n",
+        message_ids.len(),
+        message_ids.len() - 1
+    );
+    for id in &message_ids {
+        println!("Message ID: {id}");
+    }
+    Ok(())
+}
+
+/// Encrypt `message` from the journalist to one recipient and submit the envelope,
+/// returning the message ID.
+fn send_reply<R: RngCore + CryptoRng, P: UserPublic>(
+    client: &reqwest::blocking::Client,
+    server: &str,
+    journalist: &Journalist,
+    recipient: &P,
+    message: &str,
+    rng: &mut R,
+) -> Result<String> {
+    let envelope = journalist
+        .submit_message(rng, message.as_bytes(), journalist, recipient)
         .context("encrypting reply")?;
 
-    let client = reqwest::blocking::Client::new();
     let submitted: MessageSubmitResponse = client
         .post(format!("{server}/messages"))
-        .json(&reply_envelope)
+        .json(&envelope)
         .send()
         .context("submitting reply")?
         .error_for_status()
         .context("newsroom rejected reply")?
         .json()?;
-
-    println!("Reply submitted to {server}.\n");
-    println!("Message ID: {}", submitted.message_id);
-    Ok(())
+    Ok(submitted.message_id)
 }
 
 /// Strip the trailing zero padding applied at submission time.
@@ -402,6 +465,17 @@ fn load_journalist() -> Result<Journalist> {
         .with_context(|| format!("reading {} (run `init` first)", path.display()))?;
     let parts = JournalistLongTermBytes::from_bytes(&bytes)?;
     Ok(Journalist::from_long_term_bytes(parts))
+}
+
+/// Load the newsroom verifying key
+fn load_newsroom_vk() -> Result<VerifyingKey> {
+    let path = newsroom_vk_path()?;
+    let bytes = fs::read(&path)
+        .with_context(|| format!("reading {} (run `enroll` first)", path.display()))?;
+    let vk_bytes: [u8; 32] = bytes
+        .try_into()
+        .map_err(|v: Vec<u8>| anyhow::anyhow!("newsroom vk is {} bytes, expected 32", v.len()))?;
+    Ok(VerifyingKey::from_bytes(vk_bytes))
 }
 
 /// Load the locally retained inbox of received messages
