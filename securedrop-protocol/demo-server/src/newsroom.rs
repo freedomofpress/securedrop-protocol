@@ -11,6 +11,7 @@ use axum::{
     extract::{Path, State},
     routing::{get, post},
 };
+use rand::Rng;
 use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
@@ -293,12 +294,14 @@ async fn get_journalist_keys(
         .lock()
         .expect("ephemeral_keys mutex poisoned");
 
+    let mut rng = OsRng.unwrap_err();
     let mut responses = Vec::new();
     for (vk_hex, enrolled) in journalists.iter() {
-        // Consume one one-time ephemeral bundle and skip any journos with no bundles left.
-        let Some(bundle) = ephemeral_keys.get_mut(vk_hex).and_then(Vec::pop) else {
+        let Some(bundles) = ephemeral_keys.get_mut(vk_hex).filter(|b| !b.is_empty()) else {
             continue;
         };
+        let idx = rng.random_range(0..bundles.len());
+        let bundle = bundles.swap_remove(idx);
 
         let e = &enrolled.enrollment;
         let journalist = JournalistPublicView::new(
