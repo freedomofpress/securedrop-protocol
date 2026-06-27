@@ -184,7 +184,8 @@ fn fetch(server: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Download and decrypt each reply addressed to us
+    // Download and decrypt each reply addressed to us, then delete it from the
+    // server.
     println!("Found {} message(s).\n", message_ids.len());
     for id in message_ids {
         let envelope: Envelope = client
@@ -200,6 +201,14 @@ fn fetch(server: &str) -> Result<()> {
 
         println!("[{id}]");
         println!("{}\n", String::from_utf8_lossy(msg));
+
+        // Confirm receipt by deleting the server's copy.
+        client
+            .delete(format!("{server}/messages/{id}"))
+            .send()
+            .with_context(|| format!("deleting message {id}"))?
+            .error_for_status()
+            .context("newsroom rejected message deletion")?;
     }
     Ok(())
 }
