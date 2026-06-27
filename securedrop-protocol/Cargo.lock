@@ -1696,6 +1696,7 @@ dependencies = [
  "reqwest",
  "securedrop-protocol-minimal",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
