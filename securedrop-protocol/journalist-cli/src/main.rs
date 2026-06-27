@@ -9,7 +9,8 @@ use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::api::{Api, JournalistApi};
-use securedrop_protocol_minimal::encrypt_decrypt::{decrypt, decrypt_with_sender};
+use securedrop_protocol_minimal::encrypt_decrypt::decrypt_with_sender;
+use securedrop_protocol_minimal::message::MessagePublicKey;
 use securedrop_protocol_minimal::metadata::MetadataPublicKey;
 use securedrop_protocol_minimal::primitives::x25519::DHPublicKey;
 use securedrop_protocol_minimal::wire::core::MessageChallengeFetchResponse;
@@ -20,7 +21,7 @@ use securedrop_protocol_minimal::{
     Enrollable, Envelope, EphemeralBundleBytes, Journalist, JournalistLongTermBytes,
     SourcePublicView, VerifyingKey,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Parser)]
 #[command(name = "journalist-cli", about = "Demo SecureDrop journalist client")]
@@ -97,6 +98,20 @@ struct NewsroomInfo {
 #[derive(Deserialize)]
 struct MessageSubmitResponse {
     message_id: String,
+}
+
+/// A received message retained locally after `fetch` deletes it from the server.
+///
+/// Stores the decrypted text and the source's recovered reply keys
+/// (so reply can encrypt back to them without DLing from the server,
+/// because the server no longer has the message).
+#[derive(Serialize, Deserialize)]
+struct InboxEntry {
+    message_id: String,
+    text: String,
+    sender_fetch_pk: DHPublicKey,
+    sender_apke_pk: MessagePublicKey,
+    sender_metadata_pk: MetadataPublicKey,
 }
 
 fn init(force: bool) -> Result<()> {
@@ -259,14 +274,16 @@ fn fetch(server: &str) -> Result<()> {
         .solve_fetch_challenges(&challenges.messages)
         .context("solving fetch challenges")?;
 
-    if message_ids.is_empty() {
-        println!("No messages.");
-        return Ok(());
-    }
-
-    // Download and decrypt each message addressed to us.
-    println!("Found {} message(s).\n", message_ids.len());
+    // Download and decrypt anything new, persist it locally, then delete it from
+    // the server.
+    let mut inbox = load_inbox()?;
+    let mut new_count = 0;
     for id in message_ids {
+        let id_str = id.to_string();
+        if inbox.iter().any(|e| e.message_id == id_str) {
+            continue;
+        }
+
         let envelope: Envelope = client
             .get(format!("{server}/messages/{id}"))
             .send()
@@ -275,38 +292,57 @@ fn fetch(server: &str) -> Result<()> {
             .context("newsroom rejected message download")?
             .json()?;
 
-        let plaintext = decrypt(&journalist, &envelope);
-        let msg = strip_padding(&plaintext.msg);
+        let (plaintext, sender_apke) = decrypt_with_sender(&journalist, &envelope);
+        let text = String::from_utf8_lossy(strip_padding(&plaintext.msg)).into_owned();
+        let sender_metadata_pk =
+            MetadataPublicKey::from_bytes(&plaintext.sender_reply_pubkey_hybrid)
+                .context("recovered source metadata key is malformed")?;
 
-        println!("[{id}]");
-        println!("{}\n", String::from_utf8_lossy(msg));
+        inbox.push(InboxEntry {
+            message_id: id_str,
+            text,
+            sender_fetch_pk: DHPublicKey::from_bytes(plaintext.sender_fetch_key),
+            sender_apke_pk: sender_apke,
+            sender_metadata_pk,
+        });
+        new_count += 1;
+
+        // Confirm receipt by deleting the server's copy.
+        client
+            .delete(format!("{server}/messages/{id}"))
+            .send()
+            .with_context(|| format!("deleting message {id}"))?
+            .error_for_status()
+            .context("newsroom rejected message deletion")?;
+    }
+    save_inbox(&inbox)?;
+
+    if inbox.is_empty() {
+        println!("No messages.");
+        return Ok(());
+    }
+
+    println!("{} new message(s); {} in inbox.\n", new_count, inbox.len());
+    for entry in &inbox {
+        println!("[{}]", entry.message_id);
+        println!("{}\n", entry.text);
     }
     Ok(())
 }
 
 fn reply(server: &str, message_id: &str, message: &str) -> Result<()> {
-    let mut journalist = load_journalist()?;
-    journalist.load_ephemeral_bundles(load_ephemeral_secrets()?);
+    let journalist = load_journalist()?;
 
-    let client = reqwest::blocking::Client::new();
-
-    // Download the source's message and decrypt it and get the source's
-    // reply keys (their fetch key, APKE key, and metadata key).
-    let envelope: Envelope = client
-        .get(format!("{server}/messages/{message_id}"))
-        .send()
-        .with_context(|| format!("fetching message {message_id}"))?
-        .error_for_status()
-        .context("newsroom rejected message download")?
-        .json()?;
-
-    let (plaintext, sender_apke) = decrypt_with_sender(&journalist, &envelope);
+    let inbox = load_inbox()?;
+    let entry = inbox
+        .iter()
+        .find(|e| e.message_id == message_id)
+        .with_context(|| format!("message {message_id} not found in inbox: run `fetch`"))?;
 
     let source = SourcePublicView::from_reply_keys(
-        DHPublicKey::from_bytes(plaintext.sender_fetch_key),
-        sender_apke,
-        MetadataPublicKey::from_bytes(&plaintext.sender_reply_pubkey_hybrid)
-            .context("recovered source metadata key is malformed")?,
+        entry.sender_fetch_pk.clone(),
+        entry.sender_apke_pk.clone(),
+        entry.sender_metadata_pk.clone(),
     );
 
     // Encrypt the reply back to the source and submit it.
@@ -315,6 +351,7 @@ fn reply(server: &str, message_id: &str, message: &str) -> Result<()> {
         .submit_message(&mut rng, message.as_bytes(), &journalist, &source)
         .context("encrypting reply")?;
 
+    let client = reqwest::blocking::Client::new();
     let submitted: MessageSubmitResponse = client
         .post(format!("{server}/messages"))
         .json(&reply_envelope)
@@ -367,6 +404,26 @@ fn load_journalist() -> Result<Journalist> {
     Ok(Journalist::from_long_term_bytes(parts))
 }
 
+/// Load the locally retained inbox of received messages
+fn load_inbox() -> Result<Vec<InboxEntry>> {
+    let path = inbox_path()?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let bytes = fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+    serde_json::from_slice(&bytes).with_context(|| format!("parsing {}", path.display()))
+}
+
+/// Persist the inbox of received messages
+fn save_inbox(inbox: &[InboxEntry]) -> Result<()> {
+    let path = inbox_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let json = serde_json::to_vec_pretty(inbox).context("serializing inbox")?;
+    write_secret(&path, &json)
+}
+
 fn data_dir() -> Result<PathBuf> {
     let dirs = ProjectDirs::from("press", "freedom", "securedrop-journalist")
         .context("locating a home directory for the data dir")?;
@@ -379,6 +436,10 @@ fn long_term_path() -> Result<PathBuf> {
 
 fn ephemeral_path() -> Result<PathBuf> {
     Ok(data_dir()?.join("ephemeral.bin"))
+}
+
+fn inbox_path() -> Result<PathBuf> {
+    Ok(data_dir()?.join("inbox.json"))
 }
 
 fn newsroom_vk_path() -> Result<PathBuf> {
