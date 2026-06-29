@@ -1,0 +1,46 @@
+module Libcrux_ml_kem.Vector.Neon.Vector_type
+#set-options "--fuel 0 --ifuel 1 --z3rlimit 15"
+open FStar.Mul
+open Core_models
+
+type t_SIMD128Vector = {
+  f_low:u8;
+  f_high:u8
+}
+
+val repr (x:t_SIMD128Vector) : t_Array i16 (sz 16)
+
+let impl: Core_models.Clone.t_Clone t_SIMD128Vector =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+val impl_1:Core_models.Marker.t_Copy t_SIMD128Vector
+
+val to_i16_array (v: t_SIMD128Vector)
+    : Prims.Pure (t_Array i16 (mk_usize 16))
+      Prims.l_True
+      (ensures
+        fun result ->
+          let result:t_Array i16 (mk_usize 16) = result in
+          result == repr v)
+
+val from_i16_array (array: t_Slice i16)
+    : Prims.Pure t_SIMD128Vector
+      Prims.l_True
+      (ensures
+        fun result ->
+          let result:t_SIMD128Vector = result in
+          repr result == array)
+
+val to_bytes (v: t_SIMD128Vector) (bytes: t_Slice u8)
+    : Prims.Pure (t_Slice u8) Prims.l_True (fun _ -> Prims.l_True)
+
+val from_bytes (array: t_Slice u8) : Prims.Pure t_SIMD128Vector Prims.l_True (fun _ -> Prims.l_True)
+
+val v_ZERO: Prims.unit
+  -> Prims.Pure t_SIMD128Vector
+      Prims.l_True
+      (ensures
+        fun result ->
+          let result:t_SIMD128Vector = result in
+          repr result == Seq.create 16 (mk_i16 0))

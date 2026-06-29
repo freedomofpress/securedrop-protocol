@@ -44,8 +44,8 @@ pub(crate) fn from_bytes(
     seed: [u8; KEY_GENERATION_SEED_SIZE],
 ) -> Result<(MLKEM768PrivateKey, MLKEM768PublicKey), anyhow::Error> {
     let (sk, pk) = mlkem768::generate_key_pair(seed).into_parts();
-    let mlkem_encaps = MLKEM768PublicKey::from_bytes(pk.into());
-    let mlkem_decaps = MLKEM768PrivateKey::from_bytes(sk.into());
+    let mlkem_encaps = MLKEM768PublicKey::from_bytes(*pk.as_slice());
+    let mlkem_decaps = MLKEM768PrivateKey::from_bytes(*sk.as_slice());
 
     Ok((mlkem_decaps, mlkem_encaps))
 }

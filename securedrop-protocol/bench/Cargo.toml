@@ -40,3 +40,6 @@ default = []
 [[bench]]
 name = "manual"
 harness = false
+
+[lints]
+workspace = true

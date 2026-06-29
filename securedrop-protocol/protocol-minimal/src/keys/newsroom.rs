@@ -8,6 +8,9 @@ pub struct NewsroomKeyPair {
     sk: SigningKey,
 }
 
+// hax struggles with the debug format function signature, but it is
+// debug only, so we can exclude it from extraction
+#[cfg_attr(hax, hax_lib::exclude)]
 impl core::fmt::Debug for NewsroomKeyPair {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // Redacts secret key
@@ -18,8 +21,8 @@ impl core::fmt::Debug for NewsroomKeyPair {
 }
 
 impl NewsroomKeyPair {
-    pub fn new<R: RngCore + CryptoRng>(mut rng: R) -> Result<Self, anyhow::Error> {
-        let sk = SigningKey::new(&mut rng)?;
+    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, anyhow::Error> {
+        let sk = SigningKey::new(rng)?;
         let vk = sk.vk;
         Ok(Self { sk, vk })
     }

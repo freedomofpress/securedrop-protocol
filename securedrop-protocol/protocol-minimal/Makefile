@@ -2,16 +2,13 @@
 # "securedrop_protocol_minimal" crate, as documented here:
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-modules-extracted-from-protocol-minimal
 
-HAX_TARGETS := -**
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::dh_akem::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::mlkem::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::xwing::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::x25519::typed
-HAX_TARGETS += +securedrop_protocol_minimal::primitives::pad::**
-HAX_TARGETS += +securedrop_protocol_minimal::message::**
-HAX_TARGETS += +securedrop_protocol_minimal::metadata::**
-HAX_TARGETS += +securedrop_protocol_minimal::ciphertext::**
-HAX_TARGETS += +securedrop_protocol_minimal::constants::**
+HAX_TARGETS := +**
+HAX_TARGETS += -securedrop_protocol_minimal::storage::**
+HAX_TARGETS += -securedrop_protocol_minimal::server::**
+# We keep in the `Client` trait which is used by the source and journalist modules
+# but keep out the other traits which don't extract
+HAX_TARGETS += -securedrop_protocol_minimal::api::**
+HAX_TARGETS += +securedrop_protocol_minimal::api::Client
 
 # Admit modules we extract but that fail panic freedom:
 HAX_ADMITS := Securedrop_protocol_minimal.Message.fst

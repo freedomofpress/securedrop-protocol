@@ -1,14 +1,15 @@
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use crate::primitives::provider::{
-    self,
-    ed25519::{LibCruxSigningKey, LibCruxVerifyingKey},
-};
 use anyhow::Error;
 use rand_core::CryptoRng;
 
+use crate::primitives::provider;
+
+const KEY_LEN_ED25519: usize = 32;
+
 // Sealing module: prevents external crates from implementing `DomainTag`.
+#[cfg(not(hax))]
 mod private {
     pub trait Sealed {}
 }
@@ -17,9 +18,15 @@ mod private {
 ///
 /// Each impl encodes the ASCII tag that is prepended to every signing preimage
 /// in that domain: `len(tag) || tag || msg`  (see footnote in the spec).
+#[cfg(not(hax))]
 pub trait DomainTag: private::Sealed {
     #[doc(hidden)]
-    const TAG: &'static [u8];
+    fn tag() -> &'static [u8];
+}
+#[cfg(hax)]
+pub trait DomainTag {
+    #[doc(hidden)]
+    fn tag() -> &'static [u8];
 }
 
 /// Journalist self-signature over long-term public keys (step 3.1).
@@ -38,22 +45,35 @@ pub struct NewsroomOnJournalist;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FpfOnNewsroom;
 
-impl private::Sealed for JournalistLongTermKey {}
-impl private::Sealed for JournalistEphemeralKey {}
-impl private::Sealed for NewsroomOnJournalist {}
-impl private::Sealed for FpfOnNewsroom {}
+#[cfg(not(hax))]
+mod sealed_impls {
+    use super::*;
+
+    impl private::Sealed for JournalistLongTermKey {}
+    impl private::Sealed for JournalistEphemeralKey {}
+    impl private::Sealed for NewsroomOnJournalist {}
+    impl private::Sealed for FpfOnNewsroom {}
+}
 
 impl DomainTag for JournalistLongTermKey {
-    const TAG: &'static [u8] = b"j-sig-ltk";
+    fn tag() -> &'static [u8] {
+        b"j-sig-ltk"
+    }
 }
 impl DomainTag for JournalistEphemeralKey {
-    const TAG: &'static [u8] = b"j-sig-eph";
+    fn tag() -> &'static [u8] {
+        b"j-sig-eph"
+    }
 }
 impl DomainTag for NewsroomOnJournalist {
-    const TAG: &'static [u8] = b"nr-sig";
+    fn tag() -> &'static [u8] {
+        b"nr-sig"
+    }
 }
 impl DomainTag for FpfOnNewsroom {
-    const TAG: &'static [u8] = b"fpf-sig-nr";
+    fn tag() -> &'static [u8] {
+        b"fpf-sig-nr"
+    }
 }
 
 /// An Ed25519 signature carrying its domain at the type level.
@@ -63,7 +83,9 @@ impl DomainTag for FpfOnNewsroom {
 /// runtime failure.
 pub struct Signature<D: DomainTag> {
     bytes: [u8; 64],
-    _phantom: PhantomData<fn() -> D>,
+    // `PhantomData<D>` rather than `PhantomData<fn() -> D>`: the function type
+    // has no decidable equality in F*, which blocks `t_Signature` extraction.
+    _phantom: PhantomData<D>,
 }
 
 impl<D: DomainTag> Copy for Signature<D> {}
@@ -72,6 +94,10 @@ impl<D: DomainTag> Clone for Signature<D> {
         *self
     }
 }
+
+// hax struggles with the debug format function signature, but it is
+// debug only, so we can exclude it from extraction
+#[cfg_attr(hax, hax_lib::exclude)]
 impl<D: DomainTag> core::fmt::Debug for Signature<D> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("Signature").field(&self.bytes).finish()
@@ -82,6 +108,10 @@ impl<D: DomainTag> PartialEq for Signature<D> {
         self.bytes == other.bytes
     }
 }
+// `Signature<D>` carries `PhantomData<fn() -> D>`, a function type with no
+// decidable equality in F*; the `Eq` marker would force `t_Signature` to be an
+// eqtype and fail extraction. We only need value equality (`PartialEq`, above).
+#[cfg(not(hax))]
 impl<D: DomainTag> Eq for Signature<D> {}
 
 impl<D: DomainTag> Signature<D> {
@@ -94,10 +124,14 @@ impl<D: DomainTag> Signature<D> {
 }
 
 /// Construct the tagged signing preimage: `len(tag) || tag || msg`.
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 fn tagged_preimage<D: DomainTag>(msg: &[u8]) -> Vec<u8> {
-    let tag = D::TAG;
-    debug_assert!(tag.len() <= 255, "tag length exceeds u8::MAX");
-    debug_assert!(tag.is_ascii(), "tag contains non-ASCII bytes");
+    let tag = D::tag();
+    #[cfg(not(hax))]
+    {
+        debug_assert!(tag.len() <= 255, "tag length exceeds u8::MAX");
+        debug_assert!(tag.is_ascii(), "tag contains non-ASCII bytes");
+    }
     let mut preimage = Vec::with_capacity(1 + tag.len() + msg.len());
     preimage.push(tag.len() as u8);
     preimage.extend_from_slice(tag);
@@ -105,12 +139,41 @@ fn tagged_preimage<D: DomainTag>(msg: &[u8]) -> Vec<u8> {
     preimage
 }
 
+/// An Ed25519 verification key.
+#[derive(Copy, Clone)]
+pub struct VerifyingKey([u8; KEY_LEN_ED25519]);
+
 /// An Ed25519 signing key.
-pub struct SigningKey {
-    pub vk: VerifyingKey,
-    sk: LibCruxSigningKey,
+pub(crate) struct SigningSecretKey([u8; KEY_LEN_ED25519]);
+
+impl VerifyingKey {
+    pub(crate) fn as_bytes(&self) -> &[u8; KEY_LEN_ED25519] {
+        &self.0
+    }
+
+    pub(crate) fn from_bytes(bytes: [u8; KEY_LEN_ED25519]) -> Self {
+        Self(bytes)
+    }
 }
 
+impl SigningSecretKey {
+    pub(crate) fn as_bytes(&self) -> &[u8; KEY_LEN_ED25519] {
+        &self.0
+    }
+
+    pub(crate) fn from_bytes(bytes: [u8; KEY_LEN_ED25519]) -> Self {
+        Self(bytes)
+    }
+}
+
+pub struct SigningKey {
+    pub vk: VerifyingKey,
+    sk: SigningSecretKey,
+}
+
+// hax struggles with the debug format function signature, but it is
+// debug only, so we can exclude it from extraction
+#[cfg_attr(hax, hax_lib::exclude)]
 impl core::fmt::Debug for SigningKey {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("SigningKey")
@@ -119,10 +182,9 @@ impl core::fmt::Debug for SigningKey {
     }
 }
 
-/// An Ed25519 verification key.
-#[derive(Copy, Clone)]
-pub struct VerifyingKey(LibCruxVerifyingKey);
-
+// hax struggles with the debug format function signature, but it is
+// debug only, so we can exclude it from extraction
+#[cfg_attr(hax, hax_lib::exclude)]
 impl core::fmt::Debug for VerifyingKey {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("VerifyingKey")
@@ -134,11 +196,10 @@ impl core::fmt::Debug for VerifyingKey {
 impl SigningKey {
     /// Generate a signing key from the supplied `rng`.
     pub fn new<R: CryptoRng>(rng: &mut R) -> Result<SigningKey, Error> {
-        let (sk, vk) = provider::ed25519::generate_key_pair(rng)
-            .map_err(|_| anyhow::anyhow!("Key generation failed"))?;
+        let (sk, vk) = provider::ed25519::keygen(rng)?;
         Ok(SigningKey {
             vk: VerifyingKey(vk),
-            sk,
+            sk: SigningSecretKey(sk),
         })
     }
 
@@ -147,8 +208,7 @@ impl SigningKey {
     /// The actual preimage is `len(tag) || tag || msg` where `tag = D::TAG`.
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         let preimage = tagged_preimage::<D>(msg);
-        let bytes = provider::ed25519::sign(&preimage, self.sk.as_ref())
-            .expect("Signing should not fail with valid key");
+        let bytes = provider::ed25519::sign(&preimage, self.sk.as_bytes());
         Signature::from_bytes(bytes)
     }
 }
@@ -156,7 +216,7 @@ impl SigningKey {
 impl VerifyingKey {
     /// Get the raw bytes of this verification key.
     pub fn into_bytes(self) -> [u8; 32] {
-        self.0.into_bytes()
+        self.0
     }
 
     /// Verify `sig` over `msg`. The domain is determined by the type of `sig`.
@@ -164,7 +224,7 @@ impl VerifyingKey {
     /// Returns an error if the signature is invalid.
     pub fn verify<D: DomainTag>(&self, msg: &[u8], sig: &Signature<D>) -> Result<(), Error> {
         let preimage = tagged_preimage::<D>(msg);
-        provider::ed25519::verify(&preimage, self.0.as_ref(), &sig.bytes)
+        provider::ed25519::verify(&preimage, self.as_bytes(), &sig.bytes)
             .map_err(|_| anyhow::anyhow!("Signature verification failed"))
     }
 }

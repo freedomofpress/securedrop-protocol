@@ -29,14 +29,97 @@ pub mod curve25519 {
 }
 
 pub mod ed25519 {
+    use rand_core::CryptoRng;
 
+    /// Generate an ed25519 keypair
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) use libcrux_ed25519::{
-        SigningKey as LibCruxSigningKey, VerificationKey as LibCruxVerifyingKey,
-    };
+    pub(crate) fn keygen<R: CryptoRng>(rng: &mut R) -> Result<([u8; 32], [u8; 32]), anyhow::Error> {
+        let (sk, vk) = libcrux_ed25519::generate_key_pair(rng)
+            .map_err(|_| anyhow::anyhow!("Key generation failed"))?;
+        Ok((sk.into_bytes(), vk.into_bytes()))
+    }
 
+    /// Sign `payload` with Ed25519 secret key bytes.
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) use libcrux_ed25519::{generate_key_pair, sign, verify};
+    pub(crate) fn sign(payload: &[u8], private_key: &[u8; 32]) -> [u8; 64] {
+        libcrux_ed25519::sign(payload, private_key).expect("Ed25519 signing is infallible")
+    }
+
+    /// Verify an Ed25519 `signature` over `payload` with verifying key bytes.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn verify(
+        payload: &[u8],
+        public_key: &[u8; 32],
+        signature: &[u8; 64],
+    ) -> Result<(), anyhow::Error> {
+        libcrux_ed25519::verify(payload, public_key, signature)
+            .map_err(|_| anyhow::anyhow!("Signature verification failed"))
+    }
+}
+
+pub mod argon2 {
+
+    /// Derive a 64-byte master key from `passphrase` and `salt` via Argon2id
+    /// using OWASP-recommended params
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn derive_master_key(passphrase: &[u8], salt: &[u8]) -> [u8; 64] {
+        let params = ::argon2::Params::new(19456, 2, 1, Some(64)).expect("valid Argon2id params");
+        let hasher = ::argon2::Argon2::new(
+            ::argon2::Algorithm::Argon2id,
+            ::argon2::Version::V0x13,
+            params,
+        );
+        let mut mk = [0u8; 64];
+        hasher
+            .hash_password_into(passphrase, salt, &mut mk)
+            .expect("Argon2id master key derivation failed");
+        mk
+    }
+}
+
+pub mod blake2 {
+
+    /// Domain-separated KDF: `Blake2b(domain || input)` truncated to 32 bytes
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn derive32(domain: &[u8], input: &[u8]) -> [u8; 32] {
+        use ::blake2::{Blake2b, Digest};
+        let mut h = Blake2b::<::blake2::digest::typenum::U32>::new();
+        h.update(domain);
+        h.update(input);
+        h.finalize().into()
+    }
+
+    /// Domain-separated KDF: `Blake2b(domain || input)` truncated to 64 bytes
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn derive64(domain: &[u8], input: &[u8]) -> [u8; 64] {
+        use ::blake2::{Blake2b, Digest};
+        let mut h = Blake2b::<::blake2::digest::typenum::U64>::new();
+        h.update(domain);
+        h.update(input);
+        h.finalize().into()
+    }
+}
+
+pub mod rng {
+    use rand_core::{CryptoRng, RngCore};
+
+    /// Fill `dest` with random bytes from `rng`
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn fill_bytes<R: RngCore + CryptoRng, const N: usize>(
+        rng: &mut R,
+        dest: &mut [u8; N],
+    ) {
+        rng.fill_bytes(dest);
+    }
+}
+
+pub mod uuid_parse {
+
+    /// Parse a `Uuid` from bytes
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn from_slice(bytes: &[u8]) -> ::uuid::Uuid {
+        ::uuid::Uuid::from_slice(bytes).expect("message id must be 16 bytes")
+    }
 }
 
 pub mod kem {
