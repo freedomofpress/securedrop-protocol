@@ -1677,10 +1677,12 @@ dependencies = [
  "clap",
  "directories",
  "hex",
+ "rand 0.9.4",
  "rand_core 0.9.3",
  "securedrop-protocol-minimal",
  "serde",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -1695,6 +1697,7 @@ dependencies = [
  "reqwest",
  "securedrop-protocol-minimal",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1748,8 +1751,11 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
+ "hex",
  "rand_core 0.9.3",
+ "reqwest",
  "securedrop-protocol-minimal",
+ "serde",
 ]
 
 [[package]]

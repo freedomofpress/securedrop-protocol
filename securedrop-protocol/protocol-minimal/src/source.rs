@@ -228,6 +228,25 @@ impl Source {
     }
 }
 
+impl SourcePublicView {
+    /// Reconstruct a source's public view from the reply keys recovered when
+    /// decrypting their submission.
+    pub fn from_reply_keys(
+        fetch_pk: DHPublicKey,
+        apke: MessagePublicKey,
+        metadata_pk: MetadataPublicKey,
+    ) -> Self {
+        SourcePublicView {
+            fetch_pk,
+            apke_pk: apke.clone(),
+            message_pks: KeyBundlePublic {
+                apke_pk: apke,
+                metadata_pk,
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
