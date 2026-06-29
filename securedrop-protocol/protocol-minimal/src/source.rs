@@ -140,6 +140,7 @@ impl Source {
     ///
     /// The passphrase is the root secret from which all source keys are
     /// derived. It MUST be stored and transmitted only over secure channels.
+    #[cfg_attr(hax, hax_lib::opaque)]
     pub fn passphrase(&self) -> &str {
         &self.passphrase
     }

@@ -10,10 +10,8 @@ let _ =
   let open Securedrop_protocol_minimal.Message in
   ()
 
-/// Fixed public salt for Argon2id. Argon2id requires a salt; since source
-/// keys must be deterministic from the passphrase alone, we use a fixed
-/// application-specific value rather than a random one.
-let v_SOURCE_PBKDF_SALT: t_Slice u8 =
+/// Fixed, public, application-specific salt for source key derivation.
+let v_SOURCE_KDF_SALT: t_Slice u8 =
   (let list =
       [
         mk_u8 115; mk_u8 101; mk_u8 99; mk_u8 117; mk_u8 114; mk_u8 101; mk_u8 100; mk_u8 114;
@@ -27,16 +25,17 @@ let v_SOURCE_PBKDF_SALT: t_Slice u8 =
   t_Slice u8
 
 /// A source and their long-term key material (step 4).
-/// A source's keys are fully determined by their passphrase: the fetch key,
-/// APKE key, and PKE key are all derived from a master key via Argon2id and
-/// a domain-separated KDF. Returning sources reconstruct the same keys by
-/// calling [`Source::from_passphrase`] with the same passphrase.
+/// A source's keys are fully determined by their passphrase, a 12-word BIP39
+/// mnemonic. The mnemonic's 16-byte entropy is used directly as the master key
+/// `mk`, from which the fetch key, APKE key, and PKE key are derived with a
+/// domain-separated KDF. Returning sources reconstruct the same keys by calling
+/// [`Source::from_passphrase`] with the same mnemonic.
 type t_Source = {
   f_fetch_key:Securedrop_protocol_minimal.Keys.t_KeyPair
     Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey
     Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey;
   f_message_keys:Securedrop_protocol_minimal.Keys.t_MessageKeyBundle;
-  f_passphrase:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global;
+  f_passphrase:Alloc.String.t_String;
   f_session:Securedrop_protocol_minimal.Keys.t_SessionStorage
 }
 
@@ -255,46 +254,54 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
           t_Slice Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
   }
 
-/// Returns the source's passphrase.
-/// # Security
-/// The passphrase is the root secret from which all source keys are
-/// derived. It MUST be stored and transmitted only over secure channels.
-let impl_Source__passphrase (self: t_Source) : t_Slice u8 =
-  Alloc.Vec.impl_1__as_slice self.f_passphrase
-
-/// Derive the master key from a passphrase using Argon2id (step 4).
-/// Uses a fixed, public, domain-specific salt. The security of the master
-/// key rests entirely on the entropy of the passphrase.
-let impl_Source__derive_master_key (passphrase: t_Slice u8) : t_Array u8 (mk_usize 64) =
-  Securedrop_protocol_minimal.Primitives.Provider.Argon2.derive_master_key passphrase
-    v_SOURCE_PBKDF_SALT
-
-/// Reconstruct source keys from a passphrase (step 4).
-/// Derives a master key via [`Source::derive_master_key`], then derives
-/// each private key from the master key using a domain-separated KDF.
+/// Create a new source with a randomly generated 12-word BIP39 mnemonic.
 assume
-val impl_Source__from_passphrase': passphrase: t_Slice u8 -> t_Source
+val impl_Source__new':
+    #v_R: Type0 ->
+    {| i0: Rand_core.t_RngCore v_R |} ->
+    {| i1: Rand_core.t_CryptoRng v_R |} ->
+    rng: v_R
+  -> t_Source
 
 unfold
-let impl_Source__from_passphrase = impl_Source__from_passphrase'
-
-/// Create a new source with a randomly generated passphrase.
-/// TODO / For testing only - in production the passphrase must be a mnemonic
-/// of sufficient entropy generated and displayed to the source.
 let impl_Source__new
       (#v_R: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
-      (rng: v_R)
-    : t_Source =
-  let passphrase:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
-  let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 32)) =
-    Securedrop_protocol_minimal.Primitives.Provider.Rng.fill_bytes #v_R (mk_usize 32) rng passphrase
-  in
-  let rng:v_R = tmp0 in
-  let passphrase:t_Array u8 (mk_usize 32) = tmp1 in
-  let _:Prims.unit = () in
-  impl_Source__from_passphrase (passphrase <: t_Slice u8)
+     = impl_Source__new' #v_R #i0 #i1
+
+/// Returns the source\'s passphrase as a 12-word BIP39 mnemonic.
+/// # Security
+/// The passphrase is the root secret from which all source keys are
+/// derived. It MUST be stored and transmitted only over secure channels.
+assume
+val impl_Source__passphrase': self: t_Source -> string
+
+unfold
+let impl_Source__passphrase = impl_Source__passphrase'
+
+/// Reconstruct source keys from a 12-word BIP39 mnemonic (step 4).
+/// # Errors
+/// Returns an error if `passphrase` is not a valid 12-word BIP39 mnemonic,
+/// i.e. it contains an unknown word, has the wrong length, or fails the
+/// checksum.
+assume
+val impl_Source__from_passphrase': passphrase: string
+  -> Core_models.Result.t_Result t_Source Anyhow.t_Error
+
+unfold
+let impl_Source__from_passphrase = impl_Source__from_passphrase'
+
+/// Derive a source\'s long-term keys from the master key `mk` (the 16-byte
+/// BIP39 entropy), then assemble the [`Source`] tagged with the originating
+/// `passphrase` mnemonic.
+/// Each private key is derived from `mk` with a domain-separated KDF.
+assume
+val impl_Source__from_master_key': mk: t_Array u8 (mk_usize 16) -> passphrase: Alloc.String.t_String
+  -> t_Source
+
+unfold
+let impl_Source__from_master_key = impl_Source__from_master_key'
 
 /// Returns the public key material for this source.
 let impl_Source__public (self: t_Source) : t_SourcePublicView =
