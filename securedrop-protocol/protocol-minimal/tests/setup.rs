@@ -275,7 +275,7 @@ fn protocol_step_4_source_setup() {
 
     let source_public = source.public();
     let pass = source.passphrase();
-    let source2 = Source::from_passphrase(pass);
+    let source2 = Source::from_passphrase(pass).expect("generated mnemonic is valid");
     assert_ne!(
         source_public.fetch_pk().into_bytes(),
         [0u8; DH_PUBLIC_KEY_LEN]

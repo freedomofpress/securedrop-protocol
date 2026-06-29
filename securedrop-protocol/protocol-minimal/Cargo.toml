@@ -17,7 +17,6 @@ license = "GPL-3.0"
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-interfaces-extracted-from-our-dependencies
 
 # no rand/getrandom in core library!
-
 # Crypto stack, pinned to cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478:
 libcrux-ed25519 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf", features = ["rand"] }
 libcrux-curve25519 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
@@ -26,6 +25,7 @@ libcrux-traits = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b
 libcrux-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
 libcrux-ml-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
 libcrux-sha2 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-hkdf = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
 
 # See workspace-level `Cargo.toml` for patching to enforce hax-lib 0.3.7.
 # Pinned here until published crates use hax-lib 0.3.7 and libcrux-sha3 0.0.9.
@@ -36,8 +36,7 @@ rand_core = { version = "0.10" }
 anyhow = "1.0"
 hashbrown = { version = "0.14", features = ["raw"] }
 uuid = { version = "1.0", default-features = false, features = ["v4", "js"] }
-argon2 = "0.5"
-blake2 = "0.10"
+bip39 = { version = "2", default-features = false, features = ["alloc"] }
 
 # pin an exact version to resolve wasm-bindgen schema compatibility issue
 rand_chacha = {  version = "0.10.0", default-features = false  }

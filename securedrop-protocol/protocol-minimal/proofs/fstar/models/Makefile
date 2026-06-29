@@ -16,6 +16,7 @@ LIBCRUX_TRAITS_TARGETS := -**
 LIBCRUX_CURVE25519_TARGETS := -**
 LIBCRUX_CHACHA20POLY1305_TARGETS := -**
 LIBCRUX_KEM_TARGETS := -**
+LIBCRUX_HKDF_TARGETS := -**
 
 # Extraction targets: Autogenerate from rust tree.
 # Autogenerate targets with `make update-targets`
@@ -55,6 +56,8 @@ LIBCRUX_TRAITS_TARGETS += +libcrux_traits::kem::arrayref::KeyGenError
 
 LIBCRUX_CHACHA20POLY1305_TARGETS += -libcrux_chacha20poly1305::impl_hacl::**
 
+LIBCRUX_HKDF_TARGETS += +libcrux_hkdf::ExpandError
+
 ## End manual extractions ##
 
 .PHONY: rust-toolchain
@@ -92,6 +95,7 @@ check-targets:
 	libcrux-traits \
 	libcrux-curve25519 \
 	libcrux-chacha20poly1305 \
+	libcrux-hkdf \
 	libcrux-copy-fsti \
 	libcrux-append-stubs
 
@@ -106,6 +110,7 @@ libcrux:
 		libcrux-traits \
 		libcrux-curve25519 \
 		libcrux-chacha20poly1305 \
+		libcrux-hkdf \
 	; do \
 		if ! $(MAKE) $$target; then \
 			FAILURES="$$FAILURES $$target"; \
@@ -193,6 +198,11 @@ libcrux-chacha20poly1305:
 	$(MAKE) libcrux-module \
 		MODULE=libcrux/crates/algorithms/chacha20poly1305 \
 		TARGETS="$(LIBCRUX_CHACHA20POLY1305_TARGETS)"
+
+libcrux-hkdf:
+	$(MAKE) libcrux-module \
+		MODULE=libcrux/crates/algorithms/hkdf \
+		TARGETS="$(LIBCRUX_HKDF_TARGETS)"
 
 libcrux-append-stubs:
 	@find . -name '*.fsti.stub' | while read -r stub; do \
