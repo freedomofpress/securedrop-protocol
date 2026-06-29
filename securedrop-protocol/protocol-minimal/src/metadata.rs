@@ -18,12 +18,15 @@
 use crate::primitives::provider::hpke_rs::{
     Aes256Gcm, HkdfSha256, Hpke, HpkeLibcrux, Mode, XWingDraft06,
 };
+use alloc::string::String;
 use alloc::vec::Vec;
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
+use serde::de::Error as _;
 
 use crate::primitives::xwing::{
-    LEN_XWING_SHAREDSECRET_ENCAPS, XWingPrivateKey, XWingPublicKey, generate_xwing_keypair,
+    LEN_XWING_SHAREDSECRET_ENCAPS, XWING_PRIVATE_KEY_LEN, XWING_PUBLIC_KEY_LEN, XWingPrivateKey,
+    XWingPublicKey, generate_xwing_keypair,
 };
 
 /// The recipient's metadata public key (`pk_R^PKE` in the spec).
@@ -49,6 +52,27 @@ impl MetadataKeyPair {
     pub fn private_key(&self) -> &MetadataPrivateKey {
         &self.sk
     }
+
+    /// Reconstruct a keypair from the raw X-Wing secret and public key bytes
+    pub(crate) fn from_key_bytes(
+        sk: [u8; XWING_PRIVATE_KEY_LEN],
+        pk: [u8; XWING_PUBLIC_KEY_LEN],
+    ) -> Self {
+        Self {
+            sk: MetadataPrivateKey(XWingPrivateKey::from_bytes(sk)),
+            pk: MetadataPublicKey(XWingPublicKey::from_bytes(pk)),
+        }
+    }
+
+    /// Raw X-Wing secret key bytes
+    pub(crate) fn secret_bytes(&self) -> &[u8; XWING_PRIVATE_KEY_LEN] {
+        self.sk.0.as_bytes()
+    }
+
+    /// Raw X-Wing public key bytes
+    pub(crate) fn public_bytes(&self) -> &[u8; XWING_PUBLIC_KEY_LEN] {
+        self.pk.0.as_bytes()
+    }
 }
 
 /// SD-PKE ciphertext `(c, c')`: X-Wing encapsulation `c` together with HPKE
@@ -65,6 +89,48 @@ impl MetadataCiphertext {
     /// Total byte length of the ciphertext: encapsulation `c` + AEAD ciphertext `c'`.
     pub fn len(&self) -> usize {
         self.c.len() + self.cp.len()
+    }
+
+    /// Wire encoding `c || cp`
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(self.len());
+        out.extend_from_slice(&self.c);
+        out.extend_from_slice(&self.cp);
+        out
+    }
+
+    /// Deserialize from the `c || cp` wire encoding.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the byte slice is shorter than the encapsulation `c`.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() < LEN_XWING_SHAREDSECRET_ENCAPS {
+            return Err(anyhow::anyhow!(
+                "MetadataCiphertext too short: expected at least {}, got {}",
+                LEN_XWING_SHAREDSECRET_ENCAPS,
+                bytes.len()
+            ));
+        }
+        let (c, cp) = bytes.split_at(LEN_XWING_SHAREDSECRET_ENCAPS);
+        Ok(Self {
+            c: c.try_into().expect("checked length"),
+            cp: cp.to_vec(),
+        })
+    }
+}
+
+impl serde::Serialize for MetadataCiphertext {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.as_bytes()))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MetadataCiphertext {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let bytes = hex::decode(s.trim()).map_err(D::Error::custom)?;
+        Self::from_bytes(&bytes).map_err(D::Error::custom)
     }
 }
 
@@ -102,6 +168,36 @@ impl MetadataPublicKey {
     /// Returns the public key as bytes.
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
+    }
+
+    /// Deserialize from `pk_R^PKE` (X-Wing) bytes
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the byte slice has incorrect length.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        let arr: [u8; XWING_PUBLIC_KEY_LEN] = bytes.try_into().map_err(|_| {
+            anyhow::anyhow!(
+                "Invalid MetadataPublicKey length: expected {}, got {}",
+                XWING_PUBLIC_KEY_LEN,
+                bytes.len()
+            )
+        })?;
+        Ok(Self(XWingPublicKey::from_bytes(arr)))
+    }
+}
+
+impl serde::Serialize for MetadataPublicKey {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.as_bytes()))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MetadataPublicKey {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let bytes = hex::decode(s.trim()).map_err(D::Error::custom)?;
+        Self::from_bytes(&bytes).map_err(D::Error::custom)
     }
 }
 

@@ -1,3 +1,4 @@
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
@@ -7,6 +8,7 @@ use crate::primitives::provider::{
 };
 use anyhow::Error;
 use rand_core::CryptoRng;
+use serde::de::Error as _;
 
 // Sealing module: prevents external crates from implementing `DomainTag`.
 mod private {
@@ -96,6 +98,21 @@ impl<D: DomainTag> Signature<D> {
     /// The byte serialization of this signature.
     pub fn as_bytes(&self) -> [u8; 64] {
         self.bytes
+    }
+}
+
+impl<D: DomainTag> serde::Serialize for Signature<D> {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.bytes))
+    }
+}
+
+impl<'de, D: DomainTag> serde::Deserialize<'de> for Signature<D> {
+    fn deserialize<De: serde::Deserializer<'de>>(de: De) -> Result<Self, De::Error> {
+        let s = String::deserialize(de)?;
+        let mut bytes = [0u8; 64];
+        hex::decode_to_slice(s.trim(), &mut bytes).map_err(De::Error::custom)?;
+        Ok(Self::from_bytes(bytes))
     }
 }
 
@@ -191,6 +208,21 @@ impl VerifyingKey {
         let preimage = tagged_preimage::<D>(msg);
         provider::ed25519::verify(&preimage, self.0.as_ref(), &sig.bytes)
             .map_err(|_| anyhow::anyhow!("Signature verification failed"))
+    }
+}
+
+impl serde::Serialize for VerifyingKey {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.0.as_ref()))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for VerifyingKey {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let mut bytes = [0u8; 32];
+        hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
+        Ok(Self::from_bytes(bytes))
     }
 }
 

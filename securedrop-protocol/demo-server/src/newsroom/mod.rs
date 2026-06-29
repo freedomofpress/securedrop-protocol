@@ -1,3 +1,8 @@
+mod handlers;
+mod server;
+
+pub(crate) use server::start;
+
 use std::fs;
 use std::path::PathBuf;
 
@@ -73,7 +78,7 @@ pub fn set_fpf_sig(sig_hex: &str, fpf_vk_hex: &str, force: bool) -> Result<()> {
     Ok(())
 }
 
-fn load_keypair() -> Result<NewsroomKeyPair> {
+pub(crate) fn load_keypair() -> Result<NewsroomKeyPair> {
     let path = key_path()?;
     let bytes = fs::read(&path)
         .with_context(|| format!("reading {} (run `newsroom init` first)", path.display()))?;
@@ -81,6 +86,19 @@ fn load_keypair() -> Result<NewsroomKeyPair> {
         anyhow::anyhow!("{} is {} bytes, expected 32", path.display(), v.len())
     })?;
     Ok(NewsroomKeyPair::from_bytes(seed))
+}
+
+/// Load the stored FPF signature over the newsroom verifying key if present
+pub(crate) fn load_fpf_sig() -> Result<Option<Signature<FpfOnNewsroom>>> {
+    let path = fpf_sig_path()?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let bytes = fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+    let sig_bytes: [u8; 64] = bytes.try_into().map_err(|v: Vec<u8>| {
+        anyhow::anyhow!("{} is {} bytes, expected 64", path.display(), v.len())
+    })?;
+    Ok(Some(Signature::<FpfOnNewsroom>::from_bytes(sig_bytes)))
 }
 
 fn key_path() -> Result<PathBuf> {
