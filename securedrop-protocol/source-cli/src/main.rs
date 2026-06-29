@@ -26,7 +26,7 @@ enum Command {
     /// Submit a message to every enrolled journalist of a newsroom.
     Submit {
         /// Newsroom server URL.
-        #[arg(long)]
+        #[arg(long, default_value = "http://127.0.0.1:8000")]
         server: String,
         /// FPF verifying key as 64 hex characters.
         #[arg(long = "fpf-vk")]
@@ -38,7 +38,7 @@ enum Command {
     /// Fetch and decrypt replies addressed to this source.
     Fetch {
         /// Newsroom server URL.
-        #[arg(long)]
+        #[arg(long, default_value = "http://127.0.0.1:8000")]
         server: String,
         /// FPF verifying key as 64 hex characters.
         #[arg(long = "fpf-vk")]

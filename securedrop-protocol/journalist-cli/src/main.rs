@@ -26,7 +26,7 @@ enum Command {
     /// Enroll with a newsroom server.
     Enroll {
         /// Newsroom server URL, e.g. `http://localhost:8000`.
-        #[arg(long)]
+        #[arg(long, default_value = "http://127.0.0.1:8000")]
         server: String,
         /// Overwrite an existing stored enrollment.
         #[arg(long)]
@@ -35,7 +35,7 @@ enum Command {
     /// Generate fresh ephemeral key bundles and upload them to the server.
     Replenish {
         /// Newsroom server URL, e.g. `http://localhost:8000`.
-        #[arg(long)]
+        #[arg(long, default_value = "http://127.0.0.1:8000")]
         server: String,
         /// Number of ephemeral key bundles to generate and upload.
         #[arg(long, default_value_t = 10)]
@@ -44,13 +44,13 @@ enum Command {
     /// Fetch and decrypt messages addressed to this journalist.
     Fetch {
         /// Newsroom server URL, e.g. `http://localhost:8000`.
-        #[arg(long)]
+        #[arg(long, default_value = "http://127.0.0.1:8000")]
         server: String,
     },
     /// Reply to a source message (identified by its message ID from `fetch`).
     Reply {
         /// Newsroom server URL, e.g. `http://localhost:8000`.
-        #[arg(long)]
+        #[arg(long, default_value = "http://127.0.0.1:8000")]
         server: String,
         /// The message ID to reply to, as printed by `fetch`.
         #[arg(long = "message-id")]
