@@ -6,9 +6,9 @@ use anyhow::{Context, Result};
 use directories::ProjectDirs;
 
 pub fn data_dir() -> Result<PathBuf> {
-    let dirs = ProjectDirs::from("press", "freedom", "securedrop-demo-server")
+    let dirs = ProjectDirs::from("press", "freedom", "securedrop-demo")
         .context("locating a home directory for the data dir")?;
-    Ok(dirs.data_dir().to_path_buf())
+    Ok(dirs.data_dir().join("server"))
 }
 
 pub fn write_secret(path: &Path, contents: &[u8]) -> Result<()> {
