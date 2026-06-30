@@ -15,8 +15,6 @@ let _ =
 /// regardless of how many actual messages exist.
 let v_MESSAGE_ID_FETCH_SIZE: usize = mk_usize 10
 
-#push-options "--admit_smt_queries true"
-
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
 /// This is used in step 7 for encrypting message IDs with a shared secret
 let encrypt_message_id
@@ -25,7 +23,18 @@ let encrypt_message_id
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
       (key message_id: t_Slice u8)
       (rng: v_R)
-    : (v_R & Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error) =
+    : Prims.Pure
+      (v_R & Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
+      (requires
+        (Core_models.Slice.impl__len #u8 message_id <: usize) <=.
+        ((Core_models.Num.impl_usize__MAX -!
+            Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_NONCE_LEN
+            <:
+            usize) -!
+          Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_TAG_LEN
+          <:
+          usize))
+      (fun _ -> Prims.l_True) =
   if
     (Core_models.Slice.impl__len #u8 key <: usize) <>.
     Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_KEY_LEN
@@ -163,10 +172,6 @@ let encrypt_message_id
         Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
       <:
       (v_R & Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
-
-#pop-options
-
-#push-options "--admit_smt_queries true"
 
 /// Symmetric decryption for message IDs using ChaCha20-Poly1305
 /// This is used in step 7 for decrypting message IDs with a shared secret
@@ -358,5 +363,3 @@ let decrypt_message_id (key encrypted_data: t_Slice u8)
         Core_models.Result.Result_Err err
         <:
         Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
-
-#pop-options

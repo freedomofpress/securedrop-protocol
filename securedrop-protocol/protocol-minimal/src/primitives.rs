@@ -15,11 +15,16 @@ pub(crate) mod xwing;
 /// regardless of how many actual messages exist.
 pub const MESSAGE_ID_FETCH_SIZE: usize = 10;
 
-// TODO: aesgcm256 for consistency with other methods
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
 ///
 /// This is used in step 7 for encrypting message IDs with a shared secret
-#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
+///
+#[cfg_attr(hax, hax_lib::requires(
+    message_id.len()
+        <= usize::MAX
+            - provider::chacha20poly1305::NONCE_LEN
+            - provider::chacha20poly1305::TAG_LEN
+))]
 pub fn encrypt_message_id<R: RngCore + CryptoRng>(
     key: &[u8],
     message_id: &[u8],
@@ -61,7 +66,6 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
 /// Symmetric decryption for message IDs using ChaCha20-Poly1305
 ///
 /// This is used in step 7 for decrypting message IDs with a shared secret
-#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, Error> {
     use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 

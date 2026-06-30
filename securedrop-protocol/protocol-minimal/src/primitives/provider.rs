@@ -108,19 +108,16 @@ pub mod chacha20poly1305 {
     #[cfg_attr(hax, hax_lib::opaque)]
     use libcrux_chacha20poly1305::AeadError;
 
-    #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const KEY_LEN: usize = libcrux_chacha20poly1305::KEY_LEN;
 
-    #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const NONCE_LEN: usize = libcrux_chacha20poly1305::NONCE_LEN;
 
-    #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const TAG_LEN: usize = libcrux_chacha20poly1305::TAG_LEN;
 
     // #[cfg_attr(hax, hax_lib::opaque)]
     // pub(crate) use libcrux_chacha20poly1305::{decrypt, encrypt};
 
-    // Hax extraction is struggling with the types
+    #[cfg_attr(hax, hax_lib::ensures(|_result| future(ciphertext).len() == ciphertext.len()))]
     #[cfg_attr(hax, hax_lib::opaque)]
     pub fn encrypt(
         key: &[u8; KEY_LEN],
