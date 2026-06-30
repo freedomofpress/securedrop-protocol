@@ -111,9 +111,9 @@ pub(crate) fn save_inbox(inbox: &[InboxEntry]) -> Result<()> {
 }
 
 pub(crate) fn data_dir() -> Result<PathBuf> {
-    let dirs = ProjectDirs::from("press", "freedom", "securedrop-journalist")
+    let dirs = ProjectDirs::from("press", "freedom", "securedrop-demo")
         .context("locating a home directory for the data dir")?;
-    Ok(dirs.data_dir().to_path_buf())
+    Ok(dirs.data_dir().join("journalist"))
 }
 
 pub(crate) fn long_term_path() -> Result<PathBuf> {
