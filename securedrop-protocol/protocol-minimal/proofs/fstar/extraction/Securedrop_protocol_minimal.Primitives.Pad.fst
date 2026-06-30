@@ -7,10 +7,15 @@ open Core_models
 /// Note: I made this up. We should pick something based on actual reasons.
 let v_PADDED_MESSAGE_LEN: usize = mk_usize 100000
 
-#push-options "--admit_smt_queries true"
-
-/// Pad a message to a fixed length
-let pad_message (message: t_Slice u8) : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+/// Pad a message to a fixed length.
+/// # Panics
+/// Panics if `message` is longer than `PADDED_MESSAGE_LEN`. The verification
+/// precondition (`requires`) rules this out, so the panic is provably
+/// unreachable and the length subtraction is safe.
+let pad_message (message: t_Slice u8)
+    : Prims.Pure (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+      (requires (Core_models.Slice.impl__len #u8 message <: usize) <=. v_PADDED_MESSAGE_LEN)
+      (fun _ -> Prims.l_True) =
   let _:Prims.unit =
     if (Core_models.Slice.impl__len #u8 message <: usize) >. v_PADDED_MESSAGE_LEN
     then
@@ -30,24 +35,15 @@ let pad_message (message: t_Slice u8) : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global 
   let padded:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global padded message
   in
-  let padding_needed:usize =
-    v_PADDED_MESSAGE_LEN -! (Core_models.Slice.impl__len #u8 message <: usize)
+  let padding:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.from_elem #u8
+      (mk_u8 0)
+      (v_PADDED_MESSAGE_LEN -! (Core_models.Slice.impl__len #u8 message <: usize) <: usize)
   in
   let padded:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Rust_primitives.Hax.Folds.fold_range (mk_usize 0)
-      padding_needed
-      (fun padded temp_1_ ->
-          let padded:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = padded in
-          let _:usize = temp_1_ in
-          true)
+    Alloc.Vec.impl_2__extend_from_slice #u8
+      #Alloc.Alloc.t_Global
       padded
-      (fun padded temp_1_ ->
-          let padded:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = padded in
-          let _:usize = temp_1_ in
-          Alloc.Vec.impl_1__push #u8 #Alloc.Alloc.t_Global padded (mk_u8 0)
-          <:
-          Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+      (Alloc.Vec.impl_1__as_slice padding <: t_Slice u8)
   in
   padded
-
-#pop-options
