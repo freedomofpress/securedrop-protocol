@@ -186,15 +186,15 @@ type t_Enrollment = {
     Securedrop_protocol_minimal.Message.t_MessagePublicKey)
 }
 
-let impl_8: Core_models.Clone.t_Clone t_Enrollment =
+let impl_10: Core_models.Clone.t_Clone t_Enrollment =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_9': Core_models.Fmt.t_Debug t_Enrollment
+val impl_11': Core_models.Fmt.t_Debug t_Enrollment
 
 unfold
-let impl_9 = impl_9'
+let impl_11 = impl_11'
 
 type t_SessionStorage = {
   f_fpf_key:Core_models.Option.t_Option Securedrop_protocol_minimal.Sign.t_VerifyingKey;
@@ -257,3 +257,17 @@ let impl_FPFKeyPair__sign
       (msg: t_Slice u8)
     : Securedrop_protocol_minimal.Sign.t_Signature v_D =
   Securedrop_protocol_minimal.Sign.impl_SigningKey__sign #v_D self.f_sk msg
+
+/// The FPF signing key used as a secret.
+let impl_FPFKeyPair__as_bytes (self: t_FPFKeyPair) : t_Array u8 (mk_usize 32) =
+  Securedrop_protocol_minimal.Sign.impl_SigningKey__as_bytes self.f_sk
+
+/// Reconstruct an [`FPFKeyPair`] from its secret.
+let impl_FPFKeyPair__from_bytes (seed: t_Array u8 (mk_usize 32)) : t_FPFKeyPair =
+  let sk:Securedrop_protocol_minimal.Sign.t_SigningKey =
+    Securedrop_protocol_minimal.Sign.impl_SigningKey__from_seed seed
+  in
+  let vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey =
+    sk.Securedrop_protocol_minimal.Sign.f_vk
+  in
+  { f_sk = sk; f_vk = vk } <: t_FPFKeyPair

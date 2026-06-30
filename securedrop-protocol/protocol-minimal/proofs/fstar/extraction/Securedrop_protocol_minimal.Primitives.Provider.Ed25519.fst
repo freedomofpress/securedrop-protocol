@@ -37,3 +37,11 @@ val verify':
 
 unfold
 let verify = verify'
+
+/// Derive the Ed25519 public key from a secret key.
+assume
+val secret_to_public': public_key: t_Array u8 (mk_usize 32) -> secret_key: t_Array u8 (mk_usize 32)
+  -> t_Array u8 (mk_usize 32)
+
+unfold
+let secret_to_public = secret_to_public'

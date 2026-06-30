@@ -63,3 +63,17 @@ let impl_NewsroomKeyPair__sign
       (msg: t_Slice u8)
     : Securedrop_protocol_minimal.Sign.t_Signature v_D =
   Securedrop_protocol_minimal.Sign.impl_SigningKey__sign #v_D self.f_sk msg
+
+/// The newsroom signing key used as a secret.
+let impl_NewsroomKeyPair__as_bytes (self: t_NewsroomKeyPair) : t_Array u8 (mk_usize 32) =
+  Securedrop_protocol_minimal.Sign.impl_SigningKey__as_bytes self.f_sk
+
+/// Reconstruct a [`NewsroomKeyPair`] from its secret.
+let impl_NewsroomKeyPair__from_bytes (seed: t_Array u8 (mk_usize 32)) : t_NewsroomKeyPair =
+  let sk:Securedrop_protocol_minimal.Sign.t_SigningKey =
+    Securedrop_protocol_minimal.Sign.impl_SigningKey__from_seed seed
+  in
+  let vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey =
+    sk.Securedrop_protocol_minimal.Sign.f_vk
+  in
+  { f_vk = vk; f_sk = sk } <: t_NewsroomKeyPair

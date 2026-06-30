@@ -12,7 +12,7 @@ pub struct SourceNewsroomKeyRequest {}
 /// Newsroom returns their keys and proof of onboarding.
 ///
 /// This is the first response in step 5 of the spec.
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct SourceNewsroomKeyResponse {
     pub newsroom_verifying_key: VerifyingKey,
     pub fpf_sig: Signature<FpfOnNewsroom>,
@@ -37,7 +37,7 @@ pub struct SourceJournalistKeyRequest {}
 /// - ephemeral_pke_pk: XWING for metadata enc (one-time)
 /// TODO: this may be split into 2 responses, one that contains
 /// static keys and one that contains one-time keys
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct SourceJournalistKeyResponse {
     pub journalist: JournalistPublicView,
     pub nr_signature: Signature<NewsroomOnJournalist>,
@@ -51,7 +51,7 @@ pub struct MessageChallengeFetchRequest {}
 /// Server returns encrypted message IDs
 ///
 /// This corresponds to step 7 in the spec.
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct MessageChallengeFetchResponse {
     /// Number of message entries returned
     /// TODO: constant size array

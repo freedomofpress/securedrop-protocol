@@ -120,12 +120,14 @@ impl MetadataCiphertext {
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl serde::Serialize for MetadataCiphertext {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&hex::encode(self.as_bytes()))
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl<'de> serde::Deserialize<'de> for MetadataCiphertext {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
         let s = String::deserialize(de)?;
@@ -187,12 +189,14 @@ impl MetadataPublicKey {
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl serde::Serialize for MetadataPublicKey {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&hex::encode(self.as_bytes()))
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl<'de> serde::Deserialize<'de> for MetadataPublicKey {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
         let s = String::deserialize(de)?;

@@ -130,12 +130,14 @@ impl MessagePublicKey {
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl serde::Serialize for MessagePublicKey {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&hex::encode(self.as_bytes()))
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl<'de> serde::Deserialize<'de> for MessagePublicKey {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
         let s = String::deserialize(de)?;
@@ -195,12 +197,14 @@ impl MessageCiphertext {
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl serde::Serialize for MessageCiphertext {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&hex::encode(self.as_bytes()))
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl<'de> serde::Deserialize<'de> for MessageCiphertext {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
         let s = String::deserialize(de)?;

@@ -74,6 +74,7 @@ pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Pla
 
 /// Decrypt like [`decrypt`], additionally returning the sender's long-term
 /// SD-APKE public key `pk_S^APKE` recovered from `ct^PKE`.
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
     receiver: &U,
     envelope: &Envelope,
