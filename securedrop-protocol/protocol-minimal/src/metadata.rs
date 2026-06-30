@@ -116,22 +116,22 @@ impl MetadataPrivateKey {
 /// SD-PKE.Enc: encrypt message `m` to recipient key `pk_r`, returning `(c, c')`.
 ///
 /// `m` is the sender's serialized long-term APKE public key.
-pub fn encrypt(pk_r: &MetadataPublicKey, m: &[u8]) -> MetadataCiphertext {
+pub(crate) fn encrypt(
+    pk_r: &MetadataPublicKey,
+    m: &[u8],
+) -> Result<MetadataCiphertext, anyhow::Error> {
     let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
     let pk_r_hpke = pk_r.0.clone().into();
 
-    // MetadataPublicKey always holds a valid XWing key, so seal cannot fail.
+    // MetadataPublicKey always holds a valid XWing key, so seal should not fail.
     let (c_vec, cp) = hpke
         .seal(&pk_r_hpke, b"", b"", m, None, None, None)
-        .expect("SD-PKE encryption failed");
+        .map_err(|e| anyhow::anyhow!("Metadata seal failed: {e}"))?;
 
     // XWing will always produce this length ciphertext, so this .expect is fine.
-    let c: [u8; LEN_XWING_SHAREDSECRET_ENCAPS] = c_vec
-        .as_slice()
-        .try_into()
-        .expect("X-Wing encapsulation output has unexpected length");
+    let c: [u8; LEN_XWING_SHAREDSECRET_ENCAPS] = c_vec.as_slice().try_into()?;
 
-    MetadataCiphertext { c, cp }
+    Ok(MetadataCiphertext { c, cp })
 }
 
 /// SD-PKE.Dec: decrypt `(c, c')` using recipient key `sk_r`, returning message `m`.
@@ -139,7 +139,10 @@ pub fn encrypt(pk_r: &MetadataPublicKey, m: &[u8]) -> MetadataCiphertext {
 /// # Errors
 ///
 /// Returns an error if HPKE decryption fails.
-pub fn decrypt(sk_r: &MetadataPrivateKey, ct: &MetadataCiphertext) -> Result<Vec<u8>, Error> {
+pub fn decrypt(
+    sk_r: &MetadataPrivateKey,
+    ct: &MetadataCiphertext,
+) -> Result<Vec<u8>, anyhow::Error> {
     let hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
     let sk_r_hpke = sk_r.0.clone().into();
 
@@ -167,7 +170,7 @@ mod tests {
             let kp = keygen(&mut rng).expect("KGen failed");
 
             let ct = encrypt(kp.public_key(), &m);
-            let decrypted = decrypt(kp.private_key(), &ct).expect("Decryption failed");
+            let decrypted = decrypt(kp.private_key(), &ct.unwrap()).expect("Decryption failed");
 
             prop_assert_eq!(m, decrypted);
         }
@@ -180,6 +183,6 @@ mod tests {
         let wrong_kp = keygen(&mut rng).expect("KGen failed");
 
         let ct = encrypt(kp.public_key(), b"some sender apke key bytes");
-        assert!(decrypt(wrong_kp.private_key(), &ct).is_err());
+        assert!(decrypt(wrong_kp.private_key(), &ct.unwrap()).is_err());
     }
 }
