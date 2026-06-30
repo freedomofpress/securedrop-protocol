@@ -1,7 +1,6 @@
 use std::fs;
 
 use anyhow::{Context, Result, bail};
-use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::api::JournalistApi;
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyResponse, JournalistSetupRequest, JournalistSetupResponse,
@@ -28,7 +27,7 @@ pub(crate) fn init(force: bool) -> Result<()> {
         );
     }
 
-    let mut rng = OsRng.unwrap_err();
+    let mut rng = rand::rng();
     let journalist = Journalist::new(&mut rng, 0);
     let vk = (*journalist.signing_key()).into_bytes();
     let bytes = journalist.long_term_bytes().as_bytes();
@@ -110,7 +109,7 @@ pub(crate) fn replenish(server: &str, count: usize) -> Result<()> {
     }
 
     let mut journalist = load_journalist()?;
-    let mut rng = OsRng.unwrap_err();
+    let mut rng = rand::rng();
     journalist.generate_ephemeral_bundles(&mut rng, count);
 
     let request = journalist.create_ephemeral_key_request();

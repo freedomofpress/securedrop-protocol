@@ -1,5 +1,4 @@
 use anyhow::{Context, Result, bail};
-use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::Source;
 use securedrop_protocol_minimal::api::{Api, Client};
 use securedrop_protocol_minimal::wire::core::{
@@ -20,7 +19,7 @@ pub(crate) fn submit(server: &str, fpf_vk_hex: &str, message: &str) -> Result<()
     let passphrase = read_passphrase()?;
     let mut source = Source::from_passphrase(passphrase.trim())
         .context("not a valid BIP39 recovery passphrase")?;
-    let mut rng = OsRng.unwrap_err();
+    let mut rng = rand::rng();
     let client = reqwest::blocking::Client::new();
 
     // Fetch the newsroom key and verify FPF's signature over it.
