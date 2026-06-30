@@ -33,7 +33,8 @@ pub struct NewsroomSetupResponse {
 /// Request from the journalist to the newsroom for initial onboarding.
 ///
 /// Step 3.1 in the spec.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct JournalistSetupRequest {
     pub enrollment: Enrollment,
 }
@@ -41,7 +42,8 @@ pub struct JournalistSetupRequest {
 /// Response from the newsroom to the journalist for initial onboarding.
 ///
 /// Step 3.1 in the spec.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct JournalistSetupResponse {
     /// A signature over the journalist enrollment bundle by the newsroom signing key
     pub sig: Signature<NewsroomOnJournalist>,
@@ -50,7 +52,8 @@ pub struct JournalistSetupResponse {
 /// Request from the journalist to the SecureDrop server for ephemeral key replenishment.
 ///
 /// Step 3.2 in the spec.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct JournalistEphemeralKeyRequest {
     /// The journalist's long-term signing key, used by the server to look up the journalist
     /// and verify each bundle signature.
@@ -62,7 +65,8 @@ pub struct JournalistEphemeralKeyRequest {
 /// Response from the SecureDrop server to the journalist for ephemeral key replenishment.
 ///
 /// Step 3.2 in the spec.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct JournalistEphemeralKeyResponse {
     /// The number of ephemeral key bundles now stored by the server for this journalist.
     pub stored: usize,

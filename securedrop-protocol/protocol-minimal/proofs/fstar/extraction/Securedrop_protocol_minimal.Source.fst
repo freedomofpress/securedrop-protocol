@@ -48,12 +48,12 @@ type t_SourcePublicView = {
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_5': Core_models.Fmt.t_Debug t_SourcePublicView
+val impl_6': Core_models.Fmt.t_Debug t_SourcePublicView
 
 unfold
-let impl_5 = impl_5'
+let impl_6 = impl_6'
 
-let impl_6: Core_models.Clone.t_Clone t_SourcePublicView =
+let impl_7: Core_models.Clone.t_Clone t_SourcePublicView =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
@@ -318,6 +318,32 @@ let impl_Source__public (self: t_Source) : t_SourcePublicView =
     f_message_pks
     =
     Securedrop_protocol_minimal.Keys.impl_MessageKeyBundle__public self.f_message_keys
+  }
+  <:
+  t_SourcePublicView
+
+/// Reconstruct a source's public view from the reply keys recovered when
+/// decrypting their submission.
+let impl_SourcePublicView__from_reply_keys
+      (fetch_pk: Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
+      (apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+      (metadata_pk: Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
+    : t_SourcePublicView =
+  {
+    f_fetch_pk = fetch_pk;
+    f_apke_pk
+    =
+    Core_models.Clone.f_clone #Securedrop_protocol_minimal.Message.t_MessagePublicKey
+      #FStar.Tactics.Typeclasses.solve
+      apke;
+    f_message_pks
+    =
+    {
+      Securedrop_protocol_minimal.Keys.f_apke_pk = apke;
+      Securedrop_protocol_minimal.Keys.f_metadata_pk = metadata_pk
+    }
+    <:
+    Securedrop_protocol_minimal.Keys.t_KeyBundlePublic
   }
   <:
   t_SourcePublicView

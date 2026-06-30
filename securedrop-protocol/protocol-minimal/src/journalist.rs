@@ -43,7 +43,7 @@ pub struct Journalist {
 
 // Public-facing representation of a journalist
 // used to send them a message
-#[derive(serde::Serialize, serde::Deserialize)]
+#[cfg_attr(not(hax), derive(serde::Serialize, serde::Deserialize))]
 pub struct JournalistPublicView {
     vk: VerifyingKey,
     fetch_pk: DHPublicKey,
@@ -199,6 +199,7 @@ impl Enrollable for Journalist {
 }
 
 /// Generate one ephemeral key bundle and sign its pubkeys.
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 fn make_signed_bundle<R: RngCore + CryptoRng>(
     rng: &mut R,
     signing_key: &SigningKey,
@@ -289,6 +290,7 @@ impl Journalist {
     }
 
     /// Reconstruct the long-term Journalist state from raw key bytes.
+    #[cfg_attr(hax, hax_lib::opaque)]
     pub fn from_long_term_bytes(parts: JournalistLongTermBytes) -> Self {
         use crate::message::{MessagePrivateKey, MessagePublicKey};
         use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey};
@@ -352,6 +354,7 @@ impl Journalist {
     /// [`create_ephemeral_key_request`](crate::api::JournalistApi::create_ephemeral_key_request).
     ///
     /// The secret halves should be persisted via [`Journalist::ephemeral_bundle_bytes`].
+    #[cfg_attr(hax, hax_lib::opaque)]
     pub fn generate_ephemeral_bundles<R: RngCore + CryptoRng>(&mut self, rng: &mut R, n: usize) {
         for _ in 0..n {
             let signed = make_signed_bundle(rng, &self.signing_key.sk);
@@ -361,6 +364,9 @@ impl Journalist {
 
     /// Extract the secret halves of the retained ephemeral key bundles so we can
     /// reconstruct them via [`Journalist::load_ephemeral_bundles`].
+    ///
+    /// Used by the demo.
+    #[cfg_attr(hax, hax_lib::opaque)]
     pub fn ephemeral_bundle_bytes(&self) -> Vec<EphemeralBundleBytes> {
         self.message_keys
             .iter()
@@ -369,6 +375,9 @@ impl Journalist {
     }
 
     /// Reconstruct ephemeral key bundles from persisted secret bytes.
+    ///
+    /// Used by the demo
+    #[cfg_attr(hax, hax_lib::opaque)]
     pub fn load_ephemeral_bundles(&mut self, bundles: Vec<EphemeralBundleBytes>) {
         for bytes in bundles {
             let bundle = bytes.into_bundle();
@@ -472,6 +481,7 @@ impl EphemeralBundleBytes {
         }
     }
 
+    #[cfg_attr(hax, hax_lib::opaque)]
     fn into_bundle(self) -> MessageKeyBundle {
         let mut apke_dhakem_pk_bytes = [0u8; 32];
         provider::curve25519::secret_to_public(&mut apke_dhakem_pk_bytes, &self.apke_dhakem_sk);

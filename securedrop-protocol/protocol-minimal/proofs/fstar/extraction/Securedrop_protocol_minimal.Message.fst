@@ -62,6 +62,9 @@ type t_MessageKeyPair = {
   f_pk:t_MessagePublicKey
 }
 
+let impl_MessageKeyPair__new (sk: t_MessagePrivateKey) (pk: t_MessagePublicKey) : t_MessageKeyPair =
+  { f_sk = sk; f_pk = pk } <: t_MessageKeyPair
+
 /// Returns the public key.
 let impl_MessageKeyPair__public_key (self: t_MessageKeyPair) : t_MessagePublicKey = self.f_pk
 
@@ -200,12 +203,12 @@ type t_MessageCiphertext = {
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_5': Core_models.Fmt.t_Debug t_MessageCiphertext
+val impl_7': Core_models.Fmt.t_Debug t_MessageCiphertext
 
 unfold
-let impl_5 = impl_5'
+let impl_7 = impl_7'
 
-let impl_6: Core_models.Clone.t_Clone t_MessageCiphertext =
+let impl_8: Core_models.Clone.t_Clone t_MessageCiphertext =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 /// Total byte length: `c1 + cp + c2`.
@@ -215,6 +218,113 @@ let impl_MessageCiphertext__len (self: t_MessageCiphertext) : usize =
     <:
     usize) +!
   (Core_models.Slice.impl__len #u8 (self.f_c2 <: t_Slice u8) <: usize)
+
+/// Wire encoding `c1 || c2 || cp`
+let impl_MessageCiphertext__as_bytes (self: t_MessageCiphertext)
+    : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+  let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl__with_capacity #u8 (impl_MessageCiphertext__len self <: usize)
+  in
+  let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global out (self.f_c1 <: t_Slice u8)
+  in
+  let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global out (self.f_c2 <: t_Slice u8)
+  in
+  let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl_2__extend_from_slice #u8
+      #Alloc.Alloc.t_Global
+      out
+      (Alloc.Vec.impl_1__as_slice self.f_cp <: t_Slice u8)
+  in
+  out
+
+let impl_MessageCiphertext__from_bytes__v_FIXED: usize =
+  Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_ENCAPS_SECRET_LEN +!
+  Securedrop_protocol_minimal.Primitives.Mlkem.v_LEN_MLKEM_SHAREDSECRET_ENCAPS
+
+/// Deserialize from the `c1 || c2 || cp` wire encoding
+/// # Errors
+/// Returns an error if the byte slice is shorter than the fixed-length prefix.
+let impl_MessageCiphertext__from_bytes (bytes: t_Slice u8)
+    : Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error =
+  if (Core_models.Slice.impl__len #u8 bytes <: usize) <. impl_MessageCiphertext__from_bytes__v_FIXED
+  then
+    let args:(usize & usize) =
+      impl_MessageCiphertext__from_bytes__v_FIXED, Core_models.Slice.impl__len #u8 bytes
+      <:
+      (usize & usize)
+    in
+    let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 2) =
+      let list =
+        [
+          Core_models.Fmt.Rt.impl__new_display #usize args._1;
+          Core_models.Fmt.Rt.impl__new_display #usize args._2
+        ]
+      in
+      FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 2);
+      Rust_primitives.Hax.array_of_list 2 list
+    in
+    Core_models.Result.Result_Err
+    (Anyhow.Error.impl__msg #Alloc.String.t_String
+        (Core_models.Hint.must_use #Alloc.String.t_String
+            (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 2)
+                    (mk_usize 2)
+                    (let list = ["MessageCiphertext too short: expected at least "; ", got "] in
+                      FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 2);
+                      Rust_primitives.Hax.array_of_list 2 list)
+                    args
+                  <:
+                  Core_models.Fmt.t_Arguments)
+              <:
+              Alloc.String.t_String)
+          <:
+          Alloc.String.t_String))
+    <:
+    Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error
+  else
+    let (c1: t_Slice u8), (rest: t_Slice u8) =
+      Core_models.Slice.impl__split_at #u8
+        bytes
+        Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_ENCAPS_SECRET_LEN
+    in
+    let (c2: t_Slice u8), (cp: t_Slice u8) =
+      Core_models.Slice.impl__split_at #u8
+        rest
+        Securedrop_protocol_minimal.Primitives.Mlkem.v_LEN_MLKEM_SHAREDSECRET_ENCAPS
+    in
+    Core_models.Result.Result_Ok
+    ({
+        f_c1
+        =
+        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 32))
+          #Core_models.Array.t_TryFromSliceError
+          (Core_models.Convert.f_try_into #(t_Slice u8)
+              #(t_Array u8 (mk_usize 32))
+              #FStar.Tactics.Typeclasses.solve
+              c1
+            <:
+            Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
+              Core_models.Array.t_TryFromSliceError)
+          "checked length";
+        f_cp = Alloc.Slice.impl__to_vec #u8 cp;
+        f_c2
+        =
+        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1088))
+          #Core_models.Array.t_TryFromSliceError
+          (Core_models.Convert.f_try_into #(t_Slice u8)
+              #(t_Array u8 (mk_usize 1088))
+              #FStar.Tactics.Typeclasses.solve
+              c2
+            <:
+            Core_models.Result.t_Result (t_Array u8 (mk_usize 1088))
+              Core_models.Array.t_TryFromSliceError)
+          "checked length"
+      }
+      <:
+      t_MessageCiphertext)
+    <:
+    Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error
 
 /// SD-APKE.KGen: generate a `MessageKeyPair`.
 /// # Errors

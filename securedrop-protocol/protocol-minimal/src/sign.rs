@@ -131,12 +131,14 @@ impl<D: DomainTag> Signature<D> {
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl<D: DomainTag> serde::Serialize for Signature<D> {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&hex::encode(self.bytes))
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl<'de, D: DomainTag> serde::Deserialize<'de> for Signature<D> {
     fn deserialize<De: serde::Deserializer<'de>>(de: De) -> Result<Self, De::Error> {
         let s = String::deserialize(de)?;
@@ -265,12 +267,14 @@ impl VerifyingKey {
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl serde::Serialize for VerifyingKey {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&hex::encode(self.0.as_ref()))
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl<'de> serde::Deserialize<'de> for VerifyingKey {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
         let s = String::deserialize(de)?;

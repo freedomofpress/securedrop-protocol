@@ -5,9 +5,11 @@ use crate::primitives::x25519::{DH_PUBLIC_KEY_LEN, DH_SHARED_SECRET_LEN};
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use alloc::vec::Vec;
 use anyhow::Error;
+#[cfg(not(hax))]
 use serde::{Deserialize, Serialize};
 
 /// Hex string serde for fixed length byte arrays
+#[cfg(not(hax))]
 mod hex_array {
     use alloc::string::String;
     use serde::de::Error as _;
@@ -37,7 +39,8 @@ mod hex_array {
 /// - `Z = (pk_R^fetch)^x`: DH share for fetching (hint)
 ///
 /// The server stores `(id, C_S, X, Z)` per message.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct Envelope {
     /// `ct^APKE`: SD-APKE ciphertext `((c1, cp), c2)` - the encrypted message
     pub(crate) ct_apke: MessageCiphertext,
@@ -46,11 +49,11 @@ pub struct Envelope {
     pub(crate) ct_pke: MetadataCiphertext,
 
     /// `X = g^x`: ephemeral DH public key for the hint
-    #[serde(with = "hex_array")]
+    #[cfg_attr(not(hax), serde(with = "hex_array"))]
     pub(crate) mgdh_pubkey: [u8; DH_PUBLIC_KEY_LEN],
 
     /// `Z = (pk_R^fetch)^x`: DH share for fetching
-    #[serde(with = "hex_array")]
+    #[cfg_attr(not(hax), serde(with = "hex_array"))]
     pub(crate) mgdh: [u8; DH_PUBLIC_KEY_LEN],
 }
 
@@ -120,11 +123,12 @@ impl Plaintext {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct FetchResponse {
-    #[serde(with = "hex_array")]
+    #[cfg_attr(not(hax), serde(with = "hex_array"))]
     pub(crate) enc_id: [u8; LEN_KMID], // aka kmid
-    #[serde(with = "hex_array")]
+    #[cfg_attr(not(hax), serde(with = "hex_array"))]
     pub(crate) pmgdh: [u8; DH_SHARED_SECRET_LEN], // aka per-request clue
 }
 

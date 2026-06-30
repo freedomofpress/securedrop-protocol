@@ -34,7 +34,8 @@ pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
 pub type SignedKeyBundlePublic = (KeyBundlePublic, Signature<JournalistEphemeralKey>);
 
 /// The public keys that make up one ephemeral key bundle
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct KeyBundlePublic {
     /// SD-APKE ephemeral key `pk_{J,i}^{APKE_E} = (pk1, pk2)`.
     pub apke_pk: MessagePublicKey,
@@ -105,12 +106,14 @@ impl SignedLongtermPubKeyBytes {
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl Serialize for SignedLongtermPubKeyBytes {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&hex::encode(self.0))
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
 impl<'de> Deserialize<'de> for SignedLongtermPubKeyBytes {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
         let s = String::deserialize(de)?;
@@ -120,7 +123,8 @@ impl<'de> Deserialize<'de> for SignedLongtermPubKeyBytes {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct Enrollment {
     pub bundle: SignedLongtermPubKeyBytes,
     pub selfsig: Signature<JournalistLongTermKey>,
