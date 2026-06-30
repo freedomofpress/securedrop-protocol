@@ -2,7 +2,6 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
-use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::VerifyingKey;
 use securedrop_protocol_minimal::keys::FPFKeyPair;
 use securedrop_protocol_minimal::wire::setup::NewsroomSetupRequest;
@@ -18,7 +17,7 @@ pub fn init(force: bool) -> Result<()> {
         );
     }
 
-    let kp = FPFKeyPair::new(OsRng.unwrap_err()).context("generating FPF keypair")?;
+    let kp = FPFKeyPair::new(&mut rand::rng()).context("generating FPF keypair")?;
     let seed = kp.as_bytes();
     let vk = kp.verifying_key().into_bytes();
 

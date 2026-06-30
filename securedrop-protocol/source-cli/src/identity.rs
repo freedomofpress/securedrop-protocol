@@ -1,11 +1,10 @@
 use anyhow::{Context, Result};
-use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::{Source, UserPublic};
 
 use crate::util::read_passphrase;
 
 pub(crate) fn generate() -> Result<()> {
-    let source = Source::new(OsRng.unwrap_err());
+    let source = Source::new(rand::rng());
     let mnemonic = source.passphrase();
     let fetch_pk = source.public().fetch_pk().into_bytes();
 

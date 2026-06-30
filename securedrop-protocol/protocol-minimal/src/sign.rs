@@ -174,7 +174,7 @@ impl VerifyingKey {
         &self.0
     }
 
-    pub(crate) fn from_bytes(bytes: [u8; KEY_LEN_ED25519]) -> Self {
+    pub fn from_bytes(bytes: [u8; KEY_LEN_ED25519]) -> Self {
         Self(bytes)
     }
 }
@@ -236,16 +236,15 @@ impl SigningKey {
     }
 
     pub(crate) fn as_bytes(&self) -> [u8; 32] {
-        *self.sk.as_ref()
+        *self.sk.as_bytes()
     }
 
     pub(crate) fn from_seed(seed: [u8; 32]) -> Self {
-        let sk = LibCruxSigningKey::from_bytes(seed);
         let mut pk = [0u8; 32];
-        provider::ed25519::secret_to_public(&mut pk, sk.as_ref());
+        provider::ed25519::secret_to_public(&mut pk, &seed);
         Self {
-            vk: VerifyingKey(LibCruxVerifyingKey::from_bytes(pk)),
-            sk,
+            vk: VerifyingKey(pk),
+            sk: SigningSecretKey(seed),
         }
     }
 }
@@ -254,11 +253,6 @@ impl VerifyingKey {
     /// Get the raw bytes of this verification key.
     pub fn into_bytes(self) -> [u8; 32] {
         self.0
-    }
-
-    /// Reconstruct a [`VerifyingKey`] from its raw bytes.
-    pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self(LibCruxVerifyingKey::from_bytes(bytes))
     }
 
     /// Verify `sig` over `msg`. The domain is determined by the type of `sig`.

@@ -1,8 +1,7 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use rand::Rng;
-use rand_core::{OsRng, TryRngCore};
+use rand::{Rng, RngExt};
 use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
 use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::wire::core::{
@@ -139,7 +138,7 @@ pub(crate) async fn get_journalist_keys(
         .lock()
         .expect("ephemeral_keys mutex poisoned");
 
-    let mut rng = OsRng.unwrap_err();
+    let mut rng = rand::rng();
     let mut responses = Vec::new();
     for (vk_hex, enrolled) in journalists.iter() {
         let Some(bundles) = ephemeral_keys.get_mut(vk_hex).filter(|b| !b.is_empty()) else {
@@ -190,9 +189,14 @@ pub(crate) async fn post_message(
 pub(crate) async fn get_challenges(
     State(state): State<AppState>,
 ) -> Json<MessageChallengeFetchResponse> {
-    let mut rng = OsRng.unwrap_err();
+    let mut rng = rand::rng();
     let store = state.messages.lock().expect("messages mutex poisoned");
-    let messages = compute_fetch_challenges(&mut rng, &store, MESSAGE_ID_FETCH_SIZE);
+    let entries: Vec<_> = store
+        .iter()
+        .take(MESSAGE_ID_FETCH_SIZE)
+        .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+        .collect();
+    let messages = compute_fetch_challenges(&mut rng, &entries, MESSAGE_ID_FETCH_SIZE);
 
     Json(MessageChallengeFetchResponse {
         count: messages.len(),

@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use rand_core::{CryptoRng, OsRng, RngCore, TryRngCore};
+use rand_core::{CryptoRng, RngCore};
 use securedrop_protocol_minimal::api::Api;
 use securedrop_protocol_minimal::wire::core::SourceJournalistKeyResponse;
 use securedrop_protocol_minimal::{
@@ -54,7 +54,7 @@ pub(crate) fn reply(server: &str, message_id: &str, message: &str) -> Result<()>
     }
 
     // Send the reply to the source and to every other journalist so they have the convo history
-    let mut rng = OsRng.unwrap_err();
+    let mut rng = rand::rng();
     let mut message_ids = Vec::new();
     message_ids.push(send_reply(
         &client,

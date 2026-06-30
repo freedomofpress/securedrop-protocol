@@ -7,7 +7,6 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
-use rand_core::{OsRng, TryRngCore};
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
 use securedrop_protocol_minimal::{FpfOnNewsroom, Signature, VerifyingKey};
 
@@ -22,7 +21,7 @@ pub fn init(force: bool) -> Result<()> {
         );
     }
 
-    let kp = NewsroomKeyPair::new(OsRng.unwrap_err()).context("generating newsroom keypair")?;
+    let kp = NewsroomKeyPair::new(&mut rand::rng()).context("generating newsroom keypair")?;
     let seed = kp.as_bytes();
     let vk = kp.verifying_key().into_bytes();
 
