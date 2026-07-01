@@ -13,6 +13,8 @@ let _ =
   let open Securedrop_protocol_minimal.Primitives.Xwing in
   ()
 
+let v_LEN_METADATA_CIPHERTEXT: usize = mk_usize 1232
+
 /// The recipient's metadata public key (`pk_R^PKE` in the spec).
 type t_MetadataPublicKey =
   | MetadataPublicKey : Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPublicKey
@@ -49,7 +51,7 @@ let impl_MetadataKeyPair__private_key (self: t_MetadataKeyPair) : t_MetadataPriv
 /// ciphertext `c'`.
 type t_MetadataCiphertext = {
   f_c:t_Array u8 (mk_usize 1120);
-  f_cp:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global
+  f_cp:t_Array u8 (mk_usize 1232)
 }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
@@ -64,8 +66,8 @@ let impl_7: Core_models.Clone.t_Clone t_MetadataCiphertext =
 
 /// Total byte length of the ciphertext: encapsulation `c` + AEAD ciphertext `c'`.
 let impl_MetadataCiphertext__len (self: t_MetadataCiphertext) : usize =
-  (Core_models.Slice.impl__len #u8 (self.f_c <: t_Slice u8) <: usize) +!
-  (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global self.f_cp <: usize)
+  Securedrop_protocol_minimal.Primitives.Xwing.v_LEN_XWING_SHAREDSECRET_ENCAPS +!
+  v_LEN_METADATA_CIPHERTEXT
 
 /// SD-PKE.KGen: generate a `MetadataKeyPair`.
 /// # Errors
@@ -147,8 +149,9 @@ let impl_MetadataPublicKey__as_bytes (self: t_MetadataPublicKey) : t_Slice u8 =
   Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__as_bytes self._0 <: t_Slice u8
 
 /// SD-PKE.Enc: encrypt message `m` to recipient key `pk_r`, returning `(c, c')`.
-/// `m` is the sender's serialized long-term APKE public key.
-let encrypt (pk_r: t_MetadataPublicKey) (m: t_Slice u8) : t_MetadataCiphertext =
+/// `m` is the sender's long-term APKE public key, which must be serializable.
+let encrypt (pk_r: t_MetadataPublicKey) (m: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+    : Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error =
   let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
     Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
       (Hpke_rs.Mode_Base <: Hpke_rs.t_Mode)
@@ -185,33 +188,93 @@ let encrypt (pk_r: t_MetadataPublicKey) (m: t_Slice u8) : t_MetadataCiphertext =
           Rust_primitives.Hax.array_of_list 0 list)
         <:
         t_Slice u8)
-      m
+      (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Message.impl_MessagePublicKey__as_bytes
+              m
+            <:
+            Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+        <:
+        t_Slice u8)
       (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
       (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
       (Core_models.Option.Option_None <: Core_models.Option.t_Option Hpke_rs.t_HpkePrivateKey)
   in
   let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux = tmp0 in
-  let
-  (c_vec: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global), (cp: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
-    Core_models.Result.impl__expect #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global &
-        Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-      #Hpke_rs.t_HpkeError
-      out
-      "SD-PKE encryption failed"
-  in
-  let (c: t_Array u8 (mk_usize 1120)):t_Array u8 (mk_usize 1120) =
-    Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1120))
-      #Core_models.Array.t_TryFromSliceError
-      (Core_models.Convert.f_try_into #(t_Slice u8)
+  match
+    out
+    <:
+    Core_models.Result.t_Result
+      (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+      Hpke_rs.t_HpkeError
+  with
+  | Core_models.Result.Result_Ok (c_vec, cp_vec) ->
+    let
+    (c_vec: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global),
+    (cp_vec: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
+      c_vec, cp_vec
+      <:
+      (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+    in
+    (match
+        Core_models.Convert.f_try_into #(t_Slice u8)
           #(t_Array u8 (mk_usize 1120))
           #FStar.Tactics.Typeclasses.solve
           (Alloc.Vec.impl_1__as_slice #u8 #Alloc.Alloc.t_Global c_vec <: t_Slice u8)
         <:
         Core_models.Result.t_Result (t_Array u8 (mk_usize 1120))
-          Core_models.Array.t_TryFromSliceError)
-      "X-Wing encapsulation output has unexpected length"
-  in
-  { f_c = c; f_cp = cp } <: t_MetadataCiphertext
+          Core_models.Array.t_TryFromSliceError
+      with
+      | Core_models.Result.Result_Ok c ->
+        let (c: t_Array u8 (mk_usize 1120)):t_Array u8 (mk_usize 1120) = c in
+        (match
+            Core_models.Convert.f_try_into #(t_Slice u8)
+              #(t_Array u8 (mk_usize 1232))
+              #FStar.Tactics.Typeclasses.solve
+              (Alloc.Vec.impl_1__as_slice #u8 #Alloc.Alloc.t_Global cp_vec <: t_Slice u8)
+            <:
+            Core_models.Result.t_Result (t_Array u8 (mk_usize 1232))
+              Core_models.Array.t_TryFromSliceError
+          with
+          | Core_models.Result.Result_Ok cp ->
+            let cp:t_Array u8 (mk_usize 1232) = cp in
+            Core_models.Result.Result_Ok ({ f_c = c; f_cp = cp } <: t_MetadataCiphertext)
+            <:
+            Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error
+          | Core_models.Result.Result_Err _ ->
+            let error:Anyhow.t_Error =
+              Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
+                    (let list = ["Unexpected md ciphertext length"] in
+                      FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                      Rust_primitives.Hax.array_of_list 1 list)
+                  <:
+                  Core_models.Fmt.t_Arguments)
+            in
+            Core_models.Result.Result_Err (Anyhow.__private.must_use error)
+            <:
+            Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error)
+      | Core_models.Result.Result_Err _ ->
+        let error:Anyhow.t_Error =
+          Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
+                (let list = ["Unexpected md encapsulated secret length"] in
+                  FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                  Rust_primitives.Hax.array_of_list 1 list)
+              <:
+              Core_models.Fmt.t_Arguments)
+        in
+        Core_models.Result.Result_Err (Anyhow.__private.must_use error)
+        <:
+        Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error)
+  | Core_models.Result.Result_Err _ ->
+    let error:Anyhow.t_Error =
+      Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
+            (let list = ["Metadata encryption failed"] in
+              FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+              Rust_primitives.Hax.array_of_list 1 list)
+          <:
+          Core_models.Fmt.t_Arguments)
+    in
+    Core_models.Result.Result_Err (Anyhow.__private.must_use error)
+    <:
+    Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error
 
 /// SD-PKE.Dec: decrypt `(c, c')` using recipient key `sk_r`, returning message `m`.
 /// # Errors
@@ -249,7 +312,7 @@ let decrypt (sk_r: t_MetadataPrivateKey) (ct: t_MetadataCiphertext)
             FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
             Rust_primitives.Hax.array_of_list 0 list)
           <:
-          t_Slice u8) (Alloc.Vec.impl_1__as_slice ct.f_cp <: t_Slice u8)
+          t_Slice u8) (ct.f_cp <: t_Slice u8)
         (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
         (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
         (Core_models.Option.Option_None <: Core_models.Option.t_Option Hpke_rs.t_HpkePublicKey)

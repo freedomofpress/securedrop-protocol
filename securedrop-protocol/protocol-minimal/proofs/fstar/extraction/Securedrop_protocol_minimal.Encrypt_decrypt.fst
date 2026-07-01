@@ -125,22 +125,24 @@ let encrypt
           Anyhow.t_Error)
       "Failed to generate shared secret"
   in
-  let sender_apke_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Securedrop_protocol_minimal.Message.impl_MessagePublicKey__as_bytes (Securedrop_protocol_minimal.Traits.f_own_message_auth_pk
-          #v_Sender
-          #FStar.Tactics.Typeclasses.solve
-          sender
-        <:
-        Securedrop_protocol_minimal.Message.t_MessagePublicKey)
-  in
   let ct_pke:Securedrop_protocol_minimal.Metadata.t_MetadataCiphertext =
-    Securedrop_protocol_minimal.Metadata.encrypt (Securedrop_protocol_minimal.Traits.f_message_metadata_pk
-          #v_Recipient
-          #FStar.Tactics.Typeclasses.solve
-          recipient
+    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Metadata.t_MetadataCiphertext
+      #Anyhow.t_Error
+      (Securedrop_protocol_minimal.Metadata.encrypt (Securedrop_protocol_minimal.Traits.f_message_metadata_pk
+              #v_Recipient
+              #FStar.Tactics.Typeclasses.solve
+              recipient
+            <:
+            Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
+          (Securedrop_protocol_minimal.Traits.f_own_message_auth_pk #v_Sender
+              #FStar.Tactics.Typeclasses.solve
+              sender
+            <:
+            Securedrop_protocol_minimal.Message.t_MessagePublicKey)
         <:
-        Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
-      (Alloc.Vec.impl_1__as_slice sender_apke_bytes <: t_Slice u8)
+        Core_models.Result.t_Result Securedrop_protocol_minimal.Metadata.t_MetadataCiphertext
+          Anyhow.t_Error)
+      "Valid Keybundle should allow metadata seal"
   in
   let hax_temp_output:Securedrop_protocol_minimal.Ciphertext.t_Envelope =
     {
