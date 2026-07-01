@@ -2,21 +2,16 @@ use std::fs;
 
 use anyhow::{Context, Result, bail};
 use securedrop_protocol_minimal::api::JournalistApi;
+use securedrop_protocol_minimal::wire::core::WelcomeBundle;
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyResponse, JournalistSetupRequest, JournalistSetupResponse,
 };
-use securedrop_protocol_minimal::{Enrollable, Journalist, VerifyingKey};
-use serde::Deserialize;
+use securedrop_protocol_minimal::{Enrollable, Journalist};
 
 use crate::storage::{
     append_ephemeral_secrets, load_journalist, long_term_path, newsroom_sig_path, newsroom_vk_path,
     write_secret,
 };
-
-#[derive(Deserialize)]
-struct NewsroomInfo {
-    verifying_key: String,
-}
 
 pub(crate) fn init(force: bool) -> Result<()> {
     let path = long_term_path()?;
@@ -57,17 +52,16 @@ pub(crate) fn enroll(server: &str, force: bool) -> Result<()> {
     let journalist = load_journalist()?;
     let client = reqwest::blocking::Client::new();
 
-    // fetch the newsroom verifying key (well clients should pin this)
-    let info: NewsroomInfo = client
-        .get(format!("{server}/newsroom"))
+    // fetch the newsroom welcome bundle to learn the newsroom verifying key
+    // (clients should pin this out of band).
+    let welcome: WelcomeBundle = client
+        .get(format!("{server}/welcome"))
         .send()
-        .with_context(|| format!("fetching {server}/newsroom"))?
+        .with_context(|| format!("fetching {server}/welcome"))?
         .error_for_status()?
         .json()?;
-    let mut vk_nr_bytes = [0u8; 32];
-    hex::decode_to_slice(info.verifying_key.trim(), &mut vk_nr_bytes)
-        .context("parsing newsroom verifying key")?;
-    let vk_nr = VerifyingKey::from_bytes(vk_nr_bytes);
+    let vk_nr = welcome.newsroom_verifying_key;
+    let vk_nr_bytes = vk_nr.into_bytes();
 
     // send our enrollment to the newsroom
     let request = JournalistSetupRequest {

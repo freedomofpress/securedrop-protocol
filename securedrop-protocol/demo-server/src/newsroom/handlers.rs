@@ -2,35 +2,24 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use rand::{Rng, RngExt};
+use securedrop_protocol_minimal::Envelope;
 use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
 use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::wire::core::{
-    MessageChallengeFetchResponse, SourceJournalistKeyResponse, SourceNewsroomKeyResponse,
+    JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchResponse, WelcomeBundle,
 };
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyRequest, JournalistEphemeralKeyResponse, JournalistSetupRequest,
     JournalistSetupResponse,
 };
-use securedrop_protocol_minimal::{Envelope, JournalistPublicView};
 use serde::Serialize;
 use uuid::Uuid;
 
 use super::server::{AppState, EnrolledJournalist};
 
 #[derive(Serialize)]
-pub(crate) struct NewsroomInfo {
-    verifying_key: String,
-}
-
-#[derive(Serialize)]
 pub(crate) struct MessageSubmitResponse {
     message_id: String,
-}
-
-pub(crate) async fn get_newsroom(State(state): State<AppState>) -> Json<NewsroomInfo> {
-    Json(NewsroomInfo {
-        verifying_key: (*state.vk_hex).clone(),
-    })
 }
 
 pub(crate) async fn post_enroll(
@@ -109,26 +98,42 @@ pub(crate) async fn post_replenish(
     }))
 }
 
-/// Retrieves the newsroom verifying key together with FPF's signature over it
-pub(crate) async fn get_newsroom_keys(
+pub(crate) async fn get_welcome(
     State(state): State<AppState>,
-) -> Result<Json<SourceNewsroomKeyResponse>, (StatusCode, String)> {
+) -> Result<Json<WelcomeBundle>, (StatusCode, String)> {
     let fpf_sig = state.fpf_sig.ok_or((
         StatusCode::SERVICE_UNAVAILABLE,
         "newsroom has no FPF signature stored (run `newsroom set-fpf-sig`)".to_string(),
     ))?;
 
-    Ok(Json(SourceNewsroomKeyResponse {
+    let journalists = state
+        .journalists
+        .lock()
+        .expect("journalists mutex poisoned")
+        .values()
+        .map(|enrolled| {
+            let e = &enrolled.enrollment;
+            JournalistLongTermView {
+                vk: e.keys.0,
+                fetch_pk: e.keys.1.clone(),
+                reply_apke_pk: e.keys.2.clone(),
+                signed_longterm_key_bytes: e.bundle.clone(),
+                selfsig: e.selfsig,
+                nr_signature: enrolled.nr_sig,
+            }
+        })
+        .collect();
+
+    Ok(Json(WelcomeBundle {
         newsroom_verifying_key: state.newsroom_kp.verifying_key(),
         fpf_sig,
+        journalists,
     }))
 }
 
-/// For each enrolled journalist with ephemeral keys available, the server consumes one one-time bundle
-/// and returns the journalist's long term public view plus the newsroom's signature.
-pub(crate) async fn get_journalist_keys(
+pub(crate) async fn get_journalist_ephemeral_keys(
     State(state): State<AppState>,
-) -> Json<Vec<SourceJournalistKeyResponse>> {
+) -> Json<Vec<JournalistEphemeralKeys>> {
     let journalists = state
         .journalists
         .lock()
@@ -147,19 +152,9 @@ pub(crate) async fn get_journalist_keys(
         let idx = rng.random_range(0..bundles.len());
         let bundle = bundles.swap_remove(idx);
 
-        let e = &enrolled.enrollment;
-        let journalist = JournalistPublicView::new(
-            e.keys.0,
-            e.keys.1.clone(),
-            e.keys.2.clone(),
-            e.selfsig,
-            e.bundle.clone(),
-            bundle,
-        );
-
-        responses.push(SourceJournalistKeyResponse {
-            journalist,
-            nr_signature: enrolled.nr_sig,
+        responses.push(JournalistEphemeralKeys {
+            vk: enrolled.enrollment.keys.0,
+            ephemeral: bundle,
         });
     }
 

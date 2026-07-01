@@ -10,18 +10,20 @@
 //!
 //! Key verification follows a chain of trust:
 //! 1. The FPF signing key is a trust anchor (pre-distributed out of band).
-//! 2. The newsroom's verifying key is signed by FPF.  (This is not yet verified by `handle_journalist_key_response()`.)
+//! 2. The newsroom's verifying key is signed by FPF.
 //! 3. Each journalist's signing key is signed by the newsroom.
-//! 4. Each journalist's key bundles are self-signed.
+//! 4. Each journalist's long-term and one-time key bundles are self-signed.
 
 use crate::{
-    Enrollable, Envelope, FetchResponse, JournalistPublic, UserPublic, UserSecret, VerifyingKey,
+    Enrollable, Envelope, FetchResponse, JournalistPublicView, UserPublic, UserSecret,
+    VerifyingKey,
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
+    keys::SignedKeyBundlePublic,
     traits::RestrictedApi,
     wire::{
         core::{
-            MessageChallengeFetchRequest, MessageFetchRequest, SourceJournalistKeyRequest,
-            SourceJournalistKeyResponse, SourceNewsroomKeyRequest, SourceNewsroomKeyResponse,
+            JournalistLongTermView, MessageChallengeFetchRequest, MessageFetchRequest,
+            WelcomeBundle,
         },
         setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest},
     },
@@ -46,18 +48,6 @@ pub trait Client {
 /// All users use the same API, but hax does not support default trait implementations
 /// (cryspen/hax/issues/888) so the trait is defined separately.
 pub trait Api: Client {
-    /// Creates a request to fetch the newsroom's public keys from the server.
-    ///
-    /// This is the first part of step 5 in the protocol spec.
-    fn fetch_newsroom_keys(&self) -> SourceNewsroomKeyRequest;
-
-    /// Creates a request to fetch journalist public keys from the server.
-    ///
-    /// This is the second part of step 5 in the protocol spec. The server
-    /// responds with long-term keys and a one-time ephemeral key bundle
-    /// for each available journalist.
-    fn fetch_journalist_keys(&self) -> SourceJournalistKeyRequest;
-
     /// Creates a request to fetch encrypted message IDs from the server.
     ///
     /// Corresponds to step 7 in the protocol spec. The server returns a
@@ -107,57 +97,55 @@ pub trait Api: Client {
         S: UserSecret,
         P: UserPublic;
 
-    /// Verifies and stores the newsroom's verifying key from a server response.
+    /// Verifies a newsroom [`WelcomeBundle`] and stores the newsroom key (step 5).
     ///
-    /// Checks the FPF signature over the newsroom verifying key, and if valid,
-    /// stores it for subsequent journalist key verification.
+    /// We check the FPF signature using the newsroom verifying key, then for every
+    /// journalist in the roster we verify:
+    /// * the newsroom's signature over the journalist's verifying key
+    /// * the journalist's signature over their long term keys
+    ///
+    /// On success the newsroom key is stored, and the long term views can be
+    /// cached and reused.
     ///
     /// # Errors
     ///
-    /// Returns an error if the FPF signature is invalid.
-    fn handle_newsroom_key_response(
+    /// Returns an error if the FPF signature or any journalist signature is invalid.
+    fn handle_welcome(
         &mut self,
-        response: &SourceNewsroomKeyResponse,
+        welcome: &WelcomeBundle,
         fpf_verifying_key: &VerifyingKey,
     ) -> Result<(), Error>;
 
-    /// Verifies a journalist's key response against the newsroom's signature.
-    ///
-    /// Performs three signature checks:
-    /// 1. The newsroom's signature over the journalist's verifying key.
-    /// 2. The journalist's self-signature over their long-term key bundle.
-    /// 3. The journalist's self-signature over their one-time keys.
+    /// Verifies one journalist's long-term view against a trusted newsroom verifying key,
+    /// the newsroom's signature over the journalist's verifying key, and the
+    /// journalist's signature over their long term keys.
     ///
     /// # Errors
     ///
-    /// Returns an error if any signature check fails.
-    fn handle_journalist_key_response(
+    /// Returns an error if either signature is invalid.
+    fn verify_long_term(
         &self,
-        response: &SourceJournalistKeyResponse,
+        journalist: &JournalistLongTermView,
         newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error>;
+
+    /// Verifies a journalist's one-time bundle against their already verified
+    /// long-term view and assembles a `JournalistPublicView` for encryption.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the signature on the one-time bundle is invalid.
+    fn verify_ephemeral(
+        &self,
+        long_term: &JournalistLongTermView,
+        ephemeral: &SignedKeyBundlePublic,
+    ) -> Result<JournalistPublicView, Error>;
 }
 
 impl<T> Api for T
 where
     T: Client,
 {
-    /// Creates a request to fetch the newsroom's public keys from the server.
-    ///
-    /// This is the first part of step 5 in the protocol spec.
-    fn fetch_newsroom_keys(&self) -> SourceNewsroomKeyRequest {
-        SourceNewsroomKeyRequest {}
-    }
-
-    /// Creates a request to fetch journalist public keys from the server.
-    ///
-    /// This is the second part of step 5 in the protocol spec. The server
-    /// responds with long-term keys and a one-time ephemeral key bundle
-    /// for each available journalist.
-    fn fetch_journalist_keys(&self) -> SourceJournalistKeyRequest {
-        SourceJournalistKeyRequest {}
-    }
-
     /// Creates a request to fetch encrypted message IDs from the server.
     ///
     /// Corresponds to step 7 in the protocol spec. The server returns a
@@ -221,67 +209,60 @@ where
         Ok(envelope)
     }
 
-    /// Verifies and stores the newsroom's verifying key from a server response.
-    ///
-    /// Checks the FPF signature over the newsroom verifying key, and if valid,
-    /// stores it for subsequent journalist key verification.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the FPF signature is invalid.
-    fn handle_newsroom_key_response(
+    fn handle_welcome(
         &mut self,
-        response: &SourceNewsroomKeyResponse,
+        welcome: &WelcomeBundle,
         fpf_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
-        let newsroom_vk_bytes = response.newsroom_verifying_key.into_bytes();
+        let newsroom_vk = welcome.newsroom_verifying_key;
         fpf_verifying_key
-            .verify(&newsroom_vk_bytes, &response.fpf_sig)
+            .verify(&newsroom_vk.into_bytes(), &welcome.fpf_sig)
             .map_err(|_| anyhow::anyhow!("invalid FPF signature on newsroom verifying key"))?;
 
-        self.set_newsroom_verifying_key(response.newsroom_verifying_key);
+        for journalist in welcome.journalists.iter() {
+            self.verify_long_term(journalist, &newsroom_vk)?;
+        }
+
+        self.set_newsroom_verifying_key(newsroom_vk);
         Ok(())
     }
 
-    /// Verifies a journalist's key response against the newsroom's signature.
-    ///
-    /// Performs three signature checks:
-    /// 1. The newsroom's signature over the journalist's verifying key.
-    /// 2. The journalist's self-signature over their long-term key bundle.
-    /// 3. The journalist's self-signature over their one-time keys.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if any signature check fails.
-    fn handle_journalist_key_response(
+    fn verify_long_term(
         &self,
-        response: &SourceJournalistKeyResponse,
+        journalist: &JournalistLongTermView,
         newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error> {
-        // 1. Verify newsroom signature on journalist's verifying key.
         newsroom_verifying_key
-            .verify(
-                &response.journalist.verifying_key().into_bytes(),
-                &response.nr_signature,
-            )
+            .verify(&journalist.vk.into_bytes(), &journalist.nr_signature)
             .map_err(|_| anyhow::anyhow!("invalid newsroom signature on journalist signing key"))?;
-
-        // 2. Verify journalist's self-signature on long-term key bundle.
-        let vk = response.journalist.verifying_key();
-        vk.verify(
-            response.journalist.signed_keybytes().as_bytes(),
-            response.journalist.self_signature(),
-        )
-        .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
-
-        // 3. Verify journalist's self-signature on one-time ephemeral key bundle.
-        vk.verify(
-            &response.journalist.ephemeral_bundle().as_bytes(),
-            response.journalist.ephemeral_signature(),
-        )
-        .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on one-time keys"))?;
-
+        journalist
+            .vk
+            .verify(
+                journalist.signed_longterm_key_bytes.as_bytes(),
+                &journalist.selfsig,
+            )
+            .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
         Ok(())
+    }
+
+    fn verify_ephemeral(
+        &self,
+        long_term: &JournalistLongTermView,
+        ephemeral: &SignedKeyBundlePublic,
+    ) -> Result<JournalistPublicView, Error> {
+        long_term
+            .vk
+            .verify(&ephemeral.0.as_bytes(), &ephemeral.1)
+            .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on one-time keys"))?;
+
+        Ok(JournalistPublicView::new(
+            long_term.vk,
+            long_term.fetch_pk.clone(),
+            long_term.reply_apke_pk.clone(),
+            long_term.selfsig,
+            long_term.signed_longterm_key_bytes.clone(),
+            ephemeral.clone(),
+        ))
     }
 }
 

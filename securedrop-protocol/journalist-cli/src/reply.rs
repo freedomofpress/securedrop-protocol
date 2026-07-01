@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use rand_core::{CryptoRng, RngCore};
 use securedrop_protocol_minimal::api::Api;
-use securedrop_protocol_minimal::wire::core::SourceJournalistKeyResponse;
+use securedrop_protocol_minimal::wire::core::{JournalistEphemeralKeys, WelcomeBundle};
 use securedrop_protocol_minimal::{
-    Enrollable, Journalist, JournalistPublic, SourcePublicView, UserPublic,
+    Enrollable, Journalist, JournalistPublicView, SourcePublicView, UserPublic,
 };
 use serde::Deserialize;
 
@@ -33,24 +33,42 @@ pub(crate) fn reply(server: &str, message_id: &str, message: &str) -> Result<()>
     let newsroom_vk = load_newsroom_vk()?;
     let client = reqwest::blocking::Client::new();
 
-    let journalists: Vec<SourceJournalistKeyResponse> = client
+    // Welcome bundle - we need this for our fellow journos
+    let welcome: WelcomeBundle = client
+        .get(format!("{server}/welcome"))
+        .send()
+        .with_context(|| format!("fetching {server}/welcome"))?
+        .error_for_status()
+        .context("newsroom rejected welcome request")?
+        .json()?;
+    let ephemeral: Vec<JournalistEphemeralKeys> = client
         .get(format!("{server}/journalists/keys"))
         .send()
         .with_context(|| format!("fetching {server}/journalists/keys"))?
         .error_for_status()
-        .context("newsroom rejected journalist key request")?
+        .context("newsroom rejected ephemeral key request")?
         .json()?;
 
-    let mut co_journalists = Vec::new();
-    for resp in &journalists {
-        // Don't reply to ourselves.
-        if resp.journalist.verifying_key().into_bytes() == own_vk {
+    let mut other_journalists: Vec<JournalistPublicView> = Vec::new();
+    for eph in &ephemeral {
+        // we don't want to reply to ourselves
+        if eph.vk.into_bytes() == own_vk {
             continue;
         }
+        let Some(long_term) = welcome
+            .journalists
+            .iter()
+            .find(|j| j.vk.into_bytes() == eph.vk.into_bytes())
+        else {
+            continue;
+        };
         journalist
-            .handle_journalist_key_response(resp, &newsroom_vk)
-            .context("co-journalist key response failed verification")?;
-        co_journalists.push(resp);
+            .verify_long_term(long_term, &newsroom_vk)
+            .context("journalist long-term keys failed verification")?;
+        let view = journalist
+            .verify_ephemeral(long_term, &eph.ephemeral)
+            .context("journalist one-time keys failed verification")?;
+        other_journalists.push(view);
     }
 
     // Send the reply to the source and to every other journalist so they have the convo history
@@ -64,12 +82,12 @@ pub(crate) fn reply(server: &str, message_id: &str, message: &str) -> Result<()>
         message,
         &mut rng,
     )?);
-    for resp in co_journalists {
+    for view in &other_journalists {
         message_ids.push(send_reply(
             &client,
             server,
             &journalist,
-            &resp.journalist,
+            view,
             message,
             &mut rng,
         )?);

@@ -3,37 +3,39 @@ module Securedrop_protocol_minimal.Wire.Core
 open FStar.Mul
 open Core_models
 
-/// Source fetches keys for the newsroom
-/// This is the first request in step 5 of the spec.
-type t_SourceNewsroomKeyRequest = | SourceNewsroomKeyRequest : t_SourceNewsroomKeyRequest
-
-/// Newsroom returns their keys and proof of onboarding.
-/// This is the first response in step 5 of the spec.
-type t_SourceNewsroomKeyResponse = {
-  f_newsroom_verifying_key:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
-  f_fpf_sig:Securedrop_protocol_minimal.Sign.t_Signature
-  Securedrop_protocol_minimal.Sign.t_FpfOnNewsroom
-}
-
-/// Source fetches journalist keys for the newsroom
-/// This is part of step 5 in the spec.
-/// Note: This isn't currently written down in the spec, but
-/// should occur right before the server provides a long-term
-/// key and an ephmeral key bundle for the journalist.
-type t_SourceJournalistKeyRequest = | SourceJournalistKeyRequest : t_SourceJournalistKeyRequest
-
-/// Server returns journalist long-term keys and ephemeral keys
-/// This is the second part of step 5 in the spec.
-/// Updated for 0.3 spec with new key types:
-/// - ephemeral_dh_pk: MLKEM-768 for message enc PSK (one-time)
-/// - ephemeral_kem_pk: DH-AKEM for message enc (one-time)
-/// - ephemeral_pke_pk: XWING for metadata enc (one-time)
-/// TODO: this may be split into 2 responses, one that contains
-/// static keys and one that contains one-time keys
-type t_SourceJournalistKeyResponse = {
-  f_journalist:Securedrop_protocol_minimal.Journalist.t_JournalistPublicView;
+/// A journalist's long-term public key material, as carried in the
+/// [`WelcomeBundle`].
+/// Combined with a one-time [`SignedKeyBundlePublic`] (fetched separately
+/// by an ephemeral key request) to reconstruct a `JournalistPublicView` for
+/// encryption.
+type t_JournalistLongTermView = {
+  f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
+  f_fetch_pk:Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey;
+  f_reply_apke_pk:Securedrop_protocol_minimal.Message.t_MessagePublicKey;
+  f_signed_longterm_key_bytes:Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes;
+  f_selfsig:Securedrop_protocol_minimal.Sign.t_Signature
+  Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey;
   f_nr_signature:Securedrop_protocol_minimal.Sign.t_Signature
   Securedrop_protocol_minimal.Sign.t_NewsroomOnJournalist
+}
+
+/// The newsroom "welcome bundle" (step 5): this is everything a sender needs to
+/// begin - the newsroom verifying key, FPF's signature over it, and the roster
+/// of journalists' long-term keys/signatures.
+type t_WelcomeBundle = {
+  f_newsroom_verifying_key:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
+  f_fpf_sig:Securedrop_protocol_minimal.Sign.t_Signature
+  Securedrop_protocol_minimal.Sign.t_FpfOnNewsroom;
+  f_journalists:Alloc.Vec.t_Vec t_JournalistLongTermView Alloc.Alloc.t_Global
+}
+
+/// One journalist's one-time (ephemeral) key bundle. `vk` identifies which
+/// journalist - the server consumes the bundle when it serves it.
+type t_JournalistEphemeralKeys = {
+  f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
+  f_ephemeral:(Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
+    Securedrop_protocol_minimal.Sign.t_Signature
+    Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
 }
 
 /// User (source or journalist) fetches message IDs
