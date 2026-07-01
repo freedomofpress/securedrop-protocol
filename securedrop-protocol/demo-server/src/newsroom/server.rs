@@ -69,11 +69,10 @@ async fn serve(port: u16) -> Result<()> {
 
     let app = Router::new()
         .route("/", get(|| async { "securedrop newsroom (demo)\n" }))
-        .route("/newsroom", get(get_newsroom))
-        .route("/newsroom/keys", get(get_newsroom_keys))
+        .route("/welcome", get(get_welcome))
         .route("/newsroom/journalists/enroll", post(post_enroll))
         .route("/newsroom/journalists/keys", post(post_replenish))
-        .route("/journalists/keys", get(get_journalist_keys))
+        .route("/journalists/keys", get(get_journalist_ephemeral_keys))
         .route("/messages", post(post_message))
         .route("/messages/:id", get(get_message).delete(delete_message))
         .route("/challenges", get(get_challenges))

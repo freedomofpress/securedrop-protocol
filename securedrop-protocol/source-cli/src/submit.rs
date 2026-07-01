@@ -1,9 +1,7 @@
 use anyhow::{Context, Result, bail};
 use securedrop_protocol_minimal::Source;
-use securedrop_protocol_minimal::api::{Api, Client};
-use securedrop_protocol_minimal::wire::core::{
-    SourceJournalistKeyResponse, SourceNewsroomKeyResponse,
-};
+use securedrop_protocol_minimal::api::Api;
+use securedrop_protocol_minimal::wire::core::{JournalistEphemeralKeys, WelcomeBundle};
 use serde::Deserialize;
 
 use crate::util::{parse_fpf_vk, read_passphrase};
@@ -22,42 +20,51 @@ pub(crate) fn submit(server: &str, fpf_vk_hex: &str, message: &str) -> Result<()
     let mut rng = rand::rng();
     let client = reqwest::blocking::Client::new();
 
-    // Fetch the newsroom key and verify FPF's signature over it.
-    let nr_resp: SourceNewsroomKeyResponse = client
-        .get(format!("{server}/newsroom/keys"))
+    // Fetch the newsroom welcome bundle again (we can cache this in the future)
+    let welcome: WelcomeBundle = client
+        .get(format!("{server}/welcome"))
         .send()
-        .with_context(|| format!("fetching {server}/newsroom/keys"))?
+        .with_context(|| format!("fetching {server}/welcome"))?
         .error_for_status()
-        .context("newsroom rejected key request")?
+        .context("newsroom rejected welcome request")?
         .json()?;
     source
-        .handle_newsroom_key_response(&nr_resp, &fpf_vk)
-        .context("newsroom key response failed verification against the pinned FPF key")?;
-    let newsroom_vk = *source
-        .newsroom_verifying_key()
-        .expect("newsroom key stored by handle_newsroom_key_response");
+        .handle_welcome(&welcome, &fpf_vk)
+        .context("welcome bundle failed verification against the pinned FPF key")?;
+    if welcome.journalists.is_empty() {
+        bail!("no journalists enrolled at this newsroom");
+    }
 
-    // Fetch one long term key and one ephemeral key bundle per journo.
-    let journalists: Vec<SourceJournalistKeyResponse> = client
+    // Fetch one one-time key bundle per journalist (this consumes them).
+    let ephemeral: Vec<JournalistEphemeralKeys> = client
         .get(format!("{server}/journalists/keys"))
         .send()
         .with_context(|| format!("fetching {server}/journalists/keys"))?
         .error_for_status()
-        .context("newsroom rejected journalist key request")?
+        .context("newsroom rejected ephemeral key request")?
         .json()?;
-    if journalists.is_empty() {
-        bail!("no journalists available (none enrolled, or all out of ephemeral keys)");
+    if ephemeral.is_empty() {
+        bail!("no journalist ephemeral keys available (all out of one-time keys)");
     }
 
-    // Encrypt the message to each journalist and submit one envelope each.
+    // Pair each one-time bundle with its journalist's (verified) long-term keys,
+    // assemble the public view, encrypt, and submit one envelope each.
     let mut message_ids = Vec::new();
-    for resp in &journalists {
-        source
-            .handle_journalist_key_response(resp, &newsroom_vk)
-            .context("journalist key response failed verification")?;
+    for eph in &ephemeral {
+        let Some(long_term) = welcome
+            .journalists
+            .iter()
+            .find(|j| j.vk.into_bytes() == eph.vk.into_bytes())
+        else {
+            // one-time keys for a journalist not in the welcome roster... skipping
+            continue;
+        };
+        let journalist = source
+            .verify_ephemeral(long_term, &eph.ephemeral)
+            .context("journalist one-time key failed verification")?;
 
         let envelope = source
-            .submit_message(&mut rng, message.as_bytes(), &source, &resp.journalist)
+            .submit_message(&mut rng, message.as_bytes(), &source, &journalist)
             .context("encrypting message")?;
 
         let submitted: MessageSubmitResponse = client

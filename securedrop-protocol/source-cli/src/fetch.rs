@@ -1,11 +1,9 @@
 use std::collections::HashSet;
 
 use anyhow::{Context, Result};
-use securedrop_protocol_minimal::api::{Api, Client};
+use securedrop_protocol_minimal::api::Api;
 use securedrop_protocol_minimal::encrypt_decrypt::decrypt_with_sender;
-use securedrop_protocol_minimal::wire::core::{
-    MessageChallengeFetchResponse, SourceJournalistKeyResponse, SourceNewsroomKeyResponse,
-};
+use securedrop_protocol_minimal::wire::core::{MessageChallengeFetchResponse, WelcomeBundle};
 use securedrop_protocol_minimal::{Envelope, Source, UserPublic};
 
 use crate::util::{parse_fpf_vk, read_passphrase};
@@ -18,42 +16,21 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
         .context("not a valid BIP39 recovery passphrase")?;
     let client = reqwest::blocking::Client::new();
 
-    // Establish the trust chain so we can authenticate reply senders: verify the
-    // newsroom key against the pinned FPF key, then fetch and verify the enrolled
-    // journalists' keys. A reply is only trusted if its sender's long-term APKE
-    // key belongs to one of these journalists.
-    let nr_resp: SourceNewsroomKeyResponse = client
-        .get(format!("{server}/newsroom/keys"))
+    let welcome: WelcomeBundle = client
+        .get(format!("{server}/welcome"))
         .send()
-        .with_context(|| format!("fetching {server}/newsroom/keys"))?
+        .with_context(|| format!("fetching {server}/welcome"))?
         .error_for_status()
-        .context("newsroom rejected key request")?
+        .context("newsroom rejected welcome request")?
         .json()?;
     source
-        .handle_newsroom_key_response(&nr_resp, &fpf_vk)
-        .context("newsroom key response failed verification against the pinned FPF key")?;
-    let newsroom_vk = *source
-        .newsroom_verifying_key()
-        .expect("newsroom key stored by handle_newsroom_key_response");
+        .handle_welcome(&welcome, &fpf_vk)
+        .context("welcome bundle failed verification against the pinned FPF key")?;
 
-    // Fetch and verify the journalists' keys via the same endpoint
-    //
-    // TODO: Should this be split into 2 endpoints? One for long-term keys and one for ephemeral keys?
-    // otherwise we're consuming bundles for no reason afaict
-    let journalists: Vec<SourceJournalistKeyResponse> = client
-        .get(format!("{server}/journalists/keys"))
-        .send()
-        .with_context(|| format!("fetching {server}/journalists/keys"))?
-        .error_for_status()
-        .context("newsroom rejected journalist key request")?
-        .json()?;
     let mut trusted_senders: HashSet<Vec<u8>> = HashSet::new();
-    for resp in &journalists {
-        source
-            .handle_journalist_key_response(resp, &newsroom_vk)
-            .context("journalist key response failed verification")?;
+    for journalist in &welcome.journalists {
         // A journalist replies using their long-term APKE key.
-        trusted_senders.insert(resp.journalist.message_auth_pk().as_bytes());
+        trusted_senders.insert(journalist.reply_apke_pk.as_bytes());
     }
 
     // Fetch the challenge set and solve it with our fetch key.
