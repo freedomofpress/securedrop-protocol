@@ -45,6 +45,36 @@ let impl_MetadataKeyPair__public_key (self: t_MetadataKeyPair) : t_MetadataPubli
 /// Returns the private key.
 let impl_MetadataKeyPair__private_key (self: t_MetadataKeyPair) : t_MetadataPrivateKey = self.f_sk
 
+/// Reconstruct a keypair from the raw X-Wing secret and public key bytes
+let impl_MetadataKeyPair__from_key_bytes
+      (sk: t_Array u8 (mk_usize 32))
+      (pk: t_Array u8 (mk_usize 1216))
+    : t_MetadataKeyPair =
+  {
+    f_sk
+    =
+    MetadataPrivateKey
+    (Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPrivateKey__from_bytes sk)
+    <:
+    t_MetadataPrivateKey;
+    f_pk
+    =
+    MetadataPublicKey
+    (Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__from_bytes pk)
+    <:
+    t_MetadataPublicKey
+  }
+  <:
+  t_MetadataKeyPair
+
+/// Raw X-Wing secret key bytes
+let impl_MetadataKeyPair__secret_bytes (self: t_MetadataKeyPair) : t_Array u8 (mk_usize 32) =
+  Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPrivateKey__as_bytes self.f_sk._0
+
+/// Raw X-Wing public key bytes
+let impl_MetadataKeyPair__public_bytes (self: t_MetadataKeyPair) : t_Array u8 (mk_usize 1216) =
+  Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__as_bytes self.f_pk._0
+
 /// SD-PKE ciphertext `(c, c')`: X-Wing encapsulation `c` together with HPKE
 /// ciphertext `c'`.
 type t_MetadataCiphertext = {
@@ -66,6 +96,92 @@ let impl_7: Core_models.Clone.t_Clone t_MetadataCiphertext =
 let impl_MetadataCiphertext__len (self: t_MetadataCiphertext) : usize =
   (Core_models.Slice.impl__len #u8 (self.f_c <: t_Slice u8) <: usize) +!
   (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global self.f_cp <: usize)
+
+/// Wire encoding `c || cp`
+let impl_MetadataCiphertext__as_bytes (self: t_MetadataCiphertext)
+    : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+  let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl__with_capacity #u8 (impl_MetadataCiphertext__len self <: usize)
+  in
+  let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global out (self.f_c <: t_Slice u8)
+  in
+  let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl_2__extend_from_slice #u8
+      #Alloc.Alloc.t_Global
+      out
+      (Alloc.Vec.impl_1__as_slice self.f_cp <: t_Slice u8)
+  in
+  out
+
+/// Deserialize from the `c || cp` wire encoding.
+/// # Errors
+/// Returns an error if the byte slice is shorter than the encapsulation `c`.
+let impl_MetadataCiphertext__from_bytes (bytes: t_Slice u8)
+    : Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error =
+  if
+    (Core_models.Slice.impl__len #u8 bytes <: usize) <.
+    Securedrop_protocol_minimal.Primitives.Xwing.v_LEN_XWING_SHAREDSECRET_ENCAPS
+  then
+    let args:(usize & usize) =
+      Securedrop_protocol_minimal.Primitives.Xwing.v_LEN_XWING_SHAREDSECRET_ENCAPS,
+      Core_models.Slice.impl__len #u8 bytes
+      <:
+      (usize & usize)
+    in
+    let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 2) =
+      let list =
+        [
+          Core_models.Fmt.Rt.impl__new_display #usize args._1;
+          Core_models.Fmt.Rt.impl__new_display #usize args._2
+        ]
+      in
+      FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 2);
+      Rust_primitives.Hax.array_of_list 2 list
+    in
+    Core_models.Result.Result_Err
+    (Anyhow.Error.impl__msg #Alloc.String.t_String
+        (Core_models.Hint.must_use #Alloc.String.t_String
+            (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 2)
+                    (mk_usize 2)
+                    (let list = ["MetadataCiphertext too short: expected at least "; ", got "] in
+                      FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 2);
+                      Rust_primitives.Hax.array_of_list 2 list)
+                    args
+                  <:
+                  Core_models.Fmt.t_Arguments)
+              <:
+              Alloc.String.t_String)
+          <:
+          Alloc.String.t_String))
+    <:
+    Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error
+  else
+    let (c: t_Slice u8), (cp: t_Slice u8) =
+      Core_models.Slice.impl__split_at #u8
+        bytes
+        Securedrop_protocol_minimal.Primitives.Xwing.v_LEN_XWING_SHAREDSECRET_ENCAPS
+    in
+    Core_models.Result.Result_Ok
+    ({
+        f_c
+        =
+        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1120))
+          #Core_models.Array.t_TryFromSliceError
+          (Core_models.Convert.f_try_into #(t_Slice u8)
+              #(t_Array u8 (mk_usize 1120))
+              #FStar.Tactics.Typeclasses.solve
+              c
+            <:
+            Core_models.Result.t_Result (t_Array u8 (mk_usize 1120))
+              Core_models.Array.t_TryFromSliceError)
+          "checked length";
+        f_cp = Alloc.Slice.impl__to_vec #u8 cp
+      }
+      <:
+      t_MetadataCiphertext)
+    <:
+    Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error
 
 /// SD-PKE.KGen: generate a `MetadataKeyPair`.
 /// # Errors
@@ -145,6 +261,71 @@ let deterministic_keygen (randomness: t_Array u8 (mk_usize 32))
 /// Returns the public key as bytes.
 let impl_MetadataPublicKey__as_bytes (self: t_MetadataPublicKey) : t_Slice u8 =
   Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__as_bytes self._0 <: t_Slice u8
+
+/// Deserialize from `pk_R^PKE` (X-Wing) bytes
+/// # Errors
+/// Returns an error if the byte slice has incorrect length.
+let impl_MetadataPublicKey__from_bytes (bytes: t_Slice u8)
+    : Core_models.Result.t_Result t_MetadataPublicKey Anyhow.t_Error =
+  match
+    Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 1216))
+      #Core_models.Array.t_TryFromSliceError
+      #Anyhow.t_Error
+      #(Core_models.Array.t_TryFromSliceError -> Anyhow.t_Error)
+      (Core_models.Convert.f_try_into #(t_Slice u8)
+          #(t_Array u8 (mk_usize 1216))
+          #FStar.Tactics.Typeclasses.solve
+          bytes
+        <:
+        Core_models.Result.t_Result (t_Array u8 (mk_usize 1216))
+          Core_models.Array.t_TryFromSliceError)
+      (fun temp_0_ ->
+          let _:Core_models.Array.t_TryFromSliceError = temp_0_ in
+          let args:(usize & usize) =
+            Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PUBLIC_KEY_LEN,
+            Core_models.Slice.impl__len #u8 bytes
+            <:
+            (usize & usize)
+          in
+          let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 2) =
+            let list =
+              [
+                Core_models.Fmt.Rt.impl__new_display #usize args._1;
+                Core_models.Fmt.Rt.impl__new_display #usize args._2
+              ]
+            in
+            FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 2);
+            Rust_primitives.Hax.array_of_list 2 list
+          in
+          Anyhow.Error.impl__msg #Alloc.String.t_String
+            (Core_models.Hint.must_use #Alloc.String.t_String
+                (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 2)
+                        (mk_usize 2)
+                        (let list = ["Invalid MetadataPublicKey length: expected "; ", got "] in
+                          FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 2);
+                          Rust_primitives.Hax.array_of_list 2 list)
+                        args
+                      <:
+                      Core_models.Fmt.t_Arguments)
+                  <:
+                  Alloc.String.t_String)
+              <:
+              Alloc.String.t_String))
+    <:
+    Core_models.Result.t_Result (t_Array u8 (mk_usize 1216)) Anyhow.t_Error
+  with
+  | Core_models.Result.Result_Ok (arr: t_Array u8 (mk_usize 1216)) ->
+    Core_models.Result.Result_Ok
+    (MetadataPublicKey
+      (Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__from_bytes arr)
+      <:
+      t_MetadataPublicKey)
+    <:
+    Core_models.Result.t_Result t_MetadataPublicKey Anyhow.t_Error
+  | Core_models.Result.Result_Err err ->
+    Core_models.Result.Result_Err err
+    <:
+    Core_models.Result.t_Result t_MetadataPublicKey Anyhow.t_Error
 
 /// SD-PKE.Enc: encrypt message `m` to recipient key `pk_r`, returning `(c, c')`.
 /// `m` is the sender's serialized long-term APKE public key.

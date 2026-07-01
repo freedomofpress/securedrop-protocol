@@ -47,13 +47,15 @@ type t_DHPrivateKey = | DHPrivateKey : t_Array u8 (mk_usize 32) -> t_DHPrivateKe
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_6': Core_models.Fmt.t_Debug t_DHPrivateKey
+val impl_8': Core_models.Fmt.t_Debug t_DHPrivateKey
 
 unfold
-let impl_6 = impl_6'
+let impl_8 = impl_8'
 
-let impl_7: Core_models.Clone.t_Clone t_DHPrivateKey =
+let impl_9: Core_models.Clone.t_Clone t_DHPrivateKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+let impl_DHPrivateKey__as_bytes (self: t_DHPrivateKey) : t_Array u8 (mk_usize 32) = self._0
 
 let impl_DHPrivateKey__into_bytes (self: t_DHPrivateKey) : t_Array u8 (mk_usize 32) = self._0
 
@@ -65,12 +67,12 @@ type t_DHSharedSecret = | DHSharedSecret : t_Array u8 (mk_usize 32) -> t_DHShare
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_8': Core_models.Fmt.t_Debug t_DHSharedSecret
+val impl_10': Core_models.Fmt.t_Debug t_DHSharedSecret
 
 unfold
-let impl_8 = impl_8'
+let impl_10 = impl_10'
 
-let impl_9: Core_models.Clone.t_Clone t_DHSharedSecret =
+let impl_11: Core_models.Clone.t_Clone t_DHSharedSecret =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 let impl_DHSharedSecret__into_bytes (self: t_DHSharedSecret) : t_Array u8 (mk_usize 32) = self._0

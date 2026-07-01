@@ -302,6 +302,7 @@ let impl_6 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_Domain
     f_eq = fun (self: t_Signature v_D) (other: t_Signature v_D) -> self.f_bytes =. other.f_bytes
   }
 
+/// Reconstruct a [`Signature`] from its serialization.
 let impl_7__from_bytes
       (#v_D: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
@@ -313,6 +314,13 @@ let impl_7__from_bytes
   }
   <:
   t_Signature v_D
+
+/// The byte serialization of this signature.
+let impl_7__as_bytes
+      (#v_D: Type0)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
+      (self: t_Signature v_D)
+    : t_Array u8 (mk_usize 64) = self.f_bytes
 
 #push-options "--admit_smt_queries true"
 
@@ -349,15 +357,15 @@ let tagged_preimage
 /// An Ed25519 verification key.
 type t_VerifyingKey = | VerifyingKey : t_Array u8 (mk_usize 32) -> t_VerifyingKey
 
-let impl_38: Core_models.Clone.t_Clone t_VerifyingKey =
+let impl_40: Core_models.Clone.t_Clone t_VerifyingKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_37': Core_models.Marker.t_Copy t_VerifyingKey
+val impl_39': Core_models.Marker.t_Copy t_VerifyingKey
 
 unfold
-let impl_37 = impl_37'
+let impl_39 = impl_39'
 
 /// An Ed25519 signing key.
 type t_SigningSecretKey = | SigningSecretKey : t_Array u8 (mk_usize 32) -> t_SigningSecretKey
@@ -432,6 +440,18 @@ let impl_SigningKey__sign
       (impl_SigningSecretKey__as_bytes self.f_sk <: t_Array u8 (mk_usize 32))
   in
   impl_7__from_bytes #v_D bytes
+
+let impl_SigningKey__as_bytes (self: t_SigningKey) : t_Array u8 (mk_usize 32) =
+  impl_SigningSecretKey__as_bytes self.f_sk
+
+let impl_SigningKey__from_seed (seed: t_Array u8 (mk_usize 32)) : t_SigningKey =
+  let pk:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
+  let pk:t_Array u8 (mk_usize 32) =
+    Securedrop_protocol_minimal.Primitives.Provider.Ed25519.secret_to_public pk seed
+  in
+  { f_vk = VerifyingKey pk <: t_VerifyingKey; f_sk = SigningSecretKey seed <: t_SigningSecretKey }
+  <:
+  t_SigningKey
 
 /// Get the raw bytes of this verification key.
 let impl_VerifyingKey__into_bytes (self: t_VerifyingKey) : t_Array u8 (mk_usize 32) = self._0
