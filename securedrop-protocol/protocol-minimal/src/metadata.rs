@@ -15,16 +15,20 @@
 //!     return m
 //! ```
 
-use crate::primitives::provider::hpke_rs::{
-    Aes256Gcm, HkdfSha256, Hpke, HpkeLibcrux, Mode, XWingDraft06,
+use crate::{
+    message::MessagePublicKey,
+    primitives::provider::hpke_rs::{Aes256Gcm, HkdfSha256, Hpke, HpkeLibcrux, Mode, XWingDraft06},
 };
 use alloc::vec::Vec;
-use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::primitives::xwing::{
     LEN_XWING_SHAREDSECRET_ENCAPS, XWingPrivateKey, XWingPublicKey, generate_xwing_keypair,
 };
+
+// TODO: maybe needs a better location
+// DHAKEM_PKLEN + MLKEM768PK_LEN + AEAD_TAG_LEN = 32 + 1184 + 16
+pub(crate) const LEN_METADATA_CIPHERTEXT: usize = 1232;
 
 /// The recipient's metadata public key (`pk_R^PKE` in the spec).
 #[derive(Debug, Clone)]
@@ -58,13 +62,15 @@ pub struct MetadataCiphertext {
     /// HPKE encapsulation output (`c` in the spec)
     pub(crate) c: [u8; LEN_XWING_SHAREDSECRET_ENCAPS],
     /// HPKE AEAD ciphertext (`c'` / `cp` in the spec)
-    pub(crate) cp: Vec<u8>,
+    pub(crate) cp: [u8; LEN_METADATA_CIPHERTEXT],
 }
 
 impl MetadataCiphertext {
     /// Total byte length of the ciphertext: encapsulation `c` + AEAD ciphertext `c'`.
     pub fn len(&self) -> usize {
-        self.c.len() + self.cp.len()
+        // TODO: hax_lib::refine(self.c.len() == LEN_XWING_SHAREDSECRET_ENCAPS && self.cp.len() == LEN_METADATA_CIPHERTEXT)
+        // This isn't the best, but hax is struggling to parse c.len()
+        LEN_XWING_SHAREDSECRET_ENCAPS + LEN_METADATA_CIPHERTEXT
     }
 }
 
@@ -115,21 +121,32 @@ impl MetadataPrivateKey {
 
 /// SD-PKE.Enc: encrypt message `m` to recipient key `pk_r`, returning `(c, c')`.
 ///
-/// `m` is the sender's serialized long-term APKE public key.
+/// `m` is the sender's long-term APKE public key, which must be serializable.
 pub(crate) fn encrypt(
     pk_r: &MetadataPublicKey,
-    m: &[u8],
+    m: &MessagePublicKey,
 ) -> Result<MetadataCiphertext, anyhow::Error> {
     let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
     let pk_r_hpke = pk_r.0.clone().into();
 
     // MetadataPublicKey always holds a valid XWing key, so seal should not fail.
-    let (c_vec, cp) = hpke
-        .seal(&pk_r_hpke, b"", b"", m, None, None, None)
-        .map_err(|e| anyhow::anyhow!("Metadata seal failed: {e}"))?;
+    let (c_vec, cp_vec) = match hpke.seal(&pk_r_hpke, b"", b"", &m.as_bytes(), None, None, None) {
+        Ok((c_vec, cp_vec)) => (c_vec, cp_vec),
+        Err(_) => return Err(anyhow::anyhow!("Metadata encryption failed")),
+    };
 
-    // XWing will always produce this length ciphertext, so this .expect is fine.
-    let c: [u8; LEN_XWING_SHAREDSECRET_ENCAPS] = c_vec.as_slice().try_into()?;
+    // XWing will always produce same length ciphertext
+    let c: [u8; LEN_XWING_SHAREDSECRET_ENCAPS] = match c_vec.as_slice().try_into() {
+        Ok(c) => c,
+        Err(_) => {
+            return Err(anyhow::anyhow!("Unexpected md encapsulated secret length"));
+        }
+    };
+
+    let cp = match cp_vec.as_slice().try_into() {
+        Ok(cp) => cp,
+        Err(_) => return Err(anyhow::anyhow!("Unexpected md ciphertext length")),
+    };
 
     Ok(MetadataCiphertext { c, cp })
 }
@@ -153,9 +170,11 @@ pub fn decrypt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
+    use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
+    use rand_core::{SeedableRng, TryRng};
 
     fn get_rng() -> ChaCha20Rng {
         let mut seed = [0u8; 32];
@@ -169,10 +188,15 @@ mod tests {
             let mut rng = get_rng();
             let kp = keygen(&mut rng).expect("KGen failed");
 
+            let mut fake_key_bytes: [u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN] = [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN];
+            rng.try_fill_bytes(&mut fake_key_bytes);
+
+            let m = MessagePublicKey::from_bytes(&fake_key_bytes).unwrap();
+
             let ct = encrypt(kp.public_key(), &m);
             let decrypted = decrypt(kp.private_key(), &ct.unwrap()).expect("Decryption failed");
 
-            prop_assert_eq!(m, decrypted);
+            prop_assert_eq!(m.as_bytes(), decrypted);
         }
     }
 
@@ -181,8 +205,13 @@ mod tests {
         let mut rng = get_rng();
         let kp = keygen(&mut rng).expect("KGen failed");
         let wrong_kp = keygen(&mut rng).expect("KGen failed");
+        let mut fake_key_bytes: [u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN] =
+            [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN];
+        rng.try_fill_bytes(&mut fake_key_bytes);
 
-        let ct = encrypt(kp.public_key(), b"some sender apke key bytes");
+        let m = MessagePublicKey::from_bytes(&fake_key_bytes).unwrap();
+
+        let ct = encrypt(kp.public_key(), &m);
         assert!(decrypt(wrong_kp.private_key(), &ct.unwrap()).is_err());
     }
 }
