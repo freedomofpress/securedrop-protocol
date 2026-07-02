@@ -66,8 +66,8 @@ let impl_7: Core_models.Clone.t_Clone t_MetadataCiphertext =
 
 /// Total byte length of the ciphertext: encapsulation `c` + AEAD ciphertext `c'`.
 let impl_MetadataCiphertext__len (self: t_MetadataCiphertext) : usize =
-  Securedrop_protocol_minimal.Primitives.Xwing.v_LEN_XWING_SHAREDSECRET_ENCAPS +!
-  v_LEN_METADATA_CIPHERTEXT
+  (Core_models.Slice.impl__len #u8 (self.f_c <: t_Slice u8) <: usize) +!
+  (Core_models.Slice.impl__len #u8 (self.f_cp <: t_Slice u8) <: usize)
 
 /// SD-PKE.KGen: generate a `MetadataKeyPair`.
 /// # Errors
