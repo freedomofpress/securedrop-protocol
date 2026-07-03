@@ -141,6 +141,7 @@ impl FetchResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metadata::LEN_METADATA_CIPHERTEXT;
     use crate::primitives::dh_akem::DH_AKEM_ENCAPS_SECRET_LEN;
     use crate::primitives::mlkem::LEN_MLKEM_SHAREDSECRET_ENCAPS;
     use crate::primitives::xwing::LEN_XWING_SHAREDSECRET_ENCAPS;
@@ -169,7 +170,8 @@ mod tests {
         #[test]
         fn test_metadata_ciphertext_byte_roundtrip(
             c in prop::collection::vec(any::<u8>(), LEN_XWING_SHAREDSECRET_ENCAPS),
-            cp in prop::collection::vec(any::<u8>(), 0..128),
+            cp in prop::collection::vec(any::<u8>(), LEN_METADATA_CIPHERTEXT)
+            .prop_map(|v| v.try_into().unwrap()),
         ) {
             let ct = MetadataCiphertext { c: c.try_into().expect("c length"), cp };
             let restored = MetadataCiphertext::from_bytes(&ct.as_bytes()).expect("valid bytes");
@@ -182,7 +184,8 @@ mod tests {
             cp_a in prop::collection::vec(any::<u8>(), 0..128),
             c2 in prop::collection::vec(any::<u8>(), LEN_MLKEM_SHAREDSECRET_ENCAPS),
             c in prop::collection::vec(any::<u8>(), LEN_XWING_SHAREDSECRET_ENCAPS),
-            cp_b in prop::collection::vec(any::<u8>(), 0..128),
+            cp_b in prop::collection::vec(any::<u8>(), LEN_METADATA_CIPHERTEXT)
+            .prop_map(|v| v.try_into().unwrap()),
             mgdh_pubkey in prop::array::uniform32(any::<u8>()),
             mgdh in prop::array::uniform32(any::<u8>()),
         ) {

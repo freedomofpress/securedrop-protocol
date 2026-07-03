@@ -110,7 +110,7 @@ impl MetadataCiphertext {
     /// # Errors
     ///
     /// Returns an error if the byte slice is shorter than the encapsulation `c`.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
         if bytes.len() < LEN_XWING_SHAREDSECRET_ENCAPS {
             return Err(anyhow::anyhow!(
                 "MetadataCiphertext too short: expected at least {}, got {}",
@@ -121,7 +121,7 @@ impl MetadataCiphertext {
         let (c, cp) = bytes.split_at(LEN_XWING_SHAREDSECRET_ENCAPS);
         Ok(Self {
             c: c.try_into().expect("checked length"),
-            cp: cp.to_vec(),
+            cp: cp.try_into().expect("checked length"),
         })
     }
 }
@@ -183,7 +183,7 @@ impl MetadataPublicKey {
     /// # Errors
     ///
     /// Returns an error if the byte slice has incorrect length.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
         let arr: [u8; XWING_PUBLIC_KEY_LEN] = bytes.try_into().map_err(|_| {
             anyhow::anyhow!(
                 "Invalid MetadataPublicKey length: expected {}, got {}",
