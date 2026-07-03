@@ -109,16 +109,20 @@ impl MetadataCiphertext {
     ///
     /// # Errors
     ///
-    /// Returns an error if the byte slice is shorter than the encapsulation `c`.
+    /// Returns an error if the byte slice is the wrong size.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
-        if bytes.len() < LEN_XWING_SHAREDSECRET_ENCAPS {
+        const TOTAL_LEN: usize = LEN_XWING_SHAREDSECRET_ENCAPS + LEN_METADATA_CIPHERTEXT;
+
+        if bytes.len() != TOTAL_LEN {
             return Err(anyhow::anyhow!(
-                "MetadataCiphertext too short: expected at least {}, got {}",
-                LEN_XWING_SHAREDSECRET_ENCAPS,
+                "Invalid MetadataCiphertext length: expected {}, got {}",
+                TOTAL_LEN,
                 bytes.len()
             ));
         }
+
         let (c, cp) = bytes.split_at(LEN_XWING_SHAREDSECRET_ENCAPS);
+
         Ok(Self {
             c: c.try_into().expect("checked length"),
             cp: cp.try_into().expect("checked length"),

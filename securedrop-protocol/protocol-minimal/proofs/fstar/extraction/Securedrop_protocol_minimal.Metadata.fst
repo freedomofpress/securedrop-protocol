@@ -109,25 +109,25 @@ let impl_MetadataCiphertext__as_bytes (self: t_MetadataCiphertext)
     Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global out (self.f_c <: t_Slice u8)
   in
   let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Alloc.Vec.impl_2__extend_from_slice #u8
-      #Alloc.Alloc.t_Global
-      out
-      (Alloc.Vec.impl_1__as_slice self.f_cp <: t_Slice u8)
+    Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global out (self.f_cp <: t_Slice u8)
   in
   out
 
+let impl_MetadataCiphertext__from_bytes__v_TOTAL_LEN: usize =
+  Securedrop_protocol_minimal.Primitives.Xwing.v_LEN_XWING_SHAREDSECRET_ENCAPS +!
+  v_LEN_METADATA_CIPHERTEXT
+
 /// Deserialize from the `c || cp` wire encoding.
 /// # Errors
-/// Returns an error if the byte slice is shorter than the encapsulation `c`.
+/// Returns an error if the byte slice is the wrong size.
 let impl_MetadataCiphertext__from_bytes (bytes: t_Slice u8)
     : Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error =
   if
-    (Core_models.Slice.impl__len #u8 bytes <: usize) <.
-    Securedrop_protocol_minimal.Primitives.Xwing.v_LEN_XWING_SHAREDSECRET_ENCAPS
+    (Core_models.Slice.impl__len #u8 bytes <: usize) <>.
+    impl_MetadataCiphertext__from_bytes__v_TOTAL_LEN
   then
     let args:(usize & usize) =
-      Securedrop_protocol_minimal.Primitives.Xwing.v_LEN_XWING_SHAREDSECRET_ENCAPS,
-      Core_models.Slice.impl__len #u8 bytes
+      impl_MetadataCiphertext__from_bytes__v_TOTAL_LEN, Core_models.Slice.impl__len #u8 bytes
       <:
       (usize & usize)
     in
@@ -146,7 +146,7 @@ let impl_MetadataCiphertext__from_bytes (bytes: t_Slice u8)
         (Core_models.Hint.must_use #Alloc.String.t_String
             (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 2)
                     (mk_usize 2)
-                    (let list = ["MetadataCiphertext too short: expected at least "; ", got "] in
+                    (let list = ["Invalid MetadataCiphertext length: expected "; ", got "] in
                       FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 2);
                       Rust_primitives.Hax.array_of_list 2 list)
                     args
@@ -178,7 +178,18 @@ let impl_MetadataCiphertext__from_bytes (bytes: t_Slice u8)
             Core_models.Result.t_Result (t_Array u8 (mk_usize 1120))
               Core_models.Array.t_TryFromSliceError)
           "checked length";
-        f_cp = Alloc.Slice.impl__to_vec #u8 cp
+        f_cp
+        =
+        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1232))
+          #Core_models.Array.t_TryFromSliceError
+          (Core_models.Convert.f_try_into #(t_Slice u8)
+              #(t_Array u8 (mk_usize 1232))
+              #FStar.Tactics.Typeclasses.solve
+              cp
+            <:
+            Core_models.Result.t_Result (t_Array u8 (mk_usize 1232))
+              Core_models.Array.t_TryFromSliceError)
+          "checked length"
       }
       <:
       t_MetadataCiphertext)
