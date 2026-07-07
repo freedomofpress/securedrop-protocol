@@ -90,10 +90,13 @@ pub struct MetadataCiphertext {
 }
 
 impl MetadataCiphertext {
+    pub const SIZE: usize = LEN_XWING_SHAREDSECRET_ENCAPS + LEN_METADATA_CIPHERTEXT;
+
     /// Total byte length of the ciphertext: encapsulation `c` + AEAD ciphertext `c'`.
     pub fn len(&self) -> usize {
         // TODO: hax_lib::refine(self.c.len() == LEN_XWING_SHAREDSECRET_ENCAPS && self.cp.len() == LEN_METADATA_CIPHERTEXT)
         // This isn't the best, but hax is struggling to parse c.len()
+        // TODO: can eventually deprecate with fixed-size traits
         LEN_XWING_SHAREDSECRET_ENCAPS + LEN_METADATA_CIPHERTEXT
     }
 
@@ -177,6 +180,8 @@ pub(crate) fn deterministic_keygen(randomness: [u8; 32]) -> Result<MetadataKeyPa
 }
 
 impl MetadataPublicKey {
+    pub const SIZE: usize = XWingPublicKey::SIZE;
+
     /// Returns the public key as bytes.
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
@@ -300,7 +305,8 @@ mod tests {
             let ct = encrypt(kp.public_key(), &m);
             let decrypted = decrypt(kp.private_key(), &ct.unwrap()).expect("Decryption failed");
 
-            prop_assert_eq!(m.as_bytes(), decrypted);
+            // Todo: decrypt can be refactored to return fixed-size array
+            prop_assert_eq!(m.as_bytes(), decrypted.as_slice());
         }
     }
 

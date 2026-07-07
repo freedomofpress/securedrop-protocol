@@ -20,11 +20,15 @@
 //!     return m
 //! ```
 
+use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
+use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
 use crate::primitives::provider::hpke_rs::{
     Aes256Gcm, DhKem25519, HkdfSha256, Hpke, HpkeLibcrux, HpkePrivateKey, HpkePublicKey, Mode,
 };
 use crate::primitives::provider::kem::MlKem768;
 use crate::primitives::provider::traits::OwnedKem as Kem;
+use crate::size::CiphertextWire;
+use crate::size::{FixedSizeBytes, PlaintextWire};
 use alloc::string::String;
 use alloc::vec::Vec;
 use anyhow::Error;
@@ -91,11 +95,15 @@ impl MessageKeyPair {
 }
 
 impl MessagePublicKey {
+    // Ok because fixed-size arrays
+    pub const SIZE: usize = core::mem::size_of::<Self>();
+
     /// Serialize the key tuple in canonical byte order: `pk1 || pk2`.
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::new();
-        out.extend_from_slice(self.dhakem.as_bytes());
-        out.extend_from_slice(self.mlkem.as_bytes());
+    pub fn as_bytes(&self) -> [u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN] {
+        let mut out = [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN];
+        out[..DH_AKEM_PUBLIC_KEY_LEN].copy_from_slice(self.dhakem.as_bytes());
+        out[DH_AKEM_PUBLIC_KEY_LEN..].copy_from_slice(self.mlkem.as_bytes());
+
         out
     }
 
@@ -130,6 +138,8 @@ impl MessagePublicKey {
     }
 }
 
+pub const AEAD_TAG_LEN: usize = 16;
+
 #[cfg_attr(hax, hax_lib::exclude)]
 impl serde::Serialize for MessagePublicKey {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
@@ -152,23 +162,25 @@ pub struct MessageCiphertext {
     /// HPKE encapsulation output (`c1` in the spec)
     pub(crate) c1: [u8; DH_AKEM_ENCAPS_SECRET_LEN],
     /// HPKE AEAD ciphertext (`cp` / `c'` in the spec)
-    pub(crate) cp: Vec<u8>,
+    pub(crate) cp: CiphertextWire,
     /// ML-KEM-768 encapsulation used as PSK (`c2` in the spec)
     pub(crate) c2: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS],
 }
 
 impl MessageCiphertext {
+    pub const SIZE: usize =
+        DH_AKEM_ENCAPS_SECRET_LEN + CiphertextWire::SIZE + LEN_MLKEM_SHAREDSECRET_ENCAPS;
     /// Total byte length: `c1 + cp + c2`.
     pub fn len(&self) -> usize {
-        self.c1.len() + self.cp.len() + self.c2.len()
+        self.c1.len() + self.cp.as_bytes().len() + self.c2.len()
     }
 
     /// Wire encoding `c1 || c2 || cp`
     pub fn as_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(self.len());
+        let mut out = Vec::with_capacity(Self::SIZE);
         out.extend_from_slice(&self.c1);
         out.extend_from_slice(&self.c2);
-        out.extend_from_slice(&self.cp);
+        out.extend(self.cp.as_bytes());
         out
     }
 
@@ -191,7 +203,7 @@ impl MessageCiphertext {
         let (c2, cp) = rest.split_at(LEN_MLKEM_SHAREDSECRET_ENCAPS);
         Ok(Self {
             c1: c1.try_into().expect("checked length"),
-            cp: cp.to_vec(),
+            cp: FixedSizeBytes::new(cp.to_vec()),
             c2: c2.try_into().expect("checked length"),
         })
     }
@@ -268,7 +280,7 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
     rng: &mut R,
     sk: &MessagePrivateKey, // (skS1, skS2)
     pk: &MessagePublicKey,  // (pkR1, pkR2)
-    m: &[u8],
+    m: &PlaintextWire,
     ad: &[u8],
     info: &[u8],
 ) -> Result<MessageCiphertext, Error> {
@@ -289,12 +301,12 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
     full_info.extend_from_slice(&c2);
     full_info.extend_from_slice(info);
 
-    let (c1_vec, cp) = hpke
+    let (c1_vec, cp_vec) = hpke
         .seal(
             &pkr1,
             &full_info,
             ad,
-            m,
+            m.as_bytes(),
             Some(&k2),
             Some(PSK_ID),
             Some(&sks1),
@@ -306,6 +318,8 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
         .as_slice()
         .try_into()
         .expect("DHKEM(X25519) encapsulation output has unexpected length");
+
+    let cp = CiphertextWire::new(cp_vec);
 
     Ok(MessageCiphertext { c1, cp, c2 })
 }
@@ -326,7 +340,7 @@ pub fn auth_dec(
     ct: &MessageCiphertext,
     ad: &[u8],
     info: &[u8],
-) -> Result<Vec<u8>, Error> {
+) -> Result<PlaintextWire, Error> {
     let hpke = Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, Aes256Gcm);
 
     // K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
@@ -341,21 +355,27 @@ pub fn auth_dec(
     full_info.extend_from_slice(&ct.c2);
     full_info.extend_from_slice(info);
 
-    hpke.open(
-        &ct.c1,
-        &skr1,
-        &full_info,
-        ad,
-        &ct.cp,
-        Some(&k2),
-        Some(PSK_ID),
-        Some(&pks1),
-    )
-    .map_err(|e| anyhow::anyhow!("SD-APKE AuthDec failed: {:?}", e))
+    let result_bytes = hpke
+        .open(
+            &ct.c1,
+            &skr1,
+            &full_info,
+            ad,
+            &ct.cp.as_bytes(),
+            Some(&k2),
+            Some(PSK_ID),
+            Some(&pks1),
+        )
+        .map_err(|e| anyhow::anyhow!("SD-APKE AuthDec failed: {:?}", e))?;
+
+    PlaintextWire::try_from_vec(result_bytes)
+        .map_err(|e| anyhow::anyhow!("Wrong-size decrypted payload: {:?}", e))
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::Plaintext;
+
     use super::*;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
@@ -370,19 +390,20 @@ mod tests {
     proptest! {
         #[test]
         fn test_auth_enc_dec_roundtrip(
-            m in proptest::collection::vec(any::<u8>(), 0..200),
+            m in proptest::collection::vec(any::<u8>(), PlaintextWire::SIZE),
             ad in proptest::collection::vec(any::<u8>(), 0..64),
             info in proptest::collection::vec(any::<u8>(), 0..64),
         ) {
             let mut rng = get_rng();
             let sender_kp = keygen(&mut rng).expect("KGen failed");
             let recipient_kp = keygen(&mut rng).expect("KGen failed");
+            let msg = FixedSizeBytes::new(m);
 
             let ct = auth_enc(
                 &mut rng,
                 sender_kp.private_key(),
                 recipient_kp.public_key(),
-                &m, &ad, &info,
+                &msg, &ad, &info,
             ).expect("AuthEnc failed");
 
             let decrypted = auth_dec(
@@ -391,7 +412,7 @@ mod tests {
                 &ct, &ad, &info,
             ).expect("AuthDec failed");
 
-            prop_assert_eq!(m, decrypted);
+            prop_assert_eq!(msg, decrypted);
         }
     }
 
@@ -402,11 +423,13 @@ mod tests {
         let recipient_kp = keygen(&mut rng).expect("KGen failed");
         let wrong_kp = keygen(&mut rng).expect("KGen failed");
 
+        let message = Plaintext::new(b"hello!".to_vec(), None);
+
         let ct = auth_enc(
             &mut rng,
             sender_kp.private_key(),
             recipient_kp.public_key(),
-            b"secret",
+            &message.encode_padded(),
             b"ad",
             b"info",
         )
