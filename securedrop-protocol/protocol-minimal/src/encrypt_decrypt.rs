@@ -5,7 +5,6 @@ use crate::primitives::x25519::{
     DH_PUBLIC_KEY_LEN, DHPublicKey, DHSharedSecret, dh_shared_secret, generate_dh_keypair,
     generate_random_scalar,
 };
-use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use crate::primitives::{decrypt_message_id, encrypt_message_id};
 use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, UserSecret};
 use alloc::vec::Vec;
@@ -41,9 +40,15 @@ where
     let pk_r_fetch = recipient.fetch_pk().into_bytes();
 
     // spec: ct^APKE = SD-APKE.AuthEnc(sk_S^APKE, pk_R^APKE, pt, NR, pk_R^fetch)
-    let ct_apke =
-        crate::message::auth_enc(rng, sk_s, pk_r, &plaintext.to_bytes(), NR_ID, &pk_r_fetch)
-            .expect("SD-APKE AuthEnc failed");
+    let ct_apke = crate::message::auth_enc(
+        rng,
+        sk_s,
+        pk_r,
+        &plaintext.encode_padded(),
+        NR_ID,
+        &pk_r_fetch,
+    )
+    .expect("SD-APKE AuthEnc failed");
 
     // Hint (X, Z): X = g^x, Z = (pk_R^fetch)^x for a fresh ephemeral scalar x
     // spec: x (hint_esk), X (hint_epk)
@@ -111,7 +116,7 @@ pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
     )
     .expect("SD-APKE AuthDec failed");
 
-    (Plaintext::from_bytes(&pt).unwrap(), sender_pk)
+    (Plaintext::from_wire_bytes(pt).unwrap(), sender_pk)
 }
 
 /// Given a set of ciphertext bundles (C, X, Z) and their associated uuid,
@@ -207,31 +212,15 @@ pub fn solve_fetch_challenges<S: UserSecret>(
     message_ids
 }
 
-/// Build plaintext message, including pubkeys (for replies).
-/// TODO: only sources need to attach their pubkeys (for replies),
-/// but for toy purposes, everyone builds a Plaintext message the same way
-#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
-pub fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
-    let mut fetch_pk = [0u8; DH_PUBLIC_KEY_LEN];
-    fetch_pk.copy_from_slice(&sender.fetch_pk().clone().into_bytes());
-
-    let mut reply_key_pq_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
-    reply_key_pq_hybrid.copy_from_slice(sender.message_metadata_pk().as_bytes());
-
-    Plaintext {
-        sender_fetch_key: fetch_pk,
-        sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
-        msg: message,
-    }
-}
-
 // Begin unit tests
 #[cfg(test)]
 mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::{Journalist, Source, SourcePublicView, storage::ServerStorage};
+    use crate::{
+        Journalist, Source, SourcePublicView, metadata::MetadataPublicKey, storage::ServerStorage,
+    };
 
     use super::*;
 
@@ -242,35 +231,33 @@ mod tests {
         ChaCha20Rng::from_seed(seed)
     }
 
-    fn assert_encrypt_decrypt<R: CryptoRng + RngCore>(
+    fn encrypt_decrypt<R: CryptoRng + RngCore>(
         rng: &mut R,
-        sender_public: &impl UserPublic,
         sender_secret: &impl UserSecret,
         rcvr_public: &impl UserPublic,
         rcvr_secret: &impl UserSecret,
         msg: Vec<u8>,
-    ) {
-        let pt = build_message(sender_public, msg);
+    ) -> (Plaintext, Plaintext) {
+        let pt = Plaintext::new(msg, sender_secret.own_message_reply_keys());
 
         let envelope = encrypt(rng, sender_secret, &pt, rcvr_public);
         let decrypted = decrypt(rcvr_secret, &envelope);
 
-        let pt_ref = &pt;
+        (pt, decrypted)
+    }
 
-        assert_eq!(pt_ref.msg, decrypted.msg);
-        assert_eq!(pt_ref.len(), decrypted.to_bytes().len());
+    fn assert_encrypt_decrypt(sent: &Plaintext, decrypted: &Plaintext) {
+        assert_eq!(sent, decrypted);
+    }
 
+    fn assert_msg_keys<S: UserSecret>(sender: &S, sent: &Plaintext) {
         assert_eq!(
-            pt_ref.sender_fetch_key,
-            sender_secret.fetch_keypair().1.clone().into_bytes()
+            sent.sender_fetch_key,
+            sender.fetch_keypair().1.clone().into_bytes()
         );
         assert_eq!(
-            &pt_ref.sender_reply_pubkey_hybrid,
-            sender_public.message_metadata_pk().as_bytes()
-        );
-        assert_eq!(
-            pt.len(),
-            &pt_ref.msg.len() + DH_PUBLIC_KEY_LEN + XWING_PUBLIC_KEY_LEN
+            &sent.sender_reply_pubkey_hybrid,
+            sender.own_message_reply_keys().unwrap().0.as_bytes()
         );
     }
 
@@ -283,14 +270,11 @@ mod tests {
 
         let msg = b"Encrypt-decrypt-test".to_vec();
 
-        assert_encrypt_decrypt(
-            &mut rng,
-            &sender.public(),
-            &sender,
-            &recipient.public(1),
-            &recipient,
-            msg,
-        );
+        let (sent, decrypted) =
+            encrypt_decrypt(&mut rng, &sender, &recipient.public(1), &recipient, msg);
+
+        assert_encrypt_decrypt(&sent, &decrypted);
+        assert_msg_keys(&sender, &sent);
     }
 
     #[test]
@@ -300,14 +284,16 @@ mod tests {
         let sender = Source::new(&mut rng);
         let recipient = Source::new(&mut rng);
 
-        assert_encrypt_decrypt(
+        let (sent, received) = encrypt_decrypt(
             &mut rng,
-            &sender.public(),
             &sender,
             &recipient.public(),
             &recipient,
             b"Encrypt-decrypt-test".to_vec(),
         );
+
+        assert_encrypt_decrypt(&sent, &received);
+        assert_msg_keys(&sender, &sent);
     }
 
     #[test]
@@ -321,7 +307,7 @@ mod tests {
         let journalist_public = journalist.public(0);
 
         let msg = b"Fetch this message";
-        let plaintext = build_message(&source.public(), msg.to_vec());
+        let plaintext = Plaintext::new(msg.to_vec(), source.own_message_reply_keys());
         let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
         let mut store: ServerStorage = ServerStorage::new();
@@ -355,7 +341,7 @@ mod tests {
         let journalist_public = journalist.public(0);
 
         let msg = b"Fetch this message";
-        let plaintext = build_message(&source.public(), msg.to_vec());
+        let plaintext = Plaintext::new(msg.to_vec(), source.own_message_reply_keys());
         let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
         let mut store: ServerStorage = ServerStorage::new();
@@ -388,7 +374,7 @@ mod tests {
         let journalist = Journalist::new(&mut rng, 2);
         let journalist_public = journalist.public(0);
 
-        let submission = build_message(&source.public(), b"howdy".to_vec());
+        let submission = Plaintext::new(b"howdy".to_vec(), source.own_message_reply_keys());
         let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
 
         // Journalist decrypts and recovers the source's reply keys.
@@ -402,7 +388,7 @@ mod tests {
 
         // Journalist encrypts a reply back to the source.
         let reply_text = b"thanks dawg".to_vec();
-        let reply_pt = journalist.build_message(reply_text.clone());
+        let reply_pt = Plaintext::new(reply_text.clone(), journalist.own_message_reply_keys());
         let reply_envelope = encrypt(&mut rng, &journalist, &reply_pt, &reply_recipient);
 
         // Source decrypts the reply.
@@ -417,15 +403,20 @@ mod tests {
         let journalist = Journalist::new(&mut rng, 2);
         let j2 = Journalist::new(&mut rng, 2);
 
-        let msg = "Test message".as_bytes().to_vec();
-
-        assert_encrypt_decrypt(
+        let (sent, received) = encrypt_decrypt(
             &mut rng,
-            &journalist.public(0),
             &journalist,
             &j2.public(0),
             &j2,
-            msg,
+            b"Test message".to_vec(),
+        );
+
+        assert_encrypt_decrypt(&sent, &received);
+        // journalists don't attach message keys
+        assert_eq!(sent.sender_fetch_key, [0u8; DHPublicKey::SIZE]);
+        assert_eq!(
+            sent.sender_reply_pubkey_hybrid,
+            [0u8; MetadataPublicKey::SIZE]
         );
     }
 }
