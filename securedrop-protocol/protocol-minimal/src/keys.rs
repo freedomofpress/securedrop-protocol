@@ -13,7 +13,10 @@ use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
 use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
 use crate::primitives::x25519::{DH_PUBLIC_KEY_LEN, DHPrivateKey, DHPublicKey, DHSharedSecret};
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
+use alloc::string::String;
 use alloc::vec::Vec;
+use serde::de::Error as _;
+use serde::{Deserialize, Serialize};
 
 /// Generic KeyPair
 pub struct KeyPair<SK, PK> {
@@ -32,6 +35,7 @@ pub type SignedKeyBundlePublic = (KeyBundlePublic, Signature<JournalistEphemeral
 
 /// The public keys that make up one ephemeral key bundle
 #[derive(Debug, Clone)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct KeyBundlePublic {
     /// SD-APKE ephemeral key `pk_{J,i}^{APKE_E} = (pk1, pk2)`.
     pub apke_pk: MessagePublicKey,
@@ -102,7 +106,25 @@ impl SignedLongtermPubKeyBytes {
     }
 }
 
+#[cfg_attr(hax, hax_lib::exclude)]
+impl Serialize for SignedLongtermPubKeyBytes {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.0))
+    }
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl<'de> Deserialize<'de> for SignedLongtermPubKeyBytes {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let mut bytes = [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN];
+        hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
+        Ok(Self(bytes))
+    }
+}
+
 #[derive(Clone, Debug)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct Enrollment {
     pub bundle: SignedLongtermPubKeyBytes,
     pub selfsig: Signature<JournalistLongTermKey>,
@@ -153,6 +175,37 @@ impl FPFKeyPair {
     /// Sign `msg` in domain `D` using the FPF signing key.
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         self.sk.sign(msg)
+    }
+
+    /// The FPF signing key used as a secret.
+    pub fn as_bytes(&self) -> [u8; 32] {
+        self.sk.as_bytes()
+    }
+
+    /// Reconstruct an [`FPFKeyPair`] from its secret.
+    pub fn from_bytes(seed: [u8; 32]) -> Self {
+        let sk = SigningKey::from_seed(seed);
+        let vk = sk.vk;
+        Self { sk, vk }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn fpf_keypair_seed_roundtrip(seed: [u8; 32]) {
+            let kp = FPFKeyPair::from_bytes(seed);
+            prop_assert_eq!(kp.as_bytes(), seed);
+            let kp2 = FPFKeyPair::from_bytes(kp.as_bytes());
+            prop_assert_eq!(
+                kp.verifying_key().into_bytes(),
+                kp2.verifying_key().into_bytes()
+            );
+        }
     }
 }
 

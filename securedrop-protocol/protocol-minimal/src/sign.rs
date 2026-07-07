@@ -1,8 +1,10 @@
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use anyhow::Error;
 use rand_core::CryptoRng;
+use serde::de::Error as _;
 
 use crate::primitives::provider;
 
@@ -115,11 +117,34 @@ impl<D: DomainTag> PartialEq for Signature<D> {
 impl<D: DomainTag> Eq for Signature<D> {}
 
 impl<D: DomainTag> Signature<D> {
-    pub(crate) fn from_bytes(bytes: [u8; 64]) -> Self {
+    /// Reconstruct a [`Signature`] from its serialization.
+    pub fn from_bytes(bytes: [u8; 64]) -> Self {
         Self {
             bytes,
             _phantom: PhantomData,
         }
+    }
+
+    /// The byte serialization of this signature.
+    pub fn as_bytes(&self) -> [u8; 64] {
+        self.bytes
+    }
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl<D: DomainTag> serde::Serialize for Signature<D> {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.bytes))
+    }
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl<'de, D: DomainTag> serde::Deserialize<'de> for Signature<D> {
+    fn deserialize<De: serde::Deserializer<'de>>(de: De) -> Result<Self, De::Error> {
+        let s = String::deserialize(de)?;
+        let mut bytes = [0u8; 64];
+        hex::decode_to_slice(s.trim(), &mut bytes).map_err(De::Error::custom)?;
+        Ok(Self::from_bytes(bytes))
     }
 }
 
@@ -151,7 +176,7 @@ impl VerifyingKey {
         &self.0
     }
 
-    pub(crate) fn from_bytes(bytes: [u8; KEY_LEN_ED25519]) -> Self {
+    pub fn from_bytes(bytes: [u8; KEY_LEN_ED25519]) -> Self {
         Self(bytes)
     }
 }
@@ -211,6 +236,19 @@ impl SigningKey {
         let bytes = provider::ed25519::sign(&preimage, self.sk.as_bytes());
         Signature::from_bytes(bytes)
     }
+
+    pub(crate) fn as_bytes(&self) -> [u8; 32] {
+        *self.sk.as_bytes()
+    }
+
+    pub(crate) fn from_seed(seed: [u8; 32]) -> Self {
+        let mut pk = [0u8; 32];
+        provider::ed25519::secret_to_public(&mut pk, &seed);
+        Self {
+            vk: VerifyingKey(pk),
+            sk: SigningSecretKey(seed),
+        }
+    }
 }
 
 impl VerifyingKey {
@@ -226,6 +264,23 @@ impl VerifyingKey {
         let preimage = tagged_preimage::<D>(msg);
         provider::ed25519::verify(&preimage, self.as_bytes(), &sig.bytes)
             .map_err(|_| anyhow::anyhow!("Signature verification failed"))
+    }
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl serde::Serialize for VerifyingKey {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.0.as_ref()))
+    }
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl<'de> serde::Deserialize<'de> for VerifyingKey {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(de)?;
+        let mut bytes = [0u8; 32];
+        hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
+        Ok(Self::from_bytes(bytes))
     }
 }
 
@@ -266,6 +321,28 @@ mod tests {
             let signing_key = SigningKey::new(&mut rng).unwrap();
             let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg1);
             assert!(signing_key.vk.verify(&msg2, &sig).is_err());
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_signature_byte_roundtrip(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
+            let mut rng = get_rng();
+            let signing_key = SigningKey::new(&mut rng).unwrap();
+            let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg);
+            let sig2 = Signature::<JournalistLongTermKey>::from_bytes(sig.as_bytes());
+            prop_assert!(signing_key.vk.verify(&msg, &sig2).is_ok());
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_verifying_key_byte_roundtrip(msg in proptest::collection::vec(any::<u8>(), 0..100)) {
+            let mut rng = get_rng();
+            let signing_key = SigningKey::new(&mut rng).unwrap();
+            let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg);
+            let vk = VerifyingKey::from_bytes(signing_key.vk.into_bytes());
+            prop_assert!(vk.verify(&msg, &sig).is_ok());
         }
     }
 

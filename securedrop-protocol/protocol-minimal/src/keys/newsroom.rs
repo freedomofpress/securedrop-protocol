@@ -36,4 +36,35 @@ impl NewsroomKeyPair {
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         self.sk.sign(msg)
     }
+
+    /// The newsroom signing key used as a secret.
+    pub fn as_bytes(&self) -> [u8; 32] {
+        self.sk.as_bytes()
+    }
+
+    /// Reconstruct a [`NewsroomKeyPair`] from its secret.
+    pub fn from_bytes(seed: [u8; 32]) -> Self {
+        let sk = SigningKey::from_seed(seed);
+        let vk = sk.vk;
+        Self { vk, sk }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn newsroom_keypair_seed_roundtrip(seed: [u8; 32]) {
+            let kp = NewsroomKeyPair::from_bytes(seed);
+            prop_assert_eq!(kp.as_bytes(), seed);
+            let kp2 = NewsroomKeyPair::from_bytes(kp.as_bytes());
+            prop_assert_eq!(
+                kp.verifying_key().into_bytes(),
+                kp2.verifying_key().into_bytes()
+            );
+        }
+    }
 }

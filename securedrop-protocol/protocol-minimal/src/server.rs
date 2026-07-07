@@ -7,21 +7,20 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
+use crate::Envelope;
 use crate::encrypt_decrypt::compute_fetch_challenges;
 use crate::keys::NewsroomKeyPair;
 use crate::primitives;
 use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 use crate::wire::core::{
-    MessageChallengeFetchRequest, MessageChallengeFetchResponse, MessageFetchRequest,
-    SourceJournalistKeyRequest, SourceJournalistKeyResponse, SourceNewsroomKeyRequest,
-    SourceNewsroomKeyResponse,
+    JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchRequest,
+    MessageChallengeFetchResponse, MessageFetchRequest, WelcomeBundle,
 };
 use crate::wire::setup::{
     JournalistEphemeralKeyRequest, JournalistSetupRequest, JournalistSetupResponse,
     NewsroomSetupRequest,
 };
-use crate::{Envelope, JournalistPublicView};
 
 /// Server session for handling source requests
 #[derive(Default)]
@@ -169,69 +168,61 @@ impl Server {
         self.storage.get_messages().contains_key(message_id)
     }
 
-    /// Handle source newsroom key request (step 5)
-    pub fn handle_source_newsroom_key_request(
-        &self,
-        _request: SourceNewsroomKeyRequest,
-    ) -> SourceNewsroomKeyResponse {
-        SourceNewsroomKeyResponse {
-            newsroom_verifying_key: self
-                .newsroom_keys
-                .as_ref()
-                .expect("Newsroom keys not found")
-                .verifying_key(),
-            fpf_sig: self
-                .signature
-                .as_ref()
-                .expect("FPF signature not found")
-                .clone(),
+    pub fn handle_welcome(&self) -> WelcomeBundle {
+        let newsroom_verifying_key = self
+            .newsroom_keys
+            .as_ref()
+            .expect("Newsroom keys not found")
+            .verifying_key();
+        let fpf_sig = self
+            .signature
+            .as_ref()
+            .expect("FPF signature not found")
+            .clone();
+
+        let mut journalists = Vec::new();
+        for (_id, entry) in self.storage.get_journalists().iter() {
+            let (vk, fetch_pk, reply_apke_pk, selfsig, signed_longterm_key_bytes, nr_signature) =
+                entry.clone();
+            journalists.push(JournalistLongTermView {
+                vk,
+                fetch_pk,
+                reply_apke_pk,
+                signed_longterm_key_bytes,
+                selfsig,
+                nr_signature,
+            });
+        }
+
+        WelcomeBundle {
+            newsroom_verifying_key,
+            fpf_sig,
+            journalists,
         }
     }
 
-    /// Handle source journalist key request (step 5)
-    pub fn handle_source_journalist_key_request<R: RngCore + CryptoRng>(
+    pub fn handle_journalist_ephemeral_keys<R: RngCore + CryptoRng>(
         &mut self,
-        _request: SourceJournalistKeyRequest,
         rng: &mut R,
-    ) -> Vec<SourceJournalistKeyResponse> {
+    ) -> Vec<JournalistEphemeralKeys> {
         let mut responses = Vec::new();
 
-        // Get all journalists and their ephemeral keys
         let journalist_ephemeral_keys = self.storage.get_all_ephemeral_keys(rng);
 
         for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys.iter() {
-            // Get the journalist's long-term keys
             // TODO: Do something better than expect here
-            let (
-                signing_key,
-                fetching_key,
-                reply_apke_pk,
-                journalist_self_sig,
-                signed_pubkey_bytes,
-                newsroom_sig,
-            ) = self
+            let entry = self
                 .storage
                 .get_journalists()
                 .get(journalist_id)
                 .expect("Journalist should exist in storage")
                 .clone();
+            let vk = entry.0;
 
-            let journo_public = JournalistPublicView::new(
-                signing_key,
-                fetching_key,
-                reply_apke_pk,
-                journalist_self_sig,
-                signed_pubkey_bytes,
-                ephemeral_bundle.clone(),
-            );
-
-            // Create response for this journalist
-            let response = SourceJournalistKeyResponse {
-                journalist: journo_public,
-                nr_signature: newsroom_sig,
-            };
-
-            responses.push(response);
+            responses.push(JournalistEphemeralKeys {
+                vk,
+                ephemeral: ephemeral_bundle.clone(),
+            });
         }
 
         responses

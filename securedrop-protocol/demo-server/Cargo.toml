@@ -1,0 +1,24 @@
+[package]
+name = "securedrop-demo-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors = ["SecureDrop Team <securedrop@freedom.press>"]
+description = "Demo SecureDrop protocol server"
+
+[[bin]]
+name = "demo-server"
+path = "src/main.rs"
+
+[dependencies]
+securedrop-protocol-minimal = { path = "../protocol-minimal" }
+
+anyhow = "1.0"
+axum = "0.7"
+clap = { version = "4", features = ["derive"] }
+directories = "5"
+hex = "0.4"
+rand = "0.10"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "signal"] }
+uuid = { version = "1", features = ["v4"] }

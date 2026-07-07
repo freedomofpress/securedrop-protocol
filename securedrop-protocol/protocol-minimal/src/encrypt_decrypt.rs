@@ -72,6 +72,16 @@ where
 
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Plaintext {
+    decrypt_with_sender(receiver, envelope).0
+}
+
+/// Decrypt like [`decrypt`], additionally returning the sender's long-term
+/// SD-APKE public key `pk_S^APKE` recovered from `ct^PKE`.
+#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
+pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
+    receiver: &U,
+    envelope: &Envelope,
+) -> (Plaintext, MessagePublicKey) {
     // Trial-decrypt ct^PKE with each keybundle's metadata private key to find
     // the intended recipient's bundle. There should be exactly 1 result.
     let mut found: Option<(&MessageKeyBundle, Vec<u8>)> = None;
@@ -101,7 +111,7 @@ pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Pla
     )
     .expect("SD-APKE AuthDec failed");
 
-    Plaintext::from_bytes(&pt).unwrap()
+    (Plaintext::from_bytes(&pt).unwrap(), sender_pk)
 }
 
 /// Given a set of ciphertext bundles (C, X, Z) and their associated uuid,
@@ -221,7 +231,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::{Journalist, Source, storage::ServerStorage};
+    use crate::{Journalist, Source, SourcePublicView, storage::ServerStorage};
 
     use super::*;
 
@@ -367,6 +377,37 @@ mod tests {
         assert_eq!(solved_ids.len(), 1);
         assert_eq!(solved_ids[0], message_id);
         assert_eq!(solved_ids_miss.len(), 0);
+    }
+
+    #[test]
+    fn test_journalist_reply_to_source_roundtrip() {
+        let mut rng = setup_rng();
+
+        // Source submits to journalist.
+        let source = Source::new(&mut rng);
+        let journalist = Journalist::new(&mut rng, 2);
+        let journalist_public = journalist.public(0);
+
+        let submission = build_message(&source.public(), b"howdy".to_vec());
+        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+
+        // Journalist decrypts and recovers the source's reply keys.
+        let (pt, sender_apke) = decrypt_with_sender(&journalist, &envelope);
+        let reply_recipient = SourcePublicView::from_reply_keys(
+            DHPublicKey::from_bytes(pt.sender_fetch_key),
+            sender_apke,
+            crate::metadata::MetadataPublicKey::from_bytes(&pt.sender_reply_pubkey_hybrid)
+                .expect("recovered metadata key is valid"),
+        );
+
+        // Journalist encrypts a reply back to the source.
+        let reply_text = b"thanks dawg".to_vec();
+        let reply_pt = journalist.build_message(reply_text.clone());
+        let reply_envelope = encrypt(&mut rng, &journalist, &reply_pt, &reply_recipient);
+
+        // Source decrypts the reply.
+        let decrypted = decrypt(&source, &reply_envelope);
+        assert_eq!(decrypted.msg, reply_text);
     }
 
     #[test]

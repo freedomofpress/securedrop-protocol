@@ -165,14 +165,17 @@ let encrypt
 
 #push-options "--admit_smt_queries true"
 
-let decrypt
+/// Decrypt like [`decrypt`], additionally returning the sender's long-term
+/// SD-APKE public key `pk_S^APKE` recovered from `ct^PKE`.
+let decrypt_with_sender
       (#v_U: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()]
           i0:
           Securedrop_protocol_minimal.Traits.t_UserSecret v_U)
       (receiver: v_U)
       (envelope: Securedrop_protocol_minimal.Ciphertext.t_Envelope)
-    : Securedrop_protocol_minimal.Ciphertext.t_Plaintext =
+    : (Securedrop_protocol_minimal.Ciphertext.t_Plaintext &
+      Securedrop_protocol_minimal.Message.t_MessagePublicKey) =
   let
   (found:
     Core_models.Option.t_Option
@@ -287,7 +290,25 @@ let decrypt
           <:
           t_Slice u8)
       <:
-      Core_models.Result.t_Result Securedrop_protocol_minimal.Ciphertext.t_Plaintext Anyhow.t_Error)
+      Core_models.Result.t_Result Securedrop_protocol_minimal.Ciphertext.t_Plaintext Anyhow.t_Error),
+  sender_pk
+  <:
+  (Securedrop_protocol_minimal.Ciphertext.t_Plaintext &
+    Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+
+#pop-options
+
+#push-options "--admit_smt_queries true"
+
+let decrypt
+      (#v_U: Type0)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()]
+          i0:
+          Securedrop_protocol_minimal.Traits.t_UserSecret v_U)
+      (receiver: v_U)
+      (envelope: Securedrop_protocol_minimal.Ciphertext.t_Envelope)
+    : Securedrop_protocol_minimal.Ciphertext.t_Plaintext =
+  (decrypt_with_sender #v_U receiver envelope)._1
 
 #pop-options
 

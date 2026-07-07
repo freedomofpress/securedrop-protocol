@@ -71,3 +71,14 @@ val impl_4': Core_models.Fmt.t_Debug t_JournalistEphemeralKeyRequest
 
 unfold
 let impl_4 = impl_4'
+
+/// Response from the SecureDrop server to the journalist for ephemeral key replenishment.
+/// Step 3.2 in the spec.
+type t_JournalistEphemeralKeyResponse = { f_stored:usize }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_5': Core_models.Fmt.t_Debug t_JournalistEphemeralKeyResponse
+
+unfold
+let impl_5 = impl_5'

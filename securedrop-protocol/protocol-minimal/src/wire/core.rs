@@ -1,43 +1,46 @@
-use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
-use crate::{FetchResponse, JournalistPublicView};
+use crate::FetchResponse;
+use crate::keys::{SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
+use crate::message::MessagePublicKey;
+use crate::primitives::x25519::DHPublicKey;
+use crate::sign::{
+    FpfOnNewsroom, JournalistLongTermKey, NewsroomOnJournalist, Signature, VerifyingKey,
+};
 use alloc::vec::Vec;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Source fetches keys for the newsroom
+/// A journalist's long-term public key material, as carried in the
+/// [`WelcomeBundle`].
 ///
-/// This is the first request in step 5 of the spec.
-pub struct SourceNewsroomKeyRequest {}
-
-/// Newsroom returns their keys and proof of onboarding.
-///
-/// This is the first response in step 5 of the spec.
-pub struct SourceNewsroomKeyResponse {
-    pub newsroom_verifying_key: VerifyingKey,
-    pub fpf_sig: Signature<FpfOnNewsroom>,
+/// Combined with a one-time [`SignedKeyBundlePublic`] (fetched separately
+/// by an ephemeral key request) to reconstruct a `JournalistPublicView` for
+/// encryption.
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
+pub struct JournalistLongTermView {
+    pub vk: VerifyingKey,
+    pub fetch_pk: DHPublicKey,
+    pub reply_apke_pk: MessagePublicKey,
+    pub signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
+    pub selfsig: Signature<JournalistLongTermKey>,
+    pub nr_signature: Signature<NewsroomOnJournalist>,
 }
 
-/// Source fetches journalist keys for the newsroom
-///
-/// This is part of step 5 in the spec.
-///
-/// Note: This isn't currently written down in the spec, but
-/// should occur right before the server provides a long-term
-/// key and an ephmeral key bundle for the journalist.
-pub struct SourceJournalistKeyRequest {}
+/// The newsroom "welcome bundle" (step 5): this is everything a sender needs to
+/// begin - the newsroom verifying key, FPF's signature over it, and the roster
+/// of journalists' long-term keys/signatures.
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
+pub struct WelcomeBundle {
+    pub newsroom_verifying_key: VerifyingKey,
+    pub fpf_sig: Signature<FpfOnNewsroom>,
+    pub journalists: Vec<JournalistLongTermView>,
+}
 
-/// Server returns journalist long-term keys and ephemeral keys
-///
-/// This is the second part of step 5 in the spec.
-///
-/// Updated for 0.3 spec with new key types:
-/// - ephemeral_dh_pk: MLKEM-768 for message enc PSK (one-time)
-/// - ephemeral_kem_pk: DH-AKEM for message enc (one-time)
-/// - ephemeral_pke_pk: XWING for metadata enc (one-time)
-/// TODO: this may be split into 2 responses, one that contains
-/// static keys and one that contains one-time keys
-pub struct SourceJournalistKeyResponse {
-    pub journalist: JournalistPublicView,
-    pub nr_signature: Signature<NewsroomOnJournalist>,
+/// One journalist's one-time (ephemeral) key bundle. `vk` identifies which
+/// journalist - the server consumes the bundle when it serves it.
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
+pub struct JournalistEphemeralKeys {
+    pub vk: VerifyingKey,
+    pub ephemeral: SignedKeyBundlePublic,
 }
 
 /// User (source or journalist) fetches message IDs
@@ -48,6 +51,7 @@ pub struct MessageChallengeFetchRequest {}
 /// Server returns encrypted message IDs
 ///
 /// This corresponds to step 7 in the spec.
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct MessageChallengeFetchResponse {
     /// Number of message entries returned
     /// TODO: constant size array
