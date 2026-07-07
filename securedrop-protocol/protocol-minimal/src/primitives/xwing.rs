@@ -3,7 +3,8 @@ use crate::primitives::provider::kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
 
 // From: https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/#name-encoding-and-sizes
-pub const XWING_PUBLIC_KEY_LEN: usize = 1216;
+// todo: expose ::SIZE isntead of const everywhere
+pub(crate) const XWING_PUBLIC_KEY_LEN: usize = 1216;
 pub(crate) const XWING_PRIVATE_KEY_LEN: usize = 32;
 pub(crate) const LEN_XWING_SHAREDSECRET_ENCAPS: usize = 1120;
 
@@ -16,6 +17,7 @@ pub(crate) struct XWingPublicKey([u8; XWING_PUBLIC_KEY_LEN]);
 pub(crate) struct XWingPrivateKey([u8; XWING_PRIVATE_KEY_LEN]);
 
 impl XWingPublicKey {
+    pub const SIZE: usize = XWING_PUBLIC_KEY_LEN;
     /// Get the public key as bytes
     pub(crate) fn as_bytes(&self) -> &[u8; XWING_PUBLIC_KEY_LEN] {
         &self.0

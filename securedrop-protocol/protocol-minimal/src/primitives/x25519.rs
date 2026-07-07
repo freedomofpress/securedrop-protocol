@@ -5,7 +5,7 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use serde::de::Error as _;
 
-pub const DH_PUBLIC_KEY_LEN: usize = crate::primitives::provider::curve25519::PK_LEN;
+pub(crate) const DH_PUBLIC_KEY_LEN: usize = crate::primitives::provider::curve25519::PK_LEN;
 pub(crate) const DH_PRIVATE_KEY_LEN: usize = crate::primitives::provider::curve25519::SK_LEN;
 pub(crate) const DH_SHARED_SECRET_LEN: usize =
     crate::primitives::provider::curve25519::LEN_DH_SHARE;
@@ -15,6 +15,8 @@ pub(crate) const DH_SHARED_SECRET_LEN: usize =
 pub struct DHPublicKey([u8; DH_PUBLIC_KEY_LEN]);
 
 impl DHPublicKey {
+    pub const SIZE: usize = DH_PUBLIC_KEY_LEN;
+
     pub fn into_bytes(self) -> [u8; DH_PUBLIC_KEY_LEN] {
         self.0
     }
