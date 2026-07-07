@@ -15,9 +15,6 @@ use securedrop_protocol_minimal::{
     Envelope, FetchResponse, Journalist, Plaintext, Source, UserPublic, UserSecret,
 };
 
-use securedrop_protocol_minimal::DH_PUBLIC_KEY_LEN;
-use securedrop_protocol_minimal::XWING_PUBLIC_KEY_LEN;
-
 #[inline]
 fn rng_from_seed(seed32: [u8; 32]) -> ChaCha20Rng {
     ChaCha20Rng::from_seed(seed32)
@@ -83,7 +80,26 @@ impl From<Envelope> for WEnvelope {
 impl WEnvelope {
     /// Size hint to mirror the Rust bench’s “sink” usage.
     pub fn size_hint(&self) -> usize {
-        self.inner.cmessage_len() + self.inner.cmetadata_len()
+        Envelope::SIZE
+    }
+}
+
+#[wasm_bindgen]
+pub struct WPlaintext {
+    inner: Plaintext,
+}
+
+impl From<Plaintext> for WPlaintext {
+    fn from(inner: Plaintext) -> Self {
+        WPlaintext { inner }
+    }
+}
+
+#[wasm_bindgen]
+impl WPlaintext {
+    #[wasm_bindgen(getter)]
+    pub fn msg(&self) -> Vec<u8> {
+        self.inner.msg.clone()
     }
 }
 
@@ -134,7 +150,7 @@ pub fn encrypt_once(
     seed.copy_from_slice(seed32);
 
     // build plaintext object
-    let plaintext = sender.inner.build_message(msg.to_vec());
+    let plaintext = Plaintext::new(msg.to_vec(), sender.inner.own_message_reply_keys());
 
     let env = bench_encrypt(
         seed,
@@ -145,21 +161,11 @@ pub fn encrypt_once(
     env.into()
 }
 
-/// Returns message bytes from plaintext.
-/// TODO: can also return a WPlaintext object to access more fields in benchmarking
 #[wasm_bindgen]
-pub fn decrypt_once(recipient: &WJournalist, envelope: &WEnvelope) -> Vec<u8> {
+pub fn decrypt_once(recipient: &WJournalist, envelope: &WEnvelope) -> WPlaintext {
     let pt: Plaintext = bench_decrypt(&recipient.inner, &envelope.inner);
 
-    // todo: remove when return WPlaintext object
-    assert_eq!(
-        pt.msg.len(),
-        pt.len() - (DH_PUBLIC_KEY_LEN + XWING_PUBLIC_KEY_LEN)
-    );
-
-    // this was just a string, now it's a plaintext struct.
-    // was hoping to avoid the entire wplaintext wrapper struct and return the message bytes and not change anything else.
-    pt.msg
+    pt.into()
 }
 
 /// Build challenges for fetch

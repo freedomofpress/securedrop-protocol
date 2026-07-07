@@ -113,11 +113,11 @@
         const env = encrypt_once(seed, sender, recipient, bundleIx, msg);
 
         const [dt, pt] = tickUs(() => decrypt_once(recipient, env));
-        if (!bytesEq(pt, msg)) {
+        if (!bytesEq(pt.msg, msg)) {
           throw new Error(
             `Decryption mismatch at iter ${i}: `
-              + `expected len=${msg.length} (${toHex(msg).slice(0, 64)}...), `
-              + `got len=${pt.length} (${toHex(pt).slice(0, 64)}...)`,
+              + `expected len=${pt.msg.length} (${toHex(pt.msg).slice(0, 64)}...), `
+              + `got len=${pt.msg.length} (${toHex(pt.msg).slice(0, 64)}...)`,
           );
         }
         void pt;

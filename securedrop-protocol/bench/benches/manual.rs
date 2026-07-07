@@ -7,7 +7,9 @@ use rand_core::{Rng, SeedableRng};
 use serde::Serialize;
 use uuid::Uuid;
 
-use securedrop_protocol_minimal::{Envelope, FetchResponse, Journalist, Source, UserSecret};
+use securedrop_protocol_minimal::{
+    Envelope, FetchResponse, Journalist, Plaintext, Source, UserSecret,
+};
 
 use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
 
@@ -148,7 +150,7 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
         let recipient = Journalist::new(&mut prep_rng, keybundles);
         let msg = b"super secret msg".to_vec();
 
-        let plaintext = sender.build_message(msg);
+        let plaintext = Plaintext::new(msg, sender.own_message_reply_keys());
 
         // Bundle index chosen outside the timed section
         let bundle_ix = if keybundles == 0 {
@@ -166,7 +168,7 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
                 bench_encrypt(seed, &sender, &recipient.public(bundle_ix), &plaintext);
             let dt = t0.elapsed();
             durations.push(dt);
-            sink ^= env.size_hint();
+            sink ^= Envelope::SIZE;
         } else {
             // Seed fill happens outside the timed section (default)
             let mut seed = [0u8; 32];
@@ -177,7 +179,7 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
                 bench_encrypt(seed, &sender, &recipient.public(bundle_ix), &plaintext);
             let dt = t0.elapsed();
             durations.push(dt);
-            sink ^= env.size_hint();
+            sink ^= Envelope::SIZE;
         }
     }
 
@@ -197,7 +199,7 @@ fn bench_decrypt_loop(iterations: usize, keybundles: usize) -> Vec<Duration> {
         let recipient = Journalist::new(&mut prep_rng, keybundles);
         let msg = b"super secret msg".to_vec();
 
-        let pt = sender.build_message(msg);
+        let pt = Plaintext::new(msg, sender.own_message_reply_keys());
 
         // Prepare envelope (not timed)
         let mut seed = [0u8; 32];
@@ -243,7 +245,10 @@ fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> 
                 (prep_rng.next_u32() as usize) % keybundles
             };
 
-            let pt = source.build_message(format!("iter{i}-msg{j}").into());
+            let pt = Plaintext::new(
+                format!("iter{i}-msg{j}").into(),
+                source.own_message_reply_keys(),
+            );
 
             let env = bench_encrypt(seed, &source, &journalist.public(bundle_ix), &pt);
             let mut message_id = [0u8; 16];
