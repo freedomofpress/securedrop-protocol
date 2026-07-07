@@ -12,7 +12,6 @@ use crate::metadata::{MetadataKeyPair, MetadataPublicKey};
 use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
 use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
 use crate::primitives::x25519::{DH_PUBLIC_KEY_LEN, DHPrivateKey, DHPublicKey, DHSharedSecret};
-use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use alloc::string::String;
 use alloc::vec::Vec;
 use serde::de::Error as _;
