@@ -1,8 +1,8 @@
 use crate::message::MessageCiphertext;
-use crate::metadata::MetadataCiphertext;
+use crate::metadata::{MetadataCiphertext, MetadataPublicKey};
 use crate::primitives::provider::constants::LEN_KMID;
-use crate::primitives::x25519::{DH_PUBLIC_KEY_LEN, DH_SHARED_SECRET_LEN};
-use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
+use crate::primitives::x25519::{DH_SHARED_SECRET_LEN, DHPublicKey};
+use crate::size::PlaintextWire;
 use alloc::vec::Vec;
 use anyhow::Error;
 #[cfg(not(hax))]
@@ -50,76 +50,124 @@ pub struct Envelope {
 
     /// `X = g^x`: ephemeral DH public key for the hint
     #[cfg_attr(not(hax), serde(with = "hex_array"))]
-    pub(crate) mgdh_pubkey: [u8; DH_PUBLIC_KEY_LEN],
+    pub(crate) mgdh_pubkey: [u8; DHPublicKey::SIZE],
 
     /// `Z = (pk_R^fetch)^x`: DH share for fetching
     #[cfg_attr(not(hax), serde(with = "hex_array"))]
-    pub(crate) mgdh: [u8; DH_PUBLIC_KEY_LEN],
+    pub(crate) mgdh: [u8; DHPublicKey::SIZE],
 }
 
 impl Envelope {
     // Used for benchmarks - see wasm_bindgen
-    pub fn size_hint(&self) -> usize {
-        self.ct_apke.len() + self.ct_pke.len()
-    }
-
-    pub fn cmessage_len(&self) -> usize {
-        self.ct_apke.len()
-    }
-
-    // SD-PKE ciphertext byte length: encapsulation c + AEAD ciphertext c'
-    pub fn cmetadata_len(&self) -> usize {
-        self.ct_pke.len()
-    }
+    pub const SIZE: usize =
+        MessageCiphertext::SIZE + MetadataCiphertext::SIZE + crate::size::CLUE_SIZE;
 }
 
-#[derive(Debug, Clone)]
-/// Toy pt structure - TODO: provide params in correct order
+#[derive(Debug, Clone, PartialEq)]
 pub struct Plaintext {
     /// Metadata key: $pk_S^{PKE}$ in the spec
-    pub sender_reply_pubkey_hybrid: [u8; XWING_PUBLIC_KEY_LEN],
+    pub sender_reply_pubkey_hybrid: [u8; MetadataPublicKey::SIZE],
     /// Fetching key: $pk_S^{fetch}$ in the spec
-    pub sender_fetch_key: [u8; DH_PUBLIC_KEY_LEN],
+    pub sender_fetch_key: [u8; DHPublicKey::SIZE],
     /// Message
     pub msg: Vec<u8>,
 }
 
 impl Plaintext {
-    pub fn to_bytes(&self) -> alloc::vec::Vec<u8> {
-        // TODO: Deviates from spec
-        let mut buf = Vec::new();
+    // todo: when there is a msg_len header, add it's byte size here
+    const HEADERS_TOTAL_BYTE_SIZE: usize = MetadataPublicKey::SIZE + DHPublicKey::SIZE;
 
-        buf.extend_from_slice(&self.sender_reply_pubkey_hybrid);
-        buf.extend_from_slice(&self.sender_fetch_key);
-        buf.extend_from_slice(&self.msg);
+    /// Construct new structured Plaintext object.
+    /// Everything inside Plaintext will be serialized and AEAD-encrypted.
+    pub fn new(
+        message: Vec<u8>,
+        reply_keys: Option<(&MetadataPublicKey, &DHPublicKey)>,
+    ) -> Plaintext {
+        if message.len() > PlaintextWire::SIZE - Plaintext::HEADERS_TOTAL_BYTE_SIZE {
+            // TODO: something more graceful
+            panic!("Message is too long");
+        }
 
-        buf
+        if let Some((md_key, fetch_key)) = reply_keys {
+            let mut reply_key_pq_hybrid = [0u8; MetadataPublicKey::SIZE];
+            reply_key_pq_hybrid.copy_from_slice(md_key.as_bytes());
+
+            return Plaintext {
+                sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
+                sender_fetch_key: fetch_key.into_bytes(),
+                msg: message,
+            };
+        } else {
+            // No reply keys attached
+            return Plaintext {
+                sender_reply_pubkey_hybrid: [0u8; MetadataPublicKey::SIZE],
+                sender_fetch_key: [0u8; DHPublicKey::SIZE],
+                msg: message,
+            };
+        }
     }
 
-    pub fn len(&self) -> usize {
-        XWING_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN + self.msg.len()
+    /// Pad and serialize Plaintext.
+    /// TODO (toy padding)
+    pub fn encode_padded(&self) -> PlaintextWire {
+        let mut buf = alloc::vec![0u8; PlaintextWire::SIZE];
+
+        buf[0..MetadataPublicKey::SIZE].copy_from_slice(&self.sender_reply_pubkey_hybrid);
+
+        buf[MetadataPublicKey::SIZE..Plaintext::HEADERS_TOTAL_BYTE_SIZE]
+            .copy_from_slice(&self.sender_fetch_key);
+        buf[Plaintext::HEADERS_TOTAL_BYTE_SIZE
+            ..Plaintext::HEADERS_TOTAL_BYTE_SIZE + self.msg.len()]
+            .copy_from_slice(&self.msg);
+
+        PlaintextWire::new(buf)
     }
 
     // Toy parsing only
-    pub fn from_bytes(pt_bytes: &[u8]) -> Result<Self, Error> {
-        let mut offset = 0;
+    pub fn from_wire_bytes(pt_wire_bytes: PlaintextWire) -> Result<Self, Error> {
+        let mut pt_bytes = Self::strip_padding(pt_wire_bytes)?;
 
-        let mut sender_reply_pubkey_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
-        sender_reply_pubkey_hybrid
-            .copy_from_slice(&pt_bytes[offset..offset + XWING_PUBLIC_KEY_LEN]);
-        offset += XWING_PUBLIC_KEY_LEN;
+        let mut sender_reply_pubkey_hybrid = [0u8; MetadataPublicKey::SIZE];
+        sender_reply_pubkey_hybrid.copy_from_slice(&pt_bytes[0..MetadataPublicKey::SIZE]);
 
-        let mut sender_fetch_key = [0u8; DH_PUBLIC_KEY_LEN];
-        sender_fetch_key.copy_from_slice(&pt_bytes[offset..offset + DH_PUBLIC_KEY_LEN]);
-        offset += DH_PUBLIC_KEY_LEN;
+        let mut sender_fetch_key = [0u8; DHPublicKey::SIZE];
+        sender_fetch_key.copy_from_slice(
+            &pt_bytes[MetadataPublicKey::SIZE..MetadataPublicKey::SIZE + DHPublicKey::SIZE],
+        );
 
-        let msg = pt_bytes[offset..].to_vec();
+        // to change when length header is added
+        debug_assert_eq!(
+            Plaintext::HEADERS_TOTAL_BYTE_SIZE,
+            MetadataPublicKey::SIZE + DHPublicKey::SIZE
+        );
+
+        // todo: putting the msg before the keys is a future optimization
+        let msg = pt_bytes.split_off(Plaintext::HEADERS_TOTAL_BYTE_SIZE);
 
         Ok(Plaintext {
             sender_reply_pubkey_hybrid,
             sender_fetch_key,
-            msg,
+            msg: msg,
         })
+    }
+
+    /// Strip the trailing zero padding applied at submission time.
+    ///
+    /// TODO: Fix the padding scheme so if a message actually ends in NUL bytes
+    /// we don't lose data. We should length prefix it instead?
+    fn strip_padding(pt_wire: PlaintextWire) -> Result<Vec<u8>, Error> {
+        // todo: let end = pt_wire.parse_len() and implement header field
+        let mut msg_vec = pt_wire.into_vec();
+
+        let end = msg_vec.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1);
+
+        msg_vec.truncate(end);
+
+        Ok(msg_vec)
+    }
+
+    pub fn len(&self) -> usize {
+        &self.sender_reply_pubkey_hybrid.len() + &self.msg.len() + &self.sender_fetch_key.len()
     }
 }
 
@@ -145,53 +193,46 @@ mod tests {
     use crate::primitives::dh_akem::DH_AKEM_ENCAPS_SECRET_LEN;
     use crate::primitives::mlkem::LEN_MLKEM_SHAREDSECRET_ENCAPS;
     use crate::primitives::xwing::LEN_XWING_SHAREDSECRET_ENCAPS;
+    use crate::size::CiphertextWire;
     use proptest::prelude::*;
-
-    fn message_ct(c1: Vec<u8>, cp: Vec<u8>, c2: Vec<u8>) -> MessageCiphertext {
-        MessageCiphertext {
-            c1: c1.try_into().expect("c1 length"),
-            cp,
-            c2: c2.try_into().expect("c2 length"),
-        }
-    }
 
     proptest! {
         #[test]
         fn test_message_ciphertext_byte_roundtrip(
-            c1 in prop::collection::vec(any::<u8>(), DH_AKEM_ENCAPS_SECRET_LEN),
-            cp in prop::collection::vec(any::<u8>(), 0..128),
-            c2 in prop::collection::vec(any::<u8>(), LEN_MLKEM_SHAREDSECRET_ENCAPS),
+            c1 in any::<[u8; DH_AKEM_ENCAPS_SECRET_LEN]>(),
+            cp in prop::collection::vec(any::<u8>(), CiphertextWire::SIZE),
+            c2 in any::<[u8; LEN_MLKEM_SHAREDSECRET_ENCAPS]>(),
         ) {
-            let ct = message_ct(c1, cp, c2);
+            let ct = MessageCiphertext{c1, cp: CiphertextWire::new(cp), c2};
             let restored = MessageCiphertext::from_bytes(&ct.as_bytes()).expect("valid bytes");
             prop_assert_eq!(ct.as_bytes(), restored.as_bytes());
         }
 
         #[test]
         fn test_metadata_ciphertext_byte_roundtrip(
-            c in prop::collection::vec(any::<u8>(), LEN_XWING_SHAREDSECRET_ENCAPS),
-            cp in prop::collection::vec(any::<u8>(), LEN_METADATA_CIPHERTEXT)
+            c in any::<[u8; LEN_XWING_SHAREDSECRET_ENCAPS]>(),
+            cp in any::<[u8; LEN_METADATA_CIPHERTEXT]>()
             .prop_map(|v| v.try_into().unwrap()),
         ) {
-            let ct = MetadataCiphertext { c: c.try_into().expect("c length"), cp };
+            let ct = MetadataCiphertext { c, cp };
             let restored = MetadataCiphertext::from_bytes(&ct.as_bytes()).expect("valid bytes");
             prop_assert_eq!(ct.as_bytes(), restored.as_bytes());
         }
 
         #[test]
         fn test_envelope_serde_roundtrip(
-            c1 in prop::collection::vec(any::<u8>(), DH_AKEM_ENCAPS_SECRET_LEN),
-            cp_a in prop::collection::vec(any::<u8>(), 0..128),
-            c2 in prop::collection::vec(any::<u8>(), LEN_MLKEM_SHAREDSECRET_ENCAPS),
-            c in prop::collection::vec(any::<u8>(), LEN_XWING_SHAREDSECRET_ENCAPS),
-            cp_b in prop::collection::vec(any::<u8>(), LEN_METADATA_CIPHERTEXT)
+            c1 in any::<[u8; DH_AKEM_ENCAPS_SECRET_LEN]>(),
+            cp_a in prop::collection::vec(any::<u8>(), CiphertextWire::SIZE),
+            c2 in any::<[u8; LEN_MLKEM_SHAREDSECRET_ENCAPS]>(),
+            c in any::<[u8; LEN_XWING_SHAREDSECRET_ENCAPS]>(),
+            cp_b in any::<[u8; LEN_METADATA_CIPHERTEXT]>()
             .prop_map(|v| v.try_into().unwrap()),
             mgdh_pubkey in prop::array::uniform32(any::<u8>()),
             mgdh in prop::array::uniform32(any::<u8>()),
         ) {
             let env = Envelope {
-                ct_apke: message_ct(c1, cp_a, c2),
-                ct_pke: MetadataCiphertext { c: c.try_into().expect("c length"), cp: cp_b },
+                ct_apke: MessageCiphertext {c1, cp: CiphertextWire::new(cp_a), c2},
+                ct_pke: MetadataCiphertext { c, cp: cp_b },
                 mgdh_pubkey,
                 mgdh,
             };
@@ -206,7 +247,7 @@ mod tests {
         #[test]
         fn test_fetch_challenge_response_serde_roundtrip(
             enc_ids in prop::collection::vec(
-                prop::collection::vec(any::<u8>(), LEN_KMID), 0..6),
+                any::<[u8; LEN_KMID]>(), 0..6),
             pmgdhs in prop::collection::vec(prop::array::uniform32(any::<u8>()), 0..6),
         ) {
             let n = enc_ids.len().min(pmgdhs.len());
