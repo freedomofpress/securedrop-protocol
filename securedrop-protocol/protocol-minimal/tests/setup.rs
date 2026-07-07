@@ -4,16 +4,16 @@
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
-use securedrop_protocol_minimal::DH_PUBLIC_KEY_LEN;
 use securedrop_protocol_minimal::api::{Client, JournalistApi};
 use securedrop_protocol_minimal::keys::FPFKeyPair;
+use securedrop_protocol_minimal::message::MessagePublicKey;
 use securedrop_protocol_minimal::sign::{FpfOnNewsroom, Signature};
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyRequest, JournalistSetupRequest,
 };
 
-use securedrop_protocol_minimal::VerifyingKey;
 use securedrop_protocol_minimal::server::Server;
+use securedrop_protocol_minimal::{DHPublicKey, VerifyingKey};
 use securedrop_protocol_minimal::{Journalist, Source, UserPublic, UserSecret};
 
 // Toy implementation purposes
@@ -278,11 +278,11 @@ fn protocol_step_4_source_setup() {
     let source2 = Source::from_passphrase(pass).expect("generated mnemonic is valid");
     assert_ne!(
         source_public.fetch_pk().into_bytes(),
-        [0u8; DH_PUBLIC_KEY_LEN]
+        [0u8; DHPublicKey::SIZE]
     );
     assert_ne!(
-        source_public.message_auth_pk().as_bytes(),
-        &[0u8; DH_PUBLIC_KEY_LEN]
+        &source_public.message_auth_pk().as_bytes(),
+        &[0u8; MessagePublicKey::SIZE]
     );
     assert_eq!(pass, source2.passphrase());
     assert_eq!(
