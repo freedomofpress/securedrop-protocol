@@ -30,7 +30,7 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
     let mut trusted_senders: HashSet<Vec<u8>> = HashSet::new();
     for journalist in &welcome.journalists {
         // A journalist replies using their long-term APKE key.
-        trusted_senders.insert(journalist.reply_apke_pk.as_bytes());
+        trusted_senders.insert(journalist.reply_apke_pk.as_bytes().to_vec());
     }
 
     // Fetch the challenge set and solve it with our fetch key.
@@ -64,16 +64,15 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
             .json()?;
 
         let (plaintext, sender_apke) = decrypt_with_sender(&source, &envelope);
-        if !trusted_senders.contains(&sender_apke.as_bytes()) {
+        if !trusted_senders.contains(&sender_apke.as_bytes().to_vec()) {
             // Reply from a sender that isn't an enrolled journalist, discard
             // TODO: delete?
             discarded += 1;
             continue;
         }
 
-        let msg = strip_padding(&plaintext.msg);
         println!("[{id}]");
-        println!("{}\n", String::from_utf8_lossy(msg));
+        println!("{}\n", String::from_utf8_lossy(&plaintext.msg));
         shown += 1;
 
         // Confirm receipt by deleting the server's copy.
@@ -92,10 +91,4 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
         println!("Discarded {discarded} message(s) from unrecognized senders.");
     }
     Ok(())
-}
-
-/// Strip the trailing zero padding applied at submission time
-fn strip_padding(msg: &[u8]) -> &[u8] {
-    let end = msg.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1);
-    &msg[..end]
 }

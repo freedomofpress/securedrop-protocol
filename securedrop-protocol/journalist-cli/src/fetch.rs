@@ -47,7 +47,7 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
             .json()?;
 
         let (plaintext, sender_apke) = decrypt_with_sender(&journalist, &envelope);
-        let text = String::from_utf8_lossy(strip_padding(&plaintext.msg)).into_owned();
+        let text = String::from_utf8_lossy(&plaintext.msg).into_owned();
         let sender_metadata_pk =
             MetadataPublicKey::from_bytes(&plaintext.sender_reply_pubkey_hybrid)
                 .context("recovered source metadata key is malformed")?;
@@ -82,13 +82,4 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
         println!("{}\n", entry.text);
     }
     Ok(())
-}
-
-/// Strip the trailing zero padding applied at submission time.
-///
-/// TODO: Fix the padding scheme so if a message actually ends in NUL bytes
-/// we don't lose data. We should length prefix it instead?
-fn strip_padding(msg: &[u8]) -> &[u8] {
-    let end = msg.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1);
-    &msg[..end]
 }
