@@ -15,7 +15,7 @@
 //! 4. Each journalist's long-term and one-time key bundles are self-signed.
 
 use crate::{
-    Enrollable, Envelope, FetchResponse, JournalistPublicView, UserPublic, UserSecret,
+    Enrollable, Envelope, FetchResponse, JournalistPublicView, Plaintext, UserPublic, UserSecret,
     VerifyingKey,
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
     keys::SignedKeyBundlePublic,
@@ -203,9 +203,8 @@ where
         P: UserPublic,
     {
         // TODO: review padding
-        let padded_message = crate::primitives::pad::pad_message(message);
-        let plaintext = sender.build_message(padded_message);
-        let envelope = encrypt(rng, sender, &plaintext, recipient);
+        let padded_msg_pt = Plaintext::new(message.to_vec(), sender.own_message_reply_keys());
+        let envelope = encrypt(rng, sender, &padded_msg_pt, recipient);
         Ok(envelope)
     }
 

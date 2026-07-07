@@ -3,10 +3,10 @@ use crate::message::{MessagePrivateKey, MessagePublicKey};
 use crate::metadata::MetadataPublicKey;
 use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
+
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature};
 use alloc::vec::Vec;
 
-use crate::ciphertext::Plaintext;
 use crate::keys::{
     Enrollment, KeyBundlePublic, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermPubKeyBytes,
 };
@@ -76,7 +76,7 @@ pub trait UserSecret: sealed::Sealed {
     fn message_auth_key(&self) -> &MessagePrivateKey;
     /// The holder's own long-term SD-APKE public key `pk^APKE`.
     fn own_message_auth_pk(&self) -> &MessagePublicKey;
-    fn build_message(&self, message: Vec<u8>) -> Plaintext;
+    fn own_message_reply_keys(&self) -> Option<(&MetadataPublicKey, &DHPublicKey)>;
     fn keybundles(&self) -> Vec<&MessageKeyBundle>;
 }
 
@@ -88,7 +88,7 @@ pub trait UserSecret {
     fn message_auth_key(&self) -> &MessagePrivateKey;
     /// The holder's own long-term SD-APKE public key `pk^APKE`.
     fn own_message_auth_pk(&self) -> &MessagePublicKey;
-    fn build_message(&self, message: Vec<u8>) -> Plaintext;
+    fn own_message_reply_keys(&self) -> Option<(&MetadataPublicKey, &DHPublicKey)>;
     fn keybundles(&self) -> Vec<&MessageKeyBundle>;
 }
 

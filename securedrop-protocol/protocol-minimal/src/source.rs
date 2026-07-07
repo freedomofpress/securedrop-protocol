@@ -105,22 +105,15 @@ impl UserSecret for Source {
         self.message_keys.apke.public_key()
     }
 
-    fn build_message(&self, message: Vec<u8>) -> Plaintext {
-        let mut fetch_pk = [0u8; DH_PUBLIC_KEY_LEN];
-        fetch_pk.copy_from_slice(&self.fetch_key.pk.into_bytes());
-
-        let mut reply_key_pq_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
-        reply_key_pq_hybrid.copy_from_slice(self.message_keys.metadata_kp.public_key().as_bytes());
-
-        Plaintext {
-            sender_fetch_key: fetch_pk,
-            sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
-            msg: message,
-        }
-    }
-
     fn keybundles(&self) -> Vec<&MessageKeyBundle> {
         alloc::vec![&self.message_keys]
+    }
+
+    fn own_message_reply_keys(&self) -> Option<(&MetadataPublicKey, &DHPublicKey)> {
+        Some((
+            &self.message_keys.metadata_kp.public_key(),
+            &self.fetch_key.pk,
+        ))
     }
 }
 

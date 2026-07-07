@@ -3,7 +3,6 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::VerifyingKey;
 use crate::api::Client;
-use crate::ciphertext::Plaintext;
 use crate::keys::*;
 use crate::message::{
     MessageKeyPair, MessagePrivateKey, MessagePublicKey, keygen as message_keygen,
@@ -16,6 +15,8 @@ use crate::primitives::x25519::DHPrivateKey;
 use crate::primitives::x25519::DHPublicKey;
 use crate::primitives::x25519::generate_dh_keypair;
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey};
+
+use crate::keys::*;
 use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, UserSecret};
 
 // caution: do not re-export!
@@ -159,20 +160,13 @@ impl UserSecret for Journalist {
         self.reply_apke.public_key()
     }
 
-    fn build_message(&self, message: Vec<u8>) -> Plaintext {
-        // TODO: the journalist doesn't attach their own keys,
-        // because the source pulls a fresh set of keys and verifies them
-        // in order to reply. either fill with random bytes or use
-        // another scheme (fixme)
-        Plaintext {
-            sender_fetch_key: [0u8; crate::primitives::x25519::DH_PUBLIC_KEY_LEN],
-            sender_reply_pubkey_hybrid: [0u8; crate::primitives::xwing::XWING_PUBLIC_KEY_LEN],
-            msg: message,
-        }
-    }
-
     fn keybundles(&self) -> Vec<&MessageKeyBundle> {
         keybundle_refs(&self.message_keys)
+    }
+
+    fn own_message_reply_keys(&self) -> Option<(&MetadataPublicKey, &DHPublicKey)> {
+        // Journalists don't attach reply keys, sources retrieve fresh ones
+        None
     }
 }
 
