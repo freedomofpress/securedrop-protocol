@@ -13,6 +13,7 @@ pub mod keys;
 pub mod primitives;
 pub mod server;
 pub mod setup;
+mod size;
 mod traits;
 pub mod wire;
 
@@ -25,10 +26,12 @@ pub use keys::{
     DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, SessionStorage, SignedKeyBundlePublic,
     SignedLongtermPubKeyBytes, SigningKeyPair,
 };
+
+// todo: standardize on either the static type method (DHPublicKey::SIZE) or the hardcoded string.
+// All these public exports may not be needed
 pub use primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
 pub use primitives::mlkem::{MLKEM768_PRIVATE_KEY_LEN, MLKEM768_PUBLIC_KEY_LEN};
-pub use primitives::x25519::DH_PUBLIC_KEY_LEN;
-pub use primitives::xwing::XWING_PUBLIC_KEY_LEN;
+pub use primitives::x25519::DHPublicKey;
 
 pub use traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
 
