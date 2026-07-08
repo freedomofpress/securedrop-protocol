@@ -90,21 +90,24 @@ Note over Newsroom, FPF: 2. Newsroom signing setup
 deactivate FPF
 
 activate Server
+loop Each of m journalists
 activate Journalist
 Note over Journalist, Newsroom: 3.1. (offline) Journalist initial key setup
 Note over Server, Journalist: 3.1. Journalist enrollment
 deactivate Newsroom
 
 Note over Journalist, Server: 3.2. Setup and periodic replenishment<br>of n ephemeral key bundles
+end
 
 activate Source
 Note over Source: 4. Source key setup
 alt Source → Journalist
-Note over Source, Server: 5. Sender fetches keys and verifies<br>their authenticity
-Note over Source, Server: 6. Sender submits a message
+Note over Source, Server: 5. Sender fetches keys for m journalists<br>and verifies their authenticity
+Note over Source, Server: 6. Sender submits a message<br>(m copies)
 Note over Server, Journalist: 7. Receiver fetches and decrypts messages
 else Journalist → Source
-Note over Server, Journalist: 6. Sender submits a message (reply case)
+Note over Journalist, Server: 5. Sender fetches keys for m journalists<br>and verifies their authenticity
+Note over Server, Journalist: 6. Sender submits a message<br>(m copies, reply case)
 Note over Source, Server: 7. Receiver fetches and decrypts messages
 end
 deactivate Source
