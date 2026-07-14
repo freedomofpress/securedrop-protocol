@@ -113,9 +113,7 @@ fn main() -> Result<()> {
 
                 submit::submit(&server, &fpf_vk, &message)
             }
-            Command::Fetch { server, fpf_vk } => { 
-                fetch::fetch(&server, &fpf_vk)
-            },
+            Command::Fetch { server, fpf_vk } => fetch::fetch(&server, &fpf_vk),
             Command::ShowState {} => in_memory_state.show_state(),
             Command::Exit {} => break,
         };
