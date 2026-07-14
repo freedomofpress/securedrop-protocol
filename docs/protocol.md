@@ -327,7 +327,7 @@ $\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
 mode][RFC 9180 §5.1.1] with:
 
 - $\text{KEM}_H =$ X-Wing
-- $\text{AEAD} =$ AES-GCM
+- $\text{AEAD} =$ ChaCha20Poly1305
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
 
 | Syntax                                                | Description                                                  |
@@ -377,7 +377,7 @@ $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
 
 - $\text{AKEM}$ as above
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
-- $\text{AEAD} =$ AES-GCM
+- $\text{AEAD} =$ ChaCha20Poly1305
 
 | Syntax                                                                              | Description                                                                                           |
 | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
