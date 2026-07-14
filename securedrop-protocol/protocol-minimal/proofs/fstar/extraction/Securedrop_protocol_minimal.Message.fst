@@ -453,7 +453,7 @@ let auth_enc
       (Hpke_rs.Mode_AuthPsk <: Hpke_rs.t_Mode)
       (Hpke_rs_crypto.Types.KemAlgorithm_DhKem25519 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
-      (Hpke_rs_crypto.Types.AeadAlgorithm_Aes256Gcm <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
+      (Hpke_rs_crypto.Types.AeadAlgorithm_ChaCha20Poly1305 <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
   in
   let randomness:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
   let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 32)) =
@@ -642,7 +642,7 @@ let auth_dec
       (Hpke_rs.Mode_AuthPsk <: Hpke_rs.t_Mode)
       (Hpke_rs_crypto.Types.KemAlgorithm_DhKem25519 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
-      (Hpke_rs_crypto.Types.AeadAlgorithm_Aes256Gcm <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
+      (Hpke_rs_crypto.Types.AeadAlgorithm_ChaCha20Poly1305 <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
   in
   match
     Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
