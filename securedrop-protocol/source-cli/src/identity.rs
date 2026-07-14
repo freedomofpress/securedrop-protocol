@@ -3,7 +3,7 @@ use securedrop_protocol_minimal::{Source, UserPublic};
 
 use crate::util::read_passphrase;
 
-pub(crate) fn generate() -> Result<()> {
+pub(crate) fn generate() -> Result<Source> {
     let source = Source::new(rand::rng());
     let mnemonic = source.passphrase();
     let fetch_pk = source.public().fetch_pk().into_bytes();
@@ -14,7 +14,7 @@ pub(crate) fn generate() -> Result<()> {
     println!("  {mnemonic}");
     println!();
     println!("Fetch public key: {}", hex(&fetch_pk));
-    Ok(())
+    Ok(source)
 }
 
 pub(crate) fn show() -> Result<()> {
