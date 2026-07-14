@@ -17,7 +17,9 @@
 
 use crate::{
     message::MessagePublicKey,
-    primitives::provider::hpke_rs::{Aes256Gcm, HkdfSha256, Hpke, HpkeLibcrux, Mode, XWingDraft06},
+    primitives::provider::hpke_rs::{
+        ChaCha20Poly1305, HkdfSha256, Hpke, HpkeLibcrux, Mode, XWingDraft06,
+    },
 };
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -230,7 +232,7 @@ pub(crate) fn encrypt(
     pk_r: &MetadataPublicKey,
     m: &MessagePublicKey,
 ) -> Result<MetadataCiphertext, anyhow::Error> {
-    let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
+    let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
     let pk_r_hpke = pk_r.0.clone().into();
 
     // MetadataPublicKey always holds a valid XWing key, so seal should not fail.
@@ -264,7 +266,7 @@ pub fn decrypt(
     sk_r: &MetadataPrivateKey,
     ct: &MetadataCiphertext,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    let hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, Aes256Gcm);
+    let hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
     let sk_r_hpke = sk_r.0.clone().into();
 
     hpke.open(&ct.c, &sk_r_hpke, b"", b"", &ct.cp, None, None, None)
