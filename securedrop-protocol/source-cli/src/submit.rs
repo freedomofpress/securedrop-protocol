@@ -11,6 +11,21 @@ struct MessageSubmitResponse {
     message_id: String,
 }
 
+pub(crate) fn welcome(server: &str) -> Result<WelcomeBundle, anyhow::Error> {
+    let client = reqwest::blocking::Client::new();
+
+    // Fetch the newsroom welcome bundle again (we can cache this in the future)
+    let wb: WelcomeBundle = client
+        .get(format!("{server}/welcome"))
+        .send()
+        .with_context(|| format!("fetching {server}/welcome"))?
+        .error_for_status()
+        .context("newsroom rejected welcome request")?
+        .json()?;
+
+    Ok(wb)
+}
+
 pub(crate) fn submit(server: &str, fpf_vk_hex: &str, message: &str) -> Result<()> {
     let fpf_vk = parse_fpf_vk(fpf_vk_hex)?;
 
@@ -21,13 +36,8 @@ pub(crate) fn submit(server: &str, fpf_vk_hex: &str, message: &str) -> Result<()
     let client = reqwest::blocking::Client::new();
 
     // Fetch the newsroom welcome bundle again (we can cache this in the future)
-    let welcome: WelcomeBundle = client
-        .get(format!("{server}/welcome"))
-        .send()
-        .with_context(|| format!("fetching {server}/welcome"))?
-        .error_for_status()
-        .context("newsroom rejected welcome request")?
-        .json()?;
+    let welcome: WelcomeBundle = welcome(server)?;
+
     source
         .handle_welcome(&welcome, &fpf_vk)
         .context("welcome bundle failed verification against the pinned FPF key")?;
