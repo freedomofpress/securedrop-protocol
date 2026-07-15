@@ -100,8 +100,7 @@ verification status:
 - `libcrux-kem` and `libcrux-traits` - not verified
 - `libcrux-ecdh` and `libcrux-hkdf` - verified by calling out to code
   generated from the HACL\* project
-- `libcrux-aead` - `ChaCha20Poly1305` is verified (via HACL\*), but AES-GCM is
-  not, and we do rely on AES-GCM
+- `libcrux-aead` - `ChaCha20Poly1305` is verified (via HACL\*), but the wrapper crate is not Hax extraction-compatible.
 
 [hacl]: https://hacl-star.github.io/
 [hpke-rs]: https://github.com/cryspen/hpke-rs

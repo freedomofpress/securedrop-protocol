@@ -349,7 +349,7 @@ let encrypt (pk_r: t_MetadataPublicKey) (m: Securedrop_protocol_minimal.Message.
       (Hpke_rs.Mode_Base <: Hpke_rs.t_Mode)
       (Hpke_rs_crypto.Types.KemAlgorithm_XWingDraft06 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
-      (Hpke_rs_crypto.Types.AeadAlgorithm_Aes256Gcm <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
+      (Hpke_rs_crypto.Types.AeadAlgorithm_ChaCha20Poly1305 <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
   in
   let pk_r_hpke:Hpke_rs.t_HpkePublicKey =
     Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPublicKey
@@ -478,7 +478,7 @@ let decrypt (sk_r: t_MetadataPrivateKey) (ct: t_MetadataCiphertext)
       (Hpke_rs.Mode_Base <: Hpke_rs.t_Mode)
       (Hpke_rs_crypto.Types.KemAlgorithm_XWingDraft06 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
-      (Hpke_rs_crypto.Types.AeadAlgorithm_Aes256Gcm <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
+      (Hpke_rs_crypto.Types.AeadAlgorithm_ChaCha20Poly1305 <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
   in
   let sk_r_hpke:Hpke_rs.t_HpkePrivateKey =
     Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPrivateKey

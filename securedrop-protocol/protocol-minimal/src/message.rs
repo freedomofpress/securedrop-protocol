@@ -21,7 +21,8 @@
 //! ```
 
 use crate::primitives::provider::hpke_rs::{
-    Aes256Gcm, DhKem25519, HkdfSha256, Hpke, HpkeLibcrux, HpkePrivateKey, HpkePublicKey, Mode,
+    ChaCha20Poly1305, DhKem25519, HkdfSha256, Hpke, HpkeLibcrux, HpkePrivateKey, HpkePublicKey,
+    Mode,
 };
 use crate::primitives::provider::kem::MlKem768;
 use crate::primitives::provider::traits::OwnedKem as Kem;
@@ -272,7 +273,8 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
     ad: &[u8],
     info: &[u8],
 ) -> Result<MessageCiphertext, Error> {
-    let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, Aes256Gcm);
+    let mut hpke =
+        Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
 
     let mut randomness = [0u8; LEN_MLKEM_ENCAPS_RAND];
     rng.fill_bytes(&mut randomness);
@@ -327,7 +329,7 @@ pub fn auth_dec(
     ad: &[u8],
     info: &[u8],
 ) -> Result<Vec<u8>, Error> {
-    let hpke = Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, Aes256Gcm);
+    let hpke = Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
 
     // K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
     let k2 = MlKem768::decaps(&ct.c2, sk.mlkem.as_bytes())

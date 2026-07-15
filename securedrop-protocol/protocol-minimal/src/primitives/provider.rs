@@ -172,7 +172,7 @@ pub mod hpke_rs {
 
     #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) use hpke_rs::{
-        Hpke, HpkePrivateKey, HpkePublicKey, Mode, hpke_types::AeadAlgorithm::Aes256Gcm,
+        Hpke, HpkePrivateKey, HpkePublicKey, Mode, hpke_types::AeadAlgorithm::ChaCha20Poly1305,
         hpke_types::KdfAlgorithm::HkdfSha256, hpke_types::KemAlgorithm::DhKem25519,
         hpke_types::KemAlgorithm::XWingDraft06, libcrux::HpkeLibcrux,
     };
@@ -183,7 +183,6 @@ pub mod constants {
     // Message ID (uuid) and KMID
     #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const LEN_MESSAGE_ID: usize = 16;
-    // TODO: this will be aes-gcm and use AES GCM TagSize
     // TODO: current implementation prepends the nonce to the encrypted message.
     // Recheck this when switching implementations.
     #[cfg_attr(hax, hax_lib::opaque)]
