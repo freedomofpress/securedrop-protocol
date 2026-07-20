@@ -94,9 +94,7 @@ pub struct MetadataCiphertext {
 impl MetadataCiphertext {
     /// Total byte length of the ciphertext: encapsulation `c` + AEAD ciphertext `c'`.
     pub fn len(&self) -> usize {
-        // TODO: hax_lib::refine(self.c.len() == LEN_XWING_SHAREDSECRET_ENCAPS && self.cp.len() == LEN_METADATA_CIPHERTEXT)
-        // This isn't the best, but hax is struggling to parse c.len()
-        LEN_XWING_SHAREDSECRET_ENCAPS + LEN_METADATA_CIPHERTEXT
+        self.c.len() + self.cp.len()
     }
 
     /// Wire encoding `c || cp`
