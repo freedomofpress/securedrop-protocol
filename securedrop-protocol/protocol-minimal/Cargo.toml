@@ -47,6 +47,12 @@ rand_chacha = {  version = "0.10.0", default-features = false  }
 proptest = "1.11"
 getrandom = { version = "0.3", default-features = false }
 serde_json = "1"
+criterion = "0.5"
+rand = "0.10"
+
+[[bench]]
+name = "challenges"
+harness = false
 
 
 [profile.release]
