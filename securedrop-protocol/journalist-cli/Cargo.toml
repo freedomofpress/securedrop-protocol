@@ -15,7 +15,7 @@ securedrop-protocol-minimal = { path = "../protocol-minimal" }
 
 anyhow = "1.0"
 clap = { version = "4", features = ["derive"] }
-directories = "5"
+directories = "6"
 hex = "0.4"
 rand = "0.10"
 rand_core = "0.10"
