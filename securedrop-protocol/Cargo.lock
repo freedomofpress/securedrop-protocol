@@ -392,7 +392,7 @@ source = "git+https://github.com/cfm/libcrux?rev=3cd1843b0f029b2c8499d1af4234670
 dependencies = [
  "hax-lib",
  "pastey",
- "rand 0.10.1",
+ "rand 0.10.2",
 ]
 
 [[package]]
@@ -785,7 +785,7 @@ name = "hpke-rs-crypto"
 version = "0.6.1"
 source = "git+https://github.com/cryspen/hpke-rs?rev=634caf8#634caf8df609bc232d3396f82cc6b8cc12053779"
 dependencies = [
- "rand 0.10.1",
+ "rand 0.10.2",
  "zeroize",
 ]
 
@@ -800,7 +800,7 @@ dependencies = [
  "libcrux-hkdf",
  "libcrux-kem",
  "libcrux-traits",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rand_chacha 0.10.0",
  "rand_core 0.10.1",
  "zeroize",
@@ -1155,7 +1155,7 @@ source = "git+https://github.com/cfm/libcrux?rev=3cd1843b0f029b2c8499d1af4234670
 dependencies = [
  "libcrux-curve25519",
  "libcrux-p256",
- "rand 0.10.1",
+ "rand 0.10.2",
 ]
 
 [[package]]
@@ -1218,7 +1218,7 @@ dependencies = [
  "libcrux-p256",
  "libcrux-sha3",
  "libcrux-traits",
- "rand 0.10.1",
+ "rand 0.10.2",
 ]
 
 [[package]]
@@ -1241,7 +1241,7 @@ dependencies = [
  "libcrux-secrets",
  "libcrux-sha3",
  "libcrux-traits",
- "rand 0.10.1",
+ "rand 0.10.2",
  "tls_codec",
 ]
 
@@ -1310,7 +1310,7 @@ version = "0.0.7"
 source = "git+https://github.com/cfm/libcrux?rev=3cd1843b0f029b2c8499d1af4234670ad04341bf#3cd1843b0f029b2c8499d1af4234670ad04341bf"
 dependencies = [
  "libcrux-secrets",
- "rand 0.10.1",
+ "rand 0.10.2",
 ]
 
 [[package]]
@@ -1703,9 +1703,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2e8e8bcc7961af1fdac401278c6a831614941f6164ee3bf4ce61b7edb162207"
+checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
 dependencies = [
  "chacha20",
  "getrandom 0.4.2",
@@ -1966,7 +1966,7 @@ dependencies = [
  "clap",
  "directories",
  "hex",
- "rand 0.10.1",
+ "rand 0.10.2",
  "securedrop-protocol-minimal",
  "serde",
  "tokio",
@@ -1981,7 +1981,7 @@ dependencies = [
  "clap",
  "directories",
  "hex",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rand_core 0.10.1",
  "reqwest",
  "securedrop-protocol-minimal",
@@ -2028,7 +2028,7 @@ dependencies = [
  "libcrux-sha2",
  "libcrux-traits",
  "proptest",
- "rand 0.10.1",
+ "rand 0.10.2",
  "rand_chacha 0.10.0",
  "rand_core 0.10.1",
  "serde",
@@ -2043,7 +2043,7 @@ dependencies = [
  "anyhow",
  "clap",
  "hex",
- "rand 0.10.1",
+ "rand 0.10.2",
  "reqwest",
  "securedrop-protocol-minimal",
  "serde",
