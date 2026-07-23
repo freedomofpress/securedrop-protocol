@@ -101,7 +101,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          CARGO_VERSION=$(grep -E '^wasm-bindgen\s*=' securedrop-protocol/bench/Cargo.toml \
+          CARGO_VERSION=$(grep -E '^wasm-bindgen\s*=' securedrop-protocol/Cargo.toml \
             | sed -E 's/.*"=?([^"]+)".*/\1/')
 
           MAKEFILE_VERSION=$(grep -E '^WASM_BINDGEN_CLI_VERSION\s*:=' securedrop-protocol/bench/Makefile \

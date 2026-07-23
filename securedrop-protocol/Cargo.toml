@@ -11,12 +11,51 @@ libcrux-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8
 libcrux-sha3 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
 libcrux-traits = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
 
+# Crates use version.workspace for consistency.
 [workspace.package]
 name = "securedrop-protocol"
 version = "0.4.0"
 edition = "2024"
 authors = ["SecureDrop Team <securedrop@freedom.press>"]
 license = "GPL-3.0"
+
+[workspace.dependencies]
+# Crypto stack, pinned to cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478:
+libcrux-ed25519 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-curve25519 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-chacha20poly1305 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-traits = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-ml-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-sha2 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+libcrux-hkdf = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+
+# See workspace-level `Cargo.toml` for patching to enforce hax-lib 0.3.7.
+hpke-rs = { git = "https://github.com/cryspen/hpke-rs", rev = "634caf8" }
+anyhow = "1.0"
+axum = "0.7"
+bip39 = { version = "2", default-features = false }
+clap = "4"
+criterion = "0.5"
+directories = "5"
+getrandom = { version = "0.3", default-features = false }
+hashbrown = "0.14"
+hax-lib = "0.3.7"
+hex = { version = "0.4", default-features = false }
+js-sys = "0.3"
+proptest = "1.11"
+rand = "0.10"
+rand_chacha = { version = "0.10.0", default-features = false }
+rand_core = "0.10"
+reqwest = { version = "0.12", default-features = false }
+serde = { version = "1", default-features = false }
+serde_json = { version = "1", default-features = false }
+tokio = "1"
+uuid = { version = "1.0", default-features = false }
+wasm-bindgen = "0.2.121"
+
+# exact version is pinned to avoid forced updates to wasm-bindgen.
+wasm-bindgen-test = "=0.3.71"
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(hax)"] }

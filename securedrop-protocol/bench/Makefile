@@ -20,7 +20,7 @@ WASM_TARGET := wasm32-unknown-unknown
 CRATE_WASM := $(TARGET_DIR)/$(WASM_TARGET)/release/securedrop_protocol_bench.wasm
 PKG_DIR := pkg
 
-# Keep consistent with wasm-bindgen version in Cargo.toml
+# Keep consistent with wasm-bindgen version in workspace Cargo.toml
 WASM_BINDGEN_CLI_VERSION := 0.2.121
 
 RUSTFLAGS := --cfg getrandom_backend="wasm_js"
