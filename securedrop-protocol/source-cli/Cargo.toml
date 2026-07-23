@@ -1,10 +1,10 @@
 [package]
 name = "securedrop-source-cli"
+description = "Demo source CLI for the SecureDrop protocol"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-authors = ["SecureDrop Team <securedrop@freedom.press>"]
-description = "Demo source CLI for the SecureDrop protocol"
+authors.workspace = true
 
 [[bin]]
 name = "source-cli"
@@ -13,9 +13,9 @@ path = "src/main.rs"
 [dependencies]
 securedrop-protocol-minimal = { path = "../protocol-minimal" }
 
-anyhow = "1.0"
-clap = { version = "4", features = ["derive"] }
-hex = "0.4"
-rand = "0.10"
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
-serde = { version = "1", features = ["derive"] }
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+hex.workspace = true
+rand.workspace = true
+reqwest = { workspace = true, features = ["blocking", "json", "rustls-tls"] }
+serde = { workspace = true, features = ["derive"] }
