@@ -54,11 +54,20 @@ deps-rust:  ## Install clippy and rustfmt.
 clippy: deps-rust  ## Check Rust code with clippy
 	@cargo clippy --manifest-path=securedrop-protocol/Cargo.toml --workspace --all-targets --all-features --
 
-.PHONY: build-wasm
-build-wasm:  ## Compile securedrop-protocol crate for wasm32-unknown-unknown (browser compat, requires rust toolchain).
+# Enforces build from a clean cache, to be used before running benchmarks.
+.PHONY: build-wasm-bench
+build-wasm:  ## Compile protocol-minimal and benchmark crates for wasm32-unknown-unknown (browser compat, requires rust toolchain).
+	@echo "Build wasm32 crates and wasm-bindgen"
+	$(MAKE) -C ./securedrop-protocol/bench/ clean build
+	@echo "Build complete, run 'make quick-bench' for local benchmarks."
+
+.PHONY: core-wasm
+core-wasm: ## Compile just the protocol-minimal crate in release mode for wasm32-unknown-unknown
 	@which cargo >> /dev/null || { echo "Please install the Rust toolchain"; exit 1; }
 	@rustup target list --installed | grep wasm32-unknown-unknown || { echo "Install wasm32 target using \`rustup target add wasm32-unknown-unknown\`"; exit 1; }
-	RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo build --manifest-path securedrop-protocol/Cargo.toml --target wasm32-unknown-unknown
+	@echo "Compile protocol-minimal crate for wasm32-unknown-unknown."
+	cargo build --quiet --manifest-path=securedrop-protocol/Cargo.toml --package=securedrop-protocol-minimal --target wasm32-unknown-unknown --release
+	@echo "Build complete, artifacts in securedrop-protocol/target/wasm32-unknown-unknown/release/."
 
 .PHONY: help
 help: ## Prints this message and exits.

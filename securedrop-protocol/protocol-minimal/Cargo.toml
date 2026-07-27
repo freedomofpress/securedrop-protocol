@@ -11,12 +11,12 @@ license = "GPL-3.0"
 
 [lib]
 
+# Note for no_std compat: Don't add rand/getrandom dependencies in core library!
 [dependencies]
 # hax extraction for dependencies is configured in "proofs/fstar/models/Makefile", as documented
 # here:
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-interfaces-extracted-from-our-dependencies
 
-# no rand/getrandom in core library!
 # Crypto stack, pinned to cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478:
 libcrux-ed25519 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf", features = ["rand"] }
 libcrux-curve25519 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
@@ -43,17 +43,23 @@ serde = { version = "1", default-features = false, features = ["derive", "alloc"
 # pin an exact version to resolve wasm-bindgen schema compatibility issue
 rand_chacha = {  version = "0.10.0", default-features = false  }
 
+# TODO: getrandom/rand should be removed from the protocol-minimal crate's core dependencies, and a randomness
+# source should only be supplied by an architecture-specific consumer crate, but this is blocked
+# on https://github.com/celabshq/libcrux/issues/1544, which depends on getrandom 0.4.2.
+## for wasm32-unknown-unknown
+[target.'cfg(all(target_arch="wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.4", default-features = false, features = ["wasm_js"] }
+
 [dev-dependencies]
 proptest = "1.11"
-getrandom = { version = "0.3", default-features = false }
 serde_json = "1"
 criterion = "0.5"
 rand = "0.10"
+getrandom = { version = "0.4", default-features = false }
 
 [[bench]]
 name = "challenges"
 harness = false
-
 
 [profile.release]
 opt-level = "z"     # smallest code size

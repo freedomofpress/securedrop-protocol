@@ -87,6 +87,10 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt,clippy
+      # Swatinem/rust-cache@v2.8.0
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        with:
+          prefix-key: ${{ hashFiles('securedrop-protocol/bench/Makefile') }}
       - run: make clippy
 
   check_wasm_bindgen:
@@ -120,6 +124,7 @@ jobs:
   build_wasm:
     name: wasm build
     runs-on: ubuntu-latest
+    needs: [check_wasm_bindgen]
     steps:
       # actions/checkout@4.1.1
       - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
@@ -142,18 +147,23 @@ jobs:
           path: |
             securedrop-protocol/bench/.selenium-cache
             securedrop-protocol/bench/node_modules
-          key: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/bench/package-lock.json') }}
-      - name: Cache wasm artifacts
+          key: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/bench/package-lock.json') }}-${{ github.run_id }}
+          restore-keys: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/bench/package-lock.json') }}-
+      - name: Cache wasm and Rust artifacts
         uses: actions/cache@v4
         with:
           path: |
-            securedrop-protocol/bench/target
+            securedrop-protocol/target
             securedrop-protocol/bench/pkg
-          key: wasm-target-${{ runner.os }}-${{ github.run_id }}
-      - name: Compile for wasm32-unknown-unknown with wasm-bindgen
-        run: |
-          make rust-target
-          make build
+          key: wasm-rust-target-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: wasm-rust-target-${{ runner.os }}-${{ github.run_id }}
+      - name: Ensure wasm-bindgen is available
+        run: make rust-target
+        working-directory: securedrop-protocol/bench
+      - name: Compile protocol-minimal wasm32-unknown-unknown
+        run: make core-wasm
+      - name: Build wasm32-unknown-unknown benchmark crate and wasm artifacts
+        run: make build
         working-directory: securedrop-protocol/bench
 
   quick_bench:
@@ -179,14 +189,16 @@ jobs:
           path: |
             securedrop-protocol/bench/node_modules
             securedrop-protocol/bench/.selenium-cache
-          key: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/bench/package-lock.json') }}
-      - name: Restore wasm artifacts
+          key: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/bench/package-lock.json') }}-${{ github.run_id }}
+          restore-keys: node-${{ runner.os }}-${{ hashFiles('securedrop-protocol/bench/package-lock.json') }}-
+      - name: Restore wasm and Rust artifacts
         uses: actions/cache@v4
         with:
           path: |
-            securedrop-protocol/bench/target
+            securedrop-protocol/target
             securedrop-protocol/bench/pkg
-          key: wasm-target-${{ runner.os }}-${{ github.run_id }}
+          key: wasm-rust-target-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: wasm-rust-target-${{ runner.os }}-${{ github.run_id }}
       - name: Install wasm-bindgen + target
         run: make rust-target
         working-directory: securedrop-protocol/bench

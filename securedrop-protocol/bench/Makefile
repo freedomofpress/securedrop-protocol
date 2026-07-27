@@ -23,8 +23,6 @@ PKG_DIR := pkg
 # Keep consistent with wasm-bindgen version in Cargo.toml
 WASM_BINDGEN_CLI_VERSION := 0.2.121
 
-RUSTFLAGS := --cfg getrandom_backend="wasm_js"
-
 SELENIUM_CACHE ?= .selenium-cache
 SELENIUM_TOML  := $(SELENIUM_CACHE)/se-config.toml
 SELENIUM_STAMP := $(SELENIUM_CACHE)/.ready
@@ -75,8 +73,10 @@ build: $(CRATE_WASM)
 	wasm-bindgen --target web --out-dir $(PKG_DIR) $(CRATE_WASM)
 	@echo "WASM + bindings in $(PKG_DIR)/"
 
+# rustflags are defined in workspace .cargo/config.toml
 $(CRATE_WASM):
-	RUSTFLAGS='$(RUSTFLAGS)' cargo build --target $(WASM_TARGET) --release --target-dir $(TARGET_DIR)
+	cargo build -p securedrop-protocol-bench --target $(WASM_TARGET) --release --target-dir $(TARGET_DIR)
+	@echo "Built securedrop-protocol-bench in $(TARGET_DIR)"
 
 bench: deps build
 	@echo "Running bench with ITER=$(ITER)"
@@ -86,6 +86,9 @@ bench: deps build
 	# Benches for the sweeps charts
 	node bench.js -n $(ITER) --sweeps-only --flavors firefox,chrome --mode profile --j-min $(CHALLENGES_START) --j-max $(CHALLENGES_END) --j-step $(CHALLENGES_STEP) --k-min $(KEYBUNDLES_MIN) --k-max $(KEYBUNDLES_MAX) --k-step $(KEYBUNDLES_STEP)
 
+# !Note: this does not rebuild artifacts!
+# If you have made changes to the benchmarking crate, run \'make build quick-bench\'.
+# If you have made changes to the core crate, run \'make clean build quick-bench\'.
 quick-bench: deps build
 	@echo "Running bench with ITER=5"
 	SE_CACHE_PATH="$(abspath $(SELENIUM_CACHE))" \
