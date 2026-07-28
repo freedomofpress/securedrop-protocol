@@ -47,6 +47,15 @@ pub mod ristretto255 {
     pub(crate) fn scalar_from_wide(seed: &[u8; SEED_LEN]) -> [u8; SK_LEN] {
         Scalar::from_bytes_mod_order_wide(seed).to_bytes()
     }
+
+    /// Compute $pk = [sk] B$, where $B$ is the ristretto255 basepoint.
+    ///
+    /// Returns `None` if `secret_key` is not a canonical scalar.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn secret_to_public(secret_key: &[u8; SK_LEN]) -> Option<[u8; PK_LEN]> {
+        let sk: Option<Scalar> = Scalar::from_canonical_bytes(*secret_key).into();
+        Some(RistrettoPoint::mul_base(&sk?).compress().to_bytes())
+    }
 }
 
 pub mod ed25519 {
