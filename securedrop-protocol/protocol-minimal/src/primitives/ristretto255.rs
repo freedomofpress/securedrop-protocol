@@ -13,7 +13,12 @@ pub const DH_SEED_LEN: usize = provider::ristretto255::SEED_LEN;
 
 /// A compressed ristretto255 group element.
 ///
-/// TODO(jen): Internal `CompressedRistretto``
+/// # Security
+///
+/// This can be instantiated only by going through point decompression
+/// to ensure it is a valid ristretto255 group element.
+///
+/// TODO(jen): Internal `CompressedRistretto` and `RistrettoPoint`?
 #[derive(Debug, Clone, Copy)]
 pub struct DHPublicKey([u8; DH_PUBLIC_KEY_LEN]);
 
@@ -27,6 +32,62 @@ pub struct DHPrivateKey([u8; DH_PRIVATE_KEY_LEN]);
 /// A DH agreement output (a compressed ristretto255 group element).
 #[derive(Debug, Clone)]
 pub struct DHSharedSecret([u8; DH_SHARED_SECRET_LEN]);
+
+impl DHPublicKey {
+    /// Decode a group element from its 32 byte encoding, validating that it is a
+    /// real ristretto255 element.
+    ///
+    /// This must be used for any untrusted bytes (wire or storage) such that an
+    /// invalid element cannot be instantiated.
+    pub fn decode(bytes: [u8; DH_PUBLIC_KEY_LEN]) -> Result<Self, Error> {
+        let canonical = provider::ristretto255::decode(&bytes)
+            .ok_or_else(|| anyhow::anyhow!("invalid ristretto255 point encoding"))?;
+        Ok(Self(canonical))
+    }
+
+    /// This can only be used for trusted bytes.
+    ///
+    /// TODO(Jen): remove this
+    pub(crate) fn from_bytes(bytes: [u8; DH_PUBLIC_KEY_LEN]) -> Self {
+        Self(bytes)
+    }
+
+    /// The canonical 32-byte encoding of this element.
+    pub fn into_bytes(self) -> [u8; DH_PUBLIC_KEY_LEN] {
+        self.0
+    }
+}
+
+impl DHPrivateKey {
+    /// Decode a scalar from bytes, validating it is a canonical element of
+    /// $\mathbb{Z}_\ell$.
+    pub fn decode(bytes: [u8; DH_PRIVATE_KEY_LEN]) -> Result<Self, Error> {
+        let canonical = provider::ristretto255::scalar_decode(&bytes)
+            .ok_or_else(|| anyhow::anyhow!("non-canonical ristretto255 scalar"))?;
+        Ok(Self(canonical))
+    }
+
+    /// Derive the public key $[sk] B$.
+    pub fn public_key(&self) -> DHPublicKey {
+        let pk = provider::ristretto255::secret_to_public(&self.0)
+            .expect("DHPrivateKey holds a canonical scalar");
+        DHPublicKey(pk)
+    }
+
+    pub fn as_bytes(&self) -> &[u8; DH_PRIVATE_KEY_LEN] {
+        &self.0
+    }
+
+    pub fn into_bytes(self) -> [u8; DH_PRIVATE_KEY_LEN] {
+        self.0
+    }
+}
+
+impl DHSharedSecret {
+    pub fn into_bytes(self) -> [u8; DH_SHARED_SECRET_LEN] {
+        self.0
+    }
+}
 
 /// Derive a DH keypair from a caller-supplied uniform seed.
 ///
