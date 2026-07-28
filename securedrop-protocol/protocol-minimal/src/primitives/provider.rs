@@ -66,6 +66,46 @@ pub mod ristretto255 {
             .compress()
             .to_bytes()
     }
+
+    /// Decode `bytes` as a ristretto255 group element by performing point decompression
+    /// as specified in RFC 9496 section 4.3.1.
+    ///
+    /// Returns the element's canonical encoding, or `None` if `bytes` is not a
+    /// valid, canonical encoding of a group element.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn decode(bytes: &[u8; PK_LEN]) -> Option<[u8; PK_LEN]> {
+        let point = CompressedRistretto::from_slice(bytes).ok()?.decompress()?;
+        Some(point.compress().to_bytes())
+    }
+
+    /// Validate `bytes` as a canonical scalar in $\mathbb{Z}_\ell$.
+    ///
+    /// Returns the canonical encoding, or `None` if `bytes` is not a canonical
+    /// scalar.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn scalar_decode(bytes: &[u8; SK_LEN]) -> Option<[u8; SK_LEN]> {
+        let scalar: Option<Scalar> = Scalar::from_canonical_bytes(*bytes).into();
+        Some(scalar?.to_bytes())
+    }
+
+    /// Diffie–Hellman agreement: decompress `public_key` and compute
+    /// $[scalar]\,P$, returning the compressed result.
+    ///
+    /// Returns `None` if `public_key` is not a valid group element encoding or
+    /// `scalar` is not canonical.
+    ///
+    /// TODO(Jen): We are performing point decompression twice due to this bytes interface
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn dh(
+        public_key: &[u8; PK_LEN],
+        scalar: &[u8; SK_LEN],
+    ) -> Option<[u8; LEN_DH_SHARE]> {
+        let point = CompressedRistretto::from_slice(public_key)
+            .ok()?
+            .decompress()?;
+        let sk: Option<Scalar> = Scalar::from_canonical_bytes(*scalar).into();
+        Some((point * sk?).compress().to_bytes())
+    }
 }
 
 pub mod ed25519 {
