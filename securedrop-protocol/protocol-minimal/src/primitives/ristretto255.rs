@@ -1,5 +1,6 @@
 //! Diffie-Hellman over ristretto255 [RFC 9496](https://www.rfc-editor.org/rfc/rfc9496)
 use anyhow::Error;
+use rand_core::{CryptoRng, RngCore};
 
 use crate::primitives::provider;
 
@@ -39,4 +40,14 @@ fn deterministic_dh_keygen(
         .ok_or_else(|| anyhow::anyhow!("ristretto255 key generation failed"))?;
 
     Ok((DHPrivateKey(secret_key), DHPublicKey(public_key)))
+}
+
+/// Generate a new ristretto255 DH keypair
+pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
+    rng: &mut R,
+) -> Result<(DHPrivateKey, DHPublicKey), Error> {
+    let mut randomness = [0u8; DH_SEED_LEN];
+    provider::rng::fill_bytes(rng, &mut randomness);
+
+    deterministic_dh_keygen(randomness)
 }
