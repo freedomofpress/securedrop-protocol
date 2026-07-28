@@ -32,7 +32,7 @@ pub struct DHSharedSecret([u8; DH_SHARED_SECRET_LEN]);
 ///
 /// Used for keys that must be reproducible from a key hierarchy (the source's
 /// $sk_S^{fetch}$), and for deterministic tests.
-fn deterministic_dh_keygen(
+pub(crate) fn deterministic_dh_keygen(
     randomness: [u8; DH_SEED_LEN],
 ) -> Result<(DHPrivateKey, DHPublicKey), Error> {
     let secret_key = provider::ristretto255::scalar_from_wide(&randomness);

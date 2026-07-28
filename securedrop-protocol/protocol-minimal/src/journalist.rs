@@ -12,9 +12,9 @@ use crate::metadata::{MetadataKeyPair, MetadataPublicKey, keygen as metadata_key
 use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey};
 use crate::primitives::mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey};
 use crate::primitives::provider;
-use crate::primitives::x25519::DHPrivateKey;
-use crate::primitives::x25519::DHPublicKey;
-use crate::primitives::x25519::generate_dh_keypair;
+use crate::primitives::ristretto255::{
+    DHPrivateKey, DHPublicKey, dh_public_key_from_scalar, generate_dh_keypair,
+};
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey};
 use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, UserSecret};
 
@@ -165,7 +165,7 @@ impl UserSecret for Journalist {
         // in order to reply. either fill with random bytes or use
         // another scheme (fixme)
         Plaintext {
-            sender_fetch_key: [0u8; crate::primitives::x25519::DH_PUBLIC_KEY_LEN],
+            sender_fetch_key: [0u8; crate::primitives::ristretto255::DH_PUBLIC_KEY_LEN],
             sender_reply_pubkey_hybrid: [0u8; crate::primitives::xwing::XWING_PUBLIC_KEY_LEN],
             msg: message,
         }
@@ -291,18 +291,19 @@ impl Journalist {
 
     /// Reconstruct the long-term Journalist state from raw key bytes.
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub fn from_long_term_bytes(parts: JournalistLongTermBytes) -> Self {
+    pub fn from_long_term_bytes(parts: JournalistLongTermBytes) -> Result<Self, anyhow::Error> {
         use crate::message::{MessagePrivateKey, MessagePublicKey};
         use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey};
         use crate::primitives::mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey};
         use crate::primitives::provider;
-        use crate::primitives::x25519::{DHPrivateKey, dh_public_key_from_scalar};
 
         let signing_key = SigningKey::from_seed(parts.sig_seed);
         let verifying_key = signing_key.vk;
 
         let sk_fetch = DHPrivateKey::from_bytes(parts.fetch_sk);
-        let pk_fetch = dh_public_key_from_scalar(parts.fetch_sk);
+        // Fails if the stored scalar is not a canonical element of
+        // $\mathbb{Z}_\ell$ - this should not happen
+        let pk_fetch = dh_public_key_from_scalar(parts.fetch_sk)?;
 
         let mut apke_dhakem_pk_bytes = [0u8; 32];
         provider::curve25519::secret_to_public(&mut apke_dhakem_pk_bytes, &parts.apke_dhakem_sk);
@@ -327,7 +328,7 @@ impl Journalist {
         let self_signature: Signature<JournalistLongTermKey> =
             signing_key.sign(signed_longterm_key_bytes.as_bytes());
 
-        Self {
+        Ok(Self {
             signing_key: KeyPair {
                 sk: signing_key,
                 pk: verifying_key,
@@ -345,7 +346,7 @@ impl Journalist {
                 nr_key: None,
                 fpf_signature: None,
             },
-        }
+        })
     }
 
     /// Generate `n` fresh signed ephemeral key bundles and retain them in memory.
@@ -648,7 +649,8 @@ mod tests {
             let mut rng = ChaCha20Rng::seed_from_u64(rng_seed);
             let original = Journalist::new(&mut rng, 0);
             let parts = original.long_term_bytes();
-            let restored = Journalist::from_long_term_bytes(parts);
+            let restored =
+                Journalist::from_long_term_bytes(parts).expect("valid long-term bytes");
 
             // Long-term verifying key and self-signature must match.
             prop_assert_eq!(
@@ -698,7 +700,8 @@ mod tests {
                 })
                 .collect::<Result<_, TestCaseError>>()?;
 
-            let mut restored = Journalist::from_long_term_bytes(original.long_term_bytes());
+            let mut restored = Journalist::from_long_term_bytes(original.long_term_bytes())
+                .expect("valid long-term bytes");
             restored.load_ephemeral_bundles(persisted);
 
             let orig_pub = original.signed_keybundles();
