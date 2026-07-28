@@ -13,18 +13,39 @@ pub mod curve25519 {
     pub(crate) const LEN_DH_SHARE: usize = libcrux_curve25519::SS_LEN;
 
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) use libcrux_curve25519::{ecdh, secret_to_public};
+    pub(crate) use libcrux_curve25519::secret_to_public;
+}
+
+/// ristretto255 [RFC 9496] backed by `curve25519-dalek`.
+pub mod ristretto255 {
 
     #[cfg_attr(hax, hax_lib::opaque)]
-    use libcrux_traits::kem::arrayref::Kem;
+    use curve25519_dalek::{RistrettoPoint, Scalar, ristretto::CompressedRistretto};
 
+    /// A canonically encoded scalar in $\mathbb{Z}_\ell$.
+    pub(crate) const SK_LEN: usize = 32;
+
+    /// A compressed group element.
+    pub(crate) const PK_LEN: usize = 32;
+
+    /// A DH output is also a compressed group element.
+    pub(crate) const LEN_DH_SHARE: usize = 32;
+
+    /// Uniform bytes needed to sample a scalar.
+    ///
+    /// We follow [RFC 9496] section 4.4 which describes wide
+    /// input reduced modulo the group order $\ell$.
+    pub(crate) const SEED_LEN: usize = 64;
+
+    /// Sample $x \in \mathbb{F}_\ell$ by reducing `seed` modulo $\ell$.
+    ///
+    /// # Security
+    ///
+    /// The seed should be uniformly distributed, e.g. the output of a
+    /// domain-separated hash function. See [RFC 9496] section 4.4.
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn x25519_keygen(
-        public_key: &mut [u8; 32],
-        secret_key: &mut [u8; 32],
-        randomness: &[u8; 32],
-    ) -> Result<(), libcrux_traits::kem::arrayref::KeyGenError> {
-        libcrux_curve25519::X25519::keygen(public_key, secret_key, randomness)
+    pub(crate) fn scalar_from_wide(seed: &[u8; SEED_LEN]) -> [u8; SK_LEN] {
+        Scalar::from_bytes_mod_order_wide(seed).to_bytes()
     }
 }
 
