@@ -113,20 +113,49 @@ pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
     deterministic_dh_keygen(randomness)
 }
 
-/// Compute $pk = [sk] B$, where $B$ is the ristretto255 basepoint.
-///
-/// Fails if `scalar` is not a canonical encoding of an element of
-/// $\mathbb{Z}_\ell$.
-pub fn dh_public_key_from_scalar(scalar: [u8; DH_PRIVATE_KEY_LEN]) -> Result<DHPublicKey, Error> {
-    let public_key_bytes = provider::ristretto255::secret_to_public(&scalar)
-        .ok_or_else(|| anyhow::anyhow!("non-canonical ristretto255 scalar"))?;
-    Ok(DHPublicKey(public_key_bytes))
-}
-
 /// Sample a uniformly random group element.
 pub fn random_dh_public_key<R: RngCore + CryptoRng>(rng: &mut R) -> DHPublicKey {
     let mut randomness = [0u8; DH_SEED_LEN];
     provider::rng::fill_bytes(rng, &mut randomness);
 
     DHPublicKey(provider::ristretto255::from_uniform_bytes(&randomness))
+}
+
+/// Sample a scalar $x \gets^{\$} \mathbb{F}_\ell$.
+pub fn generate_random_scalar<R: RngCore + CryptoRng>(
+    rng: &mut R,
+) -> Result<[u8; DH_PRIVATE_KEY_LEN], Error> {
+    let mut randomness = [0u8; DH_SEED_LEN];
+    provider::rng::fill_bytes(rng, &mut randomness);
+
+    Ok(provider::ristretto255::scalar_from_wide(&randomness))
+}
+
+/// Compute DH agreement.
+pub fn dh_shared_secret(
+    public_key: &DHPublicKey,
+    scalar: [u8; DH_PRIVATE_KEY_LEN],
+) -> Result<DHSharedSecret, Error> {
+    let shared = provider::ristretto255::dh(&public_key.0, &scalar)
+        .ok_or_else(|| anyhow::anyhow!("ristretto255 DH failed"))?;
+    Ok(DHSharedSecret(shared))
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl serde::Serialize for DHPublicKey {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&hex::encode(self.0))
+    }
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl<'de> serde::Deserialize<'de> for DHPublicKey {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        use serde::de::Error as _;
+        let s = alloc::string::String::deserialize(de)?;
+        let mut bytes = [0u8; DH_PUBLIC_KEY_LEN];
+        hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
+        // We validate at the wire boundary and reject a malformed encoding here.
+        Self::decode(bytes).map_err(D::Error::custom)
+    }
 }
