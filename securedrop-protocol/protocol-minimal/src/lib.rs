@@ -27,7 +27,7 @@ pub use keys::{
 };
 pub use primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
 pub use primitives::mlkem::{MLKEM768_PRIVATE_KEY_LEN, MLKEM768_PUBLIC_KEY_LEN};
-pub use primitives::x25519::DH_PUBLIC_KEY_LEN;
+pub use primitives::ristretto255::DH_PUBLIC_KEY_LEN;
 pub use primitives::xwing::XWING_PUBLIC_KEY_LEN;
 
 pub use traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};

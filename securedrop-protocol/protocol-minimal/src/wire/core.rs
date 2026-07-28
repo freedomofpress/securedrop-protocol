@@ -1,7 +1,7 @@
 use crate::FetchResponse;
 use crate::keys::{SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
 use crate::message::MessagePublicKey;
-use crate::primitives::x25519::DHPublicKey;
+use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{
     FpfOnNewsroom, JournalistLongTermKey, NewsroomOnJournalist, Signature, VerifyingKey,
 };

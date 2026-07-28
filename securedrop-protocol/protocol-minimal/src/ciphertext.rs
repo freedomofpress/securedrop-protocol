@@ -1,7 +1,7 @@
 use crate::message::MessageCiphertext;
 use crate::metadata::MetadataCiphertext;
 use crate::primitives::provider::constants::LEN_KMID;
-use crate::primitives::x25519::{DH_PUBLIC_KEY_LEN, DH_SHARED_SECRET_LEN};
+use crate::primitives::ristretto255::{DH_PUBLIC_KEY_LEN, DH_SHARED_SECRET_LEN};
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use alloc::vec::Vec;
 use anyhow::Error;
