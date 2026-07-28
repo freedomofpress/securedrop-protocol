@@ -51,3 +51,13 @@ pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
 
     deterministic_dh_keygen(randomness)
 }
+
+/// Compute $pk = [sk] B$, where $B$ is the ristretto255 basepoint.
+///
+/// Fails if `scalar` is not a canonical encoding of an element of
+/// $\mathbb{Z}_\ell$.
+pub fn dh_public_key_from_scalar(scalar: [u8; DH_PRIVATE_KEY_LEN]) -> Result<DHPublicKey, Error> {
+    let public_key_bytes = provider::ristretto255::secret_to_public(&scalar)
+        .ok_or_else(|| anyhow::anyhow!("non-canonical ristretto255 scalar"))?;
+    Ok(DHPublicKey(public_key_bytes))
+}
