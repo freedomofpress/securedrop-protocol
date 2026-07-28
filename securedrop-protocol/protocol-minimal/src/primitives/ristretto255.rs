@@ -23,6 +23,10 @@ pub struct DHPublicKey([u8; DH_PUBLIC_KEY_LEN]);
 #[derive(Debug, Clone)]
 pub struct DHPrivateKey([u8; DH_PRIVATE_KEY_LEN]);
 
+/// A DH agreement output (a compressed ristretto255 group element).
+#[derive(Debug, Clone)]
+pub struct DHSharedSecret([u8; DH_SHARED_SECRET_LEN]);
+
 /// Derive a DH keypair from a caller-supplied uniform seed.
 ///
 /// Used for keys that must be reproducible from a key hierarchy (the source's
