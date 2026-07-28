@@ -56,6 +56,16 @@ pub mod ristretto255 {
         let sk: Option<Scalar> = Scalar::from_canonical_bytes(*secret_key).into();
         Some(RistrettoPoint::mul_base(&sk?).compress().to_bytes())
     }
+
+    /// Map `seed` to a group element.
+    ///
+    /// This is hash to group as specified in RFC 9496 section 4.3.4.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn from_uniform_bytes(seed: &[u8; SEED_LEN]) -> [u8; PK_LEN] {
+        RistrettoPoint::from_uniform_bytes(seed)
+            .compress()
+            .to_bytes()
+    }
 }
 
 pub mod ed25519 {

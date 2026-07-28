@@ -61,3 +61,11 @@ pub fn dh_public_key_from_scalar(scalar: [u8; DH_PRIVATE_KEY_LEN]) -> Result<DHP
         .ok_or_else(|| anyhow::anyhow!("non-canonical ristretto255 scalar"))?;
     Ok(DHPublicKey(public_key_bytes))
 }
+
+/// Sample a uniformly random group element.
+pub fn random_dh_public_key<R: RngCore + CryptoRng>(rng: &mut R) -> DHPublicKey {
+    let mut randomness = [0u8; DH_SEED_LEN];
+    provider::rng::fill_bytes(rng, &mut randomness);
+
+    DHPublicKey(provider::ristretto255::from_uniform_bytes(&randomness))
+}
