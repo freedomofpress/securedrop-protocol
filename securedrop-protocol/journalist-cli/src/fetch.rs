@@ -3,7 +3,7 @@ use securedrop_protocol_minimal::Envelope;
 use securedrop_protocol_minimal::api::Api;
 use securedrop_protocol_minimal::encrypt_decrypt::decrypt_with_sender;
 use securedrop_protocol_minimal::metadata::MetadataPublicKey;
-use securedrop_protocol_minimal::primitives::x25519::DHPublicKey;
+use securedrop_protocol_minimal::primitives::ristretto255::DHPublicKey;
 use securedrop_protocol_minimal::wire::core::MessageChallengeFetchResponse;
 
 use crate::storage::{InboxEntry, load_ephemeral_secrets, load_inbox, load_journalist, save_inbox};
