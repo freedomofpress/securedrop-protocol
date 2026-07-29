@@ -30,7 +30,7 @@ libcrux-ml-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b
 libcrux-sha2 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
 libcrux-hkdf = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
 
-# See workspace-level `Cargo.toml` for patching to enforce hax-lib 0.3.7.
+# See the `patch.crates-io` section for patching to enforce hax-lib 0.3.7.
 hpke-rs = { git = "https://github.com/cryspen/hpke-rs", rev = "634caf8" }
 anyhow = "1.0"
 axum = "0.7"
