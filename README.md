@@ -6,6 +6,10 @@
 | [Specification]                   | 0.4 ([changelog])     |
 | [Tamarin models]                  | 0.3                   |
 
+A peer-reviewed formalization of this project's goals, threat model, and
+security properties can be found in Berra et al. (2026), ["The SecureDrop
+Protocol: End-to-End Encrypted Whistleblowing for All"][eprint].
+
 [changelog]: ./docs/protocol.md#changelog
 [documentation]: https://freedomofpress.github.io/securedrop-protocol/securedrop_protocol_minimal/
 [Proof-of-concept implementation]: https://github.com/freedomofpress/securedrop-protocol/tree/main/securedrop-protocol/protocol-minimal
@@ -19,9 +23,10 @@
 > [!WARNING]
 > This repository contains proof-of-concept code and is not intended for production use. The protocol details are not yet finalized.
 
-**March 2026:** A manuscript, specifying and proving [version 0.3][v0.3] of the
-protocol and its [Tamarin models], is under peer review. An eprint is
-forthcoming.
+**July 2026:** ["The SecureDrop Protocol: End-to-End Encrypted Whistleblowing
+for All"][eprint] is forthcoming in ACM CCS 2026. This work, with Felix Linker,
+Luca Maier, Kenneth G. Paterson, and Shannon Veitch, led to [version 0.3][v0.3]
+of the specification.
 
 **January 2025:** A formal analysis was performed by [Luca Maier][lumaier] in
 ["A Formal Analysis of the SecureDrop Protocol"][lumaier-thesis], supervised by
@@ -37,6 +42,8 @@ performed by [Michele Orrù][mmaker].
 **January 2023:** Proof-of-concept implementation work with [Shielder] began.
 
 ## Background
+
+<!-- Update <https://securedrop.org/research> when you update this list. -->
 
 To better understand the context of this research and the previous steps that led to it, read the following blog posts:
 
@@ -120,6 +127,7 @@ You may also need to follow the console_error_panic_hook docs to increase the st
 [`console_error_panic_hook`]: https://crates.io/crates/console_error_panic_hook
 [`wasm-bindgen`]: https://crates.io/crates/wasm-bindgen
 [Shielder]: https://www.shielder.com/
+[eprint]: https://eprint.iacr.org/2026/1484
 [lumaier]: https://github.com/lumaier
 [lumaier-thesis]: https://doi.org/10.3929/ethz-b-000718325
 [mmaker]: https://github.com/mmaker

@@ -62,7 +62,7 @@ The choice of an unauthenticated API avoids a serverside "users" database.
 - Be maintainable: Use well-known encryption primitives and existing cryptography libraries
 - Be readily-deployable: Use a single-server design, consider realistic threat models with respect to cloud deployments.
 
-For further context, see [our Research page](https://securedrop.org/research/), particularly the blog post series.
+For further context, see Berra et al. (2026), ["The SecureDrop Protocol: End-to-End Encrypted Whistleblowing for All"][berra-2026] and our [research] page.
 
 ### Sequence Diagram
 
@@ -728,9 +728,9 @@ Protocol"][maier2025], using modified $`\text{HPKE}^{pq}_{auth}`$.
 
 ### [0.3]
 
-Using standard HPKE modes `Base` and `AuthPSK`.
-
-<!-- TODO: ...as formalized in... -->
+As formalized in Berra et al. (2026), ["The SecureDrop Protocol: End-to-End
+Encrypted Whistleblowing for All"][berra-2026], using standard HPKE modes `base` and
+`auth_psk`.
 
 ### 0.4
 
@@ -775,9 +775,10 @@ insertion order.
 [0.2]: https://github.com/freedomofpress/securedrop-protocol/blob/9e6c165673c03e9821725f72b3df4d8292b8cabf/docs/protocol.md
 [0.3]: https://github.com/freedomofpress/securedrop-protocol/blob/v0.3/docs/protocol.md
 [#127]: https://github.com/freedomofpress/securedrop-protocol/issues/127
-[alwen2020]: https://eprint.iacr.org/2020/1499
 [BIP39]: https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
+[alwen2020]: https://eprint.iacr.org/2020/1499
 [alwen2023]: https://eprint.iacr.org/2023/1480
+[berra-2026]: https://eprint.iacr.org/2026/1484
 [maier2025]: https://github.com/lumaier/securedrop-formalanalysis/tree/fd0daf0ce90144e12956032abf1817e18cec48e0
 [milestones]: https://github.com/freedomofpress/securedrop-protocol/milestones
 [nist-ir-8547]: https://nvlpubs.nist.gov/nistpubs/ir/2024/NIST.IR.8547.ipd.pdf
@@ -794,5 +795,6 @@ insertion order.
 [RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
 [RFC 9180 §9.9]: https://datatracker.ietf.org/doc/html/rfc9180#name-metadata-protection
 [RFC 9496]: https://datatracker.ietf.org/doc/html/rfc9496
+[research]: https://securedrop.org/research
 [semantic versioning]: https://semver.org
 [v0.1-config]: https://github.com/freedomofpress/securedrop-protocol/blob/d512528f42760f7ccb5205291ba11a377333cc0e/README.md?plain=1#L29
