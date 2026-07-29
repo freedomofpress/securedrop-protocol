@@ -106,9 +106,9 @@ The script prints the TikZ code for the chart to the console, which you can copy
 
 #### Debugging wasm and benchmarking code
 
-[`wasm-bindgen`] exposes Rust objects and functions in Javascript in the benchmarking code. If troubleshooting, ensure you are using the same version of the wasm-bindgen cli as is specified in Cargo.toml (`wasm-bindgen -V`).
+[`wasm-bindgen`] exposes Rust objects and functions in JavaScript in the benchmarking code. If troubleshooting, ensure you are using the same version of the wasm-bindgen cli as is specified in Cargo.toml (`wasm-bindgen -V`).
 
-`wasm-bindgen` requires wrapper classes for Rust objects to marshall in and out of Javascript. If any structs or function signatures that are being used in `www/index.html` (rendering benchmarks) are changed, the corresponding wrapper structs, annotated with `#[wasm_bindgen]`, will need to change accordingly.
+`wasm-bindgen` requires wrapper classes for Rust objects to marshall in and out of JavaScript. If any structs or function signatures that are being used in `www/index.html` (rendering benchmarks) are changed, the corresponding wrapper structs, annotated with `#[wasm_bindgen]`, will need to change accordingly.
 
 If the wasm-compiled Rust code panics, the browser may display a fairly generic/unhelpful message with limited information (for example, `{"error":"unreachable executed"}`). Add the [`console_error_panic_hook`] crate and use the `console_error_panic_hook::set_once();` method in a common codepath annotated by `#[wasm-bindgen]` in order to log further information to the browser console. You will also need to temporarily adjust Cargo.toml:
 
