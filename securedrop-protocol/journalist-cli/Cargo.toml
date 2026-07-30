@@ -1,10 +1,10 @@
 [package]
 name = "securedrop-journalist-cli"
+description = "Demo SecureDrop journalist client"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-authors = ["SecureDrop Team <securedrop@freedom.press>"]
-description = "Demo SecureDrop journalist client"
+authors.workspace = true
 
 [[bin]]
 name = "journalist-cli"
@@ -13,12 +13,12 @@ path = "src/main.rs"
 [dependencies]
 securedrop-protocol-minimal = { path = "../protocol-minimal" }
 
-anyhow = "1.0"
-clap = { version = "4", features = ["derive"] }
-directories = "5"
-hex = "0.4"
-rand = "0.10"
-rand_core = "0.10"
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+directories.workspace = true
+hex.workspace = true
+rand.workspace = true
+rand_core.workspace = true
+reqwest = { workspace = true, features = ["blocking", "json", "rustls-tls"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
