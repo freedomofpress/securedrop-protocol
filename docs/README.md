@@ -72,7 +72,7 @@ One mitigation for behavioural analysis is the introduction of decoy traffic, wh
 
 ### Denial of service
 
-Without traditional accounts, it might be easy to flood the service with unwanted messages or fetch requests that would be heavy on the server CPU. Depending on the individual _Newsroom_'s previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
+Without traditional accounts, it might be easy to flood the service with [too many messages][MAX_MESSAGES] or fetch requests that would be heavy on the server CPU. Depending on the individual _Newsroom_'s previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
 
 ### Minimize logging
 
@@ -109,6 +109,7 @@ The following are areas of ongoing discussion/development or may be addressed by
 - **One-time key choice/conflicts**: What to do with messages encrypted to recipient using same recipient key bundle remains to be discussed. See also https://github.com/freedomofpress/securedrop-protocol/issues/99.
 - **Key lifetimes**: The lifetime of the journalist fetching key and journalist DH-AKEM reply key are still to be discussed. See also https://github.com/freedomofpress/securedrop-protocol/issues/99 for separate discussion of lifetime of journalist key bundles for receiving messages (currently one-time use).
 
+[MAX_MESSAGES]: https://github.com/freedomofpress/securedrop-protocol/blob/d512528f42760f7ccb5205291ba11a377333cc0e/README.md?plain=1#L29
 [berra-2026]: https://eprint.iacr.org/2026/1484
 [specification]: ./protocol.md
 [v0.3]: ./protocol.md#03
