@@ -2,6 +2,8 @@
 # "securedrop_protocol_minimal" crate, as documented here:
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-modules-extracted-from-protocol-minimal
 
+include versions.env
+
 HAX_IMAGE = securedrop-protocol-hax
 HAX_VERSION = $(shell cargo pkgid hax-lib 2>/dev/null | sed 's/.*@//')
 HAX_BASE_IMAGE = hax:$(HAX_VERSION)
@@ -34,8 +36,7 @@ clean:  ## Clean the Cargo and F* caches, and reset extracted F* modules.
 .PHONY: compat
 compat: compat-fstar  ## Check that hax dependencies are at the right versions.
 
-# Keep in sync with ".github/workflows/hax.yml":
-FSTAR_EXPECTED_VERSION = F* 2026.03.24
+FSTAR_EXPECTED_VERSION = F* $(FSTAR_VER)
 FSTAR_ACTUAL_VERSION   = $(shell fstar.exe --version 2>/dev/null | head -1)
 .PHONY: compat-fstar
 compat-fstar:  # Internal: Check F* version.
