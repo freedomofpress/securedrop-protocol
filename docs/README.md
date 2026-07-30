@@ -14,6 +14,8 @@ including:
 - Implementation
   - Benchmarks
   - Deployment considerations
+- References
+- Ethical considerations
 
 The rest of this document outlines design considerations and open questions that
 are not reflected in this publication.
@@ -71,10 +73,6 @@ One mitigation for behavioural analysis is the introduction of decoy traffic, wh
 ### Denial of service
 
 Without traditional accounts, it might be easy to flood the service with unwanted messages or fetch requests that would be heavy on the server CPU. Depending on the individual _Newsroom_'s previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
-
-### Covert communication
-
-See https://github.com/freedomofpress/securedrop-protocol/issues/14.
 
 ### Minimize logging
 
