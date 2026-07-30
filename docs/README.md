@@ -30,6 +30,7 @@ are not reflected in this publication.
 - **Message expiry/deletion will occur on a fuzzy interval.**
   The protocol will expire messages on the server at a fuzzy interval `d` days +/- `i` (for example, 37 +- 7 days would guarantee message availability for a minimum of 30 days). The goal of fuzzy-interval message expiry is to avoid writing precise metadata to disk about when a message was submitted, which would be implied by a fixed expiry time.
   Client-side (local) message deletion will be supported for journalists. Note this is not an anti-forensic measure, because some indicator will be retained in order to avoid re-downloading it.
+  Detecting messages a client has already seen (i.e., preventing replay of the same protocol-level ciphertext) is an application-level responsibility on the journalist side (and not possible on the stateless source side).
 
 - **Messaging an arbitrary subset of journalists will not be supported.**
   Journalists will be able to send group messages to all other journalists enrolled at their newsroom. Neither journalists nor sources will
