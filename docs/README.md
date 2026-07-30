@@ -1,5 +1,23 @@
 # SecureDrop Protocol architecture
 
+For an overview of the SecureDrop Protocol, see Berra et al. (2026), ["The
+SecureDrop Protocol: End-to-End Encrypted Whistleblowing for All"][berra-2026],
+including:
+
+- Design goals
+  - Security requirements
+  - Adversary model
+  - Use cases
+- Related work
+- Protocol design ([v0.3]): see the current [specification]
+- Security analyses
+- Implementation
+  - Benchmarks
+  - Deployment considerations
+
+The rest of this document outlines design considerations and open questions that
+are not reflected in this publication.
+
 ## Assumptions
 
 - **This is a cryptographic protocol agnostic to the underlying transport.**
@@ -81,3 +99,7 @@ The following are areas of ongoing discussion/development or may be addressed by
 - **Message-fetch batching**: for now, one fetch request corresponds to one message_id, and multiple ids are not fetched at once.
 - **One-time key choice/conflicts**: What to do with messages encrypted to recipient using same recipient key bundle remains to be discussed. See also https://github.com/freedomofpress/securedrop-protocol/issues/99.
 - **Key lifetimes**: The lifetime of the journalist fetching key and journalist DH-AKEM reply key are still to be discussed. See also https://github.com/freedomofpress/securedrop-protocol/issues/99 for separate discussion of lifetime of journalist key bundles for receiving messages (currently one-time use).
+
+[berra-2026]: https://eprint.iacr.org/2026/1484
+[specification]: ./protocol.md
+[v0.3]: ./protocol.md#03
