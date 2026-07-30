@@ -2,6 +2,10 @@
 # "securedrop_protocol_minimal" crate, as documented here:
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-modules-extracted-from-protocol-minimal
 
+HAX_IMAGE = securedrop-protocol-hax
+HAX_VERSION = $(shell cargo pkgid hax-lib 2>/dev/null | sed 's/.*@//')
+HAX_BASE_IMAGE = hax:$(HAX_VERSION)
+
 HAX_TARGETS := +**
 HAX_TARGETS += -securedrop_protocol_minimal::storage::**
 HAX_TARGETS += -securedrop_protocol_minimal::server::**
@@ -38,12 +42,32 @@ compat-fstar:  # Internal: Check F* version.
 	@[ "$(FSTAR_ACTUAL_VERSION)" = "$(FSTAR_EXPECTED_VERSION)" ] || \
 	  { echo "Error: expected fstar.exe version '$(FSTAR_EXPECTED_VERSION)', got '$(FSTAR_ACTUAL_VERSION)'"; exit 1; }
 
+.PHONY: compat-hax-image
+compat-hax-image:  # Internal: Check that $HAX_BASE_IMAGE is present.
+	@[ -n "$(HAX_VERSION)" ] || \
+	  { echo "Error: could not determine the hax-lib version; is Cargo working?"; exit 1; }
+	@docker image inspect $(HAX_BASE_IMAGE) >/dev/null 2>&1 || \
+	  { echo "Error: missing image '$(HAX_BASE_IMAGE)'; build and tag it per <https://github.com/cryspen/hax#installation>."; exit 1; }
+
+.PHONY: compat-hax
+compat-hax: compat-hax-image  # Internal: Check that $HAX_BASE_IMAGE has the expected $HAX_VERSION.
+	@actual=$$(docker run --rm $(HAX_BASE_IMAGE) cargo-hax --version 2>/dev/null | sed -n 's/^version=//p'); \
+	[ "$$actual" = "$(HAX_VERSION)" ] || \
+	  { echo "Error: expected cargo-hax version '$(HAX_VERSION)', got '$$actual'"; exit 1; }
+
 .PHONY: extract
 extract:  # Internal/CI: Run hax extraction.
-	cargo hax into -i '$(HAX_TARGETS)' fstar
+	cargo-hax into -i '$(HAX_TARGETS)' fstar
 
 .PHONY: hax
 hax: compat extract verify  ## Run hax extraction, then type-check and verify extracted proofs.
+
+.PHONY: hax-image
+hax-image: compat-hax  ## Build a container image for hax extraction.
+	docker build \
+		--build-arg HAX_BASE_IMAGE=$(HAX_BASE_IMAGE) \
+		-t $(HAX_IMAGE):$(HAX_VERSION) \
+		- < hax.Dockerfile
 
 .PHONY: verify
 verify:  # Internal/CI: Type-check and verify extracted proofs.
@@ -54,7 +78,7 @@ verify:  # Internal/CI: Type-check and verify extracted proofs.
 
 .PHONY: hax-lib-version
 hax-lib-version:  # Internal: Query Cargo for the hax-lib version.
-	@cargo pkgid hax-lib 2>/dev/null | sed 's/.*@//'
+	@echo $(HAX_VERSION)
 
 .PHONY: help
 help: ## Print this message.
