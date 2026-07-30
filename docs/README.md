@@ -38,6 +38,17 @@ are not reflected in this publication.
 - **The server OS and filesystem will minimize metadata.** OS implementation-level
   specifications are not part of the protocol, but it is assumed that file creation/deletion operations will not be logged to disk, and options will be explored for minimizing timestamps and other metadata at the filesystem level.
 
+## Additional considerations for the threat model
+
+Freedom of the Press Foundation (FPF) is the entity responsible for maintaining SecureDrop. FPF can offer additional services, such as dedicated support. While the project is open source, its components (SecureDrop releases, Onion Rulesets submitted upstream to Tor Browser) are signed with signing keys controlled by FPF. Despite this, SecureDrop is and will remain completely usable without any FPF involvement or knowledge.
+
+- Is generally trusted
+- Is based in the US
+- Might get compromised technically
+- Might get compromised legally
+- Develops all the components and signs them
+- Enrolls newsrooms
+
 ## Limitations and Discussion
 
 ### Behavioral analysis
