@@ -3,6 +3,7 @@
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-interfaces-extracted-from-our-dependencies
 
 HAX_LIB_VERSION=$(shell $(MAKE) --no-print-directory -C ../../.. -s hax-lib-version)
+LIBCRUX_REF=libcrux-traits-v$(shell $(MAKE) --no-print-directory -C ../../.. -s libcrux-version)
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 HAX_IMAGE = hax:$(HAX_LIB_VERSION)
@@ -21,8 +22,6 @@ endif
 
 # include pattern modifiers (e.g. `+`, `+!`, `+:`) are documented
 # in `cargo hax into --help`
-
-LIBCRUX_VERSION=3cd1843b0f029b2c8499d1af4234670ad04341bf  # cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478
 
 # Extraction targets: default exclude
 LIBCRUX_ECDH_TARGETS := -**
@@ -147,10 +146,10 @@ libcrux:
 	echo "Extraction completed successfully and .fsti files are available in proofs/fstar/models"; \
 
 libcrux-clone:
-	@echo "Clone libcrux@$(LIBCRUX_VERSION)"
+	@echo "Clone libcrux@$(LIBCRUX_REF)"
 	@rm -rf libcrux
-	@git clone --quiet https://github.com/cfm/libcrux  # cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478
-	@cd libcrux && git checkout $(LIBCRUX_VERSION) --quiet
+	@git clone --quiet https://github.com/cryspen/libcrux
+	@cd libcrux && git checkout $(LIBCRUX_REF) --quiet
 
 libcrux-module:
 	@echo "extract $(MODULE) ..."
