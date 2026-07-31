@@ -7,6 +7,11 @@ include versions.env
 HAX_VERSION = $(shell cargo pkgid hax-lib 2>/dev/null | sed 's/.*@//')
 HAX_IMAGE = hax:$(HAX_VERSION)
 
+# NB. We don't use the high-level libcrux crate directly.  Since libcrux's
+# sub-crates have various version numbers that all point to the same Git ref,
+# here we query for libcrux-traits, which we do use, as a proxy.
+LIBCRUX_VERSION = $(shell cargo pkgid libcrux-traits 2>/dev/null | sed 's/.*@//')
+
 HAX_TARGETS := +**
 HAX_TARGETS += -securedrop_protocol_minimal::storage::**
 HAX_TARGETS += -securedrop_protocol_minimal::server::**
@@ -85,6 +90,10 @@ verify:  # Internal/CI: Type-check and verify extracted proofs.
 .PHONY: hax-lib-version
 hax-lib-version:  # Internal: Query Cargo for the hax-lib version.
 	@echo $(HAX_VERSION)
+
+.PHONY: hax-lib-version
+libcrux-version:  # Internal: Query Cargo for the libcrux version.
+	@echo $(LIBCRUX_VERSION)
 
 .PHONY: help
 help: ## Print this message.
