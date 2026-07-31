@@ -2,15 +2,6 @@
 resolver = "2"
 members = ["protocol-minimal", "bench", "source-cli", "demo-server", "journalist-cli"]
 
-[patch.crates-io]
-# Force hpke-rs to use our libcrux patched to hax 0.3.7 (pending cryspen/libcrux#1478):
-libcrux-aead = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-ecdh = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-hkdf = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-sha3 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-traits = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-
 # Crates use version.workspace for consistency.
 [workspace.package]
 name = "securedrop-protocol"
@@ -20,18 +11,20 @@ authors = ["SecureDrop Team <securedrop@freedom.press>"]
 license = "GPL-3.0"
 
 [workspace.dependencies]
-# Crypto stack, pinned to cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478:
-libcrux-ed25519 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-curve25519 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-chacha20poly1305 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-traits = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-ml-kem = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-sha2 = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
-libcrux-hkdf = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c8499d1af4234670ad04341bf" }
+# Crypto stack (must be kept in sync with hax-lib):
+hpke-rs = "0.7.0"
+libcrux-ed25519 = "0.0.9"
+libcrux-curve25519 = "0.0.8"
+libcrux-chacha20poly1305 = "0.0.9"
+libcrux-traits = "0.0.8"
+libcrux-kem = "0.0.9"
+libcrux-ml-kem = "0.0.10"
+libcrux-sha2 = "0.0.8"
+libcrux-hkdf = "0.0.8"
 
-# See the `patch.crates-io` section for patching to enforce hax-lib 0.3.7.
-hpke-rs = { git = "https://github.com/cryspen/hpke-rs", rev = "634caf8" }
+hax-lib = "0.3.7"
+
+# Everything else:
 anyhow = "1.0"
 axum = "0.7"
 bip39 = { version = "2", default-features = false }
@@ -40,7 +33,6 @@ criterion = "0.5"
 directories = "5"
 getrandom = { version = "0.3", default-features = false }
 hashbrown = "0.14"
-hax-lib = "0.3.7"
 hex = { version = "0.4", default-features = false }
 js-sys = "0.3"
 proptest = "1.11"
