@@ -24,7 +24,7 @@ endif
 # include pattern modifiers (e.g. `+`, `+!`, `+:`) are documented
 # in `cargo hax into --help`
 
-LIBCRUX_VERSION=3cd1843b0f029b2c8499d1af4234670ad04341bf  # cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478
+LIBCRUX_VERSION=c5fb80f37530ee9b2df9501ae5ff8cb4a973a4bd
 
 # Extraction targets: default exclude
 LIBCRUX_ECDH_TARGETS := -**
@@ -151,7 +151,7 @@ libcrux:
 libcrux-clone:
 	@echo "Clone libcrux@$(LIBCRUX_VERSION)"
 	@rm -rf libcrux
-	@git clone --quiet https://github.com/cfm/libcrux  # cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478
+	@git clone --quiet https://github.com/cryspen/libcrux
 	@cd libcrux && git checkout $(LIBCRUX_VERSION) --quiet
 
 libcrux-module:

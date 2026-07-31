@@ -17,7 +17,8 @@ license.workspace = true
 # here:
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-interfaces-extracted-from-our-dependencies
 
-# Crypto stack, pinned to cfm/libcrux@hax-lib-0.3.7 pending cryspen/libcrux#1478:
+# Crypto stack:
+hpke-rs = { workspace = true, features = ["libcrux"] }
 libcrux-ed25519 = { workspace = true, features = ["rand"] }
 libcrux-curve25519.workspace = true
 libcrux-chacha20poly1305.workspace = true
@@ -33,13 +34,9 @@ curve25519-dalek = { version = "5.0.0", default-features = false, features = [
     "zeroize",
 ] }
 
-# See workspace-level `Cargo.toml` for patching to enforce hax-lib 0.3.7.
-# Pinned here until published crates use hax-lib 0.3.7 and libcrux-sha3 0.0.9.
-hpke-rs = { workspace = true, features = ["libcrux"] }
-
-rand_core.workspace = true
-
+# Everything else:
 anyhow.workspace = true
+rand_core.workspace = true
 hashbrown = { workspace = true, features = ["raw"] }
 uuid = { workspace = true, features = ["v4", "js"] }
 bip39 = { workspace = true, features = ["alloc"] }
