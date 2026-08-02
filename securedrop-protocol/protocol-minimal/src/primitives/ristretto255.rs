@@ -132,3 +132,62 @@ impl<'de> serde::Deserialize<'de> for DHPublicKey {
         Self::decode(bytes).map_err(D::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    fn get_rng() -> ChaCha20Rng {
+        let mut seed = [0u8; 32];
+        getrandom::fill(&mut seed).expect("OS random source failed");
+        ChaCha20Rng::from_seed(seed)
+    }
+
+    #[test]
+    fn test_deterministic_dh_keygen() {
+        proptest!(|(randomness in proptest::collection::vec(any::<u8>(), DH_SEED_LEN))| {
+            let seed: [u8; DH_SEED_LEN] = randomness.try_into().unwrap();
+            let (sk, pk) = deterministic_dh_keygen(seed);
+
+            let (sk2, pk2) = deterministic_dh_keygen(seed);
+            prop_assert_eq!(sk.to_bytes(), sk2.to_bytes());
+            prop_assert_eq!(pk.into_bytes(), pk2.into_bytes());
+            prop_assert_eq!(pk.into_bytes(), sk.public_key().into_bytes());
+        });
+    }
+
+    #[test]
+    fn test_dh_shared_secret() {
+        let mut rng = get_rng();
+
+        let (sk1, pk1) = generate_dh_keypair(&mut rng);
+
+        let (sk2, pk2) = generate_dh_keypair(&mut rng);
+
+        let ss1 = dh_shared_secret(&pk1, &sk2);
+        let ss2 = dh_shared_secret(&pk2, &sk1);
+
+        assert_eq!(ss1.into_bytes(), ss2.into_bytes());
+        assert_ne!(ss1.into_bytes(), [0u8; DH_PUBLIC_KEY_LEN])
+    }
+
+    #[test]
+    fn test_three_party_dh() {
+        let mut rng = get_rng();
+
+        let (sk_r, pk_r) = generate_dh_keypair(&mut rng);
+        let (x, big_x) = generate_dh_keypair(&mut rng);
+        let y = generate_random_scalar(&mut rng);
+
+        let z = dh_shared_secret(&pk_r, &x);
+        let server = dh_shared_secret(&z, &y);
+
+        let pmgdh = dh_shared_secret(&big_x, &y);
+        let recipient = dh_shared_secret(&pmgdh, &sk_r);
+
+        assert_eq!(server.into_bytes(), recipient.into_bytes());
+    }
+}
