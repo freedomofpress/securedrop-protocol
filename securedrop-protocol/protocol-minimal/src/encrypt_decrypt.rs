@@ -1,9 +1,9 @@
 use crate::message::MessagePublicKey;
 use crate::metadata;
 use crate::primitives::provider::constants::{LEN_KMID, LEN_MESSAGE_ID};
-use crate::primitives::x25519::{
+use crate::primitives::ristretto255::{
     DH_PUBLIC_KEY_LEN, DHPublicKey, DHSharedSecret, dh_shared_secret, generate_dh_keypair,
-    generate_random_scalar,
+    generate_random_scalar, random_dh_public_key,
 };
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use crate::primitives::{decrypt_message_id, encrypt_message_id};
@@ -49,6 +49,7 @@ where
     // spec: x (hint_esk), X (hint_epk)
     let (hint_esk, hint_epk) = generate_dh_keypair(rng).expect("DH Keygen (hint) failed");
     // spec: Z = (pk_R^fetch)^x
+    // TODO(Jen): types here
     let hint_sharedsecret: DHSharedSecret =
         dh_shared_secret(recipient.fetch_pk(), hint_esk.into_bytes())
             .expect("Failed to generate shared secret");
@@ -63,10 +64,10 @@ where
     .expect("Valid Keybundle should allow metadata seal");
 
     Envelope {
-        ct_apke,                              // spec: ct^APKE
-        ct_pke,                               // spec: ct^PKE
-        mgdh_pubkey: hint_epk.into_bytes(),   // spec: X = g^x
-        mgdh: hint_sharedsecret.into_bytes(), // spec: Z = (pk_R^fetch)^x
+        ct_apke,                                                       // spec: ct^APKE
+        ct_pke,                                                        // spec: ct^PKE
+        mgdh_pubkey: hint_epk,                                         // spec: X = g^x
+        mgdh: DHPublicKey::from_bytes(hint_sharedsecret.into_bytes()), // spec: Z = (pk_R^fetch)^x
     }
 }
 
@@ -129,14 +130,14 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 ) -> Vec<FetchResponse> {
     let mut responses = Vec::with_capacity(total_responses);
 
-    // Generate ephemeral (per request) scalar (don't need full keypair)
-    let eph_sk = generate_random_scalar(&mut *rng).expect("Want dh scalar");
-
     for (message_id, envelope) in entries.iter() {
         if responses.len() < total_responses {
+            // Generate ephemeral scalar r, fresh per message
+            let eph_sk = generate_random_scalar(&mut *rng).expect("Want dh scalar");
+
             // 3-party DH yields shared_secret used to encrypt message_id
-            let shared_secret = dh_shared_secret(&DHPublicKey::from_bytes(envelope.mgdh), eph_sk)
-                .expect("Need 3-party dh shared secret");
+            let shared_secret =
+                dh_shared_secret(&envelope.mgdh, eph_sk).expect("Need 3-party dh shared secret");
             let enc_mid = encrypt_message_id(&shared_secret.into_bytes(), message_id, rng).unwrap();
 
             // `copy_from_slice` rather than `try_into()`: Core_models has no
@@ -147,12 +148,11 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 
             // 2-party DH yields per-request clue (pmgdh) used by intended recipient
             // to compute shared_secret
-            let pmgdh = dh_shared_secret(&DHPublicKey::from_bytes(envelope.mgdh_pubkey), eph_sk)
-                .expect("Need pmgdh");
+            let pmgdh = dh_shared_secret(&envelope.mgdh_pubkey, eph_sk).expect("Need pmgdh");
 
             responses.push(FetchResponse {
                 enc_id: kmid,
-                pmgdh: pmgdh.into_bytes(),
+                pmgdh: DHPublicKey::from_bytes(pmgdh.into_bytes()),
             });
         }
     }
@@ -162,12 +162,9 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
         let mut pad_kmid: [u8; LEN_KMID] = [0u8; LEN_KMID];
         rng.fill_bytes(&mut pad_kmid);
 
-        let mut pad_pmgdh: [u8; DH_PUBLIC_KEY_LEN] = [0u8; DH_PUBLIC_KEY_LEN];
-        rng.fill_bytes(&mut pad_pmgdh);
-
         responses.push(FetchResponse {
             enc_id: pad_kmid,
-            pmgdh: pad_pmgdh,
+            pmgdh: random_dh_public_key(rng),
         });
     }
     responses
@@ -185,7 +182,7 @@ pub fn solve_fetch_challenges<S: UserSecret>(
     for chall in challenges.iter() {
         // Compute 3-party DH on the pmgdh
         let maybe_kmid_secret = dh_shared_secret(
-            &DHPublicKey::from_bytes(chall.pmgdh),
+            &chall.pmgdh,
             recipient.fetch_keypair().0.clone().into_bytes(),
         )
         .expect("Need 3-party DH (scalarmult) on pmgdh");
