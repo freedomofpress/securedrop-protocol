@@ -2,8 +2,8 @@ use crate::message::MessagePublicKey;
 use crate::metadata;
 use crate::primitives::provider::constants::{LEN_KMID, LEN_MESSAGE_ID};
 use crate::primitives::ristretto255::{
-    DH_PUBLIC_KEY_LEN, DHPublicKey, DHSharedSecret, dh_shared_secret, generate_dh_keypair,
-    generate_random_scalar, random_dh_public_key,
+    DH_PUBLIC_KEY_LEN, DHPublicKey, dh_shared_secret, generate_dh_keypair, generate_random_scalar,
+    random_dh_public_key,
 };
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use crate::primitives::{decrypt_message_id, encrypt_message_id};
@@ -50,7 +50,7 @@ where
     let (hint_esk, hint_epk) = generate_dh_keypair(rng).expect("DH Keygen (hint) failed");
     // spec: Z = (pk_R^fetch)^x
     // TODO(Jen): types here
-    let hint_sharedsecret: DHSharedSecret =
+    let hint_sharedsecret: DHPublicKey =
         dh_shared_secret(recipient.fetch_pk(), hint_esk.into_bytes())
             .expect("Failed to generate shared secret");
 
@@ -64,10 +64,10 @@ where
     .expect("Valid Keybundle should allow metadata seal");
 
     Envelope {
-        ct_apke,                                                       // spec: ct^APKE
-        ct_pke,                                                        // spec: ct^PKE
-        mgdh_pubkey: hint_epk,                                         // spec: X = g^x
-        mgdh: DHPublicKey::from_bytes(hint_sharedsecret.into_bytes()), // spec: Z = (pk_R^fetch)^x
+        ct_apke,                 // spec: ct^APKE
+        ct_pke,                  // spec: ct^PKE
+        mgdh_pubkey: hint_epk,   // spec: X = g^x
+        mgdh: hint_sharedsecret, // spec: Z = (pk_R^fetch)^x
     }
 }
 
@@ -152,7 +152,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 
             responses.push(FetchResponse {
                 enc_id: kmid,
-                pmgdh: DHPublicKey::from_bytes(pmgdh.into_bytes()),
+                pmgdh,
             });
         }
     }

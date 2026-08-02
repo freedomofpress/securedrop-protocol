@@ -6,12 +6,11 @@ use crate::primitives::provider;
 
 pub const DH_PUBLIC_KEY_LEN: usize = provider::ristretto255::PK_LEN;
 pub(crate) const DH_PRIVATE_KEY_LEN: usize = provider::ristretto255::SK_LEN;
-pub(crate) const DH_SHARED_SECRET_LEN: usize = provider::ristretto255::LEN_DH_SHARE;
 
 /// Uniform bytes required to derive a scalar per [RFC 9496] section 4.4.
 pub const DH_SEED_LEN: usize = provider::ristretto255::SEED_LEN;
 
-/// A compressed ristretto255 group element.
+/// A ristretto255 group element.
 ///
 /// # Security
 ///
@@ -28,10 +27,6 @@ pub struct DHPublicKey([u8; DH_PUBLIC_KEY_LEN]);
 /// because the providers module interface is all byte based
 #[derive(Debug, Clone)]
 pub struct DHPrivateKey([u8; DH_PRIVATE_KEY_LEN]);
-
-/// A DH agreement output (a compressed ristretto255 group element).
-#[derive(Debug, Clone)]
-pub struct DHSharedSecret([u8; DH_SHARED_SECRET_LEN]);
 
 impl DHPublicKey {
     /// Decode a group element from its 32 byte encoding, validating that it is a
@@ -83,12 +78,6 @@ impl DHPrivateKey {
     }
 }
 
-impl DHSharedSecret {
-    pub fn into_bytes(self) -> [u8; DH_SHARED_SECRET_LEN] {
-        self.0
-    }
-}
-
 /// Derive a DH keypair from a caller-supplied uniform seed.
 ///
 /// Used for keys that must be reproducible from a key hierarchy (the source's
@@ -135,10 +124,10 @@ pub fn generate_random_scalar<R: RngCore + CryptoRng>(
 pub fn dh_shared_secret(
     public_key: &DHPublicKey,
     scalar: [u8; DH_PRIVATE_KEY_LEN],
-) -> Result<DHSharedSecret, Error> {
+) -> Result<DHPublicKey, Error> {
     let shared = provider::ristretto255::dh(&public_key.0, &scalar)
         .ok_or_else(|| anyhow::anyhow!("ristretto255 DH failed"))?;
-    Ok(DHSharedSecret(shared))
+    Ok(DHPublicKey(shared))
 }
 
 #[cfg_attr(hax, hax_lib::exclude)]
