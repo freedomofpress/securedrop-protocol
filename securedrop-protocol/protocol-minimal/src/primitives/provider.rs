@@ -20,7 +20,9 @@ pub mod curve25519 {
 pub mod ristretto255 {
 
     #[cfg_attr(hax, hax_lib::opaque)]
-    use curve25519_dalek::{RistrettoPoint, Scalar, ristretto::CompressedRistretto};
+    use curve25519_dalek::{
+        RistrettoPoint, Scalar as DalekScalar, ristretto::CompressedRistretto, traits::Identity,
+    };
 
     /// A canonically encoded scalar in $\mathbb{Z}_\ell$.
     pub(crate) const SK_LEN: usize = 32;
@@ -28,14 +30,29 @@ pub mod ristretto255 {
     /// A compressed group element.
     pub(crate) const PK_LEN: usize = 32;
 
-    /// A DH output is also a compressed group element.
-    pub(crate) const LEN_DH_SHARE: usize = 32;
-
     /// Uniform bytes needed to sample a scalar.
     ///
     /// We follow [RFC 9496] section 4.4 which describes wide
     /// input reduced modulo the group order $\ell$.
     pub(crate) const SEED_LEN: usize = 64;
+
+    /// An decompressed element of the ristretto255 group.
+    ///
+    /// # Security
+    ///
+    /// A `Point` can only be obtained by decoding, by the
+    /// element derivation function, or by a group operation on other `Point`s,
+    /// as described in [RFC 9496] section 6. The decompressed representation is
+    /// held across operations so that no operation is unnecessarily decoding
+    /// or encoding.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    #[derive(Clone, Copy, Debug)]
+    pub(crate) struct Point(RistrettoPoint);
+
+    /// A scalar in $\mathbb{Z}_\ell$.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    #[derive(Clone, Copy, Debug)]
+    pub(crate) struct Scalar(DalekScalar);
 
     /// Sample $x \in \mathbb{F}_\ell$ by reducing `seed` modulo $\ell$.
     ///
@@ -44,67 +61,66 @@ pub mod ristretto255 {
     /// The seed should be uniformly distributed, e.g. the output of a
     /// domain-separated hash function. See [RFC 9496] section 4.4.
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn scalar_from_wide(seed: &[u8; SEED_LEN]) -> [u8; SK_LEN] {
-        Scalar::from_bytes_mod_order_wide(seed).to_bytes()
+    pub(crate) fn scalar_from_wide(seed: &[u8; SEED_LEN]) -> Scalar {
+        Scalar(DalekScalar::from_bytes_mod_order_wide(seed))
     }
 
-    /// Compute $pk = [sk] B$, where $B$ is the ristretto255 basepoint.
+    /// Validate `bytes` as a canonical scalar in $\mathbb{Z}_\ell$.
     ///
-    /// Returns `None` if `secret_key` is not a canonical scalar.
+    /// Returns `None` if `bytes` is not a canonical scalar.
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn secret_to_public(secret_key: &[u8; SK_LEN]) -> Option<[u8; PK_LEN]> {
-        let sk: Option<Scalar> = Scalar::from_canonical_bytes(*secret_key).into();
-        Some(RistrettoPoint::mul_base(&sk?).compress().to_bytes())
+    pub(crate) fn scalar_decode(bytes: &[u8; SK_LEN]) -> Option<Scalar> {
+        let scalar: Option<DalekScalar> = DalekScalar::from_canonical_bytes(*bytes).into();
+        Some(Scalar(scalar?))
+    }
+
+    /// The canonical encoding of `scalar`.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn scalar_encode(scalar: &Scalar) -> [u8; SK_LEN] {
+        scalar.0.to_bytes()
     }
 
     /// Map `seed` to a group element.
     ///
     /// This is hash to group as specified in RFC 9496 section 4.3.4.
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn from_uniform_bytes(seed: &[u8; SEED_LEN]) -> [u8; PK_LEN] {
-        RistrettoPoint::from_uniform_bytes(seed)
-            .compress()
-            .to_bytes()
+    pub(crate) fn from_uniform_bytes(seed: &[u8; SEED_LEN]) -> Point {
+        Point(RistrettoPoint::from_uniform_bytes(seed))
     }
 
     /// Decode `bytes` as a ristretto255 group element by performing point decompression
     /// as specified in RFC 9496 section 4.3.1.
     ///
-    /// Returns the element's canonical encoding, or `None` if `bytes` is not a
-    /// valid, canonical encoding of a group element.
+    /// Returns `None` if `bytes` is not a canonical encoding of a group element.
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn decode(bytes: &[u8; PK_LEN]) -> Option<[u8; PK_LEN]> {
-        let point = CompressedRistretto::from_slice(bytes).ok()?.decompress()?;
-        Some(point.compress().to_bytes())
+    pub(crate) fn decode(bytes: &[u8; PK_LEN]) -> Option<Point> {
+        Some(Point(
+            CompressedRistretto::from_slice(bytes).ok()?.decompress()?,
+        ))
     }
 
-    /// Validate `bytes` as a canonical scalar in $\mathbb{Z}_\ell$.
-    ///
-    /// Returns the canonical encoding, or `None` if `bytes` is not a canonical
-    /// scalar.
+    /// The canonical encoding of `point`, per RFC 9496 section 4.3.2.
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn scalar_decode(bytes: &[u8; SK_LEN]) -> Option<[u8; SK_LEN]> {
-        let scalar: Option<Scalar> = Scalar::from_canonical_bytes(*bytes).into();
-        Some(scalar?.to_bytes())
+    pub(crate) fn encode(point: &Point) -> [u8; PK_LEN] {
+        point.0.compress().to_bytes()
     }
 
-    /// Diffie–Hellman agreement: decompress `public_key` and compute
-    /// $[scalar]\,P$, returning the compressed result.
-    ///
-    /// Returns `None` if `public_key` is not a valid group element encoding or
-    /// `scalar` is not canonical.
-    ///
-    /// TODO(Jen): We are performing point decompression twice due to this bytes interface
+    /// The identity element, whose canonical encoding is 32 zero bytes.
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn dh(
-        public_key: &[u8; PK_LEN],
-        scalar: &[u8; SK_LEN],
-    ) -> Option<[u8; LEN_DH_SHARE]> {
-        let point = CompressedRistretto::from_slice(public_key)
-            .ok()?
-            .decompress()?;
-        let sk: Option<Scalar> = Scalar::from_canonical_bytes(*scalar).into();
-        Some((point * sk?).compress().to_bytes())
+    pub(crate) fn identity() -> Point {
+        Point(RistrettoPoint::identity())
+    }
+
+    /// Compute $pk = [sk] B$, where $B$ is the ristretto255 basepoint.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn secret_to_public(secret_key: &Scalar) -> Point {
+        Point(RistrettoPoint::mul_base(&secret_key.0))
+    }
+
+    /// Diffie–Hellman agreement: compute $[scalar]\,P$.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn dh(public_key: &Point, scalar: &Scalar) -> Point {
+        Point(public_key.0 * scalar.0)
     }
 }
 
