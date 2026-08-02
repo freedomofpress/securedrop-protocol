@@ -8,7 +8,6 @@ let _ =
   (* The implicit dependencies arise from typeclasses instances. *)
   let open Anyhow.Error in
   let open Rand_core in
-  let open Securedrop_protocol_minimal.Primitives.X25519 in
   let open Securedrop_protocol_minimal.Traits in
   ()
 
@@ -57,12 +56,12 @@ let encrypt
       recipient
   in
   let pk_r_fetch:t_Array u8 (mk_usize 32) =
-    Securedrop_protocol_minimal.Primitives.X25519.impl_DHPublicKey__into_bytes (Securedrop_protocol_minimal.Traits.f_fetch_pk
+    Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes (Securedrop_protocol_minimal.Traits.f_fetch_pk
           #v_Recipient
           #FStar.Tactics.Typeclasses.solve
           recipient
         <:
-        Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
+        Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
   in
   let
   (tmp0: v_R),
@@ -92,38 +91,25 @@ let encrypt
   let
   (tmp0: v_R),
   (out:
-    Core_models.Result.t_Result
-      (Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey &
-        Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey) Anyhow.t_Error) =
-    Securedrop_protocol_minimal.Primitives.X25519.generate_dh_keypair #v_R rng
+    (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+      Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)) =
+    Securedrop_protocol_minimal.Primitives.Ristretto255.generate_dh_keypair #v_R rng
   in
   let rng:v_R = tmp0 in
   let
-  (hint_esk: Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey),
-  (hint_epk: Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey) =
-    Core_models.Result.impl__expect #(Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey &
-        Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
-      #Anyhow.t_Error
-      out
-      "DH Keygen (hint) failed"
+  (hint_esk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey),
+  (hint_epk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey) =
+    out
   in
-  let (hint_sharedsecret: Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret):Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret
+  let (hint_sharedsecret: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey):Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
   =
-    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret
-      #Anyhow.t_Error
-      (Securedrop_protocol_minimal.Primitives.X25519.dh_shared_secret (Securedrop_protocol_minimal.Traits.f_fetch_pk
-              #v_Recipient
-              #FStar.Tactics.Typeclasses.solve
-              recipient
-            <:
-            Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
-          (Securedrop_protocol_minimal.Primitives.X25519.impl_DHPrivateKey__into_bytes hint_esk
-            <:
-            t_Array u8 (mk_usize 32))
+    Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret (Securedrop_protocol_minimal.Traits.f_fetch_pk
+          #v_Recipient
+          #FStar.Tactics.Typeclasses.solve
+          recipient
         <:
-        Core_models.Result.t_Result Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret
-          Anyhow.t_Error)
-      "Failed to generate shared secret"
+        Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
+      hint_esk
   in
   let ct_pke:Securedrop_protocol_minimal.Metadata.t_MetadataCiphertext =
     Core_models.Result.impl__expect #Securedrop_protocol_minimal.Metadata.t_MetadataCiphertext
@@ -148,13 +134,8 @@ let encrypt
     {
       Securedrop_protocol_minimal.Ciphertext.f_ct_apke = ct_apke;
       Securedrop_protocol_minimal.Ciphertext.f_ct_pke = ct_pke;
-      Securedrop_protocol_minimal.Ciphertext.f_mgdh_pubkey
-      =
-      Securedrop_protocol_minimal.Primitives.X25519.impl_DHPublicKey__into_bytes hint_epk;
-      Securedrop_protocol_minimal.Ciphertext.f_mgdh
-      =
-      Securedrop_protocol_minimal.Primitives.X25519.impl_DHSharedSecret__into_bytes hint_sharedsecret
-
+      Securedrop_protocol_minimal.Ciphertext.f_mgdh_pubkey = hint_epk;
+      Securedrop_protocol_minimal.Ciphertext.f_mgdh = hint_sharedsecret
     }
     <:
     Securedrop_protocol_minimal.Ciphertext.t_Envelope
@@ -259,13 +240,13 @@ let decrypt_with_sender
       "Metadata must contain valid sender APKE key tuple"
   in
   let pk_r_fetch:t_Array u8 (mk_usize 32) =
-    Securedrop_protocol_minimal.Primitives.X25519.impl_DHPublicKey__into_bytes (Securedrop_protocol_minimal.Traits.f_fetch_keypair
+    Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes (Securedrop_protocol_minimal.Traits.f_fetch_keypair
           #v_U
           #FStar.Tactics.Typeclasses.solve
           receiver
         <:
-        (Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey &
-          Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey))
+        (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+          Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey))
         ._2
   in
   let pt:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
@@ -335,13 +316,6 @@ let compute_fetch_challenges
     Alloc.Vec.impl__with_capacity #Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
       total_responses
   in
-  let (tmp0: v_R), (out: Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error) =
-    Securedrop_protocol_minimal.Primitives.X25519.generate_random_scalar #v_R rng
-  in
-  let rng:v_R = tmp0 in
-  let eph_sk:t_Array u8 (mk_usize 32) =
-    Core_models.Result.impl__expect #(t_Array u8 (mk_usize 32)) #Anyhow.t_Error out "Want dh scalar"
-  in
   let
   (responses:
     Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse Alloc.Alloc.t_Global),
@@ -385,18 +359,16 @@ let compute_fetch_challenges
             <:
             bool
           then
-            let shared_secret:Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret =
-              Core_models.Result.impl__expect #Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret
-                #Anyhow.t_Error
-                (Securedrop_protocol_minimal.Primitives.X25519.dh_shared_secret (Securedrop_protocol_minimal.Primitives.X25519.impl_DHPublicKey__from_bytes
-                        envelope.Securedrop_protocol_minimal.Ciphertext.f_mgdh
-                      <:
-                      Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
-                    eph_sk
-                  <:
-                  Core_models.Result.t_Result
-                    Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret Anyhow.t_Error)
-                "Need 3-party dh shared secret"
+            let
+            (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey) =
+              Securedrop_protocol_minimal.Primitives.Ristretto255.generate_random_scalar #v_R rng
+            in
+            let rng:v_R = tmp0 in
+            let eph_sk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey = out in
+            let shared_secret:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
+              Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret envelope
+                  .Securedrop_protocol_minimal.Ciphertext.f_mgdh
+                eph_sk
             in
             let
             (tmp0: v_R),
@@ -404,7 +376,7 @@ let compute_fetch_challenges
               Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
             =
               Securedrop_protocol_minimal.Primitives.encrypt_message_id #v_R
-                (Securedrop_protocol_minimal.Primitives.X25519.impl_DHSharedSecret__into_bytes shared_secret
+                (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes shared_secret
 
                   <:
                   t_Slice u8)
@@ -425,18 +397,10 @@ let compute_fetch_challenges
                 kmid
                 (Alloc.Vec.impl_1__as_slice enc_mid <: t_Slice u8)
             in
-            let pmgdh:Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret =
-              Core_models.Result.impl__expect #Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret
-                #Anyhow.t_Error
-                (Securedrop_protocol_minimal.Primitives.X25519.dh_shared_secret (Securedrop_protocol_minimal.Primitives.X25519.impl_DHPublicKey__from_bytes
-                        envelope.Securedrop_protocol_minimal.Ciphertext.f_mgdh_pubkey
-                      <:
-                      Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
-                    eph_sk
-                  <:
-                  Core_models.Result.t_Result
-                    Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret Anyhow.t_Error)
-                "Need pmgdh"
+            let pmgdh:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
+              Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret envelope
+                  .Securedrop_protocol_minimal.Ciphertext.f_mgdh_pubkey
+                eph_sk
             in
             let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
               Alloc.Alloc.t_Global =
@@ -445,12 +409,7 @@ let compute_fetch_challenges
                 responses
                 ({
                     Securedrop_protocol_minimal.Ciphertext.f_enc_id = kmid;
-                    Securedrop_protocol_minimal.Ciphertext.f_pmgdh
-                    =
-                    Securedrop_protocol_minimal.Primitives.X25519.impl_DHSharedSecret__into_bytes pmgdh
-
-                    <:
-                    t_Array u8 (mk_usize 32)
+                    Securedrop_protocol_minimal.Ciphertext.f_pmgdh = pmgdh
                   }
                   <:
                   Securedrop_protocol_minimal.Ciphertext.t_FetchResponse)
@@ -526,15 +485,11 @@ let compute_fetch_challenges
           let rng:v_R = tmp0 in
           let pad_kmid:t_Array u8 (mk_usize 44) = tmp1 in
           let _:Prims.unit = () in
-          let (pad_pmgdh: t_Array u8 (mk_usize 32)):t_Array u8 (mk_usize 32) =
-            Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
-          in
-          let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 32)) =
-            Rand_core.f_fill_bytes #v_R #FStar.Tactics.Typeclasses.solve rng pad_pmgdh
+          let (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
+          =
+            Securedrop_protocol_minimal.Primitives.Ristretto255.random_dh_public_key #v_R rng
           in
           let rng:v_R = tmp0 in
-          let pad_pmgdh:t_Array u8 (mk_usize 32) = tmp1 in
-          let _:Prims.unit = () in
           let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
             Alloc.Alloc.t_Global =
             Alloc.Vec.impl_1__push #Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
@@ -542,7 +497,7 @@ let compute_fetch_challenges
               responses
               ({
                   Securedrop_protocol_minimal.Ciphertext.f_enc_id = pad_kmid;
-                  Securedrop_protocol_minimal.Ciphertext.f_pmgdh = pad_pmgdh
+                  Securedrop_protocol_minimal.Ciphertext.f_pmgdh = out
                 }
                 <:
                 Securedrop_protocol_minimal.Ciphertext.t_FetchResponse)
@@ -594,34 +549,19 @@ let solve_fetch_challenges
       (fun message_ids chall ->
           let message_ids:Alloc.Vec.t_Vec Uuid.t_Uuid Alloc.Alloc.t_Global = message_ids in
           let chall:Securedrop_protocol_minimal.Ciphertext.t_FetchResponse = chall in
-          let maybe_kmid_secret:Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret =
-            Core_models.Result.impl__expect #Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret
-              #Anyhow.t_Error
-              (Securedrop_protocol_minimal.Primitives.X25519.dh_shared_secret (Securedrop_protocol_minimal.Primitives.X25519.impl_DHPublicKey__from_bytes
-                      chall.Securedrop_protocol_minimal.Ciphertext.f_pmgdh
-                    <:
-                    Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
-                  (Securedrop_protocol_minimal.Primitives.X25519.impl_DHPrivateKey__into_bytes (Core_models.Clone.f_clone
-                          #Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey
-                          #FStar.Tactics.Typeclasses.solve
-                          (Securedrop_protocol_minimal.Traits.f_fetch_keypair #v_S
-                              #FStar.Tactics.Typeclasses.solve
-                              recipient
-                            <:
-                            (Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey &
-                              Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey))
-                            ._1
-                        <:
-                        Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey)
-                    <:
-                    t_Array u8 (mk_usize 32))
+          let maybe_kmid_secret:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
+            Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret chall
+                .Securedrop_protocol_minimal.Ciphertext.f_pmgdh
+              (Securedrop_protocol_minimal.Traits.f_fetch_keypair #v_S
+                  #FStar.Tactics.Typeclasses.solve
+                  recipient
                 <:
-                Core_models.Result.t_Result
-                  Securedrop_protocol_minimal.Primitives.X25519.t_DHSharedSecret Anyhow.t_Error)
-              "Need 3-party DH (scalarmult) on pmgdh"
+                (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+                  Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey))
+                ._1
           in
           match
-            Securedrop_protocol_minimal.Primitives.decrypt_message_id (Securedrop_protocol_minimal.Primitives.X25519.impl_DHSharedSecret__into_bytes
+            Securedrop_protocol_minimal.Primitives.decrypt_message_id (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes
                   maybe_kmid_secret
                 <:
                 t_Slice u8)
@@ -659,23 +599,6 @@ let build_message
       (sender: iimpl_822573411_)
       (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
     : Securedrop_protocol_minimal.Ciphertext.t_Plaintext =
-  let fetch_pk:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
-  let fetch_pk:t_Array u8 (mk_usize 32) =
-    Core_models.Slice.impl__copy_from_slice #u8
-      fetch_pk
-      (Securedrop_protocol_minimal.Primitives.X25519.impl_DHPublicKey__into_bytes (Core_models.Clone.f_clone
-              #Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey
-              #FStar.Tactics.Typeclasses.solve
-              (Securedrop_protocol_minimal.Traits.f_fetch_pk #iimpl_822573411_
-                  #FStar.Tactics.Typeclasses.solve
-                  sender
-                <:
-                Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
-            <:
-            Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
-        <:
-        t_Slice u8)
-  in
   let reply_key_pq_hybrid:t_Array u8 (mk_usize 1216) =
     Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216)
   in
@@ -692,7 +615,11 @@ let build_message
         t_Slice u8)
   in
   {
-    Securedrop_protocol_minimal.Ciphertext.f_sender_fetch_key = fetch_pk;
+    Securedrop_protocol_minimal.Ciphertext.f_sender_fetch_key
+    =
+    Securedrop_protocol_minimal.Traits.f_fetch_pk #iimpl_822573411_
+      #FStar.Tactics.Typeclasses.solve
+      sender;
     Securedrop_protocol_minimal.Ciphertext.f_sender_reply_pubkey_hybrid = reply_key_pq_hybrid;
     Securedrop_protocol_minimal.Ciphertext.f_msg = message
   }

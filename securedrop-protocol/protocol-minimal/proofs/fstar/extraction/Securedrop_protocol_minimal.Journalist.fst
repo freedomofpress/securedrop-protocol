@@ -10,7 +10,7 @@ let _ =
   let open Rand_core in
   let open Securedrop_protocol_minimal.Keys in
   let open Securedrop_protocol_minimal.Message in
-  let open Securedrop_protocol_minimal.Primitives.X25519 in
+  let open Securedrop_protocol_minimal.Primitives.Ristretto255 in
   let open Securedrop_protocol_minimal.Sign in
   let open Securedrop_protocol_minimal.Traits in
   ()
@@ -22,8 +22,8 @@ type t_Journalist = {
   f_signing_key:Securedrop_protocol_minimal.Keys.t_KeyPair
     Securedrop_protocol_minimal.Sign.t_SigningKey Securedrop_protocol_minimal.Sign.t_VerifyingKey;
   f_fetch_key:Securedrop_protocol_minimal.Keys.t_KeyPair
-    Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey
-    Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey;
+    Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey
+    Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
   f_message_keys:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle
     Alloc.Alloc.t_Global;
   f_reply_apke:Securedrop_protocol_minimal.Message.t_MessageKeyPair;
@@ -35,7 +35,7 @@ type t_Journalist = {
 
 type t_JournalistPublicView = {
   f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
-  f_fetch_pk:Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey;
+  f_fetch_pk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
   f_reply_apke_pk:Securedrop_protocol_minimal.Message.t_MessagePublicKey;
   f_signed_longterm_key_bytes:Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes;
   f_selfsig:Securedrop_protocol_minimal.Sign.t_Signature
@@ -47,7 +47,7 @@ type t_JournalistPublicView = {
 
 let impl_JournalistPublicView__new
       (vk: Securedrop_protocol_minimal.Sign.t_VerifyingKey)
-      (fetch: Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
+      (fetch: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
       (reply_apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
       (selfsig:
           Securedrop_protocol_minimal.Sign.t_Signature
@@ -77,7 +77,7 @@ let impl_1: Securedrop_protocol_minimal.Traits.t_UserPublic t_JournalistPublicVi
     =
     (fun
         (self: t_JournalistPublicView)
-        (out: Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
+        (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
         ->
         true);
     f_fetch_pk = (fun (self: t_JournalistPublicView) -> self.f_fetch_pk);
@@ -332,8 +332,8 @@ let impl_4: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
     (fun
         (self: t_Journalist)
         (out:
-          (Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey &
-            Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey))
+          (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+            Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey))
         ->
         true);
     f_fetch_keypair
@@ -342,8 +342,8 @@ let impl_4: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
         self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_sk,
         self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk
         <:
-        (Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey &
-          Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey));
+        (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+          Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey));
     f_message_auth_key_pre = (fun (self: t_Journalist) -> true);
     f_message_auth_key_post
     =
@@ -378,7 +378,7 @@ let impl_4: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
         {
           Securedrop_protocol_minimal.Ciphertext.f_sender_fetch_key
           =
-          Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32);
+          Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__identity ();
           Securedrop_protocol_minimal.Ciphertext.f_sender_reply_pubkey_hybrid
           =
           Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216);
@@ -423,7 +423,7 @@ let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
           Securedrop_protocol_minimal.Keys.f_keys
           =
           self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk,
-          Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey
+          Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
             #FStar.Tactics.Typeclasses.solve
             self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk,
           Core_models.Clone.f_clone #Securedrop_protocol_minimal.Message.t_MessagePublicKey
@@ -433,7 +433,7 @@ let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
               Securedrop_protocol_minimal.Message.t_MessagePublicKey)
           <:
           (Securedrop_protocol_minimal.Sign.t_VerifyingKey &
-            Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey &
+            Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey &
             Securedrop_protocol_minimal.Message.t_MessagePublicKey)
         }
         <:
@@ -598,7 +598,7 @@ let impl_Journalist__long_term_bytes (self: t_Journalist) : t_JournalistLongTerm
         .Securedrop_protocol_minimal.Keys.f_sk;
     f_fetch_sk
     =
-    Securedrop_protocol_minimal.Primitives.X25519.impl_DHPrivateKey__as_bytes self.f_fetch_key
+    Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPrivateKey__to_bytes self.f_fetch_key
         .Securedrop_protocol_minimal.Keys.f_sk;
     f_apke_dhakem_sk
     =
@@ -627,7 +627,8 @@ let impl_Journalist__long_term_bytes (self: t_Journalist) : t_JournalistLongTerm
 
 /// Reconstruct the long-term Journalist state from raw key bytes.
 assume
-val impl_Journalist__from_long_term_bytes': parts: t_JournalistLongTermBytes -> t_Journalist
+val impl_Journalist__from_long_term_bytes': parts: t_JournalistLongTermBytes
+  -> Core_models.Result.t_Result t_Journalist Anyhow.t_Error
 
 unfold
 let impl_Journalist__from_long_term_bytes = impl_Journalist__from_long_term_bytes'
