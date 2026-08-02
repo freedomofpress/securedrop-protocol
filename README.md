@@ -6,50 +6,51 @@
 | [Specification]                   | 0.4 ([changelog])     |
 | [Tamarin models]                  | 0.3                   |
 
+A peer-reviewed formalization of this project's goals, threat model, and
+security properties can be found in Berra et al. (2026), ["The SecureDrop
+Protocol: End-to-End Encrypted Whistleblowing for All"][eprint].
+
 [changelog]: ./docs/protocol.md#changelog
 [documentation]: https://freedomofpress.github.io/securedrop-protocol/securedrop_protocol_minimal/
 [Proof-of-concept implementation]: https://github.com/freedomofpress/securedrop-protocol/tree/main/securedrop-protocol/protocol-minimal
 [specification]: ./docs/protocol.md
 [Tamarin models]: https://github.com/freedomofpress/securedrop-protocol-models
 
+<!-- After this preamble, all subsequent links are defined at the bottom of this file. -->
+
 ## Status
 
 > [!WARNING]
 > This repository contains proof-of-concept code and is not intended for production use. The protocol details are not yet finalized.
 
-**March 2026:** A manuscript, specifying and proving [version 0.3][v0.3] of the
-protocol and its [Tamarin models], is under peer review. An eprint is
-forthcoming.
+**July 2026:** ["The SecureDrop Protocol: End-to-End Encrypted Whistleblowing
+for All"][eprint] is forthcoming in ACM CCS 2026. This work, with Felix Linker,
+Luca Maier, Kenneth G. Paterson, and Shannon Veitch, led to [version 0.3][v0.3]
+of the specification.
 
-**January 2025:** A formal analysis was performed by
-[Luca Maier](https://github.com/lumaier) in ["A Formal Analysis of the
-SecureDrop Protocol"](https://doi.org/10.3929/ethz-b-000718325), supervised by
+**January 2025:** A formal analysis was performed by [Luca Maier][lumaier] in
+["A Formal Analysis of the SecureDrop Protocol"][lumaier-thesis], supervised by
 David Basin, Felix Linker, and Shannon Veitch in the Information Security Group
 at ETH Zürich. This work led to [version 0.2][v0.2] of the specification.
 
 **May 2024:** [Version 0.1][v0.1] of a [proof-of-concept
-implementation][v0.1-tag] was [announced publicly](https://securedrop.org/news/introducing-securedrop-protocol/).
+implementation][v0.1-tag] was [announced publicly][sd-introducing].
 
-**December 2023:** A preliminary cryptographic audit was performed by
-[Michele Orrù](https://github.com/mmaker). See
-<https://github.com/freedomofpress/securedrop-protocol/issues/36>.
+**December 2023:** [A preliminary cryptographic audit][mmaker-audit] was
+performed by [Michele Orrù][mmaker].
 
-**January 2023:** Proof-of-concept implementation work with
-[Shielder](https://www.shielder.com/) began.
-
-[v0.1]: ./docs/protocol.md#01
-[v0.1-tag]: https://github.com/freedomofpress/securedrop-protocol/releases/tag/v0.1
-[v0.2]: ./docs/protocol.md#02
-[v0.3]: ./docs/protocol.md#03
+**January 2023:** Proof-of-concept implementation work with [Shielder] began.
 
 ## Background
 
+<!-- Update <https://securedrop.org/research> when you update this list. -->
+
 To better understand the context of this research and the previous steps that led to it, read the following blog posts:
 
-- [Part 1: Future directions for SecureDrop](https://securedrop.org/news/future-directions-for-securedrop/)
-- [Part 2: Anatomy of a whistleblowing system](https://securedrop.org/news/anatomy-of-a-whistleblowing-system/)
-- [Part 3: How to research your own cryptography and survive](https://securedrop.org/news/how-to-research-your-own-cryptography-and-survive/)
-- [Part 4: Introducing SecureDrop Protocol](https://securedrop.org/news/introducing-securedrop-protocol/)
+- [Part 1: Future directions for SecureDrop][sd-future]
+- [Part 2: Anatomy of a whistleblowing system][sd-anatomy]
+- [Part 3: How to research your own cryptography and survive][sd-how-to]
+- [Part 4: Introducing SecureDrop Protocol][sd-introducing]
 
 ## Setup instructions
 
@@ -105,11 +106,11 @@ The script prints the TikZ code for the chart to the console, which you can copy
 
 #### Debugging wasm and benchmarking code
 
-[`wasm-bindgen`](https://crates.io/crates/wasm-bindgen) exposes Rust objects and functions in Javascript in the benchmarking code. If troubleshooting, ensure you are using the same version of the wasm-bindgen cli as is specified in Cargo.toml (`wasm-bindgen -V`).
+[`wasm-bindgen`] exposes Rust objects and functions in JavaScript in the benchmarking code. If troubleshooting, ensure you are using the same version of the wasm-bindgen cli as is specified in Cargo.toml (`wasm-bindgen -V`).
 
-`wasm-bindgen` requires wrapper classes for Rust objects to marshall in and out of Javascript. If any structs or function signatures that are being used in `www/index.html` (rendering benchmarks) are changed, the corresponding wrapper structs, annotated with `#[wasm_bindgen]`, will need to change accordingly.
+`wasm-bindgen` requires wrapper classes for Rust objects to marshall in and out of JavaScript. If any structs or function signatures that are being used in `www/index.html` (rendering benchmarks) are changed, the corresponding wrapper structs, annotated with `#[wasm_bindgen]`, will need to change accordingly.
 
-If the wasm-compiled Rust code panics, the browser may display a fairly generic/unhelpful message with limited information (for example, `{"error":"unreachable executed"}`). Add the [`console_error_panic_hook`](https://crates.io/crates/console_error_panic_hook) crate and use the `console_error_panic_hook::set_once();` method in a common codepath annotated by `#[wasm-bindgen]` in order to log further information to the browser console. You will also need to temporarily adjust Cargo.toml:
+If the wasm-compiled Rust code panics, the browser may display a fairly generic/unhelpful message with limited information (for example, `{"error":"unreachable executed"}`). Add the [`console_error_panic_hook`] crate and use the `console_error_panic_hook::set_once();` method in a common codepath annotated by `#[wasm-bindgen]` in order to log further information to the browser console. You will also need to temporarily adjust Cargo.toml:
 
 ```
 [profile.release]
@@ -120,3 +121,22 @@ panic = "unwind"
 ```
 
 You may also need to follow the console_error_panic_hook docs to increase the stacktrace lines printed by your browser.
+
+<!-- Body links should be defined here, sorted alphabetically. -->
+
+[`console_error_panic_hook`]: https://crates.io/crates/console_error_panic_hook
+[`wasm-bindgen`]: https://crates.io/crates/wasm-bindgen
+[Shielder]: https://www.shielder.com/
+[eprint]: https://eprint.iacr.org/2026/1484
+[lumaier]: https://github.com/lumaier
+[lumaier-thesis]: https://doi.org/10.3929/ethz-b-000718325
+[mmaker]: https://github.com/mmaker
+[mmaker-audit]: https://github.com/freedomofpress/securedrop-protocol/issues/36
+[sd-anatomy]: https://securedrop.org/news/anatomy-of-a-whistleblowing-system/
+[sd-future]: https://securedrop.org/news/future-directions-for-securedrop/
+[sd-how-to]: https://securedrop.org/news/how-to-research-your-own-cryptography-and-survive/
+[sd-introducing]: https://securedrop.org/news/introducing-securedrop-protocol/
+[v0.1]: ./docs/protocol.md#01
+[v0.1-tag]: https://github.com/freedomofpress/securedrop-protocol/releases/tag/v0.1
+[v0.2]: ./docs/protocol.md#02
+[v0.3]: ./docs/protocol.md#03

@@ -8,9 +8,10 @@
 ## Specification
 
 As [specified][spec], the security properties of the SecureDrop Protocol have
-been proven with game-based proofs in the computational model in a manuscript
-currently (as of March 2026) under peer review. A subset of these properties
-have also been [proven in the symbolic model][models] using the Tamarin Prover.
+been proven with game-based proofs in the computational model in Berra et al.
+(2026), ["The SecureDrop Protocol: End-to-End Encrypted Whistleblowing for
+All"][berra-2026]. A subset of these properties have also been [proven in the
+symbolic model][models] using the Tamarin Prover.
 
 ## Implementation
 
@@ -104,6 +105,7 @@ verification status:
 
 [hacl]: https://hacl-star.github.io/
 [hpke-rs]: https://github.com/cryspen/hpke-rs
+[berra-2026]: https://eprint.iacr.org/2026/1484
 [bhargavan-2025]: https://eprint.iacr.org/2025/980
 [hax]: https://github.com/cryspen/hax
 [`HAX_TARGETS`]: ./securedrop-protocol/protocol-minimal/Makefile#L5
