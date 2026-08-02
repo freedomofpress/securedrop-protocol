@@ -163,10 +163,7 @@ impl UserSecret for Journalist {
         // in order to reply. either fill with random bytes or use
         // another scheme (fixme)
         Plaintext {
-            sender_fetch_key: DHPublicKey::decode(
-                [0u8; crate::primitives::ristretto255::DH_PUBLIC_KEY_LEN],
-            )
-            .expect("all-zero encoding is the ristretto255 identity"),
+            sender_fetch_key: DHPublicKey::identity(),
             sender_reply_pubkey_hybrid: [0u8; crate::primitives::xwing::XWING_PUBLIC_KEY_LEN],
             msg: message,
         }
@@ -224,7 +221,7 @@ impl Journalist {
         let signing_key = SigningKey::new(rng).expect("Signing keygen failed");
         let verifying_key = signing_key.vk;
 
-        let (sk_fetch, pk_fetch) = generate_dh_keypair(rng).expect("DH Keygen (Fetch) failed");
+        let (sk_fetch, pk_fetch) = generate_dh_keypair(rng);
 
         let reply_apke = message_keygen(rng).expect("SD-APKE Keygen (Reply) failed");
 
@@ -283,7 +280,7 @@ impl Journalist {
     pub fn long_term_bytes(&self) -> JournalistLongTermBytes {
         JournalistLongTermBytes {
             sig_seed: self.signing_key.sk.as_bytes(),
-            fetch_sk: *self.fetch_key.sk.as_bytes(),
+            fetch_sk: self.fetch_key.sk.to_bytes(),
             apke_dhakem_sk: *self.reply_apke.private_key().dhakem.as_bytes(),
             apke_mlkem_sk: *self.reply_apke.private_key().mlkem.as_bytes(),
             apke_mlkem_pk: *self.reply_apke.public_key().mlkem.as_bytes(),

@@ -192,8 +192,7 @@ impl Source {
             .expect("HKDF PKE key derivation failed");
 
         // Create key pairs
-        let (fetch_sk, fetch_pk): (DHPrivateKey, DHPublicKey) =
-            deterministic_dh_keygen(fetch_seed).expect("Need Fetch keygen");
+        let (fetch_sk, fetch_pk): (DHPrivateKey, DHPublicKey) = deterministic_dh_keygen(fetch_seed);
 
         let message_kp =
             kgen_deterministic_message(dh_seed, mlkem_seed).expect("Need SD-APKE keygen");

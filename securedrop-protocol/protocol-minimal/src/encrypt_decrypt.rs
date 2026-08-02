@@ -47,11 +47,9 @@ where
 
     // Hint (X, Z): X = g^x, Z = (pk_R^fetch)^x for a fresh ephemeral scalar x
     // spec: x (hint_esk), X (hint_epk)
-    let (hint_esk, hint_epk) = generate_dh_keypair(rng).expect("DH Keygen (hint) failed");
+    let (hint_esk, hint_epk) = generate_dh_keypair(rng);
     // spec: Z = (pk_R^fetch)^x
-    let hint_sharedsecret: DHPublicKey =
-        dh_shared_secret(recipient.fetch_pk(), hint_esk.into_bytes())
-            .expect("Failed to generate shared secret");
+    let hint_sharedsecret: DHPublicKey = dh_shared_secret(recipient.fetch_pk(), &hint_esk);
 
     // spec: pk_S^APKE - sender's long-term APKE public key
     // spec: ct^PKE = SD-PKE.Enc(pk_R^PKE, pk_S^APKE)
@@ -132,11 +130,10 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     for (message_id, envelope) in entries.iter() {
         if responses.len() < total_responses {
             // Generate ephemeral scalar r, fresh per message
-            let eph_sk = generate_random_scalar(&mut *rng).expect("Want dh scalar");
+            let eph_sk = generate_random_scalar(&mut *rng);
 
             // 3-party DH yields shared_secret used to encrypt message_id
-            let shared_secret =
-                dh_shared_secret(&envelope.mgdh, eph_sk).expect("Need 3-party dh shared secret");
+            let shared_secret = dh_shared_secret(&envelope.mgdh, &eph_sk);
             let enc_mid = encrypt_message_id(&shared_secret.into_bytes(), message_id, rng).unwrap();
 
             // `copy_from_slice` rather than `try_into()`: Core_models has no
@@ -147,7 +144,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 
             // 2-party DH yields per-request clue (pmgdh) used by intended recipient
             // to compute shared_secret
-            let pmgdh = dh_shared_secret(&envelope.mgdh_pubkey, eph_sk).expect("Need pmgdh");
+            let pmgdh = dh_shared_secret(&envelope.mgdh_pubkey, &eph_sk);
 
             responses.push(FetchResponse {
                 enc_id: kmid,
@@ -180,11 +177,7 @@ pub fn solve_fetch_challenges<S: UserSecret>(
 
     for chall in challenges.iter() {
         // Compute 3-party DH on the pmgdh
-        let maybe_kmid_secret = dh_shared_secret(
-            &chall.pmgdh,
-            recipient.fetch_keypair().0.clone().into_bytes(),
-        )
-        .expect("Need 3-party DH (scalarmult) on pmgdh");
+        let maybe_kmid_secret = dh_shared_secret(&chall.pmgdh, recipient.fetch_keypair().0);
 
         // Try decrypting the encrypted message id
         // Convert to UUID (v4) format and add to message ID list on success
