@@ -12,9 +12,7 @@ use crate::metadata::{MetadataKeyPair, MetadataPublicKey, keygen as metadata_key
 use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey};
 use crate::primitives::mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey};
 use crate::primitives::provider;
-use crate::primitives::ristretto255::{
-    DHPrivateKey, DHPublicKey, dh_public_key_from_scalar, generate_dh_keypair,
-};
+use crate::primitives::ristretto255::{DHPrivateKey, DHPublicKey, generate_dh_keypair};
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey};
 use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, UserSecret};
 
@@ -299,11 +297,8 @@ impl Journalist {
 
         let signing_key = SigningKey::from_seed(parts.sig_seed);
         let verifying_key = signing_key.vk;
-
-        let sk_fetch = DHPrivateKey::from_bytes(parts.fetch_sk);
-        // Fails if the stored scalar is not a canonical element of
-        // $\mathbb{Z}_\ell$ - this should not happen
-        let pk_fetch = dh_public_key_from_scalar(parts.fetch_sk)?;
+        let sk_fetch = DHPrivateKey::decode(parts.fetch_sk)?;
+        let pk_fetch = sk_fetch.public_key();
 
         let mut apke_dhakem_pk_bytes = [0u8; 32];
         provider::curve25519::secret_to_public(&mut apke_dhakem_pk_bytes, &parts.apke_dhakem_sk);

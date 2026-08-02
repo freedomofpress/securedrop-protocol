@@ -55,7 +55,8 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
         inbox.push(InboxEntry {
             message_id: id_str,
             text,
-            sender_fetch_pk: DHPublicKey::from_bytes(plaintext.sender_fetch_key),
+            sender_fetch_pk: DHPublicKey::decode(plaintext.sender_fetch_key)
+                .context("recovered source fetch key is malformed")?,
             sender_apke_pk: sender_apke,
             sender_metadata_pk,
         });
