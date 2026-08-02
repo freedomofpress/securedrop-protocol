@@ -1,7 +1,7 @@
 use crate::message::MessageCiphertext;
 use crate::metadata::MetadataCiphertext;
 use crate::primitives::provider::constants::LEN_KMID;
-use crate::primitives::ristretto255::{DH_PUBLIC_KEY_LEN, DH_SHARED_SECRET_LEN};
+use crate::primitives::ristretto255::{DH_PUBLIC_KEY_LEN, DHPublicKey};
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use alloc::vec::Vec;
 use anyhow::Error;
@@ -49,12 +49,10 @@ pub struct Envelope {
     pub(crate) ct_pke: MetadataCiphertext,
 
     /// `X = g^x`: ephemeral DH public key for the hint
-    #[cfg_attr(not(hax), serde(with = "hex_array"))]
-    pub(crate) mgdh_pubkey: [u8; DH_PUBLIC_KEY_LEN],
+    pub(crate) mgdh_pubkey: DHPublicKey,
 
     /// `Z = (pk_R^fetch)^x`: DH share for fetching
-    #[cfg_attr(not(hax), serde(with = "hex_array"))]
-    pub(crate) mgdh: [u8; DH_PUBLIC_KEY_LEN],
+    pub(crate) mgdh: DHPublicKey,
 }
 
 impl Envelope {
@@ -128,12 +126,12 @@ impl Plaintext {
 pub struct FetchResponse {
     #[cfg_attr(not(hax), serde(with = "hex_array"))]
     pub(crate) enc_id: [u8; LEN_KMID], // aka kmid
-    #[cfg_attr(not(hax), serde(with = "hex_array"))]
-    pub(crate) pmgdh: [u8; DH_SHARED_SECRET_LEN], // aka per-request clue
+    // `Q_k`, the per-request clue
+    pub(crate) pmgdh: DHPublicKey,
 }
 
 impl FetchResponse {
-    pub fn new(enc_id: [u8; LEN_KMID], pmgdh: [u8; DH_SHARED_SECRET_LEN]) -> Self {
+    pub fn new(enc_id: [u8; LEN_KMID], pmgdh: DHPublicKey) -> Self {
         Self { enc_id, pmgdh }
     }
 }
@@ -144,8 +142,11 @@ mod tests {
     use crate::metadata::LEN_METADATA_CIPHERTEXT;
     use crate::primitives::dh_akem::DH_AKEM_ENCAPS_SECRET_LEN;
     use crate::primitives::mlkem::LEN_MLKEM_SHAREDSECRET_ENCAPS;
+    use crate::primitives::ristretto255::random_dh_public_key;
     use crate::primitives::xwing::LEN_XWING_SHAREDSECRET_ENCAPS;
     use proptest::prelude::*;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
 
     fn message_ct(c1: Vec<u8>, cp: Vec<u8>, c2: Vec<u8>) -> MessageCiphertext {
         MessageCiphertext {
@@ -186,9 +187,13 @@ mod tests {
             c in prop::collection::vec(any::<u8>(), LEN_XWING_SHAREDSECRET_ENCAPS),
             cp_b in prop::collection::vec(any::<u8>(), LEN_METADATA_CIPHERTEXT)
             .prop_map(|v| v.try_into().unwrap()),
-            mgdh_pubkey in prop::array::uniform32(any::<u8>()),
-            mgdh in prop::array::uniform32(any::<u8>()),
+            rng_seed: u64,
         ) {
+            // X and Z must be valid ristretto255 encodings
+            let mut rng = ChaCha20Rng::seed_from_u64(rng_seed);
+            let mgdh_pubkey = random_dh_public_key(&mut rng);
+            let mgdh = random_dh_public_key(&mut rng);
+
             let env = Envelope {
                 ct_apke: message_ct(c1, cp_a, c2),
                 ct_pke: MetadataCiphertext { c: c.try_into().expect("c length"), cp: cp_b },
@@ -199,23 +204,26 @@ mod tests {
             let restored: Envelope = serde_json::from_str(&json).expect("deserialize");
             prop_assert_eq!(env.ct_apke.as_bytes(), restored.ct_apke.as_bytes());
             prop_assert_eq!(env.ct_pke.as_bytes(), restored.ct_pke.as_bytes());
-            prop_assert_eq!(env.mgdh_pubkey, restored.mgdh_pubkey);
-            prop_assert_eq!(env.mgdh, restored.mgdh);
+            prop_assert_eq!(env.mgdh_pubkey.into_bytes(), restored.mgdh_pubkey.into_bytes());
+            prop_assert_eq!(env.mgdh.into_bytes(), restored.mgdh.into_bytes());
         }
 
         #[test]
         fn test_fetch_challenge_response_serde_roundtrip(
             enc_ids in prop::collection::vec(
                 prop::collection::vec(any::<u8>(), LEN_KMID), 0..6),
-            pmgdhs in prop::collection::vec(prop::array::uniform32(any::<u8>()), 0..6),
+            rng_seed: u64,
         ) {
-            let n = enc_ids.len().min(pmgdhs.len());
-            let messages: Vec<FetchResponse> = (0..n)
-                .map(|i| FetchResponse {
-                    enc_id: enc_ids[i].clone().try_into().expect("enc_id length"),
-                    pmgdh: pmgdhs[i],
+            // pmgdh is a ristretto255 group element
+            let mut rng = ChaCha20Rng::seed_from_u64(rng_seed);
+            let messages: Vec<FetchResponse> = enc_ids
+                .iter()
+                .map(|enc_id| FetchResponse {
+                    enc_id: enc_id.clone().try_into().expect("enc_id length"),
+                    pmgdh: random_dh_public_key(&mut rng),
                 })
                 .collect();
+            let n = messages.len();
             let resp = crate::wire::core::MessageChallengeFetchResponse { count: n, messages };
 
             let json = serde_json::to_string(&resp).expect("serialize");
@@ -226,7 +234,7 @@ mod tests {
             prop_assert_eq!(restored.messages.len(), resp.messages.len());
             for (a, b) in resp.messages.iter().zip(restored.messages.iter()) {
                 prop_assert_eq!(a.enc_id, b.enc_id);
-                prop_assert_eq!(a.pmgdh, b.pmgdh);
+                prop_assert_eq!(a.pmgdh.into_bytes(), b.pmgdh.into_bytes());
             }
         }
     }
