@@ -77,7 +77,7 @@ pub struct Plaintext {
     /// Metadata key: $pk_S^{PKE}$ in the spec
     pub sender_reply_pubkey_hybrid: [u8; XWING_PUBLIC_KEY_LEN],
     /// Fetching key: $pk_S^{fetch}$ in the spec
-    pub sender_fetch_key: [u8; DH_PUBLIC_KEY_LEN],
+    pub sender_fetch_key: DHPublicKey,
     /// Message
     pub msg: Vec<u8>,
 }
@@ -88,7 +88,7 @@ impl Plaintext {
         let mut buf = Vec::new();
 
         buf.extend_from_slice(&self.sender_reply_pubkey_hybrid);
-        buf.extend_from_slice(&self.sender_fetch_key);
+        buf.extend_from_slice(&self.sender_fetch_key.into_bytes());
         buf.extend_from_slice(&self.msg);
 
         buf
@@ -107,8 +107,10 @@ impl Plaintext {
             .copy_from_slice(&pt_bytes[offset..offset + XWING_PUBLIC_KEY_LEN]);
         offset += XWING_PUBLIC_KEY_LEN;
 
-        let mut sender_fetch_key = [0u8; DH_PUBLIC_KEY_LEN];
-        sender_fetch_key.copy_from_slice(&pt_bytes[offset..offset + DH_PUBLIC_KEY_LEN]);
+        let mut fetch_key_bytes = [0u8; DH_PUBLIC_KEY_LEN];
+        fetch_key_bytes.copy_from_slice(&pt_bytes[offset..offset + DH_PUBLIC_KEY_LEN]);
+
+        let sender_fetch_key = DHPublicKey::decode(fetch_key_bytes)?;
         offset += DH_PUBLIC_KEY_LEN;
 
         let msg = pt_bytes[offset..].to_vec();

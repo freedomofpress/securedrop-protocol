@@ -2,7 +2,7 @@ use crate::message::MessagePublicKey;
 use crate::metadata;
 use crate::primitives::provider::constants::{LEN_KMID, LEN_MESSAGE_ID};
 use crate::primitives::ristretto255::{
-    DH_PUBLIC_KEY_LEN, DHPublicKey, dh_shared_secret, generate_dh_keypair, generate_random_scalar,
+    DHPublicKey, dh_shared_secret, generate_dh_keypair, generate_random_scalar,
     random_dh_public_key,
 };
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
@@ -208,14 +208,11 @@ pub fn solve_fetch_challenges<S: UserSecret>(
 /// but for toy purposes, everyone builds a Plaintext message the same way
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
-    let mut fetch_pk = [0u8; DH_PUBLIC_KEY_LEN];
-    fetch_pk.copy_from_slice(&sender.fetch_pk().clone().into_bytes());
-
     let mut reply_key_pq_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
     reply_key_pq_hybrid.copy_from_slice(sender.message_metadata_pk().as_bytes());
 
     Plaintext {
-        sender_fetch_key: fetch_pk,
+        sender_fetch_key: *sender.fetch_pk(),
         sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
         msg: message,
     }
@@ -227,6 +224,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
+    use crate::primitives::ristretto255::DH_PUBLIC_KEY_LEN;
     use crate::{Journalist, Source, SourcePublicView, storage::ServerStorage};
 
     use super::*;
@@ -257,7 +255,7 @@ mod tests {
         assert_eq!(pt_ref.len(), decrypted.to_bytes().len());
 
         assert_eq!(
-            pt_ref.sender_fetch_key,
+            pt_ref.sender_fetch_key.into_bytes(),
             sender_secret.fetch_keypair().1.clone().into_bytes()
         );
         assert_eq!(
@@ -390,7 +388,7 @@ mod tests {
         // Journalist decrypts and recovers the source's reply keys.
         let (pt, sender_apke) = decrypt_with_sender(&journalist, &envelope);
         let reply_recipient = SourcePublicView::from_reply_keys(
-            DHPublicKey::decode(pt.sender_fetch_key).expect("recovered fetch key is valid"),
+            pt.sender_fetch_key,
             sender_apke,
             crate::metadata::MetadataPublicKey::from_bytes(&pt.sender_reply_pubkey_hybrid)
                 .expect("recovered metadata key is valid"),

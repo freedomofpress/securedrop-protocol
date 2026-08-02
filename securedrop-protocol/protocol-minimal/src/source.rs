@@ -12,7 +12,7 @@ use rand_core::{CryptoRng, RngCore};
 use crate::ciphertext::Plaintext;
 use crate::keys::*;
 use crate::primitives::provider::hkdf;
-use crate::primitives::ristretto255::{DH_PUBLIC_KEY_LEN, DH_SEED_LEN};
+use crate::primitives::ristretto255::DH_SEED_LEN;
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use crate::traits::{UserPublic, UserSecret};
 
@@ -104,14 +104,11 @@ impl UserSecret for Source {
     }
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
-        let mut fetch_pk = [0u8; DH_PUBLIC_KEY_LEN];
-        fetch_pk.copy_from_slice(&self.fetch_key.pk.into_bytes());
-
         let mut reply_key_pq_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
         reply_key_pq_hybrid.copy_from_slice(self.message_keys.metadata_kp.public_key().as_bytes());
 
         Plaintext {
-            sender_fetch_key: fetch_pk,
+            sender_fetch_key: self.fetch_key.pk,
             sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
             msg: message,
         }
