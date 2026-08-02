@@ -40,13 +40,6 @@ impl DHPublicKey {
         Ok(Self(canonical))
     }
 
-    /// This can only be used for trusted bytes.
-    ///
-    /// TODO(Jen): remove this
-    pub(crate) fn from_bytes(bytes: [u8; DH_PUBLIC_KEY_LEN]) -> Self {
-        Self(bytes)
-    }
-
     /// The canonical 32-byte encoding of this element.
     pub fn into_bytes(self) -> [u8; DH_PUBLIC_KEY_LEN] {
         self.0

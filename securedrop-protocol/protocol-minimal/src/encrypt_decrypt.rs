@@ -49,7 +49,6 @@ where
     // spec: x (hint_esk), X (hint_epk)
     let (hint_esk, hint_epk) = generate_dh_keypair(rng).expect("DH Keygen (hint) failed");
     // spec: Z = (pk_R^fetch)^x
-    // TODO(Jen): types here
     let hint_sharedsecret: DHPublicKey =
         dh_shared_secret(recipient.fetch_pk(), hint_esk.into_bytes())
             .expect("Failed to generate shared secret");
@@ -391,7 +390,7 @@ mod tests {
         // Journalist decrypts and recovers the source's reply keys.
         let (pt, sender_apke) = decrypt_with_sender(&journalist, &envelope);
         let reply_recipient = SourcePublicView::from_reply_keys(
-            DHPublicKey::from_bytes(pt.sender_fetch_key),
+            DHPublicKey::decode(pt.sender_fetch_key).expect("recovered fetch key is valid"),
             sender_apke,
             crate::metadata::MetadataPublicKey::from_bytes(&pt.sender_reply_pubkey_hybrid)
                 .expect("recovered metadata key is valid"),
