@@ -3,6 +3,7 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::primitives::provider;
+use crate::primitives::provider::ristretto255::{Point, Scalar};
 
 pub const DH_PUBLIC_KEY_LEN: usize = provider::ristretto255::PK_LEN;
 pub(crate) const DH_PRIVATE_KEY_LEN: usize = provider::ristretto255::SK_LEN;
@@ -14,19 +15,19 @@ pub const DH_SEED_LEN: usize = provider::ristretto255::SEED_LEN;
 ///
 /// # Security
 ///
-/// This can be instantiated only by going through point decompression
-/// to ensure it is a valid ristretto255 group element.
-///
-/// TODO(jen): Internal `CompressedRistretto` and `RistrettoPoint`?
+/// This can be instantiated only by decoding, by the element derivation
+/// function, or by a group operation, so it is always a valid ristretto255
+/// element. The element is held decompressed, so repeated operations on the
+/// same key do not repeat point decompression.
 #[derive(Debug, Clone, Copy)]
-pub struct DHPublicKey([u8; DH_PUBLIC_KEY_LEN]);
+pub struct DHPublicKey(Point);
 
-/// A ristretto255 scalar in $\mathbb{Z}_\ell$ canonically encoded.
+/// A ristretto255 scalar in $\mathbb{Z}_\ell$.
 ///
-/// TODO(jen): Internal `Scalar` - not doing this at this moment
-/// because the providers module interface is all byte based
+/// This can be instantiated only by validating decode or by wide reduction, so
+/// it is always canonical.
 #[derive(Debug, Clone)]
-pub struct DHPrivateKey([u8; DH_PRIVATE_KEY_LEN]);
+pub struct DHPrivateKey(Scalar);
 
 impl DHPublicKey {
     /// Decode a group element from its 32 byte encoding, validating that it is a
@@ -35,14 +36,19 @@ impl DHPublicKey {
     /// This must be used for any untrusted bytes (wire or storage) such that an
     /// invalid element cannot be instantiated.
     pub fn decode(bytes: [u8; DH_PUBLIC_KEY_LEN]) -> Result<Self, Error> {
-        let canonical = provider::ristretto255::decode(&bytes)
-            .ok_or_else(|| anyhow::anyhow!("invalid ristretto255 point encoding"))?;
-        Ok(Self(canonical))
+        provider::ristretto255::decode(&bytes)
+            .map(Self)
+            .ok_or_else(|| anyhow::anyhow!("invalid ristretto255 point encoding"))
+    }
+
+    /// The identity element, whose canonical encoding is 32 zero bytes.
+    pub fn identity() -> Self {
+        Self(provider::ristretto255::identity())
     }
 
     /// The canonical 32-byte encoding of this element.
     pub fn into_bytes(self) -> [u8; DH_PUBLIC_KEY_LEN] {
-        self.0
+        provider::ristretto255::encode(&self.0)
     }
 }
 
@@ -50,24 +56,19 @@ impl DHPrivateKey {
     /// Decode a scalar from bytes, validating it is a canonical element of
     /// $\mathbb{Z}_\ell$.
     pub fn decode(bytes: [u8; DH_PRIVATE_KEY_LEN]) -> Result<Self, Error> {
-        let canonical = provider::ristretto255::scalar_decode(&bytes)
-            .ok_or_else(|| anyhow::anyhow!("non-canonical ristretto255 scalar"))?;
-        Ok(Self(canonical))
+        provider::ristretto255::scalar_decode(&bytes)
+            .map(Self)
+            .ok_or_else(|| anyhow::anyhow!("non-canonical ristretto255 scalar"))
     }
 
     /// Derive the public key $[sk] B$.
     pub fn public_key(&self) -> DHPublicKey {
-        let pk = provider::ristretto255::secret_to_public(&self.0)
-            .expect("DHPrivateKey holds a canonical scalar");
-        DHPublicKey(pk)
+        DHPublicKey(provider::ristretto255::secret_to_public(&self.0))
     }
 
-    pub fn as_bytes(&self) -> &[u8; DH_PRIVATE_KEY_LEN] {
-        &self.0
-    }
-
-    pub fn into_bytes(self) -> [u8; DH_PRIVATE_KEY_LEN] {
-        self.0
+    /// The canonical encoding of this scalar.
+    pub fn to_bytes(&self) -> [u8; DH_PRIVATE_KEY_LEN] {
+        provider::ristretto255::scalar_encode(&self.0)
     }
 }
 
@@ -77,18 +78,15 @@ impl DHPrivateKey {
 /// $sk_S^{fetch}$), and for deterministic tests.
 pub(crate) fn deterministic_dh_keygen(
     randomness: [u8; DH_SEED_LEN],
-) -> Result<(DHPrivateKey, DHPublicKey), Error> {
-    let secret_key = provider::ristretto255::scalar_from_wide(&randomness);
-    let public_key = provider::ristretto255::secret_to_public(&secret_key)
-        .ok_or_else(|| anyhow::anyhow!("ristretto255 key generation failed"))?;
+) -> (DHPrivateKey, DHPublicKey) {
+    let secret_key = DHPrivateKey(provider::ristretto255::scalar_from_wide(&randomness));
+    let public_key = secret_key.public_key();
 
-    Ok((DHPrivateKey(secret_key), DHPublicKey(public_key)))
+    (secret_key, public_key)
 }
 
 /// Generate a new ristretto255 DH keypair
-pub fn generate_dh_keypair<R: RngCore + CryptoRng>(
-    rng: &mut R,
-) -> Result<(DHPrivateKey, DHPublicKey), Error> {
+pub fn generate_dh_keypair<R: RngCore + CryptoRng>(rng: &mut R) -> (DHPrivateKey, DHPublicKey) {
     let mut randomness = [0u8; DH_SEED_LEN];
     provider::rng::fill_bytes(rng, &mut randomness);
 
@@ -104,29 +102,22 @@ pub fn random_dh_public_key<R: RngCore + CryptoRng>(rng: &mut R) -> DHPublicKey 
 }
 
 /// Sample a scalar $x \gets^{\$} \mathbb{F}_\ell$.
-pub fn generate_random_scalar<R: RngCore + CryptoRng>(
-    rng: &mut R,
-) -> Result<[u8; DH_PRIVATE_KEY_LEN], Error> {
+pub fn generate_random_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> DHPrivateKey {
     let mut randomness = [0u8; DH_SEED_LEN];
     provider::rng::fill_bytes(rng, &mut randomness);
 
-    Ok(provider::ristretto255::scalar_from_wide(&randomness))
+    DHPrivateKey(provider::ristretto255::scalar_from_wide(&randomness))
 }
 
 /// Compute DH agreement.
-pub fn dh_shared_secret(
-    public_key: &DHPublicKey,
-    scalar: [u8; DH_PRIVATE_KEY_LEN],
-) -> Result<DHPublicKey, Error> {
-    let shared = provider::ristretto255::dh(&public_key.0, &scalar)
-        .ok_or_else(|| anyhow::anyhow!("ristretto255 DH failed"))?;
-    Ok(DHPublicKey(shared))
+pub fn dh_shared_secret(public_key: &DHPublicKey, scalar: &DHPrivateKey) -> DHPublicKey {
+    DHPublicKey(provider::ristretto255::dh(&public_key.0, &scalar.0))
 }
 
 #[cfg_attr(hax, hax_lib::exclude)]
 impl serde::Serialize for DHPublicKey {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-        ser.serialize_str(&hex::encode(self.0))
+        ser.serialize_str(&hex::encode(self.into_bytes()))
     }
 }
 
