@@ -1,10 +1,24 @@
 # SecureDrop Protocol architecture
 
-## Why is this unique?
+For an overview of the SecureDrop Protocol, see Berra et al. (2026), ["The
+SecureDrop Protocol: End-to-End Encrypted Whistleblowing for All"][berra-2026],
+including:
 
-What is implemented here is a small-scale, self-contained, anonymous message box, where anonymous parties (sources) can contact and receive replies from trusted parties (journalists). The whole protocol does not require server authentication, and every API call is independent and self-contained. Message submission and retrieval are completely symmetric for both sources and journalists, making the individual HTTP requests potentially indistinguishable. The server does not have information about message senders, receivers, the number of sources or login times, because there are no accounts, and therefore, no logins.
+- Design goals
+  - Security requirements
+  - Adversary model
+  - Use cases
+- Related work
+- Protocol design ([v0.3]): see the current [specification]
+- Security analyses
+- Implementation
+  - Benchmarks
+  - Deployment considerations
+- References
+- Ethical considerations
 
-Nonetheless, the server must not reveal information about its internal state to external parties (such as generic internet users or sources), and must not allow those parties to enumerate or discern any information about messages stored on the server. To satisfy this constraint, a special message-fetching mechanism is implemented, where only the intended recipients are able to discover if they have pending messages.
+The rest of this document outlines design considerations and open questions that
+are not reflected in this publication.
 
 ## Assumptions
 
@@ -13,28 +27,36 @@ Nonetheless, the server must not reveal information about its internal state to 
   parties communicate with the server via HTTP over Tor. A production
   implementation may use HTTP and/or WebSockets over Tor.
 
-  - The protocol is amenable to mitigations against traffic analysis beyond
-    the use of Tor, but they are out of the scope of this document.
-
 - **Message expiry/deletion will occur on a fuzzy interval.**
-  The computation and bandwidth required for the message-fetching portion of this protocol limits the number of messages that can be stored on the server at once (a current estimate is that more than a few thousand would produce unreasonably slow computation times).
   The protocol will expire messages on the server at a fuzzy interval `d` days +/- `i` (for example, 37 +- 7 days would guarantee message availability for a minimum of 30 days). The goal of fuzzy-interval message expiry is to avoid writing precise metadata to disk about when a message was submitted, which would be implied by a fixed expiry time.
-  Client-side (local) message deletion will be supported for journalists. Note this is not an anti-forensic measure, because some indicator will be retained in order to avoid re-downloading it. As of v0.3 (2025-10-17), this implementation decision contrasts with the existing Tamarin model, where one-time message delivery is modeled.
+  Client-side (local) message deletion will be supported for journalists. Note this is not an anti-forensic measure, because some indicator will be retained in order to avoid re-downloading it.
+  Detecting messages a client has already seen (i.e., preventing replay of the same protocol-level ciphertext) is an application-level responsibility on the journalist side (and not possible on the stateless source side).
 
 - **Messaging an arbitrary subset of journalists will not be supported.**
-  Messages from source to newsroom will be delivered to all* enrolled journalists for a given newsroom. Replies to sources from journalists will be delivered to all enrolled journalists plus the source. Journalists will be able to send group messages to all other journalists enrolled at their newsroom. Neither journalists nor sources will
+  Journalists will be able to send group messages to all other journalists enrolled at their newsroom. Neither journalists nor sources will
   have individual messaging or arbitrary group messaging capabilities exposed to
   them via the UI.
-  *(The message delivery behaviour if a particular journalist's ephemeral key supply has been exhausted has yet to be finalized).
+  (The message delivery behaviour if a particular journalist's ephemeral key supply has been exhausted has yet to be finalized.)
 
 - **The server OS and filesystem will minimize metadata.** OS implementation-level
   specifications are not part of the protocol, but it is assumed that file creation/deletion operations will not be logged to disk, and options will be explored for minimizing timestamps and other metadata at the filesystem level.
+
+## Additional considerations for the threat model
+
+Freedom of the Press Foundation (FPF) is the entity responsible for maintaining SecureDrop. FPF can offer additional services, such as dedicated support. While the project is open source, its components (SecureDrop releases, Onion Rulesets submitted upstream to Tor Browser) are signed with signing keys controlled by FPF. Despite this, SecureDrop is and will remain completely usable without any FPF involvement or knowledge.
+
+- Is generally trusted
+- Is based in the US
+- Might get compromised technically
+- Might get compromised legally
+- Develops all the components and signs them
+- Enrolls newsrooms
 
 ## Limitations and Discussion
 
 ### Behavioral analysis
 
-While there are no user accounts, and all messages have the same structure from an HTTP perspective, the server could still detect if it is interacting with a source or a journalist by observing API request patterns. Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading ephemeral keys). A further fingerprinting mechanism could be, for instance, measuring how much time any client takes to fetch messages. Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
+Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading ephemeral keys). Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
 
 ### Ephemeral key exhaustion
 
@@ -51,11 +73,7 @@ One mitigation for behavioural analysis is the introduction of decoy traffic, wh
 
 ### Denial of service
 
-Without traditional accounts, it might be easy to flood the service with unwanted messages or fetch requests that would be heavy on the server CPU. Depending on the individual _Newsroom_'s previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
-
-### Covert communication
-
-See https://github.com/freedomofpress/securedrop-protocol/issues/14.
+Without traditional accounts, it might be easy to flood the service with [too many messages][MAX_MESSAGES] or fetch requests that would be heavy on the server CPU. Depending on the individual _Newsroom_'s previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
 
 ### Minimize logging
 
@@ -69,12 +87,17 @@ A good existing protocol for serving the revocation would be OCSP stapling serve
 
 ### More hardening
 
-This protocol can be hardened further in specific parts, including: rotating fetching keys regularly on the journalist side; adding a short (e.g., 30 day) expiration to ephemeral keys so that they are guaranteed to rotate even in case of malicious servers; and allowing for "submit-only" sources that do not save the passphrase and are not reachable after first contact. These details are left for internal team evaluation and production implementation constraints.
+This protocol can be hardened further in specific parts, such as:
+
+- rotating fetching keys regularly on the journalist side;
+- adding a short (e.g., 30 day) expiration to ephemeral keys so that they are guaranteed to rotate even in case of malicious servers.
+
+These details are left for internal team evaluation and production implementation constraints.
 
 ## Notes on other components
 
 - **Keys**: When referring to keys, either symmetric or asymmetric, depending on the context, the key storage backend (i.e.: the media device) may eventually vary. Long term keys in particular can be stored on Hardware Security Modules or Smart Cards, and signing keys might also be a combination of multiple keys with special requirements (e.g., 3 out of 5 signers)
-- **Server**: For this project, a server might be a physical dedicated server housed in a trusted location, a physical server in an untrusted location, or a virtual server in a trusted or untrusted context. Besides the initial setup, all the connections to the server have to happen though the Tor Hidden Service Protocol. However, we can expect that a powerful attacker can find the server location and provider (through financial records, legal orders, de-anonymization attacks, logs of the setup phase).
+- **Server**: Besides the initial setup, all the connections to the server have to happen through the Tor Hidden Service Protocol. However, we can expect that a powerful attacker can find the server location and provider (through financial records, legal orders, de-anonymization attacks, logs of the setup phase).
 - **Trust(ed) parties**: When referring to "trust" and "trusted" parties, the term "trust" is meant in a technical sense (as used in https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-133r2.pdf), and not the social sense (as used in https://www.pewresearch.org/topic/news-habits-media/media-society/media-attitudes/trust-in-media/).
 
 ## Areas for further discussion
@@ -83,7 +106,11 @@ The following are areas of ongoing discussion/development or may be addressed by
 
 - **Key-fetch**: timing of key-fetch request (avoid timing information about partial/incomplete protocol runs). See also key exhaustion above.
 - **Plaintext message structure**: specifically, application-level "metadata" (which could include non-cryptographic information such as key identifiers, or any other information encrypted along with the message plaintext and transmitted to the recipient) remains to be specified.
-- **Dead-drop mode**: In a unidirectional dead-drop mode, the sender could avoid attaching public keys.
 - **Message-fetch batching**: for now, one fetch request corresponds to one message_id, and multiple ids are not fetched at once.
 - **One-time key choice/conflicts**: What to do with messages encrypted to recipient using same recipient key bundle remains to be discussed. See also https://github.com/freedomofpress/securedrop-protocol/issues/99.
 - **Key lifetimes**: The lifetime of the journalist fetching key and journalist DH-AKEM reply key are still to be discussed. See also https://github.com/freedomofpress/securedrop-protocol/issues/99 for separate discussion of lifetime of journalist key bundles for receiving messages (currently one-time use).
+
+[MAX_MESSAGES]: https://github.com/freedomofpress/securedrop-protocol/blob/d512528f42760f7ccb5205291ba11a377333cc0e/README.md?plain=1#L29
+[berra-2026]: https://eprint.iacr.org/2026/1484
+[specification]: ./protocol.md
+[v0.3]: ./protocol.md#03
