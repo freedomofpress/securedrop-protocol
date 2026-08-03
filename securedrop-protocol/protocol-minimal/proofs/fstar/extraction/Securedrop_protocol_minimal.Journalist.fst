@@ -378,7 +378,7 @@ let impl_4: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
         {
           Securedrop_protocol_minimal.Ciphertext.f_sender_fetch_key
           =
-          Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__identity ();
+          Securedrop_protocol_minimal.Primitives.Ristretto255.placeholder_public_key ();
           Securedrop_protocol_minimal.Ciphertext.f_sender_reply_pubkey_hybrid
           =
           Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216);

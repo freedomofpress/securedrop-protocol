@@ -93,12 +93,6 @@ let impl_DHPublicKey__decode (bytes: t_Array u8 (mk_usize 32))
         in
         Anyhow.__private.must_use error)
 
-/// The identity element, whose canonical encoding is 32 zero bytes.
-let impl_DHPublicKey__identity (_: Prims.unit) : t_DHPublicKey =
-  DHPublicKey (Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.identity ())
-  <:
-  t_DHPublicKey
-
 /// The canonical 32-byte encoding of this element.
 let impl_DHPublicKey__into_bytes (self: t_DHPublicKey) : t_Array u8 (mk_usize 32) =
   Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.encode self._0
@@ -173,6 +167,31 @@ let generate_dh_keypair
   let _:Prims.unit = () in
   let hax_temp_output:(t_DHPrivateKey & t_DHPublicKey) = deterministic_dh_keygen randomness in
   rng, hax_temp_output <: (v_R & (t_DHPrivateKey & t_DHPublicKey))
+
+/// The seed to [`placeholder_public_key`].
+let v_PLACEHOLDER_SEED: t_Slice u8 =
+  (let list =
+      [
+        mk_u8 115; mk_u8 101; mk_u8 99; mk_u8 117; mk_u8 114; mk_u8 101; mk_u8 100; mk_u8 114;
+        mk_u8 111; mk_u8 112; mk_u8 45; mk_u8 112; mk_u8 114; mk_u8 111; mk_u8 116; mk_u8 111;
+        mk_u8 99; mk_u8 111; mk_u8 108; mk_u8 45; mk_u8 112; mk_u8 108; mk_u8 97; mk_u8 99;
+        mk_u8 101; mk_u8 104; mk_u8 111; mk_u8 108; mk_u8 100; mk_u8 101; mk_u8 114; mk_u8 45;
+        mk_u8 118; mk_u8 49
+      ]
+    in
+    FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 34);
+    Rust_primitives.Hax.array_of_list 34 list)
+  <:
+  t_Slice u8
+
+/// A fixed group element used as a placeholder value.
+let placeholder_public_key (_: Prims.unit) : t_DHPublicKey =
+  let seed:t_Array u8 (mk_usize 64) =
+    Securedrop_protocol_minimal.Primitives.Provider.Sha2.sha512 v_PLACEHOLDER_SEED
+  in
+  DHPublicKey (Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.from_uniform_bytes seed)
+  <:
+  t_DHPublicKey
 
 /// Sample a uniformly random group element.
 let random_dh_public_key

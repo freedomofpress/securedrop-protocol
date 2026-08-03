@@ -163,7 +163,7 @@ impl UserSecret for Journalist {
         // in order to reply. either fill with random bytes or use
         // another scheme (fixme)
         Plaintext {
-            sender_fetch_key: DHPublicKey::identity(),
+            sender_fetch_key: crate::primitives::ristretto255::placeholder_public_key(),
             sender_reply_pubkey_hybrid: [0u8; crate::primitives::xwing::XWING_PUBLIC_KEY_LEN],
             msg: message,
         }

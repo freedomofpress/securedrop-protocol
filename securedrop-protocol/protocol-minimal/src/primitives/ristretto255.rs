@@ -41,11 +41,6 @@ impl DHPublicKey {
             .ok_or_else(|| anyhow::anyhow!("invalid ristretto255 point encoding"))
     }
 
-    /// The identity element, whose canonical encoding is 32 zero bytes.
-    pub fn identity() -> Self {
-        Self(provider::ristretto255::identity())
-    }
-
     /// The canonical 32-byte encoding of this element.
     pub fn into_bytes(self) -> [u8; DH_PUBLIC_KEY_LEN] {
         provider::ristretto255::encode(&self.0)
@@ -91,6 +86,16 @@ pub fn generate_dh_keypair<R: RngCore + CryptoRng>(rng: &mut R) -> (DHPrivateKey
     provider::rng::fill_bytes(rng, &mut randomness);
 
     deterministic_dh_keygen(randomness)
+}
+
+/// The seed to [`placeholder_public_key`].
+const PLACEHOLDER_SEED: &[u8] = b"securedrop-protocol-placeholder-v1";
+
+/// A fixed group element used as a placeholder value.
+pub fn placeholder_public_key() -> DHPublicKey {
+    let seed = provider::sha2::sha512(PLACEHOLDER_SEED);
+
+    DHPublicKey(provider::ristretto255::from_uniform_bytes(&seed))
 }
 
 /// Sample a uniformly random group element.

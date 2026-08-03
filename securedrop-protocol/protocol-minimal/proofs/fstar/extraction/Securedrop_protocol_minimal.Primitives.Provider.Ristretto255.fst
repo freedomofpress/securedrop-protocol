@@ -117,13 +117,6 @@ val encode': point: t_Point -> t_Array u8 (mk_usize 32)
 unfold
 let encode = encode'
 
-/// The identity element, whose canonical encoding is 32 zero bytes.
-assume
-val identity': Prims.unit -> t_Point
-
-unfold
-let identity = identity'
-
 /// Compute $pk = [sk] B$, where $B$ is the ristretto255 basepoint.
 assume
 val secret_to_public': secret_key: t_Scalar -> t_Point

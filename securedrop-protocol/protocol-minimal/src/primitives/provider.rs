@@ -20,9 +20,7 @@ pub mod curve25519 {
 pub mod ristretto255 {
 
     #[cfg_attr(hax, hax_lib::opaque)]
-    use curve25519_dalek::{
-        RistrettoPoint, Scalar as DalekScalar, ristretto::CompressedRistretto, traits::Identity,
-    };
+    use curve25519_dalek::{RistrettoPoint, Scalar as DalekScalar, ristretto::CompressedRistretto};
 
     /// A canonically encoded scalar in $\mathbb{Z}_\ell$.
     pub(crate) const SK_LEN: usize = 32;
@@ -103,12 +101,6 @@ pub mod ristretto255 {
     #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) fn encode(point: &Point) -> [u8; PK_LEN] {
         point.0.compress().to_bytes()
-    }
-
-    /// The identity element, whose canonical encoding is 32 zero bytes.
-    #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) fn identity() -> Point {
-        Point(RistrettoPoint::identity())
     }
 
     /// Compute $pk = [sk] B$, where $B$ is the ristretto255 basepoint.
@@ -241,6 +233,19 @@ pub mod chacha20poly1305 {
         nonce: &[u8; NONCE_LEN],
     ) -> Result<(), AeadError> {
         libcrux_chacha20poly1305::decrypt(key, plaintext, ciphertext, aad, nonce).map(|_| ())
+    }
+}
+
+pub mod sha2 {
+
+    /// The length of a SHA-512 digest.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) const SHA512_LEN: usize = libcrux_sha2::SHA512_LENGTH;
+
+    /// SHA-512 over `payload`.
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) fn sha512(payload: &[u8]) -> [u8; SHA512_LEN] {
+        libcrux_sha2::sha512(payload)
     }
 }
 
