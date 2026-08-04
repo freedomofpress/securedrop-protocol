@@ -58,6 +58,47 @@ Install the Rust toolchain. Use `make help` from the project root to see availab
 
 Lint tools are installed in the `lint-tools` directory to avoid interfering with the user's system dependencies; cargo will suggest adding the directory to your $PATH, but that's not required.
 
+### Verification via hax and F\*
+
+The `make hax` and auxiliary workflows in `securedrop-protocol/protocol-minimal`
+require:
+
+- an [installation][hax-install] of the hax toolchain of the version returned by
+  `make hax-lib-version`; and
+- an `fstar.exe` binary on your `$PATH` of the version defined in
+  [`versions.env`].
+
+See `make help` in `securedrop-protocol/protocol-minimal` for specific workflow
+commands.
+
+#### In a hax container
+
+To keep the hax toolchain in sync, you may find it easier to set up a Dockerized
+hax installation for commands that take `CONTAINER=1`. These instructions have
+been tested in a VM with 8 GB of RAM and yield a container image of about 15 GB.
+
+```bash
+# Clone repositories:
+cd ~
+git clone https://github.com/freedomofpress/securedrop-protocol
+git clone https://github.com/cryspen/hax
+
+# Query Cargo for the hax version we need to build:
+cd ~/securedrop-protocol/securedrop-protocol/protocol-minimal
+HAX_VER=$(make hax-lib-version)
+echo $HAX_VER  # e.g., "0.3.7"
+
+# Build the Docker image:
+cd ~/hax
+git checkout cargo-hax-v${HAX_VER}
+docker build -f .docker/Dockerfile . -t hax:${HAX_VER}
+
+# Test it:
+cd ~/securedrop-protocol/securedrop-protocol/protocol-minimal
+make compat-hax
+echo $?  # 0 if successful
+```
+
 ### Benchmarking
 
 The benchmarks were performed on an Apple MacBook Air M4 to assess the protocol's performance on typical consumer hardware. All source code and the Makefile are located in the `securedrop-protocol` subfolder.
@@ -128,6 +169,7 @@ You may also need to follow the console_error_panic_hook docs to increase the st
 [`wasm-bindgen`]: https://crates.io/crates/wasm-bindgen
 [Shielder]: https://www.shielder.com/
 [eprint]: https://eprint.iacr.org/2026/1484
+[hax-install]: https://github.com/cryspen/hax/#installation
 [lumaier]: https://github.com/lumaier
 [lumaier-thesis]: https://doi.org/10.3929/ethz-b-000718325
 [mmaker]: https://github.com/mmaker
@@ -136,6 +178,7 @@ You may also need to follow the console_error_panic_hook docs to increase the st
 [sd-future]: https://securedrop.org/news/future-directions-for-securedrop/
 [sd-how-to]: https://securedrop.org/news/how-to-research-your-own-cryptography-and-survive/
 [sd-introducing]: https://securedrop.org/news/introducing-securedrop-protocol/
+[`versions.env`]: https://github.com/freedomofpress/securedrop-protocol/blob/main/securedrop-protocol/protocol-minimal/versions.env
 [v0.1]: ./docs/protocol.md#01
 [v0.1-tag]: https://github.com/freedomofpress/securedrop-protocol/releases/tag/v0.1
 [v0.2]: ./docs/protocol.md#02
