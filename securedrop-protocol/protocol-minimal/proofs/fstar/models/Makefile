@@ -9,8 +9,10 @@ HAX_IMAGE = hax:$(HAX_LIB_VERSION)
 
 # Allow `CONTAINER=1 make libcrux` to use containerized hax.  See the
 # crate-level Makefile for details.
+DOCKER ?= docker
+
 ifdef CONTAINER
-RUN_IN_MODULE = docker run --rm \
+RUN_IN_MODULE = $(DOCKER) run --rm \
 	--volume $(REPO_ROOT):/work \
 	--workdir /work/$(CURDIR:$(REPO_ROOT)/%=%)/$(MODULE) \
 	--env CARGO_TARGET_DIR=/work/securedrop-protocol/target/container \

@@ -7,6 +7,8 @@ include versions.env
 HAX_VERSION = $(shell cargo pkgid hax-lib 2>/dev/null | sed 's/.*@//')
 HAX_IMAGE = hax:$(HAX_VERSION)
 
+DOCKER ?= docker
+
 HAX_TARGETS := +**
 HAX_TARGETS += -securedrop_protocol_minimal::storage::**
 HAX_TARGETS += -securedrop_protocol_minimal::server::**
@@ -26,7 +28,7 @@ PROOF_DIR = proofs/fstar/extraction
 # the $HAX_IMAGE when $CONTAINER is set.  Targets that do so SHOULD be redefined
 # here to establish a dependency on `compat-hax`.
 ifdef CONTAINER
-CONTAINER_RUN = docker run --rm \
+CONTAINER_RUN = $(DOCKER) run --rm \
 	--volume $(REPO_ROOT):/work \
 	--workdir /work/$(CURDIR:$(REPO_ROOT)/%=%) \
 	--env CARGO_TARGET_DIR=/work/securedrop-protocol/target/container \
@@ -59,12 +61,12 @@ compat-fstar:  # Internal: Check F* version.
 compat-hax-image:  # Internal: Check that $HAX_IMAGE is present.
 	@[ -n "$(HAX_VERSION)" ] || \
 	  { echo "Error: could not determine the hax-lib version; is Cargo working?"; exit 1; }
-	@docker image inspect $(HAX_IMAGE) >/dev/null 2>&1 || \
+	@$(DOCKER) image inspect $(HAX_IMAGE) >/dev/null 2>&1 || \
 	  { echo "Error: missing image '$(HAX_IMAGE)'; build and tag it per <https://github.com/cryspen/hax#installation>."; exit 1; }
 
 .PHONY: compat-hax
 compat-hax: compat-hax-image  # Internal: Check that $HAX_IMAGE has the expected $HAX_VERSION.
-	@actual=$$(docker run --rm $(HAX_IMAGE) cargo-hax --version 2>/dev/null | sed -n 's/^version=//p'); \
+	@actual=$$($(DOCKER) run --rm $(HAX_IMAGE) cargo-hax --version 2>/dev/null | sed -n 's/^version=//p'); \
 	[ "$$actual" = "$(HAX_VERSION)" ] || \
 	  { echo "Error: expected cargo-hax version '$(HAX_VERSION)', got '$$actual'"; exit 1; }
 

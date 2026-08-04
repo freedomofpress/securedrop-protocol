@@ -91,11 +91,11 @@ echo $HAX_VER  # e.g., "0.3.7"
 # Build the Docker image:
 cd ~/hax
 git checkout cargo-hax-v${HAX_VER}
-docker build -f .docker/Dockerfile . -t hax:${HAX_VER}
+docker build -f .docker/Dockerfile . -t hax:${HAX_VER}  # or podman ...
 
 # Test it:
 cd ~/securedrop-protocol/securedrop-protocol/protocol-minimal
-make compat-hax
+make compat-hax  # or DOCKER=podman ...
 echo $?  # 0 if successful
 ```
 
