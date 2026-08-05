@@ -4,7 +4,7 @@ use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
 use crate::message::MessagePublicKey;
-use crate::primitives::x25519::DHPublicKey;
+use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{JournalistLongTermKey, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::{Enrollment, Envelope, SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
 

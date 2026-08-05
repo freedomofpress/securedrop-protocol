@@ -6,7 +6,7 @@ use anyhow::{Context, Result, bail};
 use directories::ProjectDirs;
 use securedrop_protocol_minimal::message::MessagePublicKey;
 use securedrop_protocol_minimal::metadata::MetadataPublicKey;
-use securedrop_protocol_minimal::primitives::x25519::DHPublicKey;
+use securedrop_protocol_minimal::primitives::ristretto255::DHPublicKey;
 use securedrop_protocol_minimal::{
     EphemeralBundleBytes, Journalist, JournalistLongTermBytes, VerifyingKey,
 };
@@ -31,7 +31,7 @@ pub(crate) fn load_journalist() -> Result<Journalist> {
     let bytes = fs::read(&path)
         .with_context(|| format!("reading {} (run `init` first)", path.display()))?;
     let parts = JournalistLongTermBytes::from_bytes(&bytes)?;
-    Ok(Journalist::from_long_term_bytes(parts))
+    Journalist::from_long_term_bytes(parts)
 }
 
 /// Load the newsroom verifying key

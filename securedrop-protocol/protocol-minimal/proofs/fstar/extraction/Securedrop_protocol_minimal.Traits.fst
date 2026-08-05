@@ -14,9 +14,10 @@ open Core_models
 /// their message auth key.
 class t_UserPublic (v_Self: Type0) = {
   f_fetch_pk_pre:v_Self -> Type0;
-  f_fetch_pk_post:v_Self -> Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey -> Type0;
+  f_fetch_pk_post:v_Self -> Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
+    -> Type0;
   f_fetch_pk:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey
+    -> Prims.Pure Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
         (f_fetch_pk_pre x0)
         (fun result -> f_fetch_pk_post x0 result);
   f_message_auth_pk_pre:v_Self -> Type0;
@@ -129,13 +130,13 @@ class t_UserSecret (v_Self: Type0) = {
   f_fetch_keypair_pre:v_Self -> Type0;
   f_fetch_keypair_post:
       v_Self ->
-      (Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey &
-          Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
+      (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+          Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     -> Type0;
   f_fetch_keypair:x0: v_Self
     -> Prims.Pure
-        (Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey &
-          Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
+        (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+          Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
         (f_fetch_keypair_pre x0)
         (fun result -> f_fetch_keypair_post x0 result);
   f_message_auth_key_pre:v_Self -> Type0;

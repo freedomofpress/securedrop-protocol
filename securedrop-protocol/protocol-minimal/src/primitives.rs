@@ -6,7 +6,7 @@ pub(crate) mod dh_akem;
 pub(crate) mod mlkem;
 pub mod pad;
 pub(crate) mod provider;
-pub mod x25519;
+pub mod ristretto255;
 pub(crate) mod xwing;
 
 /// Fixed number of message ID entries to return in privacy-preserving fetch

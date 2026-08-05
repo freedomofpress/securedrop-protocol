@@ -2,9 +2,7 @@ use crate::VerifyingKey;
 use crate::api::Client;
 use crate::message::{MessagePublicKey, deterministic_keygen as kgen_deterministic_message};
 use crate::metadata::{MetadataPublicKey, deterministic_keygen as kgen_deterministic_metadata};
-use crate::primitives::x25519::DHPrivateKey;
-use crate::primitives::x25519::DHPublicKey;
-use crate::primitives::x25519::deterministic_dh_keygen;
+use crate::primitives::ristretto255::{DHPrivateKey, DHPublicKey, deterministic_dh_keygen};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use anyhow::Error;
@@ -14,7 +12,7 @@ use rand_core::{CryptoRng, RngCore};
 use crate::ciphertext::Plaintext;
 use crate::keys::*;
 use crate::primitives::provider::hkdf;
-use crate::primitives::x25519::DH_PUBLIC_KEY_LEN;
+use crate::primitives::ristretto255::DH_SEED_LEN;
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use crate::traits::{UserPublic, UserSecret};
 
@@ -106,14 +104,11 @@ impl UserSecret for Source {
     }
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
-        let mut fetch_pk = [0u8; DH_PUBLIC_KEY_LEN];
-        fetch_pk.copy_from_slice(&self.fetch_key.pk.into_bytes());
-
         let mut reply_key_pq_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
         reply_key_pq_hybrid.copy_from_slice(self.message_keys.metadata_kp.public_key().as_bytes());
 
         Plaintext {
-            sender_fetch_key: fetch_pk,
+            sender_fetch_key: self.fetch_key.pk,
             sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
             msg: message,
         }
@@ -176,13 +171,8 @@ impl Source {
     /// Each private key is derived from `mk` with a domain-separated KDF.
     #[cfg_attr(hax, hax_lib::opaque)]
     fn from_master_key(mk: &[u8; 16], passphrase: String) -> Self {
-        // TEMP: The spec specifies a 512-bit output here because fetch
-        // keys are intended to use the ristretto255 group, whose scalar
-        // derivation requires wide (64 byte) input. We currently use X25519,
-        // which takes a 32 byte seed, so we derive 32 bytes for now.
-        //
-        // TODO: Switch to 64 bytes when migrating the fetch key to ristretto255.
-        let mut fetch_seed = [0u8; 32];
+        // we need a 64 byte string for the ristretto255 scalar (see RFC 9496 section 4.4).
+        let mut fetch_seed = [0u8; DH_SEED_LEN];
         hkdf::sha256(&mut fetch_seed, SOURCE_KDF_SALT, mk, b"sourcefetchkey")
             .expect("HKDF fetch key derivation failed");
 
@@ -202,8 +192,7 @@ impl Source {
             .expect("HKDF PKE key derivation failed");
 
         // Create key pairs
-        let (fetch_sk, fetch_pk): (DHPrivateKey, DHPublicKey) =
-            deterministic_dh_keygen(fetch_seed).expect("Need Fetch keygen");
+        let (fetch_sk, fetch_pk): (DHPrivateKey, DHPublicKey) = deterministic_dh_keygen(fetch_seed);
 
         let message_kp =
             kgen_deterministic_message(dh_seed, mlkem_seed).expect("Need SD-APKE keygen");

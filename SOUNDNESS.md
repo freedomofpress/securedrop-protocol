@@ -91,6 +91,17 @@ The following is verified using hax and F\*:
 
 - `libcrux-ml-kem`
 
+#### curve25519-dalek verification status
+
+We use [`curve25519-dalek`][dalek] for ristretto255 ([RFC 9496][rfc9496]), which
+backs the three-party DH of the fetch subprotocol. Note this is distinct from
+`libcrux-curve25519` above, which we are still using for the X25519 DH-AKEM component
+of SD-APKE.
+
+Upstream links [formal verification results][dalek-verilib]: 280 Rust functions
+verified with Verus. That result covers version 4.1.3 and is scoped to the
+functions reachable from the Signal Messenger app.
+
 #### hpke-rs dependencies
 
 We use [`hpke-rs`][hpke-rs] with the `hpke-rs-libcrux` backend. Its
@@ -103,9 +114,12 @@ verification status:
   generated from the HACL\* project
 - `libcrux-aead` - `ChaCha20Poly1305` is verified (via HACL\*), but the wrapper crate is not Hax extraction-compatible.
 
+[dalek]: https://github.com/dalek-cryptography/curve25519-dalek
+[dalek-verilib]: https://verilib.org/cert/5132
 [hacl]: https://hacl-star.github.io/
 [hpke-rs]: https://github.com/cryspen/hpke-rs
 [berra-2026]: https://eprint.iacr.org/2026/1484
+[rfc9496]: https://www.rfc-editor.org/rfc/rfc9496
 [bhargavan-2025]: https://eprint.iacr.org/2025/980
 [hax]: https://github.com/cryspen/hax
 [`HAX_TARGETS`]: ./securedrop-protocol/protocol-minimal/Makefile#L5

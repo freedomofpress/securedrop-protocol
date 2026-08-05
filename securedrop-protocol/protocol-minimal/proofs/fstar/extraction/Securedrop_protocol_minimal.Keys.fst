@@ -114,13 +114,13 @@ let impl_7: Core_models.Clone.t_Clone t_SignedLongtermPubKeyBytes =
 /// where `pk_J^APKE = pk_J^AKEM (DH-AKEM) || pk_J^PQ (ML-KEM)`
 let impl_SignedLongtermPubKeyBytes__from_keys
       (reply_apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
-      (fetch_pk: Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
+      (fetch_pk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : t_SignedLongtermPubKeyBytes =
   let apke_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Securedrop_protocol_minimal.Message.impl_MessagePublicKey__as_bytes reply_apke
   in
   let fetch_bytes:t_Array u8 (mk_usize 32) =
-    Securedrop_protocol_minimal.Primitives.X25519.impl_DHPublicKey__into_bytes fetch_pk
+    Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes fetch_pk
   in
   let pubkey_bytes:t_Array u8 (mk_usize 1248) =
     Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1248)
@@ -182,7 +182,7 @@ type t_Enrollment = {
   f_selfsig:Securedrop_protocol_minimal.Sign.t_Signature
   Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey;
   f_keys:(Securedrop_protocol_minimal.Sign.t_VerifyingKey &
-    Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey &
+    Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey &
     Securedrop_protocol_minimal.Message.t_MessagePublicKey)
 }
 

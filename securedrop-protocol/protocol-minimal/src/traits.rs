@@ -1,8 +1,8 @@
 use crate::VerifyingKey;
 use crate::message::{MessagePrivateKey, MessagePublicKey};
 use crate::metadata::MetadataPublicKey;
-use crate::primitives::x25519::DHPrivateKey;
-use crate::primitives::x25519::DHPublicKey;
+use crate::primitives::ristretto255::DHPrivateKey;
+use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature};
 use alloc::vec::Vec;
 

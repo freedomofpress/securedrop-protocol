@@ -32,8 +32,8 @@ let v_SOURCE_KDF_SALT: t_Slice u8 =
 /// [`Source::from_passphrase`] with the same mnemonic.
 type t_Source = {
   f_fetch_key:Securedrop_protocol_minimal.Keys.t_KeyPair
-    Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey
-    Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey;
+    Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey
+    Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
   f_message_keys:Securedrop_protocol_minimal.Keys.t_MessageKeyBundle;
   f_passphrase:Alloc.String.t_String;
   f_session:Securedrop_protocol_minimal.Keys.t_SessionStorage
@@ -41,7 +41,7 @@ type t_Source = {
 
 /// The public key material of a source, used by journalists to send replies.
 type t_SourcePublicView = {
-  f_fetch_pk:Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey;
+  f_fetch_pk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
   f_apke_pk:Securedrop_protocol_minimal.Message.t_MessagePublicKey;
   f_message_pks:Securedrop_protocol_minimal.Keys.t_KeyBundlePublic
 }
@@ -64,7 +64,7 @@ let impl: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
     =
     (fun
         (self: t_SourcePublicView)
-        (out: Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
+        (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
         ->
         true);
     f_fetch_pk = (fun (self: t_SourcePublicView) -> self.f_fetch_pk);
@@ -157,8 +157,8 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
     (fun
         (self: t_Source)
         (out:
-          (Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey &
-            Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey))
+          (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+            Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey))
         ->
         true);
     f_fetch_keypair
@@ -167,8 +167,8 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
         self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_sk,
         self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk
         <:
-        (Securedrop_protocol_minimal.Primitives.X25519.t_DHPrivateKey &
-          Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey));
+        (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+          Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey));
     f_message_auth_key_pre = (fun (self: t_Source) -> true);
     f_message_auth_key_post
     =
@@ -201,18 +201,6 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
     f_build_message
     =
     (fun (self: t_Source) (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) ->
-        let fetch_pk:t_Array u8 (mk_usize 32) =
-          Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
-        in
-        let fetch_pk:t_Array u8 (mk_usize 32) =
-          Core_models.Slice.impl__copy_from_slice #u8
-            fetch_pk
-            (Securedrop_protocol_minimal.Primitives.X25519.impl_DHPublicKey__into_bytes self
-                  .f_fetch_key
-                  .Securedrop_protocol_minimal.Keys.f_pk
-              <:
-              t_Slice u8)
-        in
         let reply_key_pq_hybrid:t_Array u8 (mk_usize 1216) =
           Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216)
         in
@@ -227,7 +215,9 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
               t_Slice u8)
         in
         {
-          Securedrop_protocol_minimal.Ciphertext.f_sender_fetch_key = fetch_pk;
+          Securedrop_protocol_minimal.Ciphertext.f_sender_fetch_key
+          =
+          self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk;
           Securedrop_protocol_minimal.Ciphertext.f_sender_reply_pubkey_hybrid = reply_key_pq_hybrid;
           Securedrop_protocol_minimal.Ciphertext.f_msg = message
         }
@@ -325,7 +315,7 @@ let impl_Source__public (self: t_Source) : t_SourcePublicView =
 /// Reconstruct a source's public view from the reply keys recovered when
 /// decrypting their submission.
 let impl_SourcePublicView__from_reply_keys
-      (fetch_pk: Securedrop_protocol_minimal.Primitives.X25519.t_DHPublicKey)
+      (fetch_pk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
       (apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
       (metadata_pk: Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
     : t_SourcePublicView =
