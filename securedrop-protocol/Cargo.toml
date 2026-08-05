@@ -33,7 +33,7 @@ libcrux-hkdf = { git = "https://github.com/cfm/libcrux", rev = "3cd1843b0f029b2c
 # See the `patch.crates-io` section for patching to enforce hax-lib 0.3.7.
 hpke-rs = { git = "https://github.com/cryspen/hpke-rs", rev = "634caf8" }
 anyhow = "1.0"
-axum = "0.7"
+axum = "0.8"
 bip39 = { version = "2", default-features = false }
 clap = "4"
 criterion = "0.5"
