@@ -344,23 +344,11 @@ let impl_4: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
         <:
         (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
           Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey));
-    f_message_auth_key_pre = (fun (self: t_Journalist) -> true);
-    f_message_auth_key_post
+    f_message_auth_keypair_pre = (fun (self: t_Journalist) -> true);
+    f_message_auth_keypair_post
     =
-    (fun (self: t_Journalist) (out: Securedrop_protocol_minimal.Message.t_MessagePrivateKey) -> true
-    );
-    f_message_auth_key
-    =
-    (fun (self: t_Journalist) ->
-        Securedrop_protocol_minimal.Message.impl_MessageKeyPair__private_key self.f_reply_apke);
-    f_own_message_auth_pk_pre = (fun (self: t_Journalist) -> true);
-    f_own_message_auth_pk_post
-    =
-    (fun (self: t_Journalist) (out: Securedrop_protocol_minimal.Message.t_MessagePublicKey) -> true);
-    f_own_message_auth_pk
-    =
-    (fun (self: t_Journalist) ->
-        Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key self.f_reply_apke);
+    (fun (self: t_Journalist) (out: Securedrop_protocol_minimal.Message.t_MessageKeyPair) -> true);
+    f_message_auth_keypair = (fun (self: t_Journalist) -> self.f_reply_apke);
     f_build_message_pre
     =
     (fun (self: t_Journalist) (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) -> true);
