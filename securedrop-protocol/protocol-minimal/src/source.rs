@@ -95,12 +95,8 @@ impl UserSecret for Source {
         (&self.fetch_key.sk, &self.fetch_key.pk)
     }
 
-    fn message_auth_key(&self) -> &crate::message::MessagePrivateKey {
-        self.message_keys.apke.private_key()
-    }
-
-    fn own_message_auth_pk(&self) -> &crate::message::MessagePublicKey {
-        self.message_keys.apke.public_key()
+    fn message_auth_keypair(&self) -> &crate::message::MessageKeyPair {
+        &self.message_keys.apke
     }
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
