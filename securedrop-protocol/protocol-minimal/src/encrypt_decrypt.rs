@@ -34,16 +34,23 @@ where
     Recipient: UserPublic + ?Sized,
 {
     // spec: sk_S^APKE - sender's long-term APKE private key
-    let sk_s = sender.message_auth_key();
+    let keypair_s = sender.message_auth_keypair();
+    let pk_s = sender.message_auth_keypair().public_key();
     // spec: pk_R^APKE - recipient's APKE public key
     let pk_r = recipient.message_enc_pk();
     // spec: pk_R^fetch
-    let pk_r_fetch = recipient.fetch_pk().into_bytes();
+    let pk_r_fetch = recipient.fetch_pk();
 
     // spec: ct^APKE = SD-APKE.AuthEnc(sk_S^APKE, pk_R^APKE, pt, NR, pk_R^fetch)
-    let ct_apke =
-        crate::message::auth_enc(rng, sk_s, pk_r, &plaintext.to_bytes(), NR_ID, &pk_r_fetch)
-            .expect("SD-APKE AuthEnc failed");
+    let ct_apke = crate::message::auth_enc(
+        rng,
+        keypair_s,
+        pk_r,
+        &plaintext.to_bytes(),
+        NR_ID,
+        &pk_r_fetch,
+    )
+    .expect("SD-APKE AuthEnc failed");
 
     // Hint (X, Z): X = g^x, Z = (pk_R^fetch)^x for a fresh ephemeral scalar x
     // spec: x (hint_esk), X (hint_epk)
@@ -56,7 +63,7 @@ where
     // TODO: Refactor to return Result<T, E> instead of panicking at failed metadata seal
     let ct_pke = metadata::encrypt(
         recipient.message_metadata_pk(),
-        &sender.own_message_auth_pk(),
+        &sender.message_auth_keypair().public_key(),
     )
     .expect("Valid Keybundle should allow metadata seal");
 
@@ -97,7 +104,7 @@ pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
         .expect("Metadata must contain valid sender APKE key tuple");
 
     // spec: pk_R^fetch
-    let pk_r_fetch = receiver.fetch_keypair().1.into_bytes();
+    let pk_r_fetch = receiver.fetch_keypair().1;
 
     // spec: pt = SD-APKE.AuthDec(sk_R^APKE, pk_S^APKE, ct^APKE, NR, pk_R^fetch)
     let pt = crate::message::auth_dec(
