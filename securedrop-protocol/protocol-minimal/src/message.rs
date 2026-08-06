@@ -288,9 +288,11 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
     let pkr1: HpkePublicKey = pk.dhakem.clone().into();
     let sks1: HpkePrivateKey = sk.private_key().dhakem.clone().into();
 
+    // pskAPKE info param = c2 || pkR_fetch || pkS
     let mut full_info = Vec::new();
     full_info.extend_from_slice(&c2);
     full_info.extend_from_slice(&info_incl.into_bytes());
+    full_info.extend_from_slice(&sk.public_key().as_bytes());
 
     let (c1_vec, cp) = hpke
         .seal(
@@ -336,13 +338,15 @@ pub fn auth_dec(
     let k2 = MlKem768::decaps(&ct.c2, sk.mlkem.as_bytes())
         .map_err(|e| anyhow::anyhow!("ML-KEM decapsulation failed: {:?}", e))?;
 
-    // m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2+info)
+    // m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2+info+pkS)
     let skr1: HpkePrivateKey = sk.dhakem.clone().into();
     let pks1: HpkePublicKey = pk.dhakem.clone().into();
 
+    // c2 + info + pkS
     let mut full_info = Vec::new();
     full_info.extend_from_slice(&ct.c2);
     full_info.extend_from_slice(&info_incl.into_bytes());
+    full_info.extend_from_slice(&pk.as_bytes());
 
     hpke.open(
         &ct.c1,
