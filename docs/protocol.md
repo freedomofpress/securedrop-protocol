@@ -95,7 +95,7 @@ Note over Journalist, Newsroom: 3.1. (offline) Journalist initial key setup
 Note over Server, Journalist: 3.1. Journalist enrollment
 deactivate Newsroom
 
-Note over Journalist, Server: 3.2. Setup and periodic replenishment<br>of n ephemeral key bundles
+Note over Journalist, Server: 3.2. Setup and periodic replenishment<br>of n signed key bundles
 end
 
 activate Source
@@ -128,20 +128,20 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
   - $APKE = \text{SD-APKE}$ ($APKE_E$ if one-time)
   - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time)
 
-[message-fetching]: #7-receiver-fetches-and-decrypts-messages-
+[message-fetching]: #protocol-step-7-receiver-fetches-and-decrypts-messages-
 
-| Owner      | Private Key         | Public Key          | Usage     | Purpose  | Direction | Lifetime      | Algorithm                           | Signed by        |
-| ---------- | ------------------- | ------------------- | --------- | -------- | --------- | ------------- | ----------------------------------- | ---------------- |
-| FPF        | $sk_{FPF}^{sig}$    | $vk_{FPF}^{sig}$    |           | Signing  |           | Long-term     | ?                                   |                  |
-| Newsroom   | $sk_{NR}^{sig}$     | $vk_{NR}^{sig}$     |           | Signing  |           | Long-term     | ?                                   | $sk_{FPF}^{sig}$ |
-| Journalist | $sk_J^{sig}$        | $vk_J^{sig}$        |           | Signing  |           | Long-term     | ?                                   | $sk_{NR}^{sig}$  |
-| Journalist | $sk_J^{APKE}$       | $pk_J^{APKE}$       | [SD-APKE] | Message  | Outgoing  | Long-term     | DHKEM(X25519, HKDF-SHA256) + ML-KEM | $sk_J^{sig}$     |
-| Journalist | $sk_J^{fetch}$      | $pk_J^{fetch}$      |           | Fetching |           | TBD[^6]       | ristretto255                        | $sk_J^{sig}$     |
-| Journalist | $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | [SD-APKE] | Message  | Incoming  | One-time      | DHKEM(X25519, HKDF-SHA256) + ML-KEM | $sk_J^{sig}$     |
-| Journalist | $sk_{J,i}^{PKE_E}$  | $pk_{J,i}^{PKE_E}$  | [SD-PKE]  | Metadata | Incoming  | One-time      | X-Wing(X25519, ML-KEM-768)          | $sk_J^{sig}$     |
-| Source     | $sk_S^{fetch}$      | $pk_S^{fetch}$      |           | Fetching |           | Permanent[^7] | ristretto255                        |                  |
-| Source     | $sk_S^{APKE}$       | $pk_S^{APKE}$       | [SD-APKE] | Message  | In+Out    | Permanent[^7] | DHKEM(X25519, HKDF-SHA256) + ML-KEM |                  |
-| Source     | $sk_S^{PKE}$        | $pk_S^{PKE}$        | [SD-PKE]  | Metadata | Incoming  | Permanent[^7] | X-Wing(X25519, ML-KEM-768)          |                  |
+| Owner      | Private Key         | Public Key          | Usage     | Purpose  | Direction | Lifetime      | Algorithm                           | Signed by        | Bundled in          |
+| ---------- | ------------------- | ------------------- | --------- | -------- | --------- | ------------- | ----------------------------------- | ---------------- | ------------------- |
+| FPF        | $sk_{FPF}^{sig}$    | $vk_{FPF}^{sig}$    |           | Signing  |           | Long-term     | ?                                   |                  |                     |
+| Newsroom   | $sk_{NR}^{sig}$     | $vk_{NR}^{sig}$     |           | Signing  |           | Long-term     | ?                                   | $sk_{FPF}^{sig}$ | [Welcome bundle]    |
+| Journalist | $sk_J^{sig}$        | $vk_J^{sig}$        |           | Signing  |           | Long-term     | ?                                   | $sk_{NR}^{sig}$  | [Roster]            |
+| Journalist | $sk_J^{APKE}$       | $pk_J^{APKE}$       | [SD-APKE] | Message  | Outgoing  | Long-term     | DHKEM(X25519, HKDF-SHA256) + ML-KEM | $sk_J^{sig}$     | [Roster]            |
+| Journalist | $sk_J^{fetch}$      | $pk_J^{fetch}$      |           | Fetching |           | TBD[^6]       | ristretto255                        | $sk_J^{sig}$     | [Roster]            |
+| Journalist | $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | [SD-APKE] | Message  | Incoming  | One-time      | DHKEM(X25519, HKDF-SHA256) + ML-KEM | $sk_J^{sig}$     | [Signed key bundle] |
+| Journalist | $sk_{J,i}^{PKE_E}$  | $pk_{J,i}^{PKE_E}$  | [SD-PKE]  | Metadata | Incoming  | One-time      | X-Wing(X25519, ML-KEM-768)          | $sk_J^{sig}$     | [Signed key bundle] |
+| Source     | $sk_S^{fetch}$      | $pk_S^{fetch}$      |           | Fetching |           | Permanent[^7] | ristretto255                        |                  |                     |
+| Source     | $sk_S^{APKE}$       | $pk_S^{APKE}$       | [SD-APKE] | Message  | In+Out    | Permanent[^7] | DHKEM(X25519, HKDF-SHA256) + ML-KEM |                  | [Key bundle]        |
+| Source     | $sk_S^{PKE}$        | $pk_S^{PKE}$        | [SD-PKE]  | Metadata | Incoming  | Permanent[^7] | X-Wing(X25519, ML-KEM-768)          |                  | [Key bundle]        |
 
 [SD-APKE]: #sd-apke-securedrop-apke-
 [SD-PKE]: #metadata-protection-via-sd-pke-securedrop-pke-
@@ -225,11 +225,12 @@ Then:
 |                                                                                                           |                                                                       | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J)`$ |
 |                                                                                                           |                                                                       | If $b = 1$: Store $`(\sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ and $\sigma_{NR}^{J}$ for $J$              |
 
-##### 3.2. Setup and periodic replenishment of $n$ ephemeral key bundles <!-- Figure 3(a) as of b1e4d41 -->
+##### 3.2. Setup and periodic replenishment of $n$ signed key bundles <!-- Figure 3(a) as of b1e4d41 -->
 
-Following [enrollment](#31-journalist-initial-key-setup-), each journalist $J$
-MUST generate and maintain a pool of $n$ signed key bundles. Each key bundle
-consists of an ephemeral APKE public key and an ephemeral PKE public key. A signed key bundle is accompanied by a signature by the journalist's long-term signing key.
+Following [enrollment][step 3.1], each journalist $J$ MUST generate and maintain
+a pool of $n$ [signed key bundles][signed key bundle]. Each bundle consists of
+an ephemeral APKE public key and an ephemeral PKE public key, signed by the
+journalist's long-term signing key.
 
 The server verifies the signature, and stores these public keys and the
 corresponding signature. The journalist maintains the corresponding ephemeral private keys.
@@ -456,25 +457,38 @@ the first sender.
 
 #### Protocol Step 5: Sender fetches keys and verifies their authenticity <!-- Figure 3(b) as of b1e4d41 -->
 
+The server answers a sender's key request in two parts, which differ in lifetime:
+
+1. The [welcome bundle], including the [roster], is per-session, and the sender
+   MAY cache it.
+2. Each journalist's one-time [signed key bundle] is consumed by the server once
+   served. See ["Known Limitations"] re: key exhaustion.
+
+A sender MUST verify the welcome bundle before use. It MUST associate each
+signed key bundle with a journalist in the roster by $vk_J^{sig}$ and discard
+any bundle that cannot be associated.
+
 Given:
 
-|                     | Anyone          |
-| ------------------- | --------------- |
-| Published by server | $vk_{NR}^{sig}$ |
+|                     | Anyone           |
+| ------------------- | ---------------- |
+| Pinned in client    | $vk_{FPF}^{sig}$ |
+| Published by server | $vk_{NR}^{sig}$  |
 
 Then:
 
-| Sender                                                                                                                                     |                                 | Server                                                                                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-|                                                                                                                                            | $\longrightarrow$ `RequestKeys` |                                                                                                                 |
-|                                                                                                                                            |                                 | For all journalists $J$, select one key bundle $i$ at random                                                    |
-|                                                                                                                                            |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE})\}`$ for all $J$[^10] |
-|                                                                                                                                            |                                 | $`sigs \gets \{(\sigma_{NR}^{J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$                                        |
-|                                                                                                                                            |                                 | For all journalists $J$, remove key bundle $i$ from storage                                                     |
-|                                                                                                                                            | $`pks, sigs \longleftarrow`$    |                                                                                                                 |
-| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, \texttt{nr-sig} \Vert vk_J^{sig}, \sigma_{NR}^{J}) = 0`$ for some $J$: abort                            |                                 |                                                                                                                 |
-| If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                  |                                 |                                                                                                                 |
-| If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}) = 0`$ for some $J, i$: abort |                                 |                                                                                                                 |
+| Sender                                                                                                                                           |                                 | Server                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+|                                                                                                                                                  | $\longrightarrow$ `RequestKeys` |                                                                                                                 |
+|                                                                                                                                                  |                                 | For all journalists $J$, select one key bundle $i$ at random                                                    |
+|                                                                                                                                                  |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, pk_J^{APKE})\}`$ for all $J$[^10] |
+|                                                                                                                                                  |                                 | $`sigs \gets \{(\sigma_{NR}^{J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$                                        |
+|                                                                                                                                                  |                                 | For all journalists $J$, remove key bundle $i$ from storage                                                     |
+|                                                                                                                                                  | $`pks, sigs \longleftarrow`$    |                                                                                                                 |
+| If $`\sigma_{FPF}^{NR} \neq \bot`$ and $`\text{SIG.Vfy}(vk_{FPF}^{sig}, \texttt{fpf-sig-nr} \Vert vk_{NR}^{sig}, \sigma_{FPF}^{NR}) = 0`$: abort |                                 |                                                                                                                 |
+| If $`\text{SIG.Vfy}(vk_{NR}^{sig}, \texttt{nr-sig} \Vert vk_J^{sig}, \sigma_{NR}^{J}) = 0`$ for some $J$: abort                                  |                                 |                                                                                                                 |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                        |                                 |                                                                                                                 |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}) = 0`$ for some $J, i$: abort       |                                 |                                                                                                                 |
 
 **Key exhaustion**: If $`(pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J_i}`$ are unavailable for $`{J_i}`$, $`{J_i}`$ is skipped (no "key of last resort" approach). See [key replenishment](#known-limitations).
 
@@ -543,26 +557,23 @@ As follows, the final message payload to the server includes: each ciphertext; t
 |                                                   |                     | $pk_R^{PKE}$   |
 |                                                   |                     | $pk_R^{fetch}$ |
 
-[fetched]: #5-sender-fetches-keys-and-verifies-their-authenticity-
-[decrypted]: #7-receiver-fetches-and-decrypts-messages-
-
 Then, for some message $m$:
 
-| Sender                                                                                                                        |                                 | Server                                         |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
-| **Reply case:** A journalist $J$ replaces their own key bundle $i$ with that of the source $R$ to whom they are replying:     |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, \_)\}`$   |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \cup \{(-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -)\}`$                              |                                 |                                                |
-| $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                              |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pt \gets pk_S^{fetch} \Vert pk_S^{PKE} \Vert m `$                                                   |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch}) `$ * |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                               |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                   |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`(x, X) \gets^{\$} \text{Ristretto255.KGen}()`$[^8]                                                  |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`Z \gets \text{Ristretto255.DH}(x, pk_{R,i}^{fetch})`$                                               |                                 |                                                |
-|                                                                                                                               | $`\longrightarrow (C_S, X, Z)`$ |                                                |
-|                                                                                                                               |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
-|                                                                                                                               |                                 | Store $(id, C_S, X, Z)$ in $database$          |
+| Sender                                                                                                                                                               |                                 | Server                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
+| **Reply case:** A journalist $J$ replaces their own entry, holding key bundle $i$, with the key bundle and fetching key of the source $R$ to whom they are replying: |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, \_)\}`$                                          |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \cup \{(-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -)\}`$                                                                     |                                 |                                                |
+| $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                                                                     |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pt \gets pk_S^{fetch} \Vert pk_S^{PKE} \Vert m `$                                                                                          |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch}) `$ \*                                       |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                                                                      |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                                                          |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`(x, X) \gets^{\$} \text{Ristretto255.KGen}()`$[^8]                                                                                         |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`Z \gets \text{Ristretto255.DH}(x, pk_{R,i}^{fetch})`$                                                                                      |                                 |                                                |
+|                                                                                                                                                                      | $`\longrightarrow (C_S, X, Z)`$ |                                                |
+|                                                                                                                                                                      |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
+|                                                                                                                                                                      |                                 | Store $(id, C_S, X, Z)$ in $database$          |
 
 <!-- FIXME: The formal notation should make clear that AuthEnc passes more than just the receiver fetch key in the info parameter. The formal notation here is error-prone since it implies that only the fetch key is part of the info param. -->
 
@@ -708,7 +719,32 @@ Len: 32 + 32 + 32 = 96 bytes * n challenges; server pads to fixed numnber of cha
 
 ## Glossary
 
-TK
+### Key bundle
+
+A user's [SD-APKE] message key and [SD-PKE] metadata key. Sources' and
+journalists' key bundles have different lifetimes (see ["Key
+Hierarchy"][key-hierarchy]):
+
+- A journalist's ephemeral, one-time key bundles are generated during their
+  initial setup and then periodically refreshed (see [step 3.2]) and are consumed
+  by the server when [served to a sender][fetched].
+
+- A source's permanent key bundle is derived from their passphrase (see [step
+  4]) and included in each message they send to journalists.
+
+### Roster
+
+The set of journalists currently [enrolled][step 3.1] by the newsroom. Each
+entry includes the journalist's verification key, long-term public keys, and
+their signatures.
+
+### Signed key bundle
+
+A journalist's [key bundle], signed under their long-term signing key.
+
+### Welcome bundle
+
+The newsroom's verification key, FPF's signature over it, and the [roster].
 
 ## Changelog
 
@@ -779,6 +815,11 @@ insertion order.
 [alwen2020]: https://eprint.iacr.org/2020/1499
 [alwen2023]: https://eprint.iacr.org/2023/1480
 [berra-2026]: https://eprint.iacr.org/2026/1484
+[decrypted]: #protocol-step-7-receiver-fetches-and-decrypts-messages-
+[fetched]: #protocol-step-5-sender-fetches-keys-and-verifies-their-authenticity-
+[key bundle]: #key-bundle
+[key-hierarchy]: #key-hierarchy-
+["Known Limitations"]: #known-limitations
 [maier2025]: https://github.com/lumaier/securedrop-formalanalysis/tree/fd0daf0ce90144e12956032abf1817e18cec48e0
 [milestones]: https://github.com/freedomofpress/securedrop-protocol/milestones
 [nist-ir-8547]: https://nvlpubs.nist.gov/nistpubs/ir/2024/NIST.IR.8547.ipd.pdf
@@ -796,5 +837,11 @@ insertion order.
 [RFC 9180 §9.9]: https://datatracker.ietf.org/doc/html/rfc9180#name-metadata-protection
 [RFC 9496]: https://datatracker.ietf.org/doc/html/rfc9496
 [research]: https://securedrop.org/research
+[roster]: #roster
 [semantic versioning]: https://semver.org
+[signed key bundle]: #signed-key-bundle
+[step 3.1]: #31-journalist-initial-key-setup-
+[step 3.2]: #32-setup-and-periodic-replenishment-of-n-signed-key-bundles-
+[step 4]: #protocol-step-4-source-key-setup
+[welcome bundle]: #welcome-bundle
 [v0.1-config]: https://github.com/freedomofpress/securedrop-protocol/blob/d512528f42760f7ccb5205291ba11a377333cc0e/README.md?plain=1#L29
