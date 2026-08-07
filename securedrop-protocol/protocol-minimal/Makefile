@@ -2,6 +2,13 @@
 # "securedrop_protocol_minimal" crate, as documented here:
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-modules-extracted-from-protocol-minimal
 
+include versions.env
+
+HAX_VERSION = $(shell cargo pkgid hax-lib 2>/dev/null | sed 's/.*@//')
+HAX_IMAGE = hax:$(HAX_VERSION)
+
+DOCKER ?= docker
+
 HAX_TARGETS := +**
 HAX_TARGETS += -securedrop_protocol_minimal::storage::**
 HAX_TARGETS += -securedrop_protocol_minimal::server::**
@@ -17,6 +24,19 @@ HAX_ADMITS += Securedrop_protocol_minimal.Ciphertext.fst
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 PROOF_DIR = proofs/fstar/extraction
 
+# Targets below MAY prefix their commands with `$(CONTAINER_RUN)` to run inside
+# the $HAX_IMAGE when $CONTAINER is set.  Targets that do so SHOULD be redefined
+# here to establish a dependency on `compat-hax`.
+ifdef CONTAINER
+CONTAINER_RUN = $(DOCKER) run --rm \
+	--volume $(REPO_ROOT):/work \
+	--workdir /work/$(CURDIR:$(REPO_ROOT)/%=%) \
+	--env CARGO_TARGET_DIR=/work/securedrop-protocol/target/container \
+	$(HAX_IMAGE)
+
+extract: compat-hax
+endif
+
 .DEFAULT_GOAL := help
 
 .PHONY: clean
@@ -30,17 +50,29 @@ clean:  ## Clean the Cargo and F* caches, and reset extracted F* modules.
 .PHONY: compat
 compat: compat-fstar  ## Check that hax dependencies are at the right versions.
 
-# Keep in sync with ".github/workflows/hax.yml":
-FSTAR_EXPECTED_VERSION = F* 2026.03.24
+FSTAR_EXPECTED_VERSION = F* $(FSTAR_VER)
 FSTAR_ACTUAL_VERSION   = $(shell fstar.exe --version 2>/dev/null | head -1)
 .PHONY: compat-fstar
 compat-fstar:  # Internal: Check F* version.
 	@[ "$(FSTAR_ACTUAL_VERSION)" = "$(FSTAR_EXPECTED_VERSION)" ] || \
 	  { echo "Error: expected fstar.exe version '$(FSTAR_EXPECTED_VERSION)', got '$(FSTAR_ACTUAL_VERSION)'"; exit 1; }
 
+.PHONY: compat-hax-image
+compat-hax-image:  # Internal: Check that $HAX_IMAGE is present.
+	@[ -n "$(HAX_VERSION)" ] || \
+	  { echo "Error: could not determine the hax-lib version; is Cargo working?"; exit 1; }
+	@$(DOCKER) image inspect $(HAX_IMAGE) >/dev/null 2>&1 || \
+	  { echo "Error: missing image '$(HAX_IMAGE)'; build and tag it per <https://github.com/cryspen/hax#installation>."; exit 1; }
+
+.PHONY: compat-hax
+compat-hax: compat-hax-image  # Internal: Check that $HAX_IMAGE has the expected $HAX_VERSION.
+	@actual=$$($(DOCKER) run --rm $(HAX_IMAGE) cargo-hax --version 2>/dev/null | sed -n 's/^version=//p'); \
+	[ "$$actual" = "$(HAX_VERSION)" ] || \
+	  { echo "Error: expected cargo-hax version '$(HAX_VERSION)', got '$$actual'"; exit 1; }
+
 .PHONY: extract
-extract:  # Internal/CI: Run hax extraction.
-	cargo hax into -i '$(HAX_TARGETS)' fstar
+extract:  ## Run hax extraction, without verifying. (Prefix with "CONTAINER=1" to run containerized.)
+	$(CONTAINER_RUN) cargo-hax into -i '$(HAX_TARGETS)' fstar
 
 .PHONY: hax
 hax: compat extract verify  ## Run hax extraction, then type-check and verify extracted proofs.
@@ -54,7 +86,7 @@ verify:  # Internal/CI: Type-check and verify extracted proofs.
 
 .PHONY: hax-lib-version
 hax-lib-version:  # Internal: Query Cargo for the hax-lib version.
-	@cargo pkgid hax-lib 2>/dev/null | sed 's/.*@//'
+	@echo $(HAX_VERSION)
 
 .PHONY: help
 help: ## Print this message.
