@@ -45,23 +45,28 @@ let encrypt
       (plaintext: Securedrop_protocol_minimal.Ciphertext.t_Plaintext)
       (recipient: v_Recipient)
     : (v_R & Securedrop_protocol_minimal.Ciphertext.t_Envelope) =
-  let sk_s:Securedrop_protocol_minimal.Message.t_MessagePrivateKey =
-    Securedrop_protocol_minimal.Traits.f_message_auth_key #v_Sender
+  let keypair_s:Securedrop_protocol_minimal.Message.t_MessageKeyPair =
+    Securedrop_protocol_minimal.Traits.f_message_auth_keypair #v_Sender
       #FStar.Tactics.Typeclasses.solve
       sender
+  in
+  let pk_s:Securedrop_protocol_minimal.Message.t_MessagePublicKey =
+    Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key (Securedrop_protocol_minimal.Traits.f_message_auth_keypair
+          #v_Sender
+          #FStar.Tactics.Typeclasses.solve
+          sender
+        <:
+        Securedrop_protocol_minimal.Message.t_MessageKeyPair)
   in
   let pk_r:Securedrop_protocol_minimal.Message.t_MessagePublicKey =
     Securedrop_protocol_minimal.Traits.f_message_enc_pk #v_Recipient
       #FStar.Tactics.Typeclasses.solve
       recipient
   in
-  let pk_r_fetch:t_Array u8 (mk_usize 32) =
-    Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes (Securedrop_protocol_minimal.Traits.f_fetch_pk
-          #v_Recipient
-          #FStar.Tactics.Typeclasses.solve
-          recipient
-        <:
-        Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
+  let pk_r_fetch:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
+    Securedrop_protocol_minimal.Traits.f_fetch_pk #v_Recipient
+      #FStar.Tactics.Typeclasses.solve
+      recipient
   in
   let
   (tmp0: v_R),
@@ -70,7 +75,7 @@ let encrypt
       Anyhow.t_Error) =
     Securedrop_protocol_minimal.Message.auth_enc #v_R
       rng
-      sk_s
+      keypair_s
       pk_r
       (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Ciphertext.impl_Plaintext__to_bytes plaintext
 
@@ -79,7 +84,7 @@ let encrypt
         <:
         t_Slice u8)
       v_NR_ID
-      (pk_r_fetch <: t_Slice u8)
+      pk_r_fetch
   in
   let rng:v_R = tmp0 in
   let ct_apke:Securedrop_protocol_minimal.Message.t_MessageCiphertext =
@@ -120,9 +125,12 @@ let encrypt
               recipient
             <:
             Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
-          (Securedrop_protocol_minimal.Traits.f_own_message_auth_pk #v_Sender
-              #FStar.Tactics.Typeclasses.solve
-              sender
+          (Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key (Securedrop_protocol_minimal.Traits.f_message_auth_keypair
+                  #v_Sender
+                  #FStar.Tactics.Typeclasses.solve
+                  sender
+                <:
+                Securedrop_protocol_minimal.Message.t_MessageKeyPair)
             <:
             Securedrop_protocol_minimal.Message.t_MessagePublicKey)
         <:
@@ -239,15 +247,11 @@ let decrypt_with_sender
           Anyhow.t_Error)
       "Metadata must contain valid sender APKE key tuple"
   in
-  let pk_r_fetch:t_Array u8 (mk_usize 32) =
-    Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes (Securedrop_protocol_minimal.Traits.f_fetch_keypair
-          #v_U
-          #FStar.Tactics.Typeclasses.solve
-          receiver
-        <:
-        (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
-          Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey))
-        ._2
+  let pk_r_fetch:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
+    (Securedrop_protocol_minimal.Traits.f_fetch_keypair #v_U
+        #FStar.Tactics.Typeclasses.solve
+        receiver)
+      ._2
   in
   let pt:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Core_models.Result.impl__expect #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
@@ -259,7 +263,7 @@ let decrypt_with_sender
           sender_pk
           envelope.Securedrop_protocol_minimal.Ciphertext.f_ct_apke
           v_NR_ID
-          (pk_r_fetch <: t_Slice u8)
+          pk_r_fetch
         <:
         Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
       "SD-APKE AuthDec failed"

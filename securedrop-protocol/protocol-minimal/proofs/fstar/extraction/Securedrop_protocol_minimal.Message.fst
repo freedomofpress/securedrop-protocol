@@ -436,7 +436,7 @@ let deterministic_keygen (dh_seed: t_Array u8 (mk_usize 32)) (mlkem_seed: t_Arra
 /// - `sk = (skS1, skS2)`: sender's SD-APKE private key
 /// - `pk = (pkR1, pkR2)`: recipient's SD-APKE public key
 /// - `ad`: associated data
-/// - `info`: caller-supplied info (spec prepends `c2` internally: `info = c2 + info`)
+/// - `info_incl`: additional opaque bytes to include in info param, currently receiver's fetch key.
 /// # Errors
 /// Returns an error if ML-KEM encapsulation or HPKE sealing fails.
 let auth_enc
@@ -444,9 +444,10 @@ let auth_enc
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
       (rng: v_R)
-      (sk: t_MessagePrivateKey)
+      (sk: t_MessageKeyPair)
       (pk: t_MessagePublicKey)
-      (m ad info: t_Slice u8)
+      (m ad: t_Slice u8)
+      (info_incl: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : (v_R & Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error) =
   let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
     Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
@@ -523,7 +524,7 @@ let auth_enc
         #FStar.Tactics.Typeclasses.solve
         (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey
             #FStar.Tactics.Typeclasses.solve
-            sk.f_dhakem
+            (impl_MessageKeyPair__private_key sk <: t_MessagePrivateKey).f_dhakem
           <:
           Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey)
     in
@@ -532,7 +533,25 @@ let auth_enc
       Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global full_info (c2 <: t_Slice u8)
     in
     let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-      Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global full_info info
+      Alloc.Vec.impl_2__extend_from_slice #u8
+        #Alloc.Alloc.t_Global
+        full_info
+        (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes info_incl
+          <:
+          t_Slice u8)
+    in
+    let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+      Alloc.Vec.impl_2__extend_from_slice #u8
+        #Alloc.Alloc.t_Global
+        full_info
+        (Alloc.Vec.impl_1__as_slice (impl_MessagePublicKey__as_bytes (impl_MessageKeyPair__public_key
+                    sk
+                  <:
+                  t_MessagePublicKey)
+              <:
+              Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+          <:
+          t_Slice u8)
     in
     let
     (tmp0: Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux),
@@ -635,7 +654,8 @@ let auth_dec
       (sk: t_MessagePrivateKey)
       (pk: t_MessagePublicKey)
       (ct: t_MessageCiphertext)
-      (ad info: t_Slice u8)
+      (ad: t_Slice u8)
+      (info_incl: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error =
   let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
     Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
@@ -716,7 +736,22 @@ let auth_dec
         (ct.f_c2 <: t_Slice u8)
     in
     let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-      Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global full_info info
+      Alloc.Vec.impl_2__extend_from_slice #u8
+        #Alloc.Alloc.t_Global
+        full_info
+        (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes info_incl
+          <:
+          t_Slice u8)
+    in
+    let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+      Alloc.Vec.impl_2__extend_from_slice #u8
+        #Alloc.Alloc.t_Global
+        full_info
+        (Alloc.Vec.impl_1__as_slice (impl_MessagePublicKey__as_bytes pk
+              <:
+              Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+          <:
+          t_Slice u8)
     in
     Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
       #Hpke_rs.t_HpkeError
