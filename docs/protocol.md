@@ -116,6 +116,10 @@ deactivate Server
 
 ## Keys
 
+Protocol participants (sources, journalists) have separate keys for message encryption, metadata encryption and message fetching.
+Journalists also have signing keys and long-term message authentication keys, and generate a pool of usable message/metadata keys.
+The newsroom and FPF have signing keys to confer trust on journalists and newsrooms respectively.
+
 ### Key hierarchy <!-- as of b1e4d41 -->
 
 Throughout this document, keys are notated as $component_{owner}^{scheme}$, where:
@@ -123,28 +127,28 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 - $`component \in \{sk, pk, vk\}`$ for private ($sk$) or public ($pk$ or $vk$) components
 - $`owner \in \{FPF, NR, J, S\}`$ for FPF, newsroom $NR$, journalist $J$, or source $S$
 - $`scheme \in \{fetch, sig, APKE, PKE\}`$ for:
-  - $fetch$ for use in the [message-fetching protocol][message-fetching]
+  - $fetch$ for [message-fetching keys][message-fetching]
   - $sig$ for a signature scheme TBD
-  - $APKE = \text{SD-APKE}$ ($APKE_E$ if one-time)
-  - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time)
+  - $APKE = \text{SD-APKE}$ ($APKE_E$ if one-time) for [message encryption keys][SD-APKE]
+  - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time) for [metadata encryption keys][SD-PKE]
 
 [message-fetching]: #protocol-step-7-receiver-fetches-and-decrypts-messages-
 
-| Owner      | Private Key         | Public Key          | Usage     | Purpose  | Direction | Lifetime      | Algorithm                           | Signed by        | Bundled in          |
-| ---------- | ------------------- | ------------------- | --------- | -------- | --------- | ------------- | ----------------------------------- | ---------------- | ------------------- |
-| FPF        | $sk_{FPF}^{sig}$    | $vk_{FPF}^{sig}$    |           | Signing  |           | Long-term     | ?                                   |                  |                     |
-| Newsroom   | $sk_{NR}^{sig}$     | $vk_{NR}^{sig}$     |           | Signing  |           | Long-term     | ?                                   | $sk_{FPF}^{sig}$ | [Welcome bundle]    |
-| Journalist | $sk_J^{sig}$        | $vk_J^{sig}$        |           | Signing  |           | Long-term     | ?                                   | $sk_{NR}^{sig}$  | [Roster]            |
-| Journalist | $sk_J^{APKE}$       | $pk_J^{APKE}$       | [SD-APKE] | Message  | Outgoing  | Long-term     | DHKEM(X25519, HKDF-SHA256) + ML-KEM | $sk_J^{sig}$     | [Roster]            |
-| Journalist | $sk_J^{fetch}$      | $pk_J^{fetch}$      |           | Fetching |           | TBD[^6]       | ristretto255                        | $sk_J^{sig}$     | [Roster]            |
-| Journalist | $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | [SD-APKE] | Message  | Incoming  | One-time      | DHKEM(X25519, HKDF-SHA256) + ML-KEM | $sk_J^{sig}$     | [Signed key bundle] |
-| Journalist | $sk_{J,i}^{PKE_E}$  | $pk_{J,i}^{PKE_E}$  | [SD-PKE]  | Metadata | Incoming  | One-time      | X-Wing(X25519, ML-KEM-768)          | $sk_J^{sig}$     | [Signed key bundle] |
-| Source     | $sk_S^{fetch}$      | $pk_S^{fetch}$      |           | Fetching |           | Permanent[^7] | ristretto255                        |                  |                     |
-| Source     | $sk_S^{APKE}$       | $pk_S^{APKE}$       | [SD-APKE] | Message  | In+Out    | Permanent[^7] | DHKEM(X25519, HKDF-SHA256) + ML-KEM |                  | [Key bundle]        |
-| Source     | $sk_S^{PKE}$        | $pk_S^{PKE}$        | [SD-PKE]  | Metadata | Incoming  | Permanent[^7] | X-Wing(X25519, ML-KEM-768)          |                  | [Key bundle]        |
+| Owner      | Private Key         | Public Key          | Purpose       | Lifetime      | Algorithm                                     | Signed by        | Bundled in          |
+| ---------- | ------------------- | ------------------- | ------------- | ------------- | --------------------------------------------- | ---------------- | ------------------- |
+| FPF        | $sk_{FPF}^{sig}$    | $vk_{FPF}^{sig}$    | Signing       | Long-term     | ?                                             |                  |                     |
+| Newsroom   | $sk_{NR}^{sig}$     | $vk_{NR}^{sig}$     | Signing       | Long-term     | ?                                             | $sk_{FPF}^{sig}$ | [Welcome bundle]    |
+| Journalist | $sk_J^{sig}$        | $vk_J^{sig}$        | Signing       | Long-term     | ?                                             | $sk_{NR}^{sig}$  | [Roster]            |
+| Journalist | $sk_J^{fetch}$      | $pk_J^{fetch}$      | Fetching      | TBD[^6]       | ristretto255                                  | $sk_J^{sig}$     | [Roster]            |
+| Journalist | $sk_J^{APKE}$       | $pk_J^{APKE}$       | Message (out) | Long-term     | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$     | [Roster]            |
+| Journalist | $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | Message (in)  | One-time      | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$     | [Signed key bundle] |
+| Journalist | $sk_{J,i}^{PKE_E}$  | $pk_{J,i}^{PKE_E}$  | Metadata (in) | One-time      | X-Wing(X25519, ML-KEM-768)                    | $sk_J^{sig}$     | [Signed key bundle] |
+| Source     | $sk_S^{fetch}$      | $pk_S^{fetch}$      | Fetching      | Permanent[^7] | ristretto255                                  |                  |                     |
+| Source     | $sk_S^{APKE}$       | $pk_S^{APKE}$       | Message       | Permanent[^7] | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] |                  | [Key bundle]        |
+| Source     | $sk_S^{PKE}$        | $pk_S^{PKE}$        | Metadata      | Permanent[^7] | X-Wing(X25519, ML-KEM-768)                    |                  | [Key bundle]        |
 
-[SD-APKE]: #message-encryption-via-sd-apke-securedrop-apke-
-[SD-PKE]: #metadata-protection-via-sd-pke-securedrop-pke-
+[SD-APKE]: #message-encryption-sd-apke
+[SD-PKE]: #metadata-encryption-sd-pke
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
@@ -197,7 +201,7 @@ pinned.[^2]
 
 ##### 3.1. Journalist initial key setup <!-- Figure 2 as of b1e4d41 -->
 
-Each journalist generates three long-term keypairs: $sig$ for signing, $APKE$ for message encryption, and $fetch$ for message fetching. The journalist signs their $APKE$ and $fetch$ public keys with their new $sig$ signing key and sends the public keys to the newsroom along with the signature and verification key.
+Each journalist generates three long-term keypairs: $sig$ for signing, $APKE$ for message encryption (outgoing), and $fetch$ for message fetching. The journalist signs their $APKE$ and $fetch$ public keys with their new $sig$ signing key and sends the public keys to the newsroom along with the signature and verification key.
 
 The newsroom manually verifies the journalist's verification key (out of band),
 then signs it with the newsroom signing key to produce $\sigma_{NR,J}$. The
@@ -229,11 +233,11 @@ Then:
 
 Following [enrollment][step 3.1], each journalist $J$ MUST generate and maintain
 a pool of $n$ [signed key bundles][signed key bundle]. Each bundle consists of
-an ephemeral APKE public key and an ephemeral PKE public key, signed by the
+an ephemeral APKE (message) public key, an ephemeral PKE (metadata) public key, for which the journalist locally retains the complete keypair, and a signature by the
 journalist's long-term signing key.
 
-The server verifies the signature, and stores these public keys and the
-corresponding signature. The journalist maintains the corresponding ephemeral private keys.
+The server verifies the signature, and stores the signed key bundle.
+These keys are used by other participants to address messages to the journalist.
 
 For each key bundle $i$:[^11]
 
@@ -290,7 +294,17 @@ As with the journalist, $`(sk_S^{fetch}, pk_S^{fetch})`$ key generation uses the
 
 ## Messaging Protocol
 
-Overview TK
+The sending party begins the messaging protocol by fetching and verifying journalist keys.
+They then compose a message that is encrypted individually to each journalist, separately encrypt information required for message decryption ("metadata") and message delivery, and upload these to the server.
+
+The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC 9180]:
+
+- For message encryption, `SD-APKE` wraps HPKE `AuthPSK` mode, following listing
+  17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen2023].
+- For metadata encryption, `SD-PKE` is an instantiation of [HPKE `Base`
+  mode][RFC 9180 §5.1.1].
+
+To check for messages, a recipient runs a challenge-based fetching protocol.
 
 ### Notation[^9] <!-- Section 4 as of b1e4d41 -->
 
@@ -315,45 +329,13 @@ Overview TK
 | `Ristretto255`       | $`(sk, pk) \gets^{\$} \text{KGen}()`$                                              | Generate a ristretto255 Diffie–Hellman keypair by sampling $`x \gets^{\$} \mathbb{F}_\ell`$, the ristretto255 scalar field, and computing $`pk = x \cdot B`$, where $`B \in \mathbb{G}_{\mathrm{R255}}`$ is the basepoint |
 |                      | $`K \gets \text{DH}(sk, pk')`$                                                     | Perform a Diffie–Hellman agreement between two ristretto255 keys, where $`K = sk \cdot pk' = sk' \cdot pk \in \mathbb{G}_{\mathrm{R255}}`$                                                                                |
 
-The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC 9180]:
+### Message encryption (`SD-APKE`)
 
-- For metadata protection, `SD-PKE` is an instantiation of [HPKE `Base`
-  mode][RFC 9180 §5.1.1].
-- For message encryption, `SD-APKE` wraps HPKE `AuthPSK` mode, following listing
-  17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen2023].
+$\text{SD-APKE}$ is message encryption using Hybrid Public Key Encryption with an authenticated KEM ($\text{AKEM}$), plus a ($\text{KEM}_{PQ}$) used to provide quantum-safe input into the key schedule.
+Its components are described below.
+Because it combines two constructions, $\text{AKEM}$ and $\text{KEM}_{PQ}$, the SD-APKE encryption key is a tuple of the AKEM key and the KEM_PQ key. See [SD-APKE AuthEnc/AuthDec `KGen()`](#sd-apke-authencauthdec) for details.
 
-### Metadata protection via `SD-PKE`: SecureDrop PKE <!-- Figure 6 as of b1e4d41 -->
-
-$\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
-mode][RFC 9180 §5.1.1] with:
-
-- $\text{KEM}_H =$ X-Wing
-- $\text{AEAD} =$ ChaCha20Poly1305
-- $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
-
-| Syntax                                                | Description                                                  |
-| ----------------------------------------------------- | ------------------------------------------------------------ |
-| $`(sk_S^{PKE}, pk_S^{PKE}) \gets^{\$} \text{KGen}()`$ | Generate keys                                                |
-| $`(c, c') \gets^{\$} \text{Enc}(pk_R^{PKE}, m)`$      | Encrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
-| $`m \gets \text{Dec}(sk_R^{PKE}, (c, c'))`$           | Decrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
-
-Concretely, using HPKE's [single-shot APIs][RFC 9180 §6.1]:
-
-```python
-def KGen():
-    (skS, pkS) = KEM_H.KGen()
-    return (skS, pkS)
-
-def Enc(pkR, m):
-    c, cp = HPKE.SealBase(pkR=pkR, info=None, aad=None, pt=m)  # where cp = c'
-    return (c, cp)
-
-def Dec(skR, c, cp):  # where cp = c' in (c, cp)
-    m = HPKE.OpenBase(enc=c, skR=skR, info=None, aad=None, ct=cp)
-    return m
-```
-
-### Message encryption via `SD-APKE`: SecureDrop APKE
+#### SD-APKE AuthEnc/AuthDec
 
 $\text{SD-APKE}[\text{KEM}_{PQ}, \text{AKEM}, \text{AEAD}]$ is constructed with:
 
@@ -436,6 +418,37 @@ This `info` parameter is greater than 64 bytes. Implementors MUST ensure that th
 
 Note: Although the DH-AKEM portion of $`pkS`$ is already implicitly authenticated by its use in the [DH-AKEM construction][RFC 9180 §4.1], the entire $`pkS`$ is attached for clarity, parity with formal verification methods that treat the combined key as an opaque type, and ease of future drop-in replacement if a suitable PQ-authenticated construction to replace SD-APKE emerges.
 
+### Metadata encryption (`SD-PKE`) <!-- Figure 6 as of b1e4d41 -->
+
+$\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
+mode][RFC 9180 §5.1.1] with:
+
+- $\text{KEM}_H =$ X-Wing
+- $\text{AEAD} =$ ChaCha20Poly1305
+- $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
+
+| Syntax                                                | Description                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------------ |
+| $`(sk_S^{PKE}, pk_S^{PKE}) \gets^{\$} \text{KGen}()`$ | Generate keys                                                |
+| $`(c, c') \gets^{\$} \text{Enc}(pk_R^{PKE}, m)`$      | Encrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
+| $`m \gets \text{Dec}(sk_R^{PKE}, (c, c'))`$           | Decrypt a message $m$ via HPKE in [`mode_base`][RFC 9180 §5] |
+
+Concretely, using HPKE's [single-shot APIs][RFC 9180 §6.1]:
+
+```python
+def KGen():
+    (skS, pkS) = KEM_H.KGen()
+    return (skS, pkS)
+
+def Enc(pkR, m):
+    c, cp = HPKE.SealBase(pkR=pkR, info=None, aad=None, pt=m)  # where cp = c'
+    return (c, cp)
+
+def Dec(skR, c, cp):  # where cp = c' in (c, cp)
+    m = HPKE.OpenBase(enc=c, skR=skR, info=None, aad=None, ct=cp)
+    return m
+```
+
 ### Messaging Protocol Steps
 
 Sources and journalists use different [setup steps](#key-setup-steps) to manage their encryption keys.
@@ -503,9 +516,9 @@ enrolled journalists.
 The SD-APKE ciphertext is sender authenticated using classical DH-AKEM implicit authentication, and provides hybrid (post-quantum/traditional) message encryption by including a quantum-resistent secret in the encryption context using [HPKE `AuthPSK` mode][RFC 9180 §5.1.4],
 Despite the name, the "PSK" value is not a true 'pre-shared' key, and functions more like a [KEM combiner](https://datatracker.ietf.org/doc/draft-ounsworth-cfrg-kem-combiners/).
 Our terminology follows Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen-2023].
-The PQ `psk` itself provides receiver authentication, but not sender authentication, due to the way it is [constructed][SD-APKE].
+The PQ `psk` itself provides receiver authentication, but not sender authentication, due to the way it is [constructed](#pskapke-pre-shared-key-authenticated-pke).
 
-The SD-APKE ciphertext carries a [structured plaintext message](#message-formats).\
+The SD-APKE ciphertext carries a [structured plaintext message](#message-formats).
 Sources MUST include their long-term fetching and PKE public keys in this plaintext in order to receive replies, since otherwise recipients cannot know all public key material required to reply to them.
 Since recipients always retrieve fresh public keys before responding to a Journalist, long-term keys included by journalists inside the structured plaintext message are ignored by recipients during decryption, and Journalists MAY therefore include placeholder values, particularly because a Journalist does not have a "long-term" PKE key.
 Journalists MUST always produce both the same size SD-APKE ciphertext and same size structured plaintext message as sources.
@@ -851,6 +864,8 @@ insertion order.
     as ASCII bytes, $\text{len}(tag)$ is the length of the tag encoded as a
     single byte, and $m$ is the preimage bytes. Tags MUST contain only ASCII
     characters and MUST be at most 255 bytes.
+
+[^13]: The [SD-APKE](#message-encryption-sd-apke) key used for message encryption/decryption is composed of a classical and a quantum-resistent key.
 
 [0.1]: https://github.com/freedomofpress/securedrop-protocol/blob/v0.1/README.md#parties
 [0.2]: https://github.com/freedomofpress/securedrop-protocol/blob/9e6c165673c03e9821725f72b3df4d8292b8cabf/docs/protocol.md
