@@ -30,7 +30,7 @@ axum = "0.7"
 bip39 = { version = "2", default-features = false }
 clap = "4"
 criterion = "0.5"
-directories = "5"
+directories = "6"
 getrandom = { version = "0.3", default-features = false }
 hashbrown = "0.14"
 hex = { version = "0.4", default-features = false }
