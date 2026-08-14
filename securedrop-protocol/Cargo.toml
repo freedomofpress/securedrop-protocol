@@ -31,7 +31,8 @@ bip39 = { version = "2", default-features = false }
 clap = "4"
 criterion = "0.5"
 directories = "5"
-getrandom = { version = "0.3", default-features = false }
+# getrandom03 = { version = "0.3", default-features = false }
+getrandom = { version = "0.4", default-features = false }
 hashbrown = "0.14"
 hex = { version = "0.4", default-features = false }
 js-sys = "0.3"
@@ -39,7 +40,7 @@ proptest = "1.11"
 rand = "0.10"
 rand_chacha = { version = "0.10.0", default-features = false }
 rand_core = "0.10"
-reqwest = { version = "0.12", default-features = false }
+reqwest = { version = "0.13", default-features = false }
 serde = { version = "1", default-features = false }
 serde_json = { version = "1", default-features = false }
 tokio = "1"
