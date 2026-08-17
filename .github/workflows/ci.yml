@@ -43,3 +43,29 @@ jobs:
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: make deps-lint
       - run: make lint
+  
+  # Run the `cargo deny` action, which uses deny.toml to check that dependencies comply
+  # with policies around licensing, version deduplication, and address RUSTSEC advisories.
+  # Suggested action matrix per https://github.com/EmbarkStudios/cargo-deny-action.
+  # To run locally, `cargo install cargo deny`, then `cargo deny check`
+  cargo-deny:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        checks:
+          - advisories
+          - bans licenses sources
+    # Prevent sudden announcement of a new advisory from failing ci:
+    continue-on-error: ${{ matrix.checks == 'advisories' }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    # Action@v2.1.1
+    - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25
+      with:
+        command: check ${{ matrix.checks }}
+        manifest-path: securedrop-protocol/Cargo.toml
+
+
+      

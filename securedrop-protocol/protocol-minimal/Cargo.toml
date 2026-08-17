@@ -51,7 +51,7 @@ rand_chacha = { workspace = true }
 # on https://github.com/celabshq/libcrux/issues/1544, which depends on getrandom 0.4.2.
 ## for wasm32-unknown-unknown
 [target.'cfg(all(target_arch="wasm32", target_os = "unknown"))'.dependencies]
-getrandom = { version = "0.4", default-features = false, features = ["wasm_js"] }
+getrandom = { workspace = true, default-features = false, features = ["wasm_js"] }
 
 [dev-dependencies]
 proptest.workspace = true

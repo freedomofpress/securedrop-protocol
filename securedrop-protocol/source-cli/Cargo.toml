@@ -17,5 +17,5 @@ anyhow.workspace = true
 clap = { workspace = true, features = ["derive"] }
 hex.workspace = true
 rand.workspace = true
-reqwest = { workspace = true, features = ["blocking", "json", "rustls-tls"] }
+reqwest = { workspace = true, features = ["blocking", "json", "rustls"] }
 serde = { workspace = true, features = ["derive"] }
