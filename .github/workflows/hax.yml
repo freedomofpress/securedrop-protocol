@@ -1,6 +1,19 @@
 name: hax
 
-on: [push, pull_request]
+# Schedule this workflow once a day or when there are changes to relevant files
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+    paths:
+      - securedrop-protocol/Cargo.lock
+      - securedrop-protocol/protocol-minimal/proofs/**
+      - securedrop-protocol/protocol-minimal/src/**
+  pull_request:
+    paths:
+      - securedrop-protocol/Cargo.lock
+      - securedrop-protocol/protocol-minimal/proofs/**
+      - securedrop-protocol/protocol-minimal/src/**
 
 permissions:
   contents: read
