@@ -258,7 +258,7 @@ pub(crate) fn deterministic_keygen(
 
 /// SD-APKE.AuthEnc: encrypt message `m` from sender to recipient.
 ///
-/// - `sk = (skS1, skS2)`: sender's SD-APKE private key
+/// - `kp = ((skS1, skS2), (pkS1, pkS2))`: sender's SD-APKE keypair
 /// - `pk = (pkR1, pkR2)`: recipient's SD-APKE public key
 /// - `ad`: associated data
 /// - `info_incl`: additional opaque bytes to include in info param, currently receiver's fetch key.
@@ -268,7 +268,7 @@ pub(crate) fn deterministic_keygen(
 /// Returns an error if ML-KEM encapsulation or HPKE sealing fails.
 pub fn auth_enc<R: RngCore + CryptoRng>(
     rng: &mut R,
-    sk: &MessageKeyPair,   // (skS1, skS2)
+    kp: &MessageKeyPair,   // ((skS1, skS2), (pkS1, pkS2))
     pk: &MessagePublicKey, // (pkR1, pkR2)
     m: &[u8],
     ad: &[u8], // Todo: should always be empty
@@ -286,13 +286,13 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
 
     // (c1, cp) = pskAEnc(skS=skS1, pkR=pkR1, psk=K2, m=m, ad=ad, info=c2+info)
     let pkr1: HpkePublicKey = pk.dhakem.clone().into();
-    let sks1: HpkePrivateKey = sk.private_key().dhakem.clone().into();
+    let sks1: HpkePrivateKey = kp.private_key().dhakem.clone().into();
 
     // pskAPKE info param = c2 || pkR_fetch || pkS
     let mut full_info = Vec::new();
     full_info.extend_from_slice(&c2);
     full_info.extend_from_slice(&info_incl.into_bytes());
-    full_info.extend_from_slice(&sk.public_key().as_bytes());
+    full_info.extend_from_slice(&kp.pk.as_bytes());
 
     let (c1_vec, cp) = hpke
         .seal(
@@ -320,7 +320,7 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
 /// - `sk = (skR1, skR2)`: recipient's SD-APKE private key
 /// - `pk = (pkS1, pkS2)`: sender's SD-APKE public key
 /// - `ad`: associated data
-/// - `info`: caller-supplied info (spec prepends `c2` internally: `info = c2 + info`)
+/// - `info_incl`: caller-supplied info (spec prepends `c2` internally: `info = c2 + info`)
 ///
 /// # Errors
 ///
@@ -338,7 +338,7 @@ pub fn auth_dec(
     let k2 = MlKem768::decaps(&ct.c2, sk.mlkem.as_bytes())
         .map_err(|e| anyhow::anyhow!("ML-KEM decapsulation failed: {:?}", e))?;
 
-    // m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2+info+pkS)
+    // m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info_incl=c2+info+pkS)
     let skr1: HpkePrivateKey = sk.dhakem.clone().into();
     let pks1: HpkePublicKey = pk.dhakem.clone().into();
 
@@ -409,7 +409,7 @@ mod tests {
         let mut rng = get_rng();
         let sender_kp = keygen(&mut rng).expect("KGen failed");
         let recipient_kp = keygen(&mut rng).expect("KGen failed");
-        let receipient_fetch = generate_dh_keypair(&mut rng).1;
+        let recipient_fetch = generate_dh_keypair(&mut rng).1;
         let wrong_kp = keygen(&mut rng).expect("KGen failed");
 
         let ct = auth_enc(
@@ -418,7 +418,7 @@ mod tests {
             recipient_kp.public_key(),
             b"secret",
             b"ad",
-            &receipient_fetch,
+            &recipient_fetch,
         )
         .expect("AuthEnc failed");
 
@@ -428,7 +428,7 @@ mod tests {
                 sender_kp.public_key(),
                 &ct,
                 b"ad",
-                &receipient_fetch,
+                &recipient_fetch,
             )
             .is_err()
         );

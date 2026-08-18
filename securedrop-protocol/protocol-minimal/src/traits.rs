@@ -83,7 +83,7 @@ pub trait UserSecret: sealed::Sealed {
 pub trait UserSecret {
     fn num_bundles(&self) -> usize;
     fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey);
-    /// The long-term SD-APKE keypair (`sk^APKE`, `pk&APKE`).
+    /// The long-term SD-APKE keypair (`sk^APKE`, `pk^APKE`).
     fn message_auth_keypair(&self) -> &MessageKeyPair;
     fn build_message(&self, message: Vec<u8>) -> Plaintext;
     fn keybundles(&self) -> Vec<&MessageKeyBundle>;

@@ -35,7 +35,6 @@ where
 {
     // spec: sk_S^APKE - sender's long-term APKE private key
     let keypair_s = sender.message_auth_keypair();
-    let pk_s = sender.message_auth_keypair().public_key();
     // spec: pk_R^APKE - recipient's APKE public key
     let pk_r = recipient.message_enc_pk();
     // spec: pk_R^fetch
@@ -48,7 +47,7 @@ where
         pk_r,
         &plaintext.to_bytes(),
         NR_ID,
-        &pk_r_fetch,
+        pk_r_fetch,
     )
     .expect("SD-APKE AuthEnc failed");
 
@@ -61,11 +60,8 @@ where
     // spec: pk_S^APKE - sender's long-term APKE public key
     // spec: ct^PKE = SD-PKE.Enc(pk_R^PKE, pk_S^APKE)
     // TODO: Refactor to return Result<T, E> instead of panicking at failed metadata seal
-    let ct_pke = metadata::encrypt(
-        recipient.message_metadata_pk(),
-        &sender.message_auth_keypair().public_key(),
-    )
-    .expect("Valid Keybundle should allow metadata seal");
+    let ct_pke = metadata::encrypt(recipient.message_metadata_pk(), &keypair_s.public_key())
+        .expect("Valid Keybundle should allow metadata seal");
 
     Envelope {
         ct_apke,                 // spec: ct^APKE
@@ -112,7 +108,7 @@ pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
         &sender_pk,                // spec: pk_S^APKE
         &envelope.ct_apke,         // spec: ct^APKE
         NR_ID,                     // spec: NR
-        &pk_r_fetch,               // spec: pk_R^fetch
+        pk_r_fetch,                // spec: pk_R^fetch
     )
     .expect("SD-APKE AuthDec failed");
 
