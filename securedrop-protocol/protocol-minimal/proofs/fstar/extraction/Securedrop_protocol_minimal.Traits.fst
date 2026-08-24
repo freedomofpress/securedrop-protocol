@@ -139,19 +139,13 @@ class t_UserSecret (v_Self: Type0) = {
           Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
         (f_fetch_keypair_pre x0)
         (fun result -> f_fetch_keypair_post x0 result);
-  f_message_auth_key_pre:v_Self -> Type0;
-  f_message_auth_key_post:v_Self -> Securedrop_protocol_minimal.Message.t_MessagePrivateKey -> Type0;
-  f_message_auth_key:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Message.t_MessagePrivateKey
-        (f_message_auth_key_pre x0)
-        (fun result -> f_message_auth_key_post x0 result);
-  f_own_message_auth_pk_pre:v_Self -> Type0;
-  f_own_message_auth_pk_post:v_Self -> Securedrop_protocol_minimal.Message.t_MessagePublicKey
+  f_message_auth_keypair_pre:v_Self -> Type0;
+  f_message_auth_keypair_post:v_Self -> Securedrop_protocol_minimal.Message.t_MessageKeyPair
     -> Type0;
-  f_own_message_auth_pk:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Message.t_MessagePublicKey
-        (f_own_message_auth_pk_pre x0)
-        (fun result -> f_own_message_auth_pk_post x0 result);
+  f_message_auth_keypair:x0: v_Self
+    -> Prims.Pure Securedrop_protocol_minimal.Message.t_MessageKeyPair
+        (f_message_auth_keypair_pre x0)
+        (fun result -> f_message_auth_keypair_post x0 result);
   f_build_message_pre:v_Self -> Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global -> Type0;
   f_build_message_post:
       v_Self ->

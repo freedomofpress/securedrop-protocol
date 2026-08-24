@@ -149,12 +149,8 @@ impl UserSecret for Journalist {
         (&self.fetch_key.sk, &self.fetch_key.pk)
     }
 
-    fn message_auth_key(&self) -> &crate::message::MessagePrivateKey {
-        self.reply_apke.private_key()
-    }
-
-    fn own_message_auth_pk(&self) -> &MessagePublicKey {
-        self.reply_apke.public_key()
+    fn message_auth_keypair(&self) -> &MessageKeyPair {
+        &self.reply_apke
     }
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {

@@ -1,5 +1,6 @@
 use crate::VerifyingKey;
-use crate::message::{MessagePrivateKey, MessagePublicKey};
+use crate::message::MessageKeyPair;
+use crate::message::MessagePublicKey;
 use crate::metadata::MetadataPublicKey;
 use crate::primitives::ristretto255::DHPrivateKey;
 use crate::primitives::ristretto255::DHPublicKey;
@@ -72,10 +73,8 @@ pub trait Enrollable {
 pub trait UserSecret: sealed::Sealed {
     fn num_bundles(&self) -> usize;
     fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey);
-    /// The long-term SD-APKE private key `sk^APKE`.
-    fn message_auth_key(&self) -> &MessagePrivateKey;
-    /// The holder's own long-term SD-APKE public key `pk^APKE`.
-    fn own_message_auth_pk(&self) -> &MessagePublicKey;
+    /// The long-term SD-APKE keypair (`sk^APKE`, `pk^APKE`)
+    fn message_auth_keypair(&self) -> &MessageKeyPair;
     fn build_message(&self, message: Vec<u8>) -> Plaintext;
     fn keybundles(&self) -> Vec<&MessageKeyBundle>;
 }
@@ -84,10 +83,8 @@ pub trait UserSecret: sealed::Sealed {
 pub trait UserSecret {
     fn num_bundles(&self) -> usize;
     fn fetch_keypair(&self) -> (&DHPrivateKey, &DHPublicKey);
-    /// The long-term SD-APKE private key `sk^APKE`.
-    fn message_auth_key(&self) -> &MessagePrivateKey;
-    /// The holder's own long-term SD-APKE public key `pk^APKE`.
-    fn own_message_auth_pk(&self) -> &MessagePublicKey;
+    /// The long-term SD-APKE keypair (`sk^APKE`, `pk^APKE`).
+    fn message_auth_keypair(&self) -> &MessageKeyPair;
     fn build_message(&self, message: Vec<u8>) -> Plaintext;
     fn keybundles(&self) -> Vec<&MessageKeyBundle>;
 }
