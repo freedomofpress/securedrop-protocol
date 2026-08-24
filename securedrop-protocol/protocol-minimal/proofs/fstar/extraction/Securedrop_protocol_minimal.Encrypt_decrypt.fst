@@ -50,14 +50,6 @@ let encrypt
       #FStar.Tactics.Typeclasses.solve
       sender
   in
-  let pk_s:Securedrop_protocol_minimal.Message.t_MessagePublicKey =
-    Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key (Securedrop_protocol_minimal.Traits.f_message_auth_keypair
-          #v_Sender
-          #FStar.Tactics.Typeclasses.solve
-          sender
-        <:
-        Securedrop_protocol_minimal.Message.t_MessageKeyPair)
-  in
   let pk_r:Securedrop_protocol_minimal.Message.t_MessagePublicKey =
     Securedrop_protocol_minimal.Traits.f_message_enc_pk #v_Recipient
       #FStar.Tactics.Typeclasses.solve
@@ -125,12 +117,7 @@ let encrypt
               recipient
             <:
             Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
-          (Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key (Securedrop_protocol_minimal.Traits.f_message_auth_keypair
-                  #v_Sender
-                  #FStar.Tactics.Typeclasses.solve
-                  sender
-                <:
-                Securedrop_protocol_minimal.Message.t_MessageKeyPair)
+          (Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key keypair_s
             <:
             Securedrop_protocol_minimal.Message.t_MessagePublicKey)
         <:

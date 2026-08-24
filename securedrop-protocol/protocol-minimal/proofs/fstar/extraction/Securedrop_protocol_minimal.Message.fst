@@ -433,7 +433,7 @@ let deterministic_keygen (dh_seed: t_Array u8 (mk_usize 32)) (mlkem_seed: t_Arra
     Core_models.Result.Result_Err err <: Core_models.Result.t_Result t_MessageKeyPair Anyhow.t_Error
 
 /// SD-APKE.AuthEnc: encrypt message `m` from sender to recipient.
-/// - `sk = (skS1, skS2)`: sender's SD-APKE private key
+/// - `kp = ((skS1, skS2), (pkS1, pkS2))`: sender's SD-APKE keypair
 /// - `pk = (pkR1, pkR2)`: recipient's SD-APKE public key
 /// - `ad`: associated data
 /// - `info_incl`: additional opaque bytes to include in info param, currently receiver's fetch key.
@@ -444,7 +444,7 @@ let auth_enc
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
       (rng: v_R)
-      (sk: t_MessageKeyPair)
+      (kp: t_MessageKeyPair)
       (pk: t_MessagePublicKey)
       (m ad: t_Slice u8)
       (info_incl: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
@@ -524,7 +524,7 @@ let auth_enc
         #FStar.Tactics.Typeclasses.solve
         (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey
             #FStar.Tactics.Typeclasses.solve
-            (impl_MessageKeyPair__private_key sk <: t_MessagePrivateKey).f_dhakem
+            (impl_MessageKeyPair__private_key kp <: t_MessagePrivateKey).f_dhakem
           <:
           Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey)
     in
@@ -544,10 +544,7 @@ let auth_enc
       Alloc.Vec.impl_2__extend_from_slice #u8
         #Alloc.Alloc.t_Global
         full_info
-        (Alloc.Vec.impl_1__as_slice (impl_MessagePublicKey__as_bytes (impl_MessageKeyPair__public_key
-                    sk
-                  <:
-                  t_MessagePublicKey)
+        (Alloc.Vec.impl_1__as_slice (impl_MessagePublicKey__as_bytes kp.f_pk
               <:
               Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
           <:
@@ -647,7 +644,7 @@ let auth_enc
 /// - `sk = (skR1, skR2)`: recipient's SD-APKE private key
 /// - `pk = (pkS1, pkS2)`: sender's SD-APKE public key
 /// - `ad`: associated data
-/// - `info`: caller-supplied info (spec prepends `c2` internally: `info = c2 + info`)
+/// - `info_incl`: caller-supplied info (spec prepends `c2` internally: `info = c2 + info`)
 /// # Errors
 /// Returns an error if ML-KEM decapsulation or HPKE opening fails.
 let auth_dec
