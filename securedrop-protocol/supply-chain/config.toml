@@ -6,11 +6,17 @@ default-criteria = "safe-to-run"
 [cargo-vet]
 version = "0.10"
 
+[imports.ariel-os]
+url = "https://raw.githubusercontent.com/ariel-os/ariel-os/main/supply-chain/audits.toml"
+
 [imports.bytecode-alliance]
 url = "https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml"
 
 [imports.embark-studios]
 url = "https://raw.githubusercontent.com/EmbarkStudios/rust-ecosystem/main/audits.toml"
+
+[imports.fermyon]
+url = "https://raw.githubusercontent.com/fermyon/spin/main/supply-chain/audits.toml"
 
 [imports.google]
 url = "https://raw.githubusercontent.com/google/supply-chain/main/audits.toml"
