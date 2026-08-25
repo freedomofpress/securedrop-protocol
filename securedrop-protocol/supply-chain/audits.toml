@@ -12,8 +12,14 @@ notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
 
 [[trusted.anyhow]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-10-05"
+end = "2027-08-25"
+
+[[trusted.anyhow]]
 criteria = "safe-to-run"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-10-05"
 end = "2027-07-06"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
@@ -49,10 +55,17 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.either]]
 criteria = "safe-to-deploy"
-user-id = 539
+user-id = 539 # Josh Stone (cuviper)
 start = "2019-04-02"
 end = "2024-04-10"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
+
+[[trusted.fastrand]]
+criteria = "safe-to-deploy"
+user-id = 33035 # Taiki Endo (taiki-e)
+start = "2021-04-24"
+end = "2027-08-25"
+notes = "Rust project member; see securedrop-supply-chain audits.toml"
 
 [[trusted.futures-channel]]
 criteria = "safe-to-deploy"
@@ -112,15 +125,21 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.http]]
 criteria = "safe-to-deploy"
-user-id = 359
+user-id = 359 # Sean McArthur (seanmonstar)
 start = "2019-04-05"
 end = "2024-11-17"
 notes = "see https://github.com/freedomofpress/securedrop-engineering/pull/87"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
+[[trusted.http-body]]
+criteria = "safe-to-deploy"
+user-id = 359 # Sean McArthur (seanmonstar)
+start = "2019-10-01"
+end = "2027-08-25"
+
 [[trusted.http-body-util]]
 criteria = "safe-to-deploy"
-user-id = 359
+user-id = 359 # Sean McArthur (seanmonstar)
 start = "2022-10-25"
 end = "2024-11-17"
 notes = "see https://github.com/freedomofpress/securedrop-engineering/pull/87"
@@ -128,7 +147,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.hyper]]
 criteria = "safe-to-deploy"
-user-id = 359
+user-id = 359 # Sean McArthur (seanmonstar)
 start = "2019-03-01"
 end = "2024-11-17"
 notes = "see https://github.com/freedomofpress/securedrop-engineering/pull/87"
@@ -136,7 +155,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.hyper-tls]]
 criteria = "safe-to-deploy"
-user-id = 359
+user-id = 359 # Sean McArthur (seanmonstar)
 start = "2019-03-19"
 end = "2024-09-12"
 notes = "per https://github.com/freedomofpress/securedrop-engineering/pull/87"
@@ -144,9 +163,9 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.hyper-util]]
 criteria = "safe-to-deploy"
-user-id = 359
+user-id = 359 # Sean McArthur (seanmonstar)
 start = "2022-01-15"
-end = "2024-11-17"
+end = "2027-08-25"
 notes = "see https://github.com/freedomofpress/securedrop-engineering/pull/87"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
@@ -164,6 +183,12 @@ start = "2022-01-22"
 end = "2024-04-10"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
+
+[[trusted.itoa]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-05-02"
+end = "2027-08-25"
 
 [[trusted.libc]]
 criteria = "safe-to-deploy"
@@ -199,7 +224,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 criteria = "safe-to-deploy"
 user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-07-07"
-end = "2024-04-10"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
 
@@ -211,13 +236,25 @@ end = "2024-08-12"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
+[[trusted.prettyplease]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2022-01-04"
+end = "2027-08-25"
+
 [[trusted.proc-macro2]]
 criteria = "safe-to-deploy"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-04-23"
-end = "2024-08-12"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
+
+[[trusted.rayon]]
+criteria = "safe-to-deploy"
+user-id = 539 # Josh Stone (cuviper)
+start = "2019-06-13"
+end = "2027-08-25"
 
 [[trusted.regex]]
 criteria = "safe-to-deploy"
@@ -245,9 +282,9 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.reqwest]]
 criteria = "safe-to-deploy"
-user-id = 359
+user-id = 359 # Sean McArthur (seanmonstar)
 start = "2019-03-04"
-end = "2024-09-12"
+end = "2027-08-25"
 notes = "per https://github.com/freedomofpress/securedrop-engineering/pull/87"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
@@ -261,15 +298,15 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.rustversion]]
 criteria = "safe-to-deploy"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-07-08"
-end = "2024-04-10"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
 
 [[trusted.ryu]]
 criteria = "safe-to-deploy"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-05-02"
 end = "2025-05-14"
 notes = "Rust Project member"
@@ -277,25 +314,31 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.serde]]
 criteria = "safe-to-deploy"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-03-01"
-end = "2024-08-12"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
+[[trusted.serde_core]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2025-09-13"
+end = "2027-08-25"
+
 [[trusted.serde_derive]]
 criteria = "safe-to-deploy"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-03-01"
-end = "2024-08-12"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
 [[trusted.serde_json]]
 criteria = "safe-to-deploy"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-02-28"
-end = "2024-08-12"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
@@ -317,43 +360,55 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.syn]]
 criteria = "safe-to-deploy"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-03-01"
-end = "2025-05-14"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
 
 [[trusted.thiserror]]
 criteria = "safe-to-deploy"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-10-09"
-end = "2026-02-25"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
 [[trusted.thiserror-impl]]
 criteria = "safe-to-deploy"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-10-09"
-end = "2026-02-25"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
 [[trusted.tokio]]
 criteria = "safe-to-deploy"
-user-id = 6741
+user-id = 6741 # Alice Ryhl (Darksonn)
 start = "2020-12-25"
-end = "2024-09-12"
+end = "2027-08-25"
 notes = "per https://github.com/freedomofpress/securedrop-engineering/pull/87"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
 [[trusted.tokio-macros]]
 criteria = "safe-to-deploy"
-user-id = 6741
+user-id = 6741 # Alice Ryhl (Darksonn)
 start = "2020-10-26"
 end = "2025-10-07"
 notes = "per https://github.com/freedomofpress/securedrop-engineering/pull/87"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
+
+[[trusted.tower]]
+criteria = "safe-to-deploy"
+user-id = 359 # Sean McArthur (seanmonstar)
+start = "2024-09-09"
+end = "2027-08-25"
+
+[[trusted.tower-http]]
+criteria = "safe-to-deploy"
+user-id = 359 # Sean McArthur (seanmonstar)
+start = "2024-09-23"
+end = "2027-08-25"
 
 [[trusted.tower-layer]]
 criteria = "safe-to-deploy"
@@ -365,9 +420,9 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.unicode-ident]]
 criteria = "safe-to-deploy"
-user-id = 3618
+user-id = 3618 # David Tolnay (dtolnay)
 start = "2021-10-02"
-end = "2024-04-10"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
 
@@ -430,3 +485,9 @@ user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2022-04-06"
 end = "2025-12-10"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
+
+[[trusted.zmij]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2025-12-18"
+end = "2027-08-25"
