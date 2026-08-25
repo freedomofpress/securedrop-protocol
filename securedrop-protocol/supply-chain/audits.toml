@@ -5,7 +5,7 @@
 
 [[trusted.aho-corasick]]
 criteria = "safe-to-deploy"
-user-id = 189
+user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-03-28"
 end = "2024-04-10"
 notes = "Rust Project member"
@@ -27,7 +27,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.displaydoc]]
 criteria = "safe-to-run"
-user-id = 1139
+user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2024-06-20"
 end = "2025-12-10"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
@@ -89,7 +89,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.hashbrown]]
 criteria = "safe-to-deploy"
-user-id = 2915
+user-id = 2915 # Amanieu d'Antras (Amanieu)
 start = "2019-04-02"
 end = "2024-04-10"
 notes = "Rust Project member"
@@ -137,7 +137,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.icu_properties]]
 criteria = "safe-to-run"
-user-id = 1139
+user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2022-01-31"
 end = "2025-12-10"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
@@ -168,14 +168,14 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.litemap]]
 criteria = "safe-to-run"
-user-id = 1139
+user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2021-02-23"
 end = "2025-12-10"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
 [[trusted.memchr]]
 criteria = "safe-to-deploy"
-user-id = 189
+user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-07-07"
 end = "2024-04-10"
 notes = "Rust Project member"
@@ -199,7 +199,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.regex]]
 criteria = "safe-to-deploy"
-user-id = 189
+user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-02-27"
 end = "2024-04-10"
 notes = "Rust Project member"
@@ -207,7 +207,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.regex-automata]]
 criteria = "safe-to-deploy"
-user-id = 189
+user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-02-25"
 end = "2024-04-10"
 notes = "Rust Project member"
@@ -215,7 +215,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.regex-syntax]]
 criteria = "safe-to-deploy"
-user-id = 189
+user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-03-30"
 end = "2024-04-10"
 notes = "Rust Project member"
@@ -287,7 +287,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.socket2]]
 criteria = "safe-to-deploy"
-user-id = 1
+user-id = 1 # Alex Crichton (alexcrichton)
 start = "2019-05-06"
 end = "2024-08-12"
 notes = "Rust Project member"
@@ -351,7 +351,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.url]]
 criteria = "safe-to-deploy"
-user-id = 1139
+user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2021-02-18"
 end = "2025-05-14"
 notes = "Rust Project member"
@@ -359,7 +359,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.walkdir]]
 criteria = "safe-to-deploy"
-user-id = 189
+user-id = 189 # Andrew Gallant (BurntSushi)
 start = "2019-06-09"
 end = "2025-05-22"
 notes = "Rust Project member"
@@ -367,7 +367,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.wasm-bindgen-futures]]
 criteria = "safe-to-deploy"
-user-id = 1
+user-id = 1 # Alex Crichton (alexcrichton)
 start = "2019-03-04"
 end = "2024-08-12"
 notes = "Rust Project member"
@@ -375,28 +375,28 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.yoke]]
 criteria = "safe-to-run"
-user-id = 1139
+user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2021-05-01"
 end = "2025-12-10"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
 [[trusted.yoke-derive]]
 criteria = "safe-to-run"
-user-id = 1139
+user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2021-07-02"
 end = "2025-12-10"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
 [[trusted.zerofrom]]
 criteria = "safe-to-run"
-user-id = 1139
+user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2022-04-06"
 end = "2025-12-10"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
 
 [[trusted.zerofrom-derive]]
 criteria = "safe-to-deploy"
-user-id = 1139
+user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2022-04-06"
 end = "2025-05-14"
 notes = "Rust Project member"
@@ -404,7 +404,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.zerofrom-derive]]
 criteria = "safe-to-run"
-user-id = 1139
+user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2022-04-06"
 end = "2025-12-10"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
