@@ -41,7 +41,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.futures-channel]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2020-10-05"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -49,7 +49,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.futures-core]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2020-10-05"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -57,7 +57,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.futures-io]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2020-10-05"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -65,7 +65,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.futures-sink]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2020-10-05"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -73,7 +73,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.futures-task]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2019-07-29"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -81,7 +81,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.futures-util]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2020-10-05"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -183,7 +183,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.mio]]
 criteria = "safe-to-deploy"
-user-id = 10
+user-id = 10 # Carl Lerche (carllerche)
 start = "2019-05-15"
 end = "2024-08-12"
 notes = "Rust Project member"
@@ -279,7 +279,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.slab]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2021-04-20"
 end = "2024-08-29"
 notes = "Rust Project member"
@@ -287,7 +287,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.socket2]]
 criteria = "safe-to-deploy"
-user-id = 1 # Alex Crichton (alexcrichton)
+user-id = 1
 start = "2019-05-06"
 end = "2024-08-12"
 notes = "Rust Project member"
@@ -335,7 +335,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.tower-layer]]
 criteria = "safe-to-deploy"
-user-id = 10
+user-id = 10 # Carl Lerche (carllerche)
 start = "2019-04-27"
 end = "2024-11-17"
 notes = "Rust Project member"
@@ -367,7 +367,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.wasm-bindgen-futures]]
 criteria = "safe-to-deploy"
-user-id = 1 # Alex Crichton (alexcrichton)
+user-id = 1
 start = "2019-03-04"
 end = "2024-08-12"
 notes = "Rust Project member"
