@@ -143,7 +143,7 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 | Source     | $sk_S^{APKE}$       | $pk_S^{APKE}$       | [SD-APKE] | Message  | In+Out    | Permanent[^7] | DHKEM(X25519, HKDF-SHA256) + ML-KEM |                  | [Key bundle]        |
 | Source     | $sk_S^{PKE}$        | $pk_S^{PKE}$        | [SD-PKE]  | Metadata | Incoming  | Permanent[^7] | X-Wing(X25519, ML-KEM-768)          |                  | [Key bundle]        |
 
-[SD-APKE]: #sd-apke-securedrop-apke-
+[SD-APKE]: #message-encryption-via-sd-apke-securedrop-apke-
 [SD-PKE]: #metadata-protection-via-sd-pke-securedrop-pke-
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
@@ -310,8 +310,8 @@ Overview TK
 |                      | $`m \gets \text{Dec}(sk, c, ad, info)`$                                            | Decrypt a ciphertext $c$ using a recipient's private key $sk$; rest as above                                                                                                                                              |
 | [`SD-APKE`][SD-APKE] | [Authenticated public-key encryption][SD-APKE]                                     |                                                                                                                                                                                                                           |
 |                      | $`(sk, pk) \gets^{\$} \text{KGen}()`$                                              | Generate keys                                                                                                                                                                                                             |
-|                      | $`c \gets^{\$} \text{AuthEnc}(sk, pk, m, ad, info)`$                               | Encrypt a message $m$ to a recipient's public key $pk$ using private key $sk$, associated data $ad$, and $info$                                                                                                           |
-|                      | $`m \gets \text{AuthDec}(sk, pk, c, ad, info)`$                                    | Decrypt a ciphertext $c$ using a recipient's private key $sk$ and a sender's public key $pk$; rest as above                                                                                                               |
+|                      | $`c \gets^{\$} \text{AuthEnc}(sk, pk, m, ad, info\_incl)`$                         | Encrypt a message $m$ to a recipient's public key $pk$ using private key $sk$, associated data $ad$, and $info\_incl$                                                                                                     |
+|                      | $`m \gets \text{AuthDec}(sk, pk, c, ad, info\_incl)`$                              | Decrypt a ciphertext $c$ using a recipient's private key $sk$ and a sender's public key $pk$; rest as above                                                                                                               |
 | `Ristretto255`       | $`(sk, pk) \gets^{\$} \text{KGen}()`$                                              | Generate a ristretto255 Diffie–Hellman keypair by sampling $`x \gets^{\$} \mathbb{F}_\ell`$, the ristretto255 scalar field, and computing $`pk = x \cdot B`$, where $`B \in \mathbb{G}_{\mathrm{R255}}`$ is the basepoint |
 |                      | $`K \gets \text{DH}(sk, pk')`$                                                     | Perform a Diffie–Hellman agreement between two ristretto255 keys, where $`K = sk \cdot pk' = sk' \cdot pk \in \mathbb{G}_{\mathrm{R255}}`$                                                                                |
 
@@ -353,71 +353,34 @@ def Dec(skR, c, cp):  # where cp = c' in (c, cp)
     return m
 ```
 
-### Message encryption via `SD-APKE`
+### Message encryption via `SD-APKE`: SecureDrop APKE
 
-#### `AKEM`: Authenticated KEM <!-- Definition A.9 as of b1e4d41 -->
+$\text{SD-APKE}[\text{KEM}_{PQ}, \text{AKEM}, \text{AEAD}]$ is constructed with:
 
-$\text{AKEM}$ instantiates the [DH-based KEM][RFC 9180 §4.1]
-$\text{DHKEM}(\text{Group}, \text{KDF})$ with:
+- $\text{KEM}_{PQ} =$ ML-KEM-768
+- HPKE's [single-shot `SealAuthPSK()` and `OpenAuthPSK()` APIs][RFC 9180 §6.1]; see also [Appendix: pskAPKE](#pskapke-pre-shared-key-authenticated-pke)
 
-- $\text{Group} =$ [X25519][RFC 9180 §7.1]
-- $\text{KDF} =$ [HKDF-SHA256][RFC 9180 §7.1]
+via a wrapper function that connects them.
 
-| Syntax                                                           | Description                                                                                                                                                              |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| $`(sk_S^{AKEM}, pk_S^{AKEM}) \gets^{\$} \text{KGen}()`$          | Generate keys; for DH-AKEM, $(sk, pk) = (x, \text{DH}(g, x)) = (x, g^x)$                                                                                                 |
-| $`(c, K) \gets^{\$} \text{AuthEncap}(sk_S^{AKEM}, pk_R^{AKEM})`$ | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $sk_S$ and a receiver's public key $pk_R$; for DH-AKEM, $(c, K) = (pkE, K) = (g^x, K)$ |
-| $`K \gets \text{AuthDecap}(sk_R^{AKEM}, pk_S^{AKEM}, c)`$        | Decapsulate a shared secret $K$ using a receiver's private key $sk_R$, a sender's public key $pk_S$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                        |
+HPKE's `SealAuthPSK`/`OpenAuthPSK` use:
 
-Concretely, these functions are used as specified in [RFC 9180 §4.1].
-
-#### `pskAPKE`: Pre-shared-key authenticated PKE <!-- Figure 4 as of b1e4d41 -->
-
-$\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
-`AuthPSK` mode][RFC 9180 §5.1.4] with:
-
-- $\text{AKEM}$ as above
+- $\text{AKEM}$, a [(DH-based) Authenticated KEM][RFC 9180 §4.1] with $\text{DHKEM}(\text{Group}, \text{KDF})$ = ([X25519][RFC 9180 §7.1], [HKDF-SHA256][RFC 9180 §7.1]); see also [Appendix: AKEM](#akem-authenticated-kem)
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
 - $\text{AEAD} =$ ChaCha20Poly1305
 
-| Syntax                                                                              | Description                                                                                           |
-| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk_S^{AKEM}, pk_R^{AKEM}, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
-| $`m \gets \text{pskADec}(pk_S^{AKEM}, sk_R^{AKEM}, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
+Senders and receivers MUST also possess a ristretto255 fetching keypair $(sk^{fetch}, pk^{fetch})$, and have access to the other party's public fetching key, $pk_{fetch}$, as they do with message keys.
 
-Concretely, using HPKE's [single-shot APIs][RFC 9180 §6.1]:
+| Syntax                                                                                                                                                         | Description                                                                                                                   |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| $`(sk_S^{APKE}, pk_S^{APKE}) \gets^{\$} \text{KGen}()`$                                                                                                        | Generate keys                                                                                                                 |
+| $`((c_1, c'), c_2) \gets^{\$} \text{AuthEnc}(sk_S^{APKE} = (sk_S^{AKEM}, sk_S^{PQ}), pk_R^{APKE} = (pk_R^{AKEM}, pk_R^{PQ}), m, ad, info\_incl=pk_R^{fetch})`$ | Encrypt a message $m$ with associated data $ad$, including $pk_R^{fetch}$ as part of the additional authenticated information |
+| $`m \gets \text{AuthDec}(sk_R^{APKE} = (sk_R^{AKEM}, sk_R^{PQ}), pk_S^{APKE} = (pk_S^{AKEM}, pk_S^{PQ}), ((c_1, c'), c_2), ad, info\_incl=pk_R^{fetch})`$      | Decrypt a message $m$ with associated data $ad$, including $pk_R^{fetch}$ as part of the additional authenticated information |
+
+Concretely:
 
 ```python
 PSK_ID = "SD-pskAPKE"
 
-def pskAEnc(skS, pkR, psk, m, ad, info):
-    c1, cp = HPKE.SealAuthPSK(pkR=pkR, info=info, aad=ad, pt=m, psk=psk, psk_id=PSK_ID, skS=skS)  # where cp = c'
-    return (c1, cp)
-
-def pskADec(pkS, skR, psk, c1, cp, ad, info):  # where cp = c' in (c1, cp)
-    m = HPKE.OpenAuthPSK(enc=c1, skR=skR, info=info, aad=ad, ct=cp, psk=psk, psk_id=PSK_ID, pkS=pkS)
-    return m
-```
-
-#### `SD-APKE`: SecureDrop APKE <!-- Figure 5 as of b1e4d41 -->
-
-$\text{SD-APKE}[\text{AKEM}, \text{KEM}_{PQ}, \text{AEAD}]$ is constructed with:
-
-- $\text{AKEM}$ as above
-- $\text{KEM}_{PQ} =$ ML-KEM-768
-- $\text{pskAPKE}$ as above
-
-| Syntax                                                                                                                                      | Description                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| $`(sk_S^{APKE}, pk_S^{APKE}) \gets^{\$} \text{KGen}()`$                                                                                     | Generate keys                                              |
-| $`((c_1, c'), c_2) \gets^{\$} \text{AuthEnc}(sk_S^{APKE} = (sk_S^{AKEM}, sk_S^{PQ}), pk_R^{APKE} = (pk_R^{AKEM}, pk_R^{PQ}), m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ |
-| $`m \gets \text{AuthDec}(sk_R^{APKE} = (sk_R^{AKEM}, sk_R^{PQ}), pk_S^{APKE} = (pk_S^{AKEM}, pk_S^{PQ}), ((c_1, c'), c_2), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ |
-
-Concretely:
-
-<!-- FIXME: This is hard to read and `info` is overused and confusing. -->
-
-```python
 def KGen():
     (sk1, pk1) = AKEM.KGen()
     (sk2, pk2) = KEM_PQ.KGen()
@@ -428,21 +391,50 @@ def KGen():
 def AuthEnc(
         sk=(skS1, skS2),  # NB. invalid Python syntax for parity with the mathematical signature
         pk=(pkR1, pkR2),
-        m, ad, info):
-    pkS2 = skS2.public() # Commit to pkS2, which would be used by receiver to reply to sender, via KEM_PQ.Encap(pkr=pkS2)
+        m, ad, info_incl=pkR_fetch): # Sender commits to recipient fetch pubkey here
+    pkS = (skS1.public(), skS2.public())
     (c2, K2) = KEM_PQ.Encap(pkR=pkR2)
-    (c1, cp) = pskAEnc(skS=skS1, pkR=pkR1, psk=K2, m=m, ad=ad, info=c2 + info + pkS2)  # where cp = c', `info` is receiver fetch pubkey, pkS2 is sender KEM_PQ pubkey/encaps key, from SD-APKE tuple
+    # `info` parameter binds all of: c2, 'info_incl' (pkR_fetch), and pkS to encryption context
+    info_param = c2 + info_incl + pkS
+    (c1, cp) = Hpke.SealAuthPSK(skS=skS1, pkR=pkR1, psk=K2, psk_id=PSK_ID, m=m, ad=ad, info=info_param)  # where cp = c'
     return ((c1, cp), c2)
 
 def AuthDec(
         sk=(skR1, skR2),  # NB. invalid Python syntax for parity with the mathematical signature
         pk=(pkS1, pkS2),
         c1, cp, c2,  # where cp = c' in ((c1, cp), c2)
-        ad, info):
+        ad, info_incl=pkR_fetch):
     K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
-    m = pskADec(pkS=pkS1, skR=skR1, psk=K2, c1=c1, cp=cp, ad=ad, info=c2 + info + pkS2)  #info = c2 || receiver fetch pubkey || sender KEM_PQ pubkey/encaps key, from SD-APKE tuple
+
+    # Reconstruct info parameter
+    info_reconstructed = c2 + info_incl + pkS  # c2 + pkR_fetch + pkS
+    m = Hpke.OpenAuthPSK(pkS=pkS1, skR=skR1, psk=K2, psk_id=PSK_ID, c1=c1, cp=cp, ad=ad, info=info_reconstructed)
     return m
 ```
+
+##### HPKE Info Parameter
+
+The `info` parameter commits to information not otherwise bound to the [authenticated encrypted ciphertext][RFC 9180 §8.1.2]. The sender supplies $`pkR_fetch`$ (recipient's fetch public key) to the `AuthEnc` wrapper function, but the final `info` parameter passed to `Hpke.SealAuthPSK` includes: $`c2`$ (encapsulation of the PQ shared secret); $`pkS`$ (sender's SD-APKE public key); and $`pkR_fetch`$.
+
+This `info` parameter MUST NOT be transmitted with the ciphertext by the underlying AEAD, since it includes cleartext public keys, which are identifying.
+Comformant implementations of HPKE pass the `info` parameter to [`KeySchedule()`][RFC 9180 §5.1] but do not transmit it with the ciphertext.
+
+The receiver reconstructs the `info` parameter using: $`c2`$ (transmitted in encrypted message payload); $`pkS`$ (by decrypting the [`SD-PKE` ciphertext](#metadata-ciphertext-sd-pke-ciphertext)), and $`pkR_fetch`$ (not transmitted, receiver knows their own key).
+
+HPKE decryption will fail unless sender and receiver use the same values for all these components.
+
+This `info` parameter is greater than 64 bytes. Implementors MUST ensure that the HPKE implementation and the underlying AEAD support a sufficiently long `info` parameter, or implement a modification to the protocol that hashes the concatenated values to the supported `info` length.
+
+**Why this `info` parameter?** $ Via the `info` parameter, the sender binds material to the SD-APKE ciphertext:
+
+| Component                                  | Purpose                        | How transmitted                                                                            | Where authenticated                              | Authentication prevents?                                                                              |
+| ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Sender $pk_S^{PKE}$, sender $pk_S^{fetch}$ | Attach to receive replies      | Inside SD-APKE (authenticated)                                                             | Transmitted inside PQ/T authenticated ciphertext | Key-swapping                                                                                          |
+| Sender $pk_S^{APKE}$                       | Sender authentication          | Inside SD-PKE ct (SD-APKE.DH-AKEM via underlying AEAD, SD-APKE.MLKEM **unauthenticated.**) | **Commit to in `info`**                          | Forged sender                                                                                         |
+| Receiver fetch pubkey                      | Send to intended recipient     | Not transmitted, but DH share used in message hint                                         | **commit to in `info`**                          | Ciphertext relay/hint swap by impersonator                                                            |
+| PSK ciphertext ($`c2`$)                    | Receiver decaps() to learn PSK | Transmitted in message envelope (unauthenticated)                                          | **commit to in `info`**                          | [Re-encaps attacks](https://durumcrustulum.com/2024/02/24/how-to-hold-kems/#re-encapsulation-attacks) |
+
+Note: Although the DH-AKEM portion of $`pkS`$ is already implicitly authenticated by its use in the [DH-AKEM construction][RFC 9180 §4.1], the entire $`pkS`$ is attached for clarity, parity with formal verification methods that treat the combined key as an opaque type, and ease of future drop-in replacement if a suitable PQ-authenticated construction to replace SD-APKE emerges.
 
 ### Messaging Protocol Steps
 
@@ -506,42 +498,39 @@ In this case, they substitute the source's long-term keys
 for their own in the recipient list, and address the remaining slots to all other
 enrolled journalists.
 
-**Message Ciphertext (SD-APKE Ciphertext).** The SD-APKE ciphertext is sender authenticated using classical DH-AKEM implicit authentication, and provides hybrid (post-quantum/traditional) message encryption via a quantum-resistent shared secret, `pskAPKE`.
-The SD-APKE ciphertext carries a [structured plaintext message](#message-formats) including the sender's long-term $fetch$ and $PKE$ public keys, which must be enclosed by the source so that they can receive replies, and are enclosed by the journalist for parity.
-Despite the name, `pskAPKE` is not a true 'pre-shared' key, and functions more like a [KEM combiner](https://datatracker.ietf.org/doc/draft-ounsworth-cfrg-kem-combiners/); the naming convention from [related work](https://eprint.iacr.org/2023/1480) is retained.
+##### Message Ciphertext (SD-APKE Ciphertext)
 
-The SD-APKE ciphertext (message ciphertext) additionally commits to the following values via the HPKE `info` parameter: the encapsulation of the `pskAPKE` shared secret; the receiver's $fetch$ key, and the ML-KEM portion of the sender's SD-APKE public key.
+The SD-APKE ciphertext is sender authenticated using classical DH-AKEM implicit authentication, and provides hybrid (post-quantum/traditional) message encryption by including a quantum-resistent secret in the encryption context using [HPKE `AuthPSK` mode][RFC 9180 §5.1.4],
+Despite the name, the "PSK" value is not a true 'pre-shared' key, and functions more like a [KEM combiner](https://datatracker.ietf.org/doc/draft-ounsworth-cfrg-kem-combiners/).
+Our terminology follows Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen-2023].
+The PQ `psk` itself provides receiver authentication, but not sender authentication, due to the way it is [constructed][SD-APKE].
 
-This `info` parameter is greater than 64 bytes. Implementors MUST ensure that the HPKE implementation and the underlying AEAD support a sufficiently long `info` parameter, or implement a modification to the protocol that hashes the concatenated values to the supported `info` length.
+The SD-APKE ciphertext carries a [structured plaintext message](#message-formats).\
+Sources MUST include their long-term fetching and PKE public keys in this plaintext in order to receive replies, since otherwise recipients cannot know all public key material required to reply to them.
+Since recipients always retrieve fresh public keys before responding to a Journalist, long-term keys included by journalists inside the structured plaintext message are ignored by recipients during decryption, and Journalists MAY therefore include placeholder values, particularly because a Journalist does not have a "long-term" PKE key.
+Journalists MUST always produce both the same size SD-APKE ciphertext and same size structured plaintext message as sources.
 
-This `info` parameter MUST NOT be transmitted with the ciphertext by the underlying AEAD, since it contains cleartext public keys, which are identifying; comformant implementations of HPKE pass the `info` parameter to the KeySchedule but do not transmit it with the ciphertext. The recipient MUST locally reconstruct the `info` parameter based on the information in the PKE ciphertext and their knowledge of their own $fetch$ key, and supply the reconstructed `info` parameter to successfully decrypt the message.
+_One-time drop mode extension_: An extension implementation MAY omit the sender's fetching and $PKE$ keys from the plaintext message, offering improved deniability (no possibility for pending ciphertexts) but forgoing the sender's ability to receive replies.
+If this mode is implemented, the structured plaintext message length, or the ciphertext length, MUST not be shorter than a plaintext or ciphertext that includes reply keys.
 
-_Why this `info` parameter?_ $ Via the `info` parameter, sender binds to the ciphertext authenticated material (ie, not sent inside the AEAD ciphertext and not authenticated via DH-AKEM.AuthEncap):
+##### Metadata Ciphertext (SD-PKE Ciphertext)
 
-| Component                           | Purpose                        | How transmitted                                    | Where authenticated                                 | Authentication prevents?                                                                              |
-| ----------------------------------- | ------------------------------ | -------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Sender SD-APKE.DH-AKEM.pub          | Implicit sender authentication | Inside SD-PKE ct (unauthenticated)                 | By underlying AEAD via AuthDecap                    | Forged sender                                                                                         |
-| Sender SD-PKE.pub, sender Fetch.pub | Attach to receive replies      | Inside SD-APKE (authenticated)                     | Transmitted inside PQ/T authenticated ciphertext    | Key-swapping                                                                                          |
-| Sender SD-APKE.MLKEM.pub            | Attach to receive replies      | Inside SD-PKE ct (unauthenticated)                 | **commit to in `info`**                             | Key-swapping                                                                                          |
-| Receiver fetch pubkey               | Send to intended recipient     | Not transmitted, but DH share used in message hint | **commit to in `info`**                             | Ciphertext relay/hint swap by impersonator                                                            |
-| PSK ciphertext ($`c2`$)             | Receiver decaps() to learn PSK | Transmitted in message envelope (unauthenticated)  | **commit to it in `info` to bind it to ciphertext** | [Re-encaps attacks](https://durumcrustulum.com/2024/02/24/how-to-hold-kems/#re-encapsulation-attacks) |
-
-_One-time drop mode extension_: An extension implementation MAY omit the sender's $fetch$ and $PKE$ keys from the plaintext message, offering improved deniability (no possibility for pending ciphertexts) but forgoing the sender's ability to receive replies.
-
-**Metadata Ciphertext (SD-PKE Ciphertext).** Because decrypting the SD-APKE ciphertext requires the recipient to know the sender's long-term APKE public key, an SD-PKE ciphertext (metadata ciphertext) delivers this SD-APKE public key, encrypted to the recipient's $PKE$ key, thus keeping the sender's identity hidden from the server, as described in HPKE's metadata protection guidance ([RFC 9180 §9.9]).
+Because decrypting the SD-APKE ciphertext requires the recipient to know the sender's long-term APKE public key, an SD-PKE ciphertext (metadata ciphertext) delivers this SD-APKE public key, encrypted to the recipient's SD-PKE key, thus keeping the sender's identity hidden from the server, as described in HPKE's metadata protection guidance ([RFC 9180 §9.9]).
 
 The SD-PKE (metadata) ciphertext is unauthenticated, so its contents MUST be committed to in the SD-APKE ciphertext's encryption context.
 This is satisfied by the use of implicit authenticated encryption plus the `info` parameter, as described above.
 
 The SD-PKE ciphertext MUST provide hybrid post-quantum/traditional confidentiality.
 
-**Message Delivery Hint.** The sender also computes a hint from the recipient's fetching key: a fresh
+##### Message Delivery Hint
+
+The sender also computes a hint from the recipient's fetching key: a fresh
 ephemeral DH public key $X = g^x$ and a Diffie–Hellman share $Z =
 (pk_R^{fetch})^x$. This lets the recipient privately scan for their messages in
 step 7 without disclosing their identity to the server. The server stores the two
 ciphertexts and hint under a randomly generated message ID.
 
-As follows, the final message payload to the server includes: each ciphertext; the encapsulated shared secrets required to decrypt each of them; the encapsulated shared secret of the `pskAPKE`; and the two components of the message delivery hint.
+As follows, the final message payload to the server includes: each ciphertext; the encapsulated shared secrets required to decrypt each of them; the encapsulated PQ secret; and the two components of the message delivery hint.
 
 |                                                   | All senders         | Reply case     |
 | ------------------------------------------------- | ------------------- | -------------- |
@@ -575,9 +564,7 @@ Then, for some message $m$:
 |                                                                                                                                                                      |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
 |                                                                                                                                                                      |                                 | Store $(id, C_S, X, Z)$ in $database$          |
 
-<!-- FIXME: The formal notation should make clear that AuthEnc passes more than just the receiver fetch key in the info parameter. The formal notation here is error-prone since it implies that only the fetch key is part of the info param. -->
-
-\* Note: See $SD-APKE.AuthEnc$, which requires constructing the `info` parameter from the encapsulated `pskAPKE`, the recipient's fetching key, and MLKEM portion of the sender's SD-APKE key.
+\* $SD-APKE.AuthEnc$ passes an `info` parameter to the underlying AEAD comprised of an encapsulared PQ secret, $`pk_{R,i}^{fetch}`$, and $`pk_S^{APKE}`$. See [HPKE info parameter](#hpke-info-parameter).
 
 #### Protocol Step 7: Receiver fetches and decrypts messages <!-- Figure 3(d) as of b1e4d41 -->
 
@@ -635,12 +622,14 @@ For some newsroom $NR$:
 |                                                                                                  |                                                | &nbsp;&nbsp;&nbsp;&nbsp;$`sk_R^{APKE} \gets sk_{R,i}^{APKE}`$                                   |
 |                                                                                                  |                                                | &nbsp;&nbsp;&nbsp;&nbsp;$`pk_S^{APKE} \gets \text{SD-PKE.Dec}(sk_R^{PKE}, ct^{PKE}, -, -)`$     |
 |                                                                                                  |                                                | &nbsp;&nbsp;&nbsp;&nbsp;If $pk_S^{APKE} \neq \bot$: break                                       |
-|                                                                                                  |                                                | $`pt \gets \text{SD-APKE.AuthDec}(sk_R^{APKE}, pk_S^{APKE}, ct^{APKE}, NR, pk_R^{fetch})`$      |
+|                                                                                                  |                                                | $`pt \gets \text{SD-APKE.AuthDec}(sk_R^{APKE}, pk_S^{APKE}, ct^{APKE}, NR, pk_R^{fetch})`$ *    |
 |                                                                                                  |                                                | $`m \Vert pk_S^{fetch} \Vert pk_S^{PKE} \gets pt`$                                              |
 |                                                                                                  |                                                | If source:                                                                                      |
 |                                                                                                  |                                                | &nbsp;&nbsp;&nbsp;&nbsp;If $`(\_, pk_S^{APKE}, \_, \_, \_) \notin pks`$: discard message        |
 |                                                                                                  |                                                | $`fetched \gets fetched \cup \{cid\}`$                                                          |
 |                                                                                                  |                                                | If $`tofetch \setminus \{cid\} \neq \emptyset`$: repeat from `RequestMessages`                  |
+
+\* $SD-APKE.AuthDec$ reconstructs the `info` parameter used by the sender by concatenating the PQ encapsulated shared secret, decrypted $`pk_S^{APKE}`$, and the receiver's own $`pk_R^{fetch}`$. See [info parameter](#pskaenc-info-parameter).
 
 Implementors MUST mitigate timing attacks via the API that could leak the number of ciphertexts on the server, for example by ensuring that `requestMessages` is constant-time at the server.
 
@@ -746,6 +735,62 @@ A journalist's [key bundle], signed under their long-term signing key.
 
 The newsroom's verification key, FPF's signature over it, and the [roster].
 
+## Appendix
+
+### Building blocks: formal definitions
+
+The following defintions are provided in ["The SecureDrop Protocol: End-to-End
+Encrypted Whistleblowing for All"][berra-26].
+Implementors of this specification can rely on HPKE APIs without needing to implement the underlying constructions, but definitions are included for cross-referencing purposes.
+
+#### `AKEM`: Authenticated KEM <!-- Definition A.9 as of b1e4d41 -->
+
+> Part of: [Securedrop APKE][SD-APKE].
+
+$\text{AKEM}$ instantiates the [DH-based KEM][RFC 9180 §4.1]
+$\text{DHKEM}(\text{Group}, \text{KDF})$ with:
+
+- $\text{Group} =$ [X25519][RFC 9180 §7.1]
+- $\text{KDF} =$ [HKDF-SHA256][RFC 9180 §7.1]
+
+| Syntax                                                           | Description                                                                                                                                                              |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| $`(sk_S^{AKEM}, pk_S^{AKEM}) \gets^{\$} \text{KGen}()`$          | Generate keys; for DH-AKEM, $(sk, pk) = (x, \text{DH}(g, x)) = (x, g^x)$                                                                                                 |
+| $`(c, K) \gets^{\$} \text{AuthEncap}(sk_S^{AKEM}, pk_R^{AKEM})`$ | Encapsulate a ciphertext $c$ and a shared secret $K$ using a sender's private key $sk_S$ and a receiver's public key $pk_R$; for DH-AKEM, $(c, K) = (pkE, K) = (g^x, K)$ |
+| $`K \gets \text{AuthDecap}(sk_R^{AKEM}, pk_S^{AKEM}, c)`$        | Decapsulate a shared secret $K$ using a receiver's private key $sk_R$, a sender's public key $pk_S$, and a ciphertext $c$; for DH-AKEM, $c = pkE$                        |
+
+Concretely, these functions are used as specified in [RFC 9180 §4.1].
+
+#### `pskAPKE`: Pre-shared-key Authenticated PKE <!-- Figure 4 as of b1e4d41 -->
+
+> Part of: [SecureDrop APKE][SD-APKE].
+
+$\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
+`AuthPSK` mode][RFC 9180 §5.1.4] with:
+
+- $\text{AKEM}$ as above
+- $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
+- $\text{AEAD} =$ ChaCha20Poly1305
+
+| Syntax                                                                              | Description                                                                                           |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| $`(c_1, c') \gets^{\$} \text{pskAEnc}(sk_S^{AKEM}, pk_R^{AKEM}, psk, m, ad, info)`$ | Encrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
+| $`m \gets \text{pskADec}(pk_S^{AKEM}, sk_R^{AKEM}, psk, (c_1, c'), ad, info)`$      | Decrypt a message $m$ with associated data $ad$ and $info$ via HPKE in [`mode_auth_psk`][RFC 9180 §5] |
+
+Concretely, using HPKE's [single-shot APIs][RFC 9180 §6.1]:
+
+```python
+PSK_ID = "SD-pskAPKE"
+
+def pskAEnc(skS, pkR, psk, m, ad, info):
+    c1, cp = HPKE.SealAuthPSK(pkR=pkR, info=info, aad=ad, pt=m, psk=psk, psk_id=PSK_ID, skS=skS)  # where cp = c'
+    return (c1, cp)
+
+def pskADec(pkS, skR, psk, c1, cp, ad, info):  # where cp = c' in (c1, cp)
+    m = HPKE.OpenAuthPSK(enc=c1, skR=skR, info=info, aad=ad, ct=cp, psk=psk, psk_id=PSK_ID, pkS=pkS)
+    return m
+```
+
 ## Changelog
 
 Beginning with v1, the protocol may adopt [semantic versioning]. For now,
@@ -834,6 +879,7 @@ insertion order.
 [RFC 9180 §6.1]: https://datatracker.ietf.org/doc/html/rfc9180#section-6.1
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
 [RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
+[RFC 9180 §8.1.2]: https://www.rfc-editor.org/info/rfc9180/#section-8.1-2
 [RFC 9180 §9.9]: https://datatracker.ietf.org/doc/html/rfc9180#name-metadata-protection
 [RFC 9496]: https://datatracker.ietf.org/doc/html/rfc9496
 [research]: https://securedrop.org/research
