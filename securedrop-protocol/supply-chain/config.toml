@@ -9,6 +9,9 @@ version = "0.10"
 [imports.bytecode-alliance]
 url = "https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml"
 
+[imports.embark-studios]
+url = "https://raw.githubusercontent.com/EmbarkStudios/rust-ecosystem/main/audits.toml"
+
 [imports.google]
 url = "https://raw.githubusercontent.com/google/supply-chain/main/audits.toml"
 
@@ -102,10 +105,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.cc]]
 version = "1.4.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.cfg_aliases]]
-version = "0.2.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.chacha20]]
@@ -342,10 +341,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.icu_provider]]
 version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.idna]]
-version = "1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.idna_adapter]]
@@ -781,15 +776,7 @@ version = "1.0.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.thiserror]]
-version = "1.0.69"
-criteria = "safe-to-deploy"
-
-[[exemptions.thiserror]]
 version = "2.0.19"
-criteria = "safe-to-deploy"
-
-[[exemptions.thiserror-impl]]
-version = "1.0.69"
 criteria = "safe-to-deploy"
 
 [[exemptions.thiserror-impl]]
