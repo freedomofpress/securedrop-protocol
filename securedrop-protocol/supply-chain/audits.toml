@@ -20,10 +20,25 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.cc]]
 criteria = "safe-to-deploy"
-user-id = 55123
+user-id = 55123 # rust-lang-owner
 start = "2022-10-29"
 end = "2026-09-09"
+notes = "Rust Project role account; trusted publisher for core Rust ecosystem crates"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-client/main/supply-chain/audits.toml"
+
+[[trusted.crossbeam-deque]]
+criteria = "safe-to-deploy"
+user-id = 33035 # Taiki Endo (taiki-e)
+start = "2020-10-12"
+end = "2027-08-25"
+notes = "Rust Project member"
+
+[[trusted.crossbeam-utils]]
+criteria = "safe-to-deploy"
+user-id = 33035 # Taiki Endo (taiki-e)
+start = "2020-10-12"
+end = "2027-08-25"
+notes = "Rust project member; see securedrop-supply-chain audits.toml"
 
 [[trusted.displaydoc]]
 criteria = "safe-to-run"
@@ -41,7 +56,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.futures-channel]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2020-10-05"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -49,7 +64,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.futures-core]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2020-10-05"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -57,7 +72,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.futures-io]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2020-10-05"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -65,7 +80,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.futures-sink]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2020-10-05"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -73,7 +88,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.futures-task]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2019-07-29"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -81,7 +96,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.futures-util]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2020-10-05"
 end = "2025-04-07"
 notes = "Rust Project member"
@@ -144,7 +159,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.is-terminal]]
 criteria = "safe-to-deploy"
-user-id = 6825
+user-id = 6825 # Dan Gohman (sunfishcode)
 start = "2022-01-22"
 end = "2024-04-10"
 notes = "Rust Project member"
@@ -152,17 +167,24 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/d
 
 [[trusted.libc]]
 criteria = "safe-to-deploy"
-user-id = 55123
+user-id = 55123 # rust-lang-owner
 start = "2024-08-15"
-end = "2025-05-14"
+end = "2027-08-25"
 notes = "Rust Project role account"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
 
+[[trusted.libm]]
+criteria = "safe-to-deploy"
+user-id = 55123 # rust-lang-owner
+start = "2024-10-26"
+end = "2027-08-25"
+notes = "Rust Project role account; trusted publisher for core Rust ecosystem crates"
+
 [[trusted.linux-raw-sys]]
 criteria = "safe-to-deploy"
-user-id = 6825
+user-id = 6825 # Dan Gohman (sunfishcode)
 start = "2021-06-12"
-end = "2025-05-14"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
 
@@ -231,9 +253,9 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.rustix]]
 criteria = "safe-to-deploy"
-user-id = 6825
+user-id = 6825 # Dan Gohman (sunfishcode)
 start = "2021-10-29"
-end = "2025-05-14"
+end = "2027-08-25"
 notes = "Rust Project member"
 aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop/develop/supply-chain/audits.toml"
 
@@ -279,7 +301,7 @@ aggregated-from = "https://raw.githubusercontent.com/freedomofpress/securedrop-c
 
 [[trusted.slab]]
 criteria = "safe-to-deploy"
-user-id = 33035
+user-id = 33035 # Taiki Endo (taiki-e)
 start = "2021-04-20"
 end = "2024-08-29"
 notes = "Rust Project member"
