@@ -305,10 +305,10 @@ They then compose a message that is encrypted individually to each journalist, s
 
 The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC 9180]:
 
-- For message encryption, SD-APKE wraps HPKE `AuthPSK` mode, following listing
+- For message encryption, SD-APKE wraps HPKE `mode_auth_psk`, following listing
   17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen-2023].
-- For metadata encryption, SD-PKE is an instantiation of [HPKE `Base`
-  mode][RFC 9180 §5.1.1].
+- For metadata encryption, SD-PKE is an instantiation of [HPKE
+  `mode_base`][RFC 9180 §5.1.1].
 
 To check for messages, a recipient runs a challenge-based fetching protocol.
 
@@ -436,8 +436,8 @@ This `info` parameter is greater than 64 bytes. Implementors MUST ensure that th
 
 <!-- Figure 6 as of b1e4d41 -->
 
-$\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
-mode][RFC 9180 §5.1.1] with:
+$\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE
+`mode_base`][RFC 9180 §5.1.1] with:
 
 - $\text{KEM}_H =$ X-Wing
 - $\text{AEAD} =$ ChaCha20Poly1305
@@ -533,7 +533,7 @@ enrolled journalists.
 
 ##### Message ciphertext (SD-APKE ciphertext)
 
-The SD-APKE ciphertext is sender authenticated using classical DH-AKEM implicit authentication, and provides hybrid (post-quantum/traditional) message encryption by including a quantum-resistant secret in the encryption context using [HPKE `AuthPSK` mode][RFC 9180 §5.1.4].
+The SD-APKE ciphertext is sender authenticated using classical DH-AKEM implicit authentication, and provides hybrid (post-quantum/traditional) message encryption by including a quantum-resistant secret in the encryption context using [HPKE `mode_auth_psk`][RFC 9180 §5.1.4].
 Despite the name, the "PSK" value is not a true 'pre-shared' key, and functions more like a [KEM combiner][kem-combiners].
 Our terminology follows Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen-2023].
 The PQ `psk` itself provides receiver authentication, but not sender authentication, due to the way it is [constructed][pskAPKE].
@@ -598,7 +598,7 @@ Then, for some message $m$:
 |                                                                                                                                                                      |                                 | Store $(id, C_S, X, Z)$ in $database$          |
 
 > [!NOTE]
-> $\text{SD-APKE.AuthEnc()}$ passes an `info` parameter to the underlying AEAD comprised of an encapsulated PQ secret, $`pk_{R,i}^{fetch}`$, and $`pk_S^{APKE}`$. See [HPKE info parameter].
+> $\text{SD-APKE.AuthEnc}()$ passes an `info` parameter to the underlying AEAD comprised of an encapsulated PQ secret, $`pk_{R,i}^{fetch}`$, and $`pk_S^{APKE}`$. See [HPKE info parameter].
 
 #### Protocol Step 7: Receiver fetches and decrypts messages
 
@@ -666,7 +666,7 @@ For some newsroom $NR$:
 |                                                                                                  |                                                | If $`tofetch \setminus \{cid\} \neq \emptyset`$: repeat from `RequestMessages`                        |
 
 > [!NOTE]
-> $\text{SD-APKE.AuthDec()}$ reconstructs the `info` parameter used by the sender by concatenating the PQ encapsulated shared secret, decrypted $`pk_S^{APKE}`$, and the receiver's own $`pk_R^{fetch}`$. See [info parameter][hpke info parameter].
+> $\text{SD-APKE.AuthDec}()$ reconstructs the `info` parameter used by the sender by concatenating the PQ encapsulated shared secret, decrypted $`pk_S^{APKE}`$, and the receiver's own $`pk_R^{fetch}`$. See [info parameter][hpke info parameter].
 
 Implementors MUST mitigate timing attacks via the API that could leak the number of ciphertexts on the server, for example by ensuring that `requestMessages` is constant-time at the server.
 
@@ -807,7 +807,7 @@ Concretely, these functions are used as specified in [RFC 9180 §4.1].
 > Part of: [SecureDrop APKE][SD-APKE].
 
 $\text{pskAPKE}[\text{AKEM}, \text{KS}, \text{AEAD}]$ instantiates [HPKE
-`AuthPSK` mode][RFC 9180 §5.1.4] with:
+`mode_auth_psk`][RFC 9180 §5.1.4] with:
 
 - $\text{AKEM}$ as above
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
@@ -851,8 +851,8 @@ Protocol"][maier-2025], using modified $`\text{HPKE}^{pq}_{auth}`$.
 ### [0.3]
 
 As formalized in Berra et al. (2026), ["The SecureDrop Protocol: End-to-End
-Encrypted Whistleblowing for All"][berra-2026], using standard HPKE modes `base` and
-`auth_psk`.
+Encrypted Whistleblowing for All"][berra-2026], using standard HPKE modes
+`mode_base` and `mode_auth_psk`.
 
 ### 0.4
 
