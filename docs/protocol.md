@@ -14,35 +14,35 @@
 
 ## Table of contents
 
-- [Overview](#overview)
-  - [Introduction](#introduction)
-  - [Sequence Diagram](#sequence-diagram)
-- [Keys](#keys)
-  - [Key Hierarchy](#key-hierarchy-)
-  - [Key Setup Steps](#key-setup-steps)
-- [Messaging Protocol](#messaging-protocol)
-  - [Messaging Protocol Steps](#messaging-protocol-steps)
-  - [Message Format](#message-formats)
-- [Known Limitations](#known-limitations)
-- [Glossary](#glossary)
-- [Changelog](#changelog)
+- [Overview]
+  - [Introduction]
+  - [Sequence Diagram]
+- [Keys]
+  - [Key Hierarchy]
+  - [Key Setup Steps]
+- [Messaging Protocol]
+  - [Messaging Protocol Steps]
+  - [Message Formats]
+- [Known Limitations]
+- [Glossary]
+- [Changelog]
 
 ## Overview
 
 ### Introduction
 
-SecureDrop Protocol is a first-contact messaging protocol between anonymous users (sources) and non-anonymous user(s) (journalists) with a shared affiliation (newsroom).
+SecureDrop Protocol is a first-contact messaging protocol between anonymous users (sources) and non-anonymous users (journalists) with a shared affiliation (newsroom).
 The design is largely motivated by the requirement that sources avoid local persistent state, for plausible deniability.
 
 This specification describes:
 
-- Each party (source, journalist, newsroom, FPF) and their [setup](#key-setup-steps)
+- Each party (source, journalist, newsroom, FPF) and their [setup][key setup steps]
 - Message encryption, retrieval, and decryption
 - What type of security and confidentiality properties are provided
 - What encryption algorithms and parameters are used
 
 Throughout, the terms **source**, **journalist** and **newsroom** are used.
-These may be understood to mean: the anonymous users who initiate conversations (sources); the non-anonymous users who receive and reply to messages (journalists), and the public organization that manages the system and authorizes allowed journalists (newsroom).
+These may be understood to mean: the anonymous users who initiate conversations (sources); the non-anonymous users who receive and reply to messages (journalists); and the public organization that manages the system and authorizes allowed journalists (newsroom).
 
 The terms **sender** and **recipient** are also used, more abstractly, to refer to a user's role at a given point in the protocol's execution: when a source writes to a journalist, they are a sender, and when they receive a reply, they are a recipient, and vice-versa.
 
@@ -53,14 +53,14 @@ The protocol has:
 - A limited, authenticated journalist API, used to replenish their message encryption keys
 
 One of the system's goals is to consider real-world deployment scenarios and their risks.
-The choice of an unauthenticated API avoids a serverside "users" database.
+The choice of an unauthenticated API avoids a server-side "users" database.
 
 #### Design Constraints
 
 - Prioritize the safety/anonymity of the source
-- Do not require sources to use any specific software or download any applications to communicate; they should be able to use Tor Browser, visit a url like `newsorg.securedrop.tor.onion`, and begin messaging
+- Do not require sources to use any specific software or download any applications to communicate; they should be able to use Tor Browser, visit a URL like `newsorg.securedrop.tor.onion`, and begin messaging
 - Be maintainable: Use well-known encryption primitives and existing cryptography libraries
-- Be readily-deployable: Use a single-server design, consider realistic threat models with respect to cloud deployments.
+- Be readily deployable: Use a single-server design, and consider realistic threat models with respect to cloud deployments.
 
 For further context, see Berra et al. (2026), ["The SecureDrop Protocol: End-to-End Encrypted Whistleblowing for All"][berra-2026] and our [research] page.
 
@@ -120,7 +120,9 @@ Protocol participants (sources, journalists) have separate keys for message encr
 Journalists also have signing keys and long-term message authentication keys, and generate a pool of usable message/metadata keys.
 The newsroom and FPF have signing keys to confer trust on journalists and newsrooms respectively.
 
-### Key hierarchy <!-- as of b1e4d41 -->
+### Key hierarchy
+
+<!-- as of b1e4d41 -->
 
 Throughout this document, keys are notated as $component_{owner}^{scheme}$, where:
 
@@ -131,8 +133,6 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
   - $sig$ for a signature scheme TBD
   - $APKE = \text{SD-APKE}$ ($APKE_E$ if one-time) for [message encryption keys][SD-APKE]
   - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time) for [metadata encryption keys][SD-PKE]
-
-[message-fetching]: #protocol-step-7-receiver-fetches-and-decrypts-messages-
 
 | Owner      | Private Key         | Public Key          | Purpose       | Lifetime      | Algorithm                                     | Signed by        | Bundled in          |
 | ---------- | ------------------- | ------------------- | ------------- | ------------- | --------------------------------------------- | ---------------- | ------------------- |
@@ -146,9 +146,6 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 | Source     | $sk_S^{fetch}$      | $pk_S^{fetch}$      | Fetching      | Permanent[^7] | ristretto255                                  |                  |                     |
 | Source     | $sk_S^{APKE}$       | $pk_S^{APKE}$       | Message       | Permanent[^7] | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] |                  | [Key bundle]        |
 | Source     | $sk_S^{PKE}$        | $pk_S^{PKE}$        | Metadata      | Permanent[^7] | X-Wing(X25519, ML-KEM-768)                    |                  | [Key bundle]        |
-
-[SD-APKE]: #message-encryption-sd-apke
-[SD-PKE]: #metadata-encryption-sd-pke
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
@@ -199,7 +196,9 @@ pinned.[^2]
 
 #### Protocol Step 3: Journalist Setup
 
-##### 3.1. Journalist initial key setup <!-- Figure 2 as of b1e4d41 -->
+##### 3.1. Journalist initial key setup
+
+<!-- Figure 2 as of b1e4d41 -->
 
 Each journalist generates three long-term keypairs: $sig$ for signing, $APKE$ for message encryption (outgoing), and $fetch$ for message fetching. The journalist signs their $APKE$ and $fetch$ public keys with their new $sig$ signing key and sends the public keys to the newsroom along with the signature and verification key.
 
@@ -229,7 +228,9 @@ Then:
 |                                                                                                           |                                                                       | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J)`$ |
 |                                                                                                           |                                                                       | If $b = 1$: Store $`(\sigma_J, pk_J^{APKE}, pk_J^{fetch})`$ and $\sigma_{NR}^{J}$ for $J$              |
 
-##### 3.2. Setup and periodic replenishment of $n$ signed key bundles <!-- Figure 3(a) as of b1e4d41 -->
+##### 3.2. Setup and periodic replenishment of $n$ signed key bundles
+
+<!-- Figure 3(a) as of b1e4d41 -->
 
 Following [enrollment][step 3.1], each journalist $J$ MUST generate and maintain
 a pool of $n$ [signed key bundles][signed key bundle]. Each bundle consists of
@@ -253,13 +254,13 @@ For each key bundle $i$:[^11]
 #### Protocol Step 4: Source key setup
 
 To begin each session, a source MUST enter (on their first visit) or reenter
-(on a subsequent visit) a $passphrase$ encoded as a 12 word [BIP39] mnemonic.
-The mnemonic encodes 128 bits of entropy plus a 4 bit checksum carried in the
+(on a subsequent visit) a $passphrase$ encoded as a 12-word [BIP39] mnemonic.
+The mnemonic encodes 128 bits of entropy plus a 4-bit checksum carried in the
 trailing bits of the final word, which checks for single-word typos. The
 application SHOULD verify the checksum before passing $passphrase$ to the
 key-derivation procedure specified below.
 
-The 16 byte BIP39 entropy is used directly as the master key $mk$. From $mk$,
+The 16-byte BIP39 entropy is used directly as the master key $mk$. From $mk$,
 four private keys are derived using a domain-separated $\text{KDF}$,
 instantiated as [HKDF-SHA256][RFC 5869] with $mk$ as the input keying material,
 the fixed ASCII application-specific salt $`\texttt{securedrop-source-v1}`$ as
@@ -269,7 +270,7 @@ output length of $n$ bits as required by each consumer:
 - 256 bits for $sk_S^{APKE}(\text{DH})$ and $sk_S^{PKE}$
 - 512 bits for $sk_S^{fetch}$ and $sk_S^{APKE}(\text{ML-KEM})$
 
-All source keys are long term and fully determined by the passphrase.
+All source keys are long-term and fully determined by the passphrase.
 
 | Source                                                                            |
 | --------------------------------------------------------------------------------- |
@@ -279,11 +280,11 @@ All source keys are long term and fully determined by the passphrase.
 | $`sk_S^{APKE}(\text{ML-KEM}) \gets \text{KDF}(mk, \texttt{sourceAPKEkey-mlkem})`$ |
 | $`sk_S^{PKE} \gets \text{KDF}(mk, \texttt{sourcePKEkey})`$                        |
 
-$\text{BIP39.Entropy}$ parses the mnemonic and returns the 16 byte entropy, or
-returns $\bot$ if the checksum failed to verify.
+$\text{BIP39.Entropy}$ parses the mnemonic and returns the 16-byte entropy, or
+returns $\bot$ if the checksum fails to verify.
 
-The BIP39 wordlist is static, a source's mnemonic remains valid indefinitely.
-BIP39 also defines wordlists for nine other languages, implementations MAY
+The BIP39 wordlist is static; a source's mnemonic remains valid indefinitely.
+BIP39 also defines wordlists for nine other languages; implementations MAY
 support any. Note that $mk$ is a 128-bit symmetric secret and is not threatened by quantum
 attack (see [NIST IR 8547][nist-ir-8547] §4.1.3).
 
@@ -300,13 +301,15 @@ They then compose a message that is encrypted individually to each journalist, s
 The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC 9180]:
 
 - For message encryption, `SD-APKE` wraps HPKE `AuthPSK` mode, following listing
-  17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen2023].
+  17 of Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen-2023].
 - For metadata encryption, `SD-PKE` is an instantiation of [HPKE `Base`
   mode][RFC 9180 §5.1.1].
 
 To check for messages, a recipient runs a challenge-based fetching protocol.
 
-### Notation[^9] <!-- Section 4 as of b1e4d41 -->
+### Notation[^9]
+
+<!-- Section 4 as of b1e4d41 -->
 
 | Scheme               | Function                                                                           | Use                                                                                                                                                                                                                       |
 | -------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -333,24 +336,24 @@ To check for messages, a recipient runs a challenge-based fetching protocol.
 
 $\text{SD-APKE}$ is message encryption using Hybrid Public Key Encryption with an authenticated KEM ($\text{AKEM}$), plus a ($\text{KEM}_{PQ}$) used to provide quantum-safe input into the key schedule.
 Its components are described below.
-Because it combines two constructions, $\text{AKEM}$ and $\text{KEM}_{PQ}$, the SD-APKE encryption key is a tuple of the AKEM key and the KEM_PQ key. See [SD-APKE AuthEnc/AuthDec `KGen()`](#sd-apke-authencauthdec) for details.
+Because it combines two constructions, $\text{AKEM}$ and $\text{KEM}_{PQ}$, the SD-APKE encryption key is a tuple of the AKEM key and the KEM_PQ key. See [SD-APKE AuthEnc/AuthDec `KGen()`][sd-apke-authenc] for details.
 
 #### SD-APKE AuthEnc/AuthDec
 
 $\text{SD-APKE}[\text{KEM}_{PQ}, \text{AKEM}, \text{AEAD}]$ is constructed with:
 
 - $\text{KEM}_{PQ} =$ ML-KEM-768
-- HPKE's [single-shot `SealAuthPSK()` and `OpenAuthPSK()` APIs][RFC 9180 §6.1]; see also [Appendix: pskAPKE](#pskapke-pre-shared-key-authenticated-pke)
+- HPKE's [single-shot `SealAuthPSK()` and `OpenAuthPSK()` APIs][RFC 9180 §6.1]; see also [Appendix: pskAPKE][pskAPKE]
 
 via a wrapper function that connects them.
 
 HPKE's `SealAuthPSK`/`OpenAuthPSK` use:
 
-- $\text{AKEM}$, a [(DH-based) Authenticated KEM][RFC 9180 §4.1] with $\text{DHKEM}(\text{Group}, \text{KDF})$ = ([X25519][RFC 9180 §7.1], [HKDF-SHA256][RFC 9180 §7.1]); see also [Appendix: AKEM](#akem-authenticated-kem)
+- $\text{AKEM}$, a [(DH-based) Authenticated KEM][RFC 9180 §4.1] with $\text{DHKEM}(\text{Group}, \text{KDF})$ = ([X25519][RFC 9180 §7.1], [HKDF-SHA256][RFC 9180 §7.1]); see also [Appendix: AKEM][AKEM]
 - $\text{KS} =$ HPKE's [`KeySchedule()`][RFC 9180 §5.1] with [HKDF-SHA256][RFC 9180 §7.2]
 - $\text{AEAD} =$ ChaCha20Poly1305
 
-Senders and receivers MUST also possess a ristretto255 fetching keypair $(sk^{fetch}, pk^{fetch})$, and have access to the other party's public fetching key, $pk_{fetch}$, as they do with message keys.
+Senders and receivers MUST also possess a ristretto255 fetching keypair $(sk^{fetch}, pk^{fetch})$, and have access to the other party's public fetching key, $pk^{fetch}$, as they do with message keys.
 
 | Syntax                                                                                                                                                         | Description                                                                                                                   |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -378,7 +381,7 @@ def AuthEnc(
     (c2, K2) = KEM_PQ.Encap(pkR=pkR2)
     # `info` parameter binds all of: c2, 'info_incl' (pkR_fetch), and pkS to encryption context
     info_param = c2 + info_incl + pkS
-    (c1, cp) = Hpke.SealAuthPSK(skS=skS1, pkR=pkR1, psk=K2, psk_id=PSK_ID, m=m, ad=ad, info=info_param)  # where cp = c'
+    (c1, cp) = HPKE.SealAuthPSK(skS=skS1, pkR=pkR1, psk=K2, psk_id=PSK_ID, m=m, ad=ad, info=info_param)  # where cp = c'
     return ((c1, cp), c2)
 
 def AuthDec(
@@ -389,36 +392,38 @@ def AuthDec(
     K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
 
     # Reconstruct info parameter
-    info_reconstructed = c2 + info_incl + pkS  # c2 + pkR_fetch + pkS
-    m = Hpke.OpenAuthPSK(pkS=pkS1, skR=skR1, psk=K2, psk_id=PSK_ID, c1=c1, cp=cp, ad=ad, info=info_reconstructed)
+    info_reconstructed = c2 + info_incl + pk  # c2 + pkR_fetch + pkS
+    m = HPKE.OpenAuthPSK(pkS=pkS1, skR=skR1, psk=K2, psk_id=PSK_ID, c1=c1, cp=cp, ad=ad, info=info_reconstructed)
     return m
 ```
 
 ##### HPKE Info Parameter
 
-The `info` parameter commits to information not otherwise bound to the [authenticated encrypted ciphertext][RFC 9180 §8.1.2]. The sender supplies $`pkR_fetch`$ (recipient's fetch public key) to the `AuthEnc` wrapper function, but the final `info` parameter passed to `Hpke.SealAuthPSK` includes: $`c2`$ (encapsulation of the PQ shared secret); $`pkS`$ (sender's SD-APKE public key); and $`pkR_fetch`$.
+The `info` parameter commits to information not otherwise bound to the [authenticated encrypted ciphertext][RFC 9180 §8.1.2]. The sender supplies $`pkR_fetch`$ (recipient's fetch public key) to the `AuthEnc` wrapper function, but the final `info` parameter passed to `HPKE.SealAuthPSK` includes: $`c2`$ (encapsulation of the PQ shared secret); $`pkS`$ (sender's SD-APKE public key); and $`pkR_fetch`$.
 
 This `info` parameter MUST NOT be transmitted with the ciphertext by the underlying AEAD, since it includes cleartext public keys, which are identifying.
-Comformant implementations of HPKE pass the `info` parameter to [`KeySchedule()`][RFC 9180 §5.1] but do not transmit it with the ciphertext.
+Conformant implementations of HPKE pass the `info` parameter to [`KeySchedule()`][RFC 9180 §5.1] but do not transmit it with the ciphertext.
 
-The receiver reconstructs the `info` parameter using: $`c2`$ (transmitted in encrypted message payload); $`pkS`$ (by decrypting the [`SD-PKE` ciphertext](#metadata-ciphertext-sd-pke-ciphertext)), and $`pkR_fetch`$ (not transmitted, receiver knows their own key).
+The receiver reconstructs the `info` parameter using: $`c2`$ (transmitted in encrypted message payload); $`pkS`$ (by decrypting the [`SD-PKE` ciphertext][metadata ciphertext]), and $`pkR_fetch`$ (not transmitted, receiver knows their own key).
 
 HPKE decryption will fail unless sender and receiver use the same values for all these components.
 
 This `info` parameter is greater than 64 bytes. Implementors MUST ensure that the HPKE implementation and the underlying AEAD support a sufficiently long `info` parameter, or implement a modification to the protocol that hashes the concatenated values to the supported `info` length.
 
-**Why this `info` parameter?** $ Via the `info` parameter, the sender binds material to the SD-APKE ciphertext:
+**Why this `info` parameter?** Via the `info` parameter, the sender binds material to the SD-APKE ciphertext:
 
-| Component                                  | Purpose                        | How transmitted                                                                            | Where authenticated                              | Authentication prevents?                                                                              |
-| ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Sender $pk_S^{PKE}$, sender $pk_S^{fetch}$ | Attach to receive replies      | Inside SD-APKE (authenticated)                                                             | Transmitted inside PQ/T authenticated ciphertext | Key-swapping                                                                                          |
-| Sender $pk_S^{APKE}$                       | Sender authentication          | Inside SD-PKE ct (SD-APKE.DH-AKEM via underlying AEAD, SD-APKE.MLKEM **unauthenticated.**) | **Commit to in `info`**                          | Forged sender                                                                                         |
-| Receiver fetch pubkey                      | Send to intended recipient     | Not transmitted, but DH share used in message hint                                         | **commit to in `info`**                          | Ciphertext relay/hint swap by impersonator                                                            |
-| PSK ciphertext ($`c2`$)                    | Receiver decaps() to learn PSK | Transmitted in message envelope (unauthenticated)                                          | **commit to in `info`**                          | [Re-encaps attacks](https://durumcrustulum.com/2024/02/24/how-to-hold-kems/#re-encapsulation-attacks) |
+| Component                                  | Purpose                        | How transmitted                                                                            | Where authenticated                              | Authentication prevents?                   |
+| ------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------ |
+| Sender $pk_S^{PKE}$, sender $pk_S^{fetch}$ | Attach to receive replies      | Inside SD-APKE (authenticated)                                                             | Transmitted inside PQ/T authenticated ciphertext | Key-swapping                               |
+| Sender $pk_S^{APKE}$                       | Sender authentication          | Inside SD-PKE ct (SD-APKE.DH-AKEM via underlying AEAD, SD-APKE.MLKEM **unauthenticated.**) | **Commit to in `info`**                          | Forged sender                              |
+| Receiver fetch pubkey                      | Send to intended recipient     | Not transmitted, but DH share used in message hint                                         | **Commit to in `info`**                          | Ciphertext relay/hint swap by impersonator |
+| PSK ciphertext ($`c2`$)                    | Receiver decaps() to learn PSK | Transmitted in message envelope (unauthenticated)                                          | **Commit to in `info`**                          | [Re-encaps attacks][re-encaps]             |
 
 Note: Although the DH-AKEM portion of $`pkS`$ is already implicitly authenticated by its use in the [DH-AKEM construction][RFC 9180 §4.1], the entire $`pkS`$ is attached for clarity, parity with formal verification methods that treat the combined key as an opaque type, and ease of future drop-in replacement if a suitable PQ-authenticated construction to replace SD-APKE emerges.
 
-### Metadata encryption (`SD-PKE`) <!-- Figure 6 as of b1e4d41 -->
+### Metadata encryption (`SD-PKE`)
+
+<!-- Figure 6 as of b1e4d41 -->
 
 $\text{SD-PKE}[\text{KEM}_H, \text{AEAD}, \text{KS}]$ instantiates [HPKE `Base`
 mode][RFC 9180 §5.1.1] with:
@@ -451,7 +456,7 @@ def Dec(skR, c, cp):  # where cp = c' in (c, cp)
 
 ### Messaging Protocol Steps
 
-Sources and journalists use different [setup steps](#key-setup-steps) to manage their encryption keys.
+Sources and journalists use different [setup steps][key setup steps] to manage their encryption keys.
 By contrast, messaging protocol steps are
 _role-agnostic_ and _turn-specific_. Except where otherwise noted, sources and
 journalists execute the same fetching step (5), sending step (6), and receiving
@@ -460,14 +465,16 @@ step (7), in any order.
 Only a source can initiate a conversation. In other words, a source is always
 the first sender.
 
-#### Protocol Step 5: Sender fetches keys and verifies their authenticity <!-- Figure 3(b) as of b1e4d41 -->
+#### Protocol Step 5: Sender fetches keys and verifies their authenticity
+
+<!-- Figure 3(b) as of b1e4d41 -->
 
 The server answers a sender's key request in two parts, which differ in lifetime:
 
 1. The [welcome bundle], including the [roster], is per-session, and the sender
    MAY cache it.
 2. Each journalist's one-time [signed key bundle] is consumed by the server once
-   served. See ["Known Limitations"] re: key exhaustion.
+   served. See ["Known Limitations"][known limitations] re: key exhaustion.
 
 A sender MUST verify the welcome bundle before use. It MUST associate each
 signed key bundle with a journalist in the roster by $vk_J^{sig}$ and discard
@@ -495,9 +502,11 @@ Then:
 | If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                        |                                 |                                                                                                                 |
 | If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}) = 0`$ for some $J, i$: abort       |                                 |                                                                                                                 |
 
-**Key exhaustion**: If $`(pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J_i}`$ are unavailable for $`{J_i}`$, $`{J_i}`$ is skipped (no "key of last resort" approach). See [key replenishment](#known-limitations).
+**Key exhaustion**: If $`(pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}`$ are unavailable for $`J`$, $`J`$ is skipped (no "key of last resort" approach). See [key replenishment][known limitations].
 
-#### Protocol Step 6: Sender submits a message <!-- Figure 3(c) as of b1e4d41 -->
+#### Protocol Step 6: Sender submits a message
+
+<!-- Figure 3(c) as of b1e4d41 -->
 
 For each recipient, a sender produces a message ciphertext (SD-APKE ciphertext), a metadata ciphertext (SD-PKE ciphertext), and a message delivery hint.
 
@@ -513,18 +522,18 @@ enrolled journalists.
 
 ##### Message Ciphertext (SD-APKE Ciphertext)
 
-The SD-APKE ciphertext is sender authenticated using classical DH-AKEM implicit authentication, and provides hybrid (post-quantum/traditional) message encryption by including a quantum-resistent secret in the encryption context using [HPKE `AuthPSK` mode][RFC 9180 §5.1.4],
-Despite the name, the "PSK" value is not a true 'pre-shared' key, and functions more like a [KEM combiner](https://datatracker.ietf.org/doc/draft-ounsworth-cfrg-kem-combiners/).
+The SD-APKE ciphertext is sender authenticated using classical DH-AKEM implicit authentication, and provides hybrid (post-quantum/traditional) message encryption by including a quantum-resistant secret in the encryption context using [HPKE `AuthPSK` mode][RFC 9180 §5.1.4].
+Despite the name, the "PSK" value is not a true 'pre-shared' key, and functions more like a [KEM combiner][kem-combiners].
 Our terminology follows Alwen et al. (2023), ["The Pre-Shared Key Modes of HPKE"][alwen-2023].
-The PQ `psk` itself provides receiver authentication, but not sender authentication, due to the way it is [constructed](#pskapke-pre-shared-key-authenticated-pke).
+The PQ `psk` itself provides receiver authentication, but not sender authentication, due to the way it is [constructed][pskAPKE].
 
-The SD-APKE ciphertext carries a [structured plaintext message](#message-formats).
+The SD-APKE ciphertext carries a [structured plaintext message][message formats].
 Sources MUST include their long-term fetching and PKE public keys in this plaintext in order to receive replies, since otherwise recipients cannot know all public key material required to reply to them.
-Since recipients always retrieve fresh public keys before responding to a Journalist, long-term keys included by journalists inside the structured plaintext message are ignored by recipients during decryption, and Journalists MAY therefore include placeholder values, particularly because a Journalist does not have a "long-term" PKE key.
+Since recipients always retrieve fresh public keys before responding to a journalist, long-term keys included by journalists inside the structured plaintext message are ignored by recipients during decryption, and journalists MAY therefore include placeholder values, particularly because a journalist does not have a "long-term" PKE key.
 Journalists MUST always produce both the same size SD-APKE ciphertext and same size structured plaintext message as sources.
 
-_One-time drop mode extension_: An extension implementation MAY omit the sender's fetching and $PKE$ keys from the plaintext message, offering improved deniability (no possibility for pending ciphertexts) but forgoing the sender's ability to receive replies.
-If this mode is implemented, the structured plaintext message length, or the ciphertext length, MUST not be shorter than a plaintext or ciphertext that includes reply keys.
+**One-time drop mode extension**: An extension implementation MAY omit the sender's fetching and $PKE$ keys from the plaintext message, offering improved deniability (no possibility for pending ciphertexts) but forgoing the sender's ability to receive replies.
+If this mode is implemented, the structured plaintext message length, or the ciphertext length, MUST NOT be shorter than a plaintext or ciphertext that includes reply keys.
 
 ##### Metadata Ciphertext (SD-PKE Ciphertext)
 
@@ -543,21 +552,21 @@ ephemeral DH public key $X = g^x$ and a Diffie–Hellman share $Z =
 step 7 without disclosing their identity to the server. The server stores the two
 ciphertexts and hint under a randomly generated message ID.
 
-As follows, the final message payload to the server includes: each ciphertext; the encapsulated shared secrets required to decrypt each of them; the encapsulated PQ secret; and the two components of the message delivery hint.
+The final message payload to the server includes: each ciphertext; the encapsulated shared secrets required to decrypt each of them; the encapsulated PQ secret; and the two components of the message delivery hint.
 
-|                                                   | All senders         | Reply case     |
-| ------------------------------------------------- | ------------------- | -------------- |
-| Published by server                               | $vk_{NR}^{sig}$     |                |
-| Holds                                             | $sk^{APKE}$         |                |
-|                                                   | $sk^{PKE}$          |                |
-|                                                   | $sk^{fetch}$        |                |
-| [Fetched][fetched] for all $J$                    | $pk_{J,i}^{APKE_E}$ |                |
-|                                                   | $pk_{J,i}^{PKE_E}$  |                |
-|                                                   | $pk_J^{fetch}$      |                |
-|                                                   | $pk_J^{APKE}$       |                |
-| [Decrypted] from previous message from source $R$ |                     | $pk_R^{APKE}$  |
-|                                                   |                     | $pk_R^{PKE}$   |
-|                                                   |                     | $pk_R^{fetch}$ |
+|                                                        | All senders         | Reply case     |
+| ------------------------------------------------------ | ------------------- | -------------- |
+| Published by server                                    | $vk_{NR}^{sig}$     |                |
+| Holds                                                  | $sk^{APKE}$         |                |
+|                                                        | $sk^{PKE}$          |                |
+|                                                        | $sk^{fetch}$        |                |
+| [Fetched][fetched] for all $J$                         | $pk_{J,i}^{APKE_E}$ |                |
+|                                                        | $pk_{J,i}^{PKE_E}$  |                |
+|                                                        | $pk_J^{fetch}$      |                |
+|                                                        | $pk_J^{APKE}$       |                |
+| [Decrypted] from a previous message sent by source $R$ |                     | $pk_R^{APKE}$  |
+|                                                        |                     | $pk_R^{PKE}$   |
+|                                                        |                     | $pk_R^{fetch}$ |
 
 Then, for some message $m$:
 
@@ -577,11 +586,13 @@ Then, for some message $m$:
 |                                                                                                                                                                      |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
 |                                                                                                                                                                      |                                 | Store $(id, C_S, X, Z)$ in $database$          |
 
-\* $SD-APKE.AuthEnc$ passes an `info` parameter to the underlying AEAD comprised of an encapsulared PQ secret, $`pk_{R,i}^{fetch}`$, and $`pk_S^{APKE}`$. See [HPKE info parameter](#hpke-info-parameter).
+\* $SD-APKE.AuthEnc$ passes an `info` parameter to the underlying AEAD comprised of an encapsulated PQ secret, $`pk_{R,i}^{fetch}`$, and $`pk_S^{APKE}`$. See [HPKE info parameter].
 
-#### Protocol Step 7: Receiver fetches and decrypts messages <!-- Figure 3(d) as of b1e4d41 -->
+#### Protocol Step 7: Receiver fetches and decrypts messages
 
-A receiver knows their own keys, the newsroom's signing key $vk_{NR}^{sig}$, and
+<!-- Figure 3(d) as of b1e4d41 -->
+
+A receiver knows their own keys, the newsroom's verification key $vk_{NR}^{sig}$, and
 the $pks$ and $sigs$ they previously [fetched].
 
 |                                | Source              | Journalist                  |
@@ -619,13 +630,13 @@ For some newsroom $NR$:
 | &nbsp;&nbsp;&nbsp;&nbsp;$`eid_k \gets \text{AEAD.Enc}(idk_k, 0^{nl}, -, id_k)`$ for length $nl$  |                                                |                                                                                                 |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`challs \gets challs \cup \{(eid_k, Q_k)\}`$                            |                                                |                                                                                                 |
 |                                                                                                  | $`\longrightarrow challs`$                     |                                                                                                 |
-|                                                                                                  |                                                | $`cids = \emptyset`$                                                                            |
+|                                                                                                  |                                                | $`cids \gets \emptyset`$                                                                        |
 |                                                                                                  |                                                | $`\forall k \in [0, \|challs\| - 1]:`$                                                          |
 |                                                                                                  |                                                | &nbsp;&nbsp;&nbsp;&nbsp;$`(eid_k, Q_k) \gets challs[k]`$                                        |
 |                                                                                                  |                                                | &nbsp;&nbsp;&nbsp;&nbsp;$`tk_k \gets \text{KDF}(Q_k^{sk_R^{fetch}}, NR)`$                       |
 |                                                                                                  |                                                | &nbsp;&nbsp;&nbsp;&nbsp;$`res_k \gets \text{AEAD.Dec}(tk_k, 0^{nl}, -, eid_k)`$ for length $nl$ |
 |                                                                                                  |                                                | &nbsp;&nbsp;&nbsp;&nbsp;If $res_k \neq \bot$: $`cids \gets cids \cup \{res_k\}`$                |
-|                                                                                                  |                                                | $`tofetch = cids \setminus fetched`$                                                            |
+|                                                                                                  |                                                | $`tofetch \gets cids \setminus fetched`$                                                        |
 |                                                                                                  |                                                | If $tofetch \neq \emptyset$: $`cid \gets tofetch[0]`$                                           |
 |                                                                                                  | $`cid \longleftarrow`$                         |                                                                                                 |
 |                                                                                                  | $`\longrightarrow C_{S_k}`$ where $id_k = cid$ |                                                                                                 |
@@ -642,7 +653,7 @@ For some newsroom $NR$:
 |                                                                                                  |                                                | $`fetched \gets fetched \cup \{cid\}`$                                                          |
 |                                                                                                  |                                                | If $`tofetch \setminus \{cid\} \neq \emptyset`$: repeat from `RequestMessages`                  |
 
-\* $SD-APKE.AuthDec$ reconstructs the `info` parameter used by the sender by concatenating the PQ encapsulated shared secret, decrypted $`pk_S^{APKE}`$, and the receiver's own $`pk_R^{fetch}`$. See [info parameter](#pskaenc-info-parameter).
+\* $SD-APKE.AuthDec$ reconstructs the `info` parameter used by the sender by concatenating the PQ encapsulated shared secret, decrypted $`pk_S^{APKE}`$, and the receiver's own $`pk_R^{fetch}`$. See [info parameter][hpke info parameter].
 
 Implementors MUST mitigate timing attacks via the API that could leak the number of ciphertexts on the server, for example by ensuring that `requestMessages` is constant-time at the server.
 
@@ -690,7 +701,7 @@ Len: XWING_SHARED_SECRET_ENCAPS_CT_LEN + (DHAKEM_PK_LEN + MLKEM768_PK_LEN + AEAD
 
 ### Encrypted Envelope (Message payload)
 
-`encrypted_envelope` = `X || Z || CT_APKE || CT_PKE` = (epehemeral pk || dh(ephemeral pk, receiver fetch pk) || CT_APKE || CT_PKE)
+`encrypted_envelope` = `X || Z || CT_APKE || CT_PKE` = (ephemeral pk || dh(ephemeral pk, receiver fetch pk) || CT_APKE || CT_PKE)
 
 Len: 32 + 32 + (fixed message size + 1136) + 2352
 
@@ -708,15 +719,15 @@ Len: [16, len(`encrypted_envelope`), 32, 32, 12 ] per row; server pads to fixed 
 
 $`(eid_k, Q_k)`$ <!-- mgdh, dh(mgdh, receiver fetch) --> (`encrypted_uuid, message_challenge_3party`)
 
-Len: 32 + 32 + 32 = 96 bytes * n challenges; server pads to fixed numnber of challenges
+Len: 32 + 32 + 32 = 96 bytes * n challenges; server pads to fixed number of challenges
 
 ## Known Limitations
 
 - The protocol does not currently include a specification for transferring attachments.
-- The protocol does not currently include a specification for Journalist key replenishment, or for rotation of journalist long-term keys.
-- The protocol does not currently include a specification for rotation of the Newsroom key. The relationship between the Newsroom key and the server URL is not yet specified.
+- The protocol does not currently include a specification for journalist key replenishment, or for rotation of journalist long-term keys.
+- The protocol does not currently include a specification for rotation of the newsroom key. The relationship between the newsroom key and the server URL is not yet specified.
 - The protocol is not designed for scalability. There is a maximum number of messages that can be held by the server, constrained by the number of per-request challenges that the server can reasonably perform during message-fetching without unacceptable latency for users, particularly over Tor. See benchmarks for more information.
-- The use of HPKE's implicit authentication for message sending means that the protocol is vulnerable to [key compromise impersonation](https://datatracker.ietf.org/doc/html/rfc9180#section-9.1.1).
+- The use of HPKE's implicit authentication for message sending means that the protocol is vulnerable to [key compromise impersonation][RFC 9180 §9.1.1].
 - The protocol currently offers quantum-resistant message encryption, but not quantum-resistant message authentication or message-fetching.
 
 ## Glossary
@@ -725,7 +736,7 @@ Len: 32 + 32 + 32 = 96 bytes * n challenges; server pads to fixed numnber of cha
 
 A user's [SD-APKE] message key and [SD-PKE] metadata key. Sources' and
 journalists' key bundles have different lifetimes (see ["Key
-Hierarchy"][key-hierarchy]):
+Hierarchy"][key hierarchy]):
 
 - A journalist's ephemeral, one-time key bundles are generated during their
   initial setup and then periodically refreshed (see [step 3.2]) and are consumed
@@ -752,11 +763,13 @@ The newsroom's verification key, FPF's signature over it, and the [roster].
 
 ### Building blocks: formal definitions
 
-The following defintions are provided in ["The SecureDrop Protocol: End-to-End
-Encrypted Whistleblowing for All"][berra-26].
+The following definitions are provided in ["The SecureDrop Protocol: End-to-End
+Encrypted Whistleblowing for All"][berra-2026].
 Implementors of this specification can rely on HPKE APIs without needing to implement the underlying constructions, but definitions are included for cross-referencing purposes.
 
-#### `AKEM`: Authenticated KEM <!-- Definition A.9 as of b1e4d41 -->
+#### `AKEM`: Authenticated KEM
+
+<!-- Definition A.9 as of b1e4d41 -->
 
 > Part of: [Securedrop APKE][SD-APKE].
 
@@ -774,7 +787,9 @@ $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
 
 Concretely, these functions are used as specified in [RFC 9180 §4.1].
 
-#### `pskAPKE`: Pre-shared-key Authenticated PKE <!-- Figure 4 as of b1e4d41 -->
+#### `pskAPKE`: Pre-shared-key Authenticated PKE
+
+<!-- Figure 4 as of b1e4d41 -->
 
 > Part of: [SecureDrop APKE][SD-APKE].
 
@@ -818,7 +833,7 @@ Initial proof of concept.
 ### [0.2]
 
 As analyzed in Maier (2025), ["A Formal Analysis of the SecureDrop
-Protocol"][maier2025], using modified $`\text{HPKE}^{pq}_{auth}`$.
+Protocol"][maier-2025], using modified $`\text{HPKE}^{pq}_{auth}`$.
 
 ### [0.3]
 
@@ -838,7 +853,7 @@ insertion order.
 
 [^1]: See ["Configuration"][v0.1-config].
 
-[^2]: See [`draft-pki.md`](./draft-pki.md) for further considerations.
+[^2]: See [`draft-pki.md`][draft-pki] for further considerations.
 
 [^7]: The source's keys are considered "permanent" because they are derived
     deterministically from the source's passphrase, which cannot be changed.
@@ -846,7 +861,7 @@ insertion order.
 [^8]: $\mathbb{Z}_\ell$ (ristretto255 scalar field).
 
 <!-- In protocol manuscript, $\mathcal{E}_H \subset \mathbb{Z}$ per Definition 4 of Alwen et al.
-    (2020), ["Analyzing the HPKE Standard"][alwen2020]. -->
+    (2020), ["Analyzing the HPKE Standard"][alwen-2020]. -->
 
 [^9]: In the listings that follow, mathematical syntax uses `-` for the empty
     string, while Python pseudocode uses `None`. In tuples, `_` denotes a value we
@@ -865,24 +880,56 @@ insertion order.
     single byte, and $m$ is the preimage bytes. Tags MUST contain only ASCII
     characters and MUST be at most 255 bytes.
 
-[^13]: The [SD-APKE](#message-encryption-sd-apke) key used for message encryption/decryption is composed of a classical and a quantum-resistent key.
+[^13]: The [SD-APKE] key used for message encryption/decryption is composed of a classical and a quantum-resistant key.
+
+<!-- Internal links -->
+
+[AKEM]: #akem-authenticated-kem
+[changelog]: #changelog
+[decrypted]: #protocol-step-7-receiver-fetches-and-decrypts-messages
+[draft-pki]: ./draft-pki.md
+[fetched]: #protocol-step-5-sender-fetches-keys-and-verifies-their-authenticity
+[glossary]: #glossary
+[hpke info parameter]: #hpke-info-parameter
+[introduction]: #introduction
+[key bundle]: #key-bundle
+[key hierarchy]: #key-hierarchy
+[key setup steps]: #key-setup-steps
+[keys]: #keys
+[known limitations]: #known-limitations
+[message formats]: #message-formats
+[message-fetching]: #protocol-step-7-receiver-fetches-and-decrypts-messages
+[messaging protocol]: #messaging-protocol
+[messaging protocol steps]: #messaging-protocol-steps
+[metadata ciphertext]: #metadata-ciphertext-sd-pke-ciphertext
+[overview]: #overview
+[pskAPKE]: #pskapke-pre-shared-key-authenticated-pke
+[roster]: #roster
+[SD-APKE]: #message-encryption-sd-apke
+[sd-apke-authenc]: #sd-apke-authencauthdec
+[SD-PKE]: #metadata-encryption-sd-pke
+[sequence diagram]: #sequence-diagram
+[signed key bundle]: #signed-key-bundle
+[step 3.1]: #31-journalist-initial-key-setup
+[step 3.2]: #32-setup-and-periodic-replenishment-of-n-signed-key-bundles
+[step 4]: #protocol-step-4-source-key-setup
+[welcome bundle]: #welcome-bundle
+
+<!-- External links -->
 
 [0.1]: https://github.com/freedomofpress/securedrop-protocol/blob/v0.1/README.md#parties
 [0.2]: https://github.com/freedomofpress/securedrop-protocol/blob/9e6c165673c03e9821725f72b3df4d8292b8cabf/docs/protocol.md
 [0.3]: https://github.com/freedomofpress/securedrop-protocol/blob/v0.3/docs/protocol.md
-[#127]: https://github.com/freedomofpress/securedrop-protocol/issues/127
-[BIP39]: https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
-[alwen2020]: https://eprint.iacr.org/2020/1499
-[alwen2023]: https://eprint.iacr.org/2023/1480
+[alwen-2020]: https://eprint.iacr.org/2020/1499
+[alwen-2023]: https://eprint.iacr.org/2023/1480
 [berra-2026]: https://eprint.iacr.org/2026/1484
-[decrypted]: #protocol-step-7-receiver-fetches-and-decrypts-messages-
-[fetched]: #protocol-step-5-sender-fetches-keys-and-verifies-their-authenticity-
-[key bundle]: #key-bundle
-[key-hierarchy]: #key-hierarchy-
-["Known Limitations"]: #known-limitations
-[maier2025]: https://github.com/lumaier/securedrop-formalanalysis/tree/fd0daf0ce90144e12956032abf1817e18cec48e0
+[BIP39]: https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
+[kem-combiners]: https://datatracker.ietf.org/doc/draft-ounsworth-cfrg-kem-combiners/
+[maier-2025]: https://github.com/lumaier/securedrop-formalanalysis/tree/fd0daf0ce90144e12956032abf1817e18cec48e0
 [milestones]: https://github.com/freedomofpress/securedrop-protocol/milestones
 [nist-ir-8547]: https://nvlpubs.nist.gov/nistpubs/ir/2024/NIST.IR.8547.ipd.pdf
+[re-encaps]: https://durumcrustulum.com/2024/02/24/how-to-hold-kems/#re-encapsulation-attacks
+[research]: https://securedrop.org/research
 [RFC 2119]: https://datatracker.ietf.org/doc/html/rfc2119
 [RFC 5869]: https://datatracker.ietf.org/doc/html/rfc5869
 [RFC 9180]: https://datatracker.ietf.org/doc/html/rfc9180
@@ -895,14 +942,8 @@ insertion order.
 [RFC 9180 §7.1]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-encapsulation-mechanism
 [RFC 9180 §7.2]: https://datatracker.ietf.org/doc/html/rfc9180#name-key-derivation-functions-kd
 [RFC 9180 §8.1.2]: https://www.rfc-editor.org/info/rfc9180/#section-8.1-2
+[RFC 9180 §9.1.1]: https://datatracker.ietf.org/doc/html/rfc9180#section-9.1.1
 [RFC 9180 §9.9]: https://datatracker.ietf.org/doc/html/rfc9180#name-metadata-protection
 [RFC 9496]: https://datatracker.ietf.org/doc/html/rfc9496
-[research]: https://securedrop.org/research
-[roster]: #roster
 [semantic versioning]: https://semver.org
-[signed key bundle]: #signed-key-bundle
-[step 3.1]: #31-journalist-initial-key-setup-
-[step 3.2]: #32-setup-and-periodic-replenishment-of-n-signed-key-bundles-
-[step 4]: #protocol-step-4-source-key-setup
-[welcome bundle]: #welcome-bundle
 [v0.1-config]: https://github.com/freedomofpress/securedrop-protocol/blob/d512528f42760f7ccb5205291ba11a377333cc0e/README.md?plain=1#L29
