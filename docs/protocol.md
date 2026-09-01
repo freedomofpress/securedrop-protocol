@@ -1,3 +1,18 @@
+<!-- Style sheet for this document:
+
+- Headings: sentence case; add to the table of contents
+
+- Code spans for references to identifiers in code blocks and other literal
+  identifiers
+
+- LaTeX spans for references to identifiers in formal definitions (except in
+  footnotes; just use code style)
+
+- Names of schemes, algorithms, etc. can just be ordinary nouns: "the SD-APKE
+  ciphertext", "a journalist's fetching key", HPKE, ML-KEM-768, etc.
+
+-->
+
 # SecureDrop Protocol specification
 
 | Version |
@@ -27,7 +42,7 @@
   - [Messaging protocol steps]
   - [Message formats]
 - [Known limitations]
-- [Glossary]
+- [Glossary] <!-- don't list subsections for glossary terms -->
 - [Appendix]
   - [Building blocks: formal definitions]
 - [Changelog]
