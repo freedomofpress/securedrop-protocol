@@ -16,15 +16,20 @@
 
 - [Overview]
   - [Introduction]
-  - [Sequence Diagram]
+  - [Sequence diagram]
 - [Keys]
-  - [Key Hierarchy]
-  - [Key Setup Steps]
-- [Messaging Protocol]
-  - [Messaging Protocol Steps]
-  - [Message Formats]
-- [Known Limitations]
+  - [Key hierarchy]
+  - [Key setup steps]
+- [Messaging protocol]
+  - [Notation]
+  - [Message encryption (`SD-APKE`)][SD-APKE]
+  - [Metadata encryption (`SD-PKE`)][SD-PKE]
+  - [Messaging protocol steps]
+  - [Message formats]
+- [Known limitations]
 - [Glossary]
+- [Appendix]
+  - [Building blocks: formal definitions]
 - [Changelog]
 
 ## Overview
@@ -55,7 +60,7 @@ The protocol has:
 One of the system's goals is to consider real-world deployment scenarios and their risks.
 The choice of an unauthenticated API avoids a server-side "users" database.
 
-#### Design Constraints
+#### Design constraints
 
 - Prioritize the safety/anonymity of the source
 - Do not require sources to use any specific software or download any applications to communicate; they should be able to use Tor Browser, visit a URL like `newsorg.securedrop.tor.onion`, and begin messaging
@@ -64,7 +69,7 @@ The choice of an unauthenticated API avoids a server-side "users" database.
 
 For further context, see Berra et al. (2026), ["The SecureDrop Protocol: End-to-End Encrypted Whistleblowing for All"][berra-2026] and our [research] page.
 
-### Sequence Diagram
+### Sequence diagram
 
 This diagram provides a high-level visual depiction of SecureDrop Protocol.
 
@@ -149,7 +154,7 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
-### Key Setup Steps
+### Key setup steps
 
 #### Protocol Step 1: FPF signing setup
 
@@ -194,7 +199,7 @@ The server MUST be deployed with the newsroom's verification key $vk_{NR}^{sig}$
 pinned. The server MAY be deployed with FPF's verification key $vk_{FPF}^{sig}$
 pinned.[^2]
 
-#### Protocol Step 3: Journalist Setup
+#### Protocol Step 3: Journalist setup
 
 ##### 3.1. Journalist initial key setup
 
@@ -293,7 +298,7 @@ components, each derived independently using its own info label.
 
 As with the journalist, $`(sk_S^{fetch}, pk_S^{fetch})`$ key generation uses the ristretto255 prime order group [RFC 9496].
 
-## Messaging Protocol
+## Messaging protocol
 
 The sending party begins the messaging protocol by fetching and verifying journalist keys.
 They then compose a message that is encrypted individually to each journalist, separately encrypt information required for message decryption ("metadata") and message delivery, and upload these to the server.
@@ -307,9 +312,14 @@ The protocol composes two modes of [Hybrid Public-Key Encryption (RFC 9180)][RFC
 
 To check for messages, a recipient runs a challenge-based fetching protocol.
 
-### Notation[^9]
+### Notation
 
 <!-- Section 4 as of b1e4d41 -->
+
+> [!NOTE]
+> In the listings that follow, mathematical syntax uses `-` for the empty
+> string, while Python pseudocode uses `None`. In tuples, `_` denotes a value we
+> don't care about for the current operation.
 
 | Scheme               | Function                                                                           | Use                                                                                                                                                                                                                       |
 | -------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -397,7 +407,7 @@ def AuthDec(
     return m
 ```
 
-##### HPKE Info Parameter
+##### HPKE info parameter
 
 The `info` parameter commits to information not otherwise bound to the [authenticated encrypted ciphertext][RFC 9180 §8.1.2]. The sender supplies $`pkR_fetch`$ (recipient's fetch public key) to the `AuthEnc` wrapper function, but the final `info` parameter passed to `HPKE.SealAuthPSK` includes: $`c2`$ (encapsulation of the PQ shared secret); $`pkS`$ (sender's SD-APKE public key); and $`pkR_fetch`$.
 
@@ -454,7 +464,7 @@ def Dec(skR, c, cp):  # where cp = c' in (c, cp)
     return m
 ```
 
-### Messaging Protocol Steps
+### Messaging protocol steps
 
 Sources and journalists use different [setup steps][key setup steps] to manage their encryption keys.
 By contrast, messaging protocol steps are
@@ -474,7 +484,7 @@ The server answers a sender's key request in two parts, which differ in lifetime
 1. The [welcome bundle], including the [roster], is per-session, and the sender
    MAY cache it.
 2. Each journalist's one-time [signed key bundle] is consumed by the server once
-   served. See ["Known Limitations"][known limitations] re: key exhaustion.
+   served. See ["Known limitations"][known limitations] re: key exhaustion.
 
 A sender MUST verify the welcome bundle before use. It MUST associate each
 signed key bundle with a journalist in the roster by $vk_J^{sig}$ and discard
@@ -520,7 +530,7 @@ In this case, they substitute the source's long-term keys
 for their own in the recipient list, and address the remaining slots to all other
 enrolled journalists.
 
-##### Message Ciphertext (SD-APKE Ciphertext)
+##### Message ciphertext (SD-APKE ciphertext)
 
 The SD-APKE ciphertext is sender authenticated using classical DH-AKEM implicit authentication, and provides hybrid (post-quantum/traditional) message encryption by including a quantum-resistant secret in the encryption context using [HPKE `AuthPSK` mode][RFC 9180 §5.1.4].
 Despite the name, the "PSK" value is not a true 'pre-shared' key, and functions more like a [KEM combiner][kem-combiners].
@@ -535,7 +545,7 @@ Journalists MUST always produce both the same size SD-APKE ciphertext and same s
 **One-time drop mode extension**: An extension implementation MAY omit the sender's fetching and $PKE$ keys from the plaintext message, offering improved deniability (no possibility for pending ciphertexts) but forgoing the sender's ability to receive replies.
 If this mode is implemented, the structured plaintext message length, or the ciphertext length, MUST NOT be shorter than a plaintext or ciphertext that includes reply keys.
 
-##### Metadata Ciphertext (SD-PKE Ciphertext)
+##### Metadata ciphertext (SD-PKE ciphertext)
 
 Because decrypting the SD-APKE ciphertext requires the recipient to know the sender's long-term APKE public key, an SD-PKE ciphertext (metadata ciphertext) delivers this SD-APKE public key, encrypted to the recipient's SD-PKE key, thus keeping the sender's identity hidden from the server, as described in HPKE's metadata protection guidance ([RFC 9180 §9.9]).
 
@@ -544,7 +554,7 @@ This is satisfied by the use of implicit authenticated encryption plus the `info
 
 The SD-PKE ciphertext MUST provide hybrid post-quantum/traditional confidentiality.
 
-##### Message Delivery Hint
+##### Message delivery hint
 
 The sender also computes a hint from the recipient's fetching key: a fresh
 ephemeral DH public key $X = g^x$ and a Diffie–Hellman share $Z =
@@ -657,13 +667,13 @@ For some newsroom $NR$:
 
 Implementors MUST mitigate timing attacks via the API that could leak the number of ciphertexts on the server, for example by ensuring that `requestMessages` is constant-time at the server.
 
-### Message Formats
+### Message formats
 
 Implementors MUST implement robust message-parsing and are expected to gracefully handle malformed plaintext and ciphertext messages, both at the server and on the client.
 
-### Plaintext
+#### Plaintext
 
-#### SD-APKE (Message) Plaintext
+##### SD-APKE (message) plaintext
 
 <!-- FIXME: protocol versioning?; message padding? https://github.com/freedomofpress/securedrop-protocol/issues/228 -->
 
@@ -673,7 +683,7 @@ Unpadded len: 32 bytes + 1216 bytes + len(structured_message)
 
 = structured message size + 1248; messages will then be padded to a fixed message size before encryption.
 
-#### SD-PKE (Metadata) Plaintext
+##### SD-PKE (metadata) plaintext
 
 <!-- FIXME: protocol versioning? -->
 
@@ -681,7 +691,7 @@ Unpadded len: 32 bytes + 1216 bytes + len(structured_message)
 
 Len: 32 + 1184 = 1216 bytes
 
-### Ciphertext
+#### Ciphertext
 
 Encrypting the SD-APKE (message) plaintext yields a ciphertext and encapsulated shared secret ciphertext:
 
@@ -699,7 +709,7 @@ Len: XWING_SHARED_SECRET_ENCAPS_CT_LEN + (DHAKEM_PK_LEN + MLKEM768_PK_LEN + AEAD
 
 = 2352
 
-### Encrypted Envelope (Message payload)
+#### Encrypted envelope (message payload)
 
 `encrypted_envelope` = `X || Z || CT_APKE || CT_PKE` = (ephemeral pk || dh(ephemeral pk, receiver fetch pk) || CT_APKE || CT_PKE)
 
@@ -707,7 +717,7 @@ Len: 32 + 32 + (fixed message size + 1136) + 2352
 
 = fixed message size + 3552
 
-### Message storage on server
+#### Message storage on server
 
 Message tuples:
 
@@ -715,13 +725,13 @@ $`id_k, encrypted_envelope, X, Z, timestamp`$ (`server_generated_uuid, encrypted
 
 Len: [16, len(`encrypted_envelope`), 32, 32, 12 ] per row; server pads to fixed number of messages (rows)
 
-### Message delivery hint (Challenges)
+#### Challenge format
 
 $`(eid_k, Q_k)`$ <!-- mgdh, dh(mgdh, receiver fetch) --> (`encrypted_uuid, message_challenge_3party`)
 
 Len: 32 + 32 + 32 = 96 bytes * n challenges; server pads to fixed number of challenges
 
-## Known Limitations
+## Known limitations
 
 - The protocol does not currently include a specification for transferring attachments.
 - The protocol does not currently include a specification for journalist key replenishment, or for rotation of journalist long-term keys.
@@ -736,7 +746,7 @@ Len: 32 + 32 + 32 = 96 bytes * n challenges; server pads to fixed number of chal
 
 A user's [SD-APKE] message key and [SD-PKE] metadata key. Sources' and
 journalists' key bundles have different lifetimes (see ["Key
-Hierarchy"][key hierarchy]):
+hierarchy"][key hierarchy]):
 
 - A journalist's ephemeral, one-time key bundles are generated during their
   initial setup and then periodically refreshed (see [step 3.2]) and are consumed
@@ -767,7 +777,7 @@ The following definitions are provided in ["The SecureDrop Protocol: End-to-End
 Encrypted Whistleblowing for All"][berra-2026].
 Implementors of this specification can rely on HPKE APIs without needing to implement the underlying constructions, but definitions are included for cross-referencing purposes.
 
-#### `AKEM`: Authenticated KEM
+#### `AKEM`: authenticated KEM
 
 <!-- Definition A.9 as of b1e4d41 -->
 
@@ -787,7 +797,7 @@ $\text{DHKEM}(\text{Group}, \text{KDF})$ with:
 
 Concretely, these functions are used as specified in [RFC 9180 §4.1].
 
-#### `pskAPKE`: Pre-shared-key Authenticated PKE
+#### `pskAPKE`: pre-shared-key authenticated PKE
 
 <!-- Figure 4 as of b1e4d41 -->
 
@@ -863,10 +873,6 @@ insertion order.
 <!-- In protocol manuscript, $\mathcal{E}_H \subset \mathbb{Z}$ per Definition 4 of Alwen et al.
     (2020), ["Analyzing the HPKE Standard"][alwen-2020]. -->
 
-[^9]: In the listings that follow, mathematical syntax uses `-` for the empty
-    string, while Python pseudocode uses `None`. In tuples, `_` denotes a value we
-    don't care about for the current operation.
-
 [^10]: `pks` is assumed to have this arity and sequence for the remainder of
     this document.
 
@@ -885,6 +891,8 @@ insertion order.
 <!-- Internal links -->
 
 [AKEM]: #akem-authenticated-kem
+[appendix]: #appendix
+[building blocks: formal definitions]: #building-blocks-formal-definitions
 [changelog]: #changelog
 [decrypted]: #protocol-step-7-receiver-fetches-and-decrypts-messages
 [draft-pki]: ./draft-pki.md
@@ -902,6 +910,7 @@ insertion order.
 [messaging protocol]: #messaging-protocol
 [messaging protocol steps]: #messaging-protocol-steps
 [metadata ciphertext]: #metadata-ciphertext-sd-pke-ciphertext
+[notation]: #notation
 [overview]: #overview
 [pskAPKE]: #pskapke-pre-shared-key-authenticated-pke
 [roster]: #roster
