@@ -84,8 +84,8 @@ The disadvantages of KT are:
     Blocks"][building-blocks] sections of `docs/protocol.md` for the notation used
     here.
 
-[key-hierarchy]: protocol.md#key-hierarchy-
-[building-blocks]: protocol.md#building-blocks3-
+[key-hierarchy]: protocol.md#key-hierarchy
+[building-blocks]: protocol.md#building-blocks-formal-definitions
 
 [^2]: One reviewer has suggested including a countersignature
     $\sigma_{NR}^{FPF}$.
