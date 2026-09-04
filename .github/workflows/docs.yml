@@ -16,8 +16,8 @@ jobs:
       contents: read
     steps:
       # Keep setup synced with `rust.yml`:
-      # actions/checkout@v4.1.1
-      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
+      # actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
