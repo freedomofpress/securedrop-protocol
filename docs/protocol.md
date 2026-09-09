@@ -154,18 +154,35 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
   - $APKE = \text{SD-APKE}$ ($APKE_E$ if one-time) for [message encryption keys][SD-APKE]
   - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time) for [metadata encryption keys][SD-PKE]
 
-| Owner      | Private Key         | Public Key          | Purpose       | Lifetime      | Algorithm                                     | Signed by        | Bundled in          |
-| ---------- | ------------------- | ------------------- | ------------- | ------------- | --------------------------------------------- | ---------------- | ------------------- |
-| FPF        | $sk_{FPF}^{sig}$    | $vk_{FPF}^{sig}$    | Signing       | Long-term     | ?                                             |                  |                     |
-| Newsroom   | $sk_{NR}^{sig}$     | $vk_{NR}^{sig}$     | Signing       | Long-term     | ?                                             | $sk_{FPF}^{sig}$ | [Welcome bundle]    |
-| Journalist | $sk_J^{sig}$        | $vk_J^{sig}$        | Signing       | Long-term     | ?                                             | $sk_{NR}^{sig}$  | [Roster]            |
-| Journalist | $sk_J^{fetch}$      | $pk_J^{fetch}$      | Fetching      | TBD[^6]       | ristretto255                                  | $sk_J^{sig}$     | [Roster]            |
-| Journalist | $sk_J^{APKE}$       | $pk_J^{APKE}$       | Message (out) | Long-term     | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$     | [Roster]            |
-| Journalist | $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | Message (in)  | One-time      | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$     | [Signed key bundle] |
-| Journalist | $sk_{J,i}^{PKE_E}$  | $pk_{J,i}^{PKE_E}$  | Metadata (in) | One-time      | X-Wing(X25519, ML-KEM-768)                    | $sk_J^{sig}$     | [Signed key bundle] |
-| Source     | $sk_S^{fetch}$      | $pk_S^{fetch}$      | Fetching      | Permanent[^7] | ristretto255                                  |                  |                     |
-| Source     | $sk_S^{APKE}$       | $pk_S^{APKE}$       | Message       | Permanent[^7] | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] |                  | [Key bundle]        |
-| Source     | $sk_S^{PKE}$        | $pk_S^{PKE}$        | Metadata      | Permanent[^7] | X-Wing(X25519, ML-KEM-768)                    |                  | [Key bundle]        |
+FPF keys:
+
+| Private Key      | Public Key       | Purpose | Lifetime  | Algorithm | Signed by | Bundled in |
+| ---------------- | ---------------- | ------- | --------- | --------- | --------- | ---------- |
+| $sk_{FPF}^{sig}$ | $vk_{FPF}^{sig}$ | Signing | Long-term | ?         |           |            |
+
+Newsroom keys:
+
+| Private Key     | Public Key      | Purpose | Lifetime  | Algorithm | Signed by        | Bundled in       |
+| --------------- | --------------- | ------- | --------- | --------- | ---------------- | ---------------- |
+| $sk_{NR}^{sig}$ | $vk_{NR}^{sig}$ | Signing | Long-term | ?         | $sk_{FPF}^{sig}$ | [Welcome bundle] |
+
+Journalist keys:
+
+| Private Key         | Public Key          | Purpose       | Lifetime  | Algorithm                                     | Signed by       | Bundled in          |
+| ------------------- | ------------------- | ------------- | --------- | --------------------------------------------- | --------------- | ------------------- |
+| $sk_J^{sig}$        | $vk_J^{sig}$        | Signing       | Long-term | ?                                             | $sk_{NR}^{sig}$ | [Roster]            |
+| $sk_J^{fetch}$      | $pk_J^{fetch}$      | Fetching      | TBD[^6]   | ristretto255                                  | $sk_J^{sig}$    | [Roster]            |
+| $sk_J^{APKE}$       | $pk_J^{APKE}$       | Message (out) | Long-term | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$    | [Roster]            |
+| $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | Message (in)  | One-time  | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$    | [Signed key bundle] |
+| $sk_{J,i}^{PKE_E}$  | $pk_{J,i}^{PKE_E}$  | Metadata (in) | One-time  | X-Wing(X25519, ML-KEM-768)                    | $sk_J^{sig}$    | [Signed key bundle] |
+
+Source keys:
+
+| Private Key    | Public Key     | Purpose  | Lifetime      | Algorithm                                     | Signed by | Bundled in   |
+| -------------- | -------------- | -------- | ------------- | --------------------------------------------- | --------- | ------------ |
+| $sk_S^{fetch}$ | $pk_S^{fetch}$ | Fetching | Permanent[^7] | ristretto255                                  |           |              |
+| $sk_S^{APKE}$  | $pk_S^{APKE}$  | Message  | Permanent[^7] | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] |           | [Key bundle] |
+| $sk_S^{PKE}$   | $pk_S^{PKE}$   | Metadata | Permanent[^7] | X-Wing(X25519, ML-KEM-768)                    |           | [Key bundle] |
 
 [^6]: **TODO:** https://github.com/freedomofpress/securedrop-protocol/blob/a0252a8ee7a6e4051c65e4e0c06b63d6ce921110/docs/wip-protocol-0.3.md?plain=1#L87
 
