@@ -11,6 +11,9 @@
 - Names of schemes, algorithms, etc. can just be ordinary nouns: "the SD-APKE
   ciphertext", "a journalist's fetching key", HPKE, ML-KEM-768, etc.
 
+NB. LLM (e.g. Copilot) code review is recommended as a kind of
+spell-check/type-check before substantive review of changes.
+
 -->
 
 # SecureDrop Protocol specification
