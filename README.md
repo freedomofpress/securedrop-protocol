@@ -103,6 +103,13 @@ echo $?  # 0 if successful
 
 The benchmarks were performed on an Apple MacBook Air M4 to assess the protocol's performance on typical consumer hardware. All source code and the Makefile are located in the `securedrop-protocol` subfolder.
 
+Operations should be benchmarked in the environment in which they are expected to run:
+
+- Source operations in WebAssembly in a browser (see `securedrop-protocol-bench`), since the source production client is browser-based.
+- Server operations in native Rust (see the benchmarks in `securedrop-protocol-minimal`), since the server runs natively.
+
+#### Getting started with `securedrop-protocol-bench`
+
 **Dependencies** (install via Homebrew unless noted):
 
 - `rustc` 1.92.0 (via rustup)
