@@ -1,0 +1,45 @@
+# See https://mozilla.github.io/cargo-vet/configuring-ci.html and
+# https://github.com/freedomofpress/securedrop/blob/develop/.github/workflows/cargo-vet.yml
+# Note: See rust.yml and deny.toml for other dependency management via `cargo deny`
+
+name: cargo vet
+
+on:
+  # Once a week, on all pushes to main, or on dependency+supply chain changes in PRs
+  schedule:
+    - cron: '0 6 * * 1'
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - securedrop-protocol/**/Cargo.lock
+      - securedrop-protocol/**/Cargo.toml
+      - securedrop-protocol/supply-chain/**
+
+permissions: {}
+
+jobs:
+  cargo-vet:
+    name: Vet Dependencies
+    runs-on: ubuntu-latest
+    # Keep in sync with current rust toolchain version
+    container: rust:1.96.0
+    env:
+      CARGO_VET_VERSION: 0.10.2
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+    - uses: actions/cache@v5
+      id: cache-vet
+      with:
+        path: /usr/local/cargo/bin/cargo-vet
+        key: cargo-vet-${{ env.CARGO_VET_VERSION }}
+    - name: Install the cargo-vet binary, if needed
+      if: ${{ steps.cache-vet.outputs.cache-hit != 'true' }}
+      run: cargo install --version ${{ env.CARGO_VET_VERSION }} cargo-vet
+      working-directory: securedrop-protocol
+    - name: Invoke cargo-vet
+      run: cargo vet --locked
+      working-directory: securedrop-protocol
