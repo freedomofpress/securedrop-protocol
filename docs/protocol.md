@@ -288,6 +288,13 @@ For each key bundle $i$:[^11]
 |                                                                                                                         |                                                                         | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i})`$ |
 |                                                                                                                         |                                                                         | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ for $J$                                    |
 
+##### 3.3. Journalist long-term key rotation
+
+A journalist rotates their long-term keys by re-executing the initial
+[enrollment][step 3.1]. After the newsroom manually verifies the journalist's
+new verification key and the signature over the new long-term keys, the newsroom
+MUST update the journalist's keys in the [roster]. This occurs after a scheduled rotation, lost or destroyed keys, or a key compromise.
+
 #### Protocol Step 4: Source key setup
 
 To begin each session, a source MUST enter (on their first visit) or reenter
@@ -769,7 +776,7 @@ Len: 32 + 32 + 32 = 96 bytes * n challenges; server pads to fixed number of chal
 ## Known limitations
 
 - The protocol does not currently include a specification for transferring attachments.
-- The protocol does not currently include a specification for journalist key replenishment, or for rotation of journalist long-term keys.
+- The protocol does not currently include a specification for journalist key replenishment.
 - The protocol does not currently include a specification for rotation of the newsroom key. The relationship between the newsroom key and the server URL is not yet specified.
 - The protocol is not designed for scalability. There is a maximum number of messages that can be held by the server, constrained by the number of per-request challenges that the server can reasonably perform during message-fetching without unacceptable latency for users, particularly over Tor. See benchmarks for more information.
 - The use of HPKE's implicit authentication for message sending means that the protocol is vulnerable to [key compromise impersonation][RFC 9180 §9.1.1].
