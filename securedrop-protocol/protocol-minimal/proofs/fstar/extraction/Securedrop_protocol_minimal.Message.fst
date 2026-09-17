@@ -196,9 +196,9 @@ let impl_MessagePublicKey__from_bytes (bytes: t_Slice u8)
 
 /// SD-APKE ciphertext `((c1, cp), c2)`.
 type t_MessageCiphertext = {
+  f_c2:t_Array u8 (mk_usize 1088);
   f_c1:t_Array u8 (mk_usize 32);
-  f_cp:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global;
-  f_c2:t_Array u8 (mk_usize 1088)
+  f_cp:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global
 }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
@@ -211,25 +211,25 @@ let impl_7 = impl_7'
 let impl_8: Core_models.Clone.t_Clone t_MessageCiphertext =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
-/// Total byte length: `c1 + cp + c2`.
+/// Total byte length: `c2 + c1 + cp`.
 let impl_MessageCiphertext__len (self: t_MessageCiphertext) : usize =
-  ((Core_models.Slice.impl__len #u8 (self.f_c1 <: t_Slice u8) <: usize) +!
-    (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global self.f_cp <: usize)
+  ((Core_models.Slice.impl__len #u8 (self.f_c2 <: t_Slice u8) <: usize) +!
+    (Core_models.Slice.impl__len #u8 (self.f_c1 <: t_Slice u8) <: usize)
     <:
     usize) +!
-  (Core_models.Slice.impl__len #u8 (self.f_c2 <: t_Slice u8) <: usize)
+  (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global self.f_cp <: usize)
 
-/// Wire encoding `c1 || c2 || cp`
+/// Wire encoding `c2 || c1 || cp`
 let impl_MessageCiphertext__as_bytes (self: t_MessageCiphertext)
     : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
   let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Alloc.Vec.impl__with_capacity #u8 (impl_MessageCiphertext__len self <: usize)
   in
   let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global out (self.f_c1 <: t_Slice u8)
+    Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global out (self.f_c2 <: t_Slice u8)
   in
   let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global out (self.f_c2 <: t_Slice u8)
+    Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global out (self.f_c1 <: t_Slice u8)
   in
   let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Alloc.Vec.impl_2__extend_from_slice #u8
@@ -240,10 +240,10 @@ let impl_MessageCiphertext__as_bytes (self: t_MessageCiphertext)
   out
 
 let impl_MessageCiphertext__from_bytes__v_FIXED: usize =
-  Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_ENCAPS_SECRET_LEN +!
-  Securedrop_protocol_minimal.Primitives.Mlkem.v_LEN_MLKEM_SHAREDSECRET_ENCAPS
+  Securedrop_protocol_minimal.Primitives.Mlkem.v_LEN_MLKEM_SHAREDSECRET_ENCAPS +!
+  Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_ENCAPS_SECRET_LEN
 
-/// Deserialize from the `c1 || c2 || cp` wire encoding
+/// Deserialize from the `c2 || c1 || cp` wire encoding
 /// # Errors
 /// Returns an error if the byte slice is shorter than the fixed-length prefix.
 let impl_MessageCiphertext__from_bytes (bytes: t_Slice u8)
@@ -283,18 +283,30 @@ let impl_MessageCiphertext__from_bytes (bytes: t_Slice u8)
     <:
     Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error
   else
-    let (c1: t_Slice u8), (rest: t_Slice u8) =
+    let (c2: t_Slice u8), (rest: t_Slice u8) =
       Core_models.Slice.impl__split_at #u8
         bytes
-        Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_ENCAPS_SECRET_LEN
+        Securedrop_protocol_minimal.Primitives.Mlkem.v_LEN_MLKEM_SHAREDSECRET_ENCAPS
     in
-    let (c2: t_Slice u8), (cp: t_Slice u8) =
+    let (c1: t_Slice u8), (cp: t_Slice u8) =
       Core_models.Slice.impl__split_at #u8
         rest
-        Securedrop_protocol_minimal.Primitives.Mlkem.v_LEN_MLKEM_SHAREDSECRET_ENCAPS
+        Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_ENCAPS_SECRET_LEN
     in
     Core_models.Result.Result_Ok
     ({
+        f_c2
+        =
+        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1088))
+          #Core_models.Array.t_TryFromSliceError
+          (Core_models.Convert.f_try_into #(t_Slice u8)
+              #(t_Array u8 (mk_usize 1088))
+              #FStar.Tactics.Typeclasses.solve
+              c2
+            <:
+            Core_models.Result.t_Result (t_Array u8 (mk_usize 1088))
+              Core_models.Array.t_TryFromSliceError)
+          "checked length";
         f_c1
         =
         Core_models.Result.impl__expect #(t_Array u8 (mk_usize 32))
@@ -307,19 +319,7 @@ let impl_MessageCiphertext__from_bytes (bytes: t_Slice u8)
             Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
               Core_models.Array.t_TryFromSliceError)
           "checked length";
-        f_cp = Alloc.Slice.impl__to_vec #u8 cp;
-        f_c2
-        =
-        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1088))
-          #Core_models.Array.t_TryFromSliceError
-          (Core_models.Convert.f_try_into #(t_Slice u8)
-              #(t_Array u8 (mk_usize 1088))
-              #FStar.Tactics.Typeclasses.solve
-              c2
-            <:
-            Core_models.Result.t_Result (t_Array u8 (mk_usize 1088))
-              Core_models.Array.t_TryFromSliceError)
-          "checked length"
+        f_cp = Alloc.Slice.impl__to_vec #u8 cp
       }
       <:
       t_MessageCiphertext)

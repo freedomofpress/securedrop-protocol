@@ -151,36 +151,36 @@ impl<'de> serde::Deserialize<'de> for MessagePublicKey {
 /// SD-APKE ciphertext `((c1, cp), c2)`.
 #[derive(Debug, Clone)]
 pub struct MessageCiphertext {
+    /// ML-KEM-768 encapsulation used as PSK (`c2` in the spec)
+    pub(crate) c2: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS],
     /// HPKE encapsulation output (`c1` in the spec)
     pub(crate) c1: [u8; DH_AKEM_ENCAPS_SECRET_LEN],
     /// HPKE AEAD ciphertext (`cp` / `c'` in the spec)
     pub(crate) cp: Vec<u8>,
-    /// ML-KEM-768 encapsulation used as PSK (`c2` in the spec)
-    pub(crate) c2: [u8; LEN_MLKEM_SHAREDSECRET_ENCAPS],
 }
 
 impl MessageCiphertext {
-    /// Total byte length: `c1 + cp + c2`.
+    /// Total byte length: `c2 + c1 + cp`.
     pub fn len(&self) -> usize {
-        self.c1.len() + self.cp.len() + self.c2.len()
+        self.c2.len() + self.c1.len() + self.cp.len()
     }
 
-    /// Wire encoding `c1 || c2 || cp`
+    /// Wire encoding `c2 || c1 || cp`
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(self.len());
-        out.extend_from_slice(&self.c1);
         out.extend_from_slice(&self.c2);
+        out.extend_from_slice(&self.c1);
         out.extend_from_slice(&self.cp);
         out
     }
 
-    /// Deserialize from the `c1 || c2 || cp` wire encoding
+    /// Deserialize from the `c2 || c1 || cp` wire encoding
     ///
     /// # Errors
     ///
     /// Returns an error if the byte slice is shorter than the fixed-length prefix.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        const FIXED: usize = DH_AKEM_ENCAPS_SECRET_LEN + LEN_MLKEM_SHAREDSECRET_ENCAPS;
+        const FIXED: usize = LEN_MLKEM_SHAREDSECRET_ENCAPS + DH_AKEM_ENCAPS_SECRET_LEN;
         if bytes.len() < FIXED {
             return Err(anyhow::anyhow!(
                 "MessageCiphertext too short: expected at least {}, got {}",
@@ -189,12 +189,12 @@ impl MessageCiphertext {
             ));
         }
 
-        let (c1, rest) = bytes.split_at(DH_AKEM_ENCAPS_SECRET_LEN);
-        let (c2, cp) = rest.split_at(LEN_MLKEM_SHAREDSECRET_ENCAPS);
+        let (c2, rest) = bytes.split_at(LEN_MLKEM_SHAREDSECRET_ENCAPS);
+        let (c1, cp) = rest.split_at(DH_AKEM_ENCAPS_SECRET_LEN);
         Ok(Self {
+            c2: c2.try_into().expect("checked length"),
             c1: c1.try_into().expect("checked length"),
             cp: cp.to_vec(),
-            c2: c2.try_into().expect("checked length"),
         })
     }
 }
