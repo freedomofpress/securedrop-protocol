@@ -75,6 +75,35 @@ One mitigation for behavioural analysis is the introduction of decoy traffic, wh
 
 Without traditional accounts, it might be easy to flood the service with [too many messages][MAX_MESSAGES] or fetch requests that would be heavy on the server CPU. Depending on the individual _Newsroom_'s previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
 
+### Message Observability
+
+The public `requestMessages` endpoint must prevent a sender from observing whether a receiver has retrieved a particular message.
+
+Implementors must ensure that:
+
+- The server does not delete or mutate a message when a receiver successfully solves a challenge (no state change).
+- The challenge list is regenerated with fresh randomness for each request.
+- The server does not expose retrieval-dependent or message-dependent timing, logging, or status information.
+
+This provides fetch-result **unobservability**: a sender cannot determine from the public API whether a receiver solved a challenge or retrieved a message.
+
+### Challenge Unlinkability
+
+Even with the measures in [Message Observability](#message-observability), a sender may still be able to recognize some of its messages in a challenge response.
+
+If the server uses a single scalar `r` to blind each challenge in `requestMessages`, a malicious sender can submit algebraically related group elements for the challenges. For example, if two messages submitted use `X_1 = [2]G` and `X_2 = [4]G`, then the corresponding challenges satisfy `Q_1 = [r]X_1` and `Q_2 = [r]X_2 = [2]Q_1`.
+
+After receiving the challenge list, the sender can identify which challenge entries correspond to its own messages.
+
+Using independent per-message scalars `r_k` prevents this relationship except
+with negligible probability. Per-message `r_k` therefore provides stronger
+challenge-to-message unlinkability. This does not, by itself, reveal whether a message was fetched, as long as the server exposes no retrieval-dependent state change or timing side channel.
+
+### DH Group-validation assumptions
+
+Implementations must validate all untrusted group-element encodings and ensure
+that every accepted public element belongs to the intended prime-order group used for the fetch challenges. This prevents small-subgroup and invalid-curve attacks and is required for the security of the challenge-response operations and the confidentiality of the fetch key.
+
 ### Minimize logging
 
 To minimize logging, and mix traffic better, it could be reasonable to make all endpoints the same and POST only and remove all GET parameters. An alternative solution could be to implement the full protocol over WebSockets.
