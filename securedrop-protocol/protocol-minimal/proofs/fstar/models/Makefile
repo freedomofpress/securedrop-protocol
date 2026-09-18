@@ -104,6 +104,7 @@ check-targets:
 
 .PHONY: libcrux \
 	libcrux-clone \
+	libcrux-force-hax-lib-version \
 	libcrux-module \
 	libcrux-ecdh \
 	libcrux-kem \
@@ -117,6 +118,7 @@ check-targets:
 
 libcrux:
 	@$(MAKE) libcrux-clone
+	@$(MAKE) libcrux-force-hax-lib-version
 	@FAILURES=""; \
 	\
 	for target in \
@@ -152,6 +154,13 @@ libcrux-clone:
 	@rm -rf libcrux
 	@git clone --quiet https://github.com/cryspen/libcrux
 	@cd libcrux && git checkout $(LIBCRUX_REF) --quiet
+
+libcrux-force-hax-lib-version:
+	@[ -n "$(HAX_LIB_VERSION)" ] || \
+	  { echo "Error: could not determine the hax-lib version; is Cargo working?"; exit 1; }
+	@echo "Forcing libcrux crates to use hax-lib@$(HAX_LIB_VERSION)"
+	@find libcrux -name Cargo.toml -exec \
+		perl -i -pe 's/^(hax-lib\s*=.*?"=?)\d[^"]*"/$${1}$(HAX_LIB_VERSION)"/' {} +
 
 libcrux-module:
 	@echo "extract $(MODULE) ..."
