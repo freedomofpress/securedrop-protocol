@@ -11,6 +11,7 @@ HAX_IMAGE = hax:$(HAX_LIB_VERSION)
 # Allow `CONTAINER=1 make libcrux` to use containerized hax.  See the
 # crate-level Makefile for details.
 DOCKER ?= docker
+HAX = cargo +nightly hax
 
 ifdef CONTAINER
 RUN_IN_MODULE = $(DOCKER) run --rm \
@@ -18,12 +19,13 @@ RUN_IN_MODULE = $(DOCKER) run --rm \
 	--workdir /work/$(CURDIR:$(REPO_ROOT)/%=%)/$(MODULE) \
 	--env CARGO_TARGET_DIR=/work/securedrop-protocol/target/container \
 	$(HAX_IMAGE)
+HAX = cargo-hax
 else
 RUN_IN_MODULE = cd $(MODULE) &&
 endif
 
 # include pattern modifiers (e.g. `+`, `+!`, `+:`) are documented
-# in `cargo hax into --help`
+# in `cargo +nightly hax into --help`
 
 # Extraction targets: default exclude
 LIBCRUX_ECDH_TARGETS := -**
@@ -163,7 +165,7 @@ libcrux-module:
 	EXTRACT_STATUS=0; \
 	\
 	$(RUN_IN_MODULE) \
-		cargo-hax into -i "$(TARGETS)" fstar --interfaces '+!**' \
+		$(HAX) into -i "$(TARGETS)" fstar --interfaces '+!**' \
 		|| EXTRACT_STATUS=$$?; \
 	\
 	if [ $$EXTRACT_STATUS -ne 0 ]; then \

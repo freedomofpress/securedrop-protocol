@@ -30,12 +30,14 @@ PROOF_DIR = proofs/fstar/extraction
 # Targets below MAY prefix their commands with `$(CONTAINER_RUN)` to run inside
 # the $HAX_IMAGE when $CONTAINER is set.  Targets that do so SHOULD be redefined
 # here to establish a dependency on `compat-hax`.
+HAX = cargo +nightly hax
 ifdef CONTAINER
 CONTAINER_RUN = $(DOCKER) run --rm \
 	--volume $(REPO_ROOT):/work \
 	--workdir /work/$(CURDIR:$(REPO_ROOT)/%=%) \
 	--env CARGO_TARGET_DIR=/work/securedrop-protocol/target/container \
 	$(HAX_IMAGE)
+HAX = cargo-hax
 
 extract: compat-hax
 endif
@@ -77,7 +79,7 @@ compat-hax: compat-hax-image  # Internal: Check that $HAX_IMAGE has the expected
 
 .PHONY: extract
 extract:  ## Run hax extraction, without verifying. (Prefix with "CONTAINER=1" to run containerized.)
-	$(CONTAINER_RUN) cargo-hax into -i '$(HAX_TARGETS)' fstar
+	$(CONTAINER_RUN) $(HAX) into -i '$(HAX_TARGETS)' fstar
 
 .PHONY: hax
 hax: compat extract verify  ## Run hax extraction, then type-check and verify extracted proofs.
