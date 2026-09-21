@@ -25,20 +25,15 @@ pub const MESSAGE_ID_FETCH_SIZE: usize = 10;
             - provider::chacha20poly1305::NONCE_LEN
             - provider::chacha20poly1305::TAG_LEN
 ))]
-pub fn encrypt_message_id<R: RngCore + CryptoRng>(
-    key: &[u8],
-    message_id: &[u8],
-    rng: &mut R,
-) -> Result<Vec<u8>, Error> {
+pub fn encrypt_message_id(key: &[u8], message_id: &[u8]) -> Result<Vec<u8>, Error> {
     use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 
     if key.len() != KEY_LEN {
         return Err(anyhow::anyhow!("Invalid key length"));
     }
 
-    // Generate a random nonce with supplied rng
+    // Use a zero-filled nonce
     let mut nonce = [0u8; NONCE_LEN];
-    provider::rng::fill_bytes(rng, &mut nonce);
 
     // Prepare output buffer: nonce + ciphertext + tag
     let mut output = alloc::vec::Vec::new();
@@ -80,6 +75,14 @@ pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, 
     // Extract nonce and ciphertext
     let nonce_r = encrypted_data[..NONCE_LEN].try_into();
     let nonce: [u8; NONCE_LEN] = nonce_r.map_err(|_| anyhow::anyhow!("Nonce extraction failed"))?;
+    // Expect nonce to be zero-filled here.
+    if nonce != [0u8; NONCE_LEN] {
+        return Err(anyhow::anyhow!(
+            "Expected zero-filled nonce, got {:?}",
+            nonce
+        ));
+    }
+
     let ciphertext = &encrypted_data[NONCE_LEN..];
 
     // Prepare output buffer
