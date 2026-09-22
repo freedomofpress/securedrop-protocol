@@ -75,18 +75,18 @@ impl Server {
         request: JournalistSetupRequest,
     ) -> Result<JournalistSetupResponse, Error> {
         // Get enrollment key from the request
-        let journalist_signing_key = request.enrollment.keys.0;
+        let journalist_signing_key = request.enrollment.verification_key;
 
         // Verify journalist self-signature over their own pubkeys.
         journalist_signing_key
             .verify(
-                request.enrollment.bundle.as_bytes(),
-                &request.enrollment.selfsig,
+                &request.enrollment.bundle.bundle_bytes(),
+                &request.enrollment.bundle.selfsig,
             )
             .map_err(|_| anyhow::anyhow!("Invalid signature on longterm keys"))?;
 
         // Sign the journalist's verifying key.
-        let verifying_key_bytes = request.enrollment.keys.0.into_bytes();
+        let verifying_key_bytes = request.enrollment.verification_key.into_bytes();
         let newsroom_keys = self
             .newsroom_keys
             .as_ref()
@@ -182,14 +182,13 @@ impl Server {
 
         let mut journalists = Vec::new();
         for (_id, entry) in self.storage.get_journalists().iter() {
-            let (vk, fetch_pk, reply_apke_pk, selfsig, signed_longterm_key_bytes, nr_signature) =
+            let (vk, fetch_pk, reply_apke_pk, signed_longterm_key_bytes, nr_signature) =
                 entry.clone();
             journalists.push(JournalistLongTermView {
                 vk,
                 fetch_pk,
                 reply_apke_pk,
                 signed_longterm_key_bytes,
-                selfsig,
                 nr_signature,
             });
         }
