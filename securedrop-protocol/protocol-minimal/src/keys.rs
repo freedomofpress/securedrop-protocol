@@ -12,7 +12,6 @@ use crate::metadata::{MetadataKeyPair, MetadataPublicKey};
 use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
 use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
 use crate::primitives::ristretto255::{DH_PUBLIC_KEY_LEN, DHPrivateKey, DHPublicKey};
-use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
 use alloc::string::String;
 use alloc::vec::Vec;
 use serde::de::Error as _;
@@ -79,56 +78,103 @@ pub(crate) struct SignedMessageKeyBundle {
 }
 
 #[derive(Debug, Clone)]
-pub struct SignedLongtermPubKeyBytes(
-    pub [u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN],
-);
+pub(crate) struct LongtermKeyBundle {
+    pub(crate) apke: MessagePublicKey,
+    pub(crate) fetch_pk: DHPublicKey,
+}
 
-impl SignedLongtermPubKeyBytes {
+impl LongtermKeyBundle {
+    pub fn new(apke: MessagePublicKey, fetch_pk: DHPublicKey) -> Self {
+        Self { apke, fetch_pk }
+    }
+
     /// Serialize long-term public keys into the canonical byte encoding.
     ///
     /// Byte layout (per spec §3.1): `pk_J^APKE || pk_J^fetch`
     /// where `pk_J^APKE = pk_J^AKEM (DH-AKEM) || pk_J^PQ (ML-KEM)`
-    pub(crate) fn from_keys(reply_apke: &MessagePublicKey, fetch_pk: &DHPublicKey) -> Self {
-        let apke_bytes = reply_apke.as_bytes();
-        let fetch_bytes = fetch_pk.into_bytes();
+    pub fn as_bytes(&self) -> [u8; 1248] {
+        let apke_bytes = self.apke.as_bytes();
+        let fetch_bytes = self.fetch_pk.into_bytes();
 
         let mut pubkey_bytes =
             [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN];
         pubkey_bytes[..apke_bytes.len()].copy_from_slice(&apke_bytes);
         pubkey_bytes[apke_bytes.len()..].copy_from_slice(&fetch_bytes);
 
-        Self(pubkey_bytes)
+        pubkey_bytes
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SignedLongtermKeyBundle {
+    pub bundle: LongtermKeyBundle,
+    pub selfsig: Signature<JournalistLongTermKey>,
+}
+
+impl SignedLongtermKeyBundle {
+    pub fn new(bundle: LongtermKeyBundle, selfsig: Signature<JournalistLongTermKey>) -> Self {
+        Self { bundle, selfsig }
     }
 
-    /// Return the canonical byte encoding of the long-term public keys.
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let bundle_bytes = self.bundle.as_bytes();
+        let sig_bytes = self.selfsig.as_bytes();
+
+        let mut pubkey_bytes = Vec::with_capacity(bundle_bytes.len() + sig_bytes.len());
+        pubkey_bytes.extend_from_slice(&bundle_bytes);
+        pubkey_bytes.extend_from_slice(&sig_bytes);
+
+        pubkey_bytes
+    }
+
+    pub fn bundle_bytes(&self) -> [u8; 1248] {
+        self.bundle.as_bytes()
+    }
+
+    pub fn apke(&self) -> &MessagePublicKey {
+        &self.bundle.apke
+    }
+
+    pub fn fetch_pk(&self) -> &DHPublicKey {
+        &self.bundle.fetch_pk
     }
 }
 
 #[cfg_attr(hax, hax_lib::exclude)]
-impl Serialize for SignedLongtermPubKeyBytes {
+impl Serialize for SignedLongtermKeyBundle {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-        ser.serialize_str(&hex::encode(self.0))
+        ser.serialize_str(&hex::encode(self.as_bytes()))
     }
 }
 
 #[cfg_attr(hax, hax_lib::exclude)]
-impl<'de> Deserialize<'de> for SignedLongtermPubKeyBytes {
+impl<'de> Deserialize<'de> for SignedLongtermKeyBundle {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
         let s = String::deserialize(de)?;
-        let mut bytes = [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN];
+        let mut bytes =
+            [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN + 64];
         hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
-        Ok(Self(bytes))
+
+        let offset = DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN;
+        let apke = MessagePublicKey::from_bytes(&bytes[..offset]).map_err(D::Error::custom)?;
+        let mut fetch_key_bytes = [0u8; DH_PUBLIC_KEY_LEN];
+        fetch_key_bytes.copy_from_slice(&bytes[offset..offset + DH_PUBLIC_KEY_LEN]);
+        let fetch = DHPublicKey::decode(fetch_key_bytes).map_err(D::Error::custom)?;
+        let mut sig_bytes = [0u8; 64];
+        sig_bytes.copy_from_slice(&bytes[offset + DH_PUBLIC_KEY_LEN..]);
+        Ok(Self {
+            bundle: LongtermKeyBundle::new(apke, fetch),
+            selfsig: Signature::from_bytes(sig_bytes),
+        })
     }
 }
 
 #[derive(Clone, Debug)]
 #[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct Enrollment {
-    pub bundle: SignedLongtermPubKeyBytes,
-    pub selfsig: Signature<JournalistLongTermKey>,
-    pub keys: (VerifyingKey, DHPublicKey, MessagePublicKey),
+    pub bundle: SignedLongtermKeyBundle,
+    // Journalist's long-term verification key, verified out of band.
+    pub verification_key: VerifyingKey,
 }
 
 // in memory session storage

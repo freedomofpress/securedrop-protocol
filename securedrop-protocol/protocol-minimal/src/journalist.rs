@@ -35,7 +35,7 @@ pub struct Journalist {
     /// Long-term SD-APKE key tuple `(sk_J^APKE, pk_J^APKE)`
     reply_apke: MessageKeyPair,
     self_signature: Signature<JournalistLongTermKey>,
-    signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
+    signed_longterm_key_bytes: SignedLongtermKeyBundle,
     session_storage: SessionStorage,
 }
 
@@ -46,8 +46,7 @@ pub struct JournalistPublicView {
     vk: VerifyingKey,
     fetch_pk: DHPublicKey,
     reply_apke_pk: MessagePublicKey,
-    signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
-    selfsig: Signature<JournalistLongTermKey>,
+    signed_longterm_key_bytes: SignedLongtermKeyBundle,
     kb: SignedKeyBundlePublic,
 }
 
@@ -56,15 +55,13 @@ impl JournalistPublicView {
         vk: VerifyingKey,
         fetch: DHPublicKey,
         reply_apke: MessagePublicKey,
-        selfsig: Signature<JournalistLongTermKey>,
-        signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
+        signed_longterm_key_bytes: SignedLongtermKeyBundle,
         kb: SignedKeyBundlePublic,
     ) -> Self {
         Self {
             vk,
             fetch_pk: fetch,
             reply_apke_pk: reply_apke,
-            selfsig,
             signed_longterm_key_bytes,
             kb,
         }
@@ -95,10 +92,10 @@ impl JournalistPublic for JournalistPublicView {
     }
 
     fn self_signature(&self) -> &Signature<JournalistLongTermKey> {
-        &self.selfsig
+        &self.signed_longterm_key_bytes.selfsig
     }
 
-    fn signed_keybytes(&self) -> &SignedLongtermPubKeyBytes {
+    fn signed_keybytes(&self) -> &SignedLongtermKeyBundle {
         &self.signed_longterm_key_bytes
     }
 
@@ -174,12 +171,7 @@ impl Enrollable for Journalist {
     fn enroll(&self) -> Enrollment {
         Enrollment {
             bundle: self.signed_longterm_key_bytes.clone(),
-            selfsig: self.self_signature,
-            keys: (
-                self.signing_key.pk,
-                self.fetch_key.pk.clone(),
-                self.reply_apke.public_key().clone(),
-            ),
+            verification_key: self.signing_key.pk,
         }
     }
 
@@ -223,10 +215,10 @@ impl Journalist {
 
         // Self-sign long-term pubkeys (for enrollment).
         // Covers pk_J^APKE = (pk_J^AKEM, pk_J^PQ) and pk_J^fetch
-        let selfsigned_pubkeys =
-            SignedLongtermPubKeyBytes::from_keys(reply_apke.public_key(), &pk_fetch);
+        let longterm_bundle = LongtermKeyBundle::new(reply_apke.public_key().clone(), pk_fetch);
         let self_signature: Signature<JournalistLongTermKey> =
-            signing_key.sign(selfsigned_pubkeys.as_bytes());
+            signing_key.sign(&longterm_bundle.as_bytes());
+        let selfsigned_pubkeys = SignedLongtermKeyBundle::new(longterm_bundle, self_signature);
 
         // Generate one-time/short-lived keybundles.
         for _ in 0..num_keybundles {
@@ -264,7 +256,6 @@ impl Journalist {
             self.signing_key.pk,
             self.fetch_key.pk.clone(),
             self.reply_apke.public_key().clone(),
-            self.self_signature,
             self.signed_longterm_key_bytes.clone(),
             (kb.bundle.public(), kb.selfsig),
         )
@@ -314,10 +305,11 @@ impl Journalist {
             },
         );
 
-        let signed_longterm_key_bytes =
-            SignedLongtermPubKeyBytes::from_keys(reply_apke.public_key(), &pk_fetch);
+        let longterm_bundle = LongtermKeyBundle::new(reply_apke.public_key().clone(), pk_fetch);
         let self_signature: Signature<JournalistLongTermKey> =
-            signing_key.sign(signed_longterm_key_bytes.as_bytes());
+            signing_key.sign(&longterm_bundle.as_bytes());
+        let signed_longterm_key_bytes =
+            SignedLongtermKeyBundle::new(longterm_bundle, self_signature);
 
         Ok(Self {
             signing_key: KeyPair {
@@ -562,20 +554,12 @@ mod tests {
             restored.enrollment.bundle.as_bytes()
         );
         assert_eq!(
-            req.enrollment.selfsig.as_bytes(),
-            restored.enrollment.selfsig.as_bytes()
+            req.enrollment.bundle.selfsig.as_bytes(),
+            restored.enrollment.bundle.selfsig.as_bytes()
         );
         assert_eq!(
-            req.enrollment.keys.0.into_bytes(),
-            restored.enrollment.keys.0.into_bytes()
-        );
-        assert_eq!(
-            req.enrollment.keys.1.into_bytes(),
-            restored.enrollment.keys.1.into_bytes()
-        );
-        assert_eq!(
-            req.enrollment.keys.2.as_bytes(),
-            restored.enrollment.keys.2.as_bytes()
+            req.enrollment.verification_key.into_bytes(),
+            restored.enrollment.verification_key.into_bytes()
         );
     }
 
@@ -628,7 +612,7 @@ mod tests {
 
         journalist
             .signing_key()
-            .verify(e.bundle.as_bytes(), &e.selfsig)
+            .verify(&e.bundle.bundle_bytes(), &e.bundle.selfsig)
             .expect("Need correct enrollment sig");
     }
 

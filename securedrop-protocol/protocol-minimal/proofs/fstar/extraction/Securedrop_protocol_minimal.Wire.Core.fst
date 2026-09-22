@@ -12,9 +12,7 @@ type t_JournalistLongTermView = {
   f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
   f_fetch_pk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
   f_reply_apke_pk:Securedrop_protocol_minimal.Message.t_MessagePublicKey;
-  f_signed_longterm_key_bytes:Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes;
-  f_selfsig:Securedrop_protocol_minimal.Sign.t_Signature
-  Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey;
+  f_signed_longterm_key_bytes:Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle;
   f_nr_signature:Securedrop_protocol_minimal.Sign.t_Signature
   Securedrop_protocol_minimal.Sign.t_NewsroomOnJournalist
 }

@@ -62,10 +62,10 @@ class t_JournalistPublic (v_Self: Type0) = {
         (f_self_signature_pre x0)
         (fun result -> f_self_signature_post x0 result);
   f_signed_keybytes_pre:v_Self -> Type0;
-  f_signed_keybytes_post:v_Self -> Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes
+  f_signed_keybytes_post:v_Self -> Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle
     -> Type0;
   f_signed_keybytes:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes
+    -> Prims.Pure Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle
         (f_signed_keybytes_pre x0)
         (fun result -> f_signed_keybytes_post x0 result);
   f_ephemeral_bundle_pre:v_Self -> Type0;

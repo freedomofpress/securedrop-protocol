@@ -1,5 +1,5 @@
 use crate::FetchResponse;
-use crate::keys::{SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
+use crate::keys::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
 use crate::message::MessagePublicKey;
 use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{
@@ -20,8 +20,7 @@ pub struct JournalistLongTermView {
     pub vk: VerifyingKey,
     pub fetch_pk: DHPublicKey,
     pub reply_apke_pk: MessagePublicKey,
-    pub signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
-    pub selfsig: Signature<JournalistLongTermKey>,
+    pub signed_longterm_key_bytes: SignedLongtermKeyBundle,
     pub nr_signature: Signature<NewsroomOnJournalist>,
 }
 

@@ -26,12 +26,12 @@ type t_KeyBundlePublic = {
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_4': Core_models.Fmt.t_Debug t_KeyBundlePublic
+val impl_5': Core_models.Fmt.t_Debug t_KeyBundlePublic
 
 unfold
-let impl_4 = impl_4'
+let impl_5 = impl_5'
 
-let impl_5: Core_models.Clone.t_Clone t_KeyBundlePublic =
+let impl_6: Core_models.Clone.t_Clone t_KeyBundlePublic =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 /// Serialize the bundle public keys in canonical byte order for signing.
@@ -96,31 +96,35 @@ type t_SignedMessageKeyBundle = {
   Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey
 }
 
-type t_SignedLongtermPubKeyBytes =
-  | SignedLongtermPubKeyBytes : t_Array u8 (mk_usize 1248) -> t_SignedLongtermPubKeyBytes
+type t_LongtermKeyBundle = {
+  f_apke:Securedrop_protocol_minimal.Message.t_MessagePublicKey;
+  f_fetch_pk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
+}
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_6': Core_models.Fmt.t_Debug t_SignedLongtermPubKeyBytes
+val impl_7': Core_models.Fmt.t_Debug t_LongtermKeyBundle
 
 unfold
-let impl_6 = impl_6'
+let impl_7 = impl_7'
 
-let impl_7: Core_models.Clone.t_Clone t_SignedLongtermPubKeyBytes =
+let impl_8: Core_models.Clone.t_Clone t_LongtermKeyBundle =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+let impl_LongtermKeyBundle__new
+      (apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+      (fetch_pk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
+    : t_LongtermKeyBundle = { f_apke = apke; f_fetch_pk = fetch_pk } <: t_LongtermKeyBundle
 
 /// Serialize long-term public keys into the canonical byte encoding.
 /// Byte layout (per spec §3.1): `pk_J^APKE || pk_J^fetch`
 /// where `pk_J^APKE = pk_J^AKEM (DH-AKEM) || pk_J^PQ (ML-KEM)`
-let impl_SignedLongtermPubKeyBytes__from_keys
-      (reply_apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
-      (fetch_pk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
-    : t_SignedLongtermPubKeyBytes =
+let impl_LongtermKeyBundle__as_bytes (self: t_LongtermKeyBundle) : t_Array u8 (mk_usize 1248) =
   let apke_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Securedrop_protocol_minimal.Message.impl_MessagePublicKey__as_bytes reply_apke
+    Securedrop_protocol_minimal.Message.impl_MessagePublicKey__as_bytes self.f_apke
   in
   let fetch_bytes:t_Array u8 (mk_usize 32) =
-    Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes fetch_pk
+    Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes self.f_fetch_pk
   in
   let pubkey_bytes:t_Array u8 (mk_usize 1248) =
     Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1248)
@@ -171,30 +175,83 @@ let impl_SignedLongtermPubKeyBytes__from_keys
         <:
         t_Slice u8)
   in
-  SignedLongtermPubKeyBytes pubkey_bytes <: t_SignedLongtermPubKeyBytes
+  pubkey_bytes
 
-/// Return the canonical byte encoding of the long-term public keys.
-let impl_SignedLongtermPubKeyBytes__as_bytes (self: t_SignedLongtermPubKeyBytes) : t_Slice u8 =
-  self._0 <: t_Slice u8
-
-type t_Enrollment = {
-  f_bundle:t_SignedLongtermPubKeyBytes;
+type t_SignedLongtermKeyBundle = {
+  f_bundle:t_LongtermKeyBundle;
   f_selfsig:Securedrop_protocol_minimal.Sign.t_Signature
-  Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey;
-  f_keys:(Securedrop_protocol_minimal.Sign.t_VerifyingKey &
-    Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey &
-    Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+  Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey
 }
 
-let impl_10: Core_models.Clone.t_Clone t_Enrollment =
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_9': Core_models.Fmt.t_Debug t_SignedLongtermKeyBundle
+
+unfold
+let impl_9 = impl_9'
+
+let impl_10: Core_models.Clone.t_Clone t_SignedLongtermKeyBundle =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+let impl_SignedLongtermKeyBundle__new
+      (bundle: t_LongtermKeyBundle)
+      (selfsig:
+          Securedrop_protocol_minimal.Sign.t_Signature
+          Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey)
+    : t_SignedLongtermKeyBundle =
+  { f_bundle = bundle; f_selfsig = selfsig } <: t_SignedLongtermKeyBundle
+
+let impl_SignedLongtermKeyBundle__as_bytes (self: t_SignedLongtermKeyBundle)
+    : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+  let bundle_bytes:t_Array u8 (mk_usize 1248) = impl_LongtermKeyBundle__as_bytes self.f_bundle in
+  let sig_bytes:t_Array u8 (mk_usize 64) =
+    Securedrop_protocol_minimal.Sign.impl_7__as_bytes #Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey
+      self.f_selfsig
+  in
+  let pubkey_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl__with_capacity #u8
+      ((Core_models.Slice.impl__len #u8 (bundle_bytes <: t_Slice u8) <: usize) +!
+        (Core_models.Slice.impl__len #u8 (sig_bytes <: t_Slice u8) <: usize)
+        <:
+        usize)
+  in
+  let pubkey_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl_2__extend_from_slice #u8
+      #Alloc.Alloc.t_Global
+      pubkey_bytes
+      (bundle_bytes <: t_Slice u8)
+  in
+  let pubkey_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl_2__extend_from_slice #u8
+      #Alloc.Alloc.t_Global
+      pubkey_bytes
+      (sig_bytes <: t_Slice u8)
+  in
+  pubkey_bytes
+
+let impl_SignedLongtermKeyBundle__bundle_bytes (self: t_SignedLongtermKeyBundle)
+    : t_Array u8 (mk_usize 1248) = impl_LongtermKeyBundle__as_bytes self.f_bundle
+
+let impl_SignedLongtermKeyBundle__apke (self: t_SignedLongtermKeyBundle)
+    : Securedrop_protocol_minimal.Message.t_MessagePublicKey = self.f_bundle.f_apke
+
+let impl_SignedLongtermKeyBundle__fetch_pk (self: t_SignedLongtermKeyBundle)
+    : Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey = self.f_bundle.f_fetch_pk
+
+type t_Enrollment = {
+  f_bundle:t_SignedLongtermKeyBundle;
+  f_verification_key:Securedrop_protocol_minimal.Sign.t_VerifyingKey
+}
+
+let impl_13: Core_models.Clone.t_Clone t_Enrollment =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_11': Core_models.Fmt.t_Debug t_Enrollment
+val impl_14': Core_models.Fmt.t_Debug t_Enrollment
 
 unfold
-let impl_11 = impl_11'
+let impl_14 = impl_14'
 
 type t_SessionStorage = {
   f_fpf_key:Core_models.Option.t_Option Securedrop_protocol_minimal.Sign.t_VerifyingKey;

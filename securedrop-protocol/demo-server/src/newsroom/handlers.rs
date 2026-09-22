@@ -26,14 +26,17 @@ pub(crate) async fn post_enroll(
     State(state): State<AppState>,
     Json(req): Json<JournalistSetupRequest>,
 ) -> Result<Json<JournalistSetupResponse>, (StatusCode, String)> {
-    let vk_j = req.enrollment.keys.0;
-    vk_j.verify(req.enrollment.bundle.as_bytes(), &req.enrollment.selfsig)
-        .map_err(|_| {
-            (
-                StatusCode::BAD_REQUEST,
-                "journalist self-signature does not verify".to_string(),
-            )
-        })?;
+    let vk_j = req.enrollment.verification_key;
+    vk_j.verify(
+        &req.enrollment.bundle.bundle_bytes(),
+        &req.enrollment.bundle.selfsig,
+    )
+    .map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            "journalist self-signature does not verify".to_string(),
+        )
+    })?;
 
     let sig = state.newsroom_kp.sign(&vk_j.into_bytes());
 
@@ -114,11 +117,10 @@ pub(crate) async fn get_welcome(
         .map(|enrolled| {
             let e = &enrolled.enrollment;
             JournalistLongTermView {
-                vk: e.keys.0,
-                fetch_pk: e.keys.1.clone(),
-                reply_apke_pk: e.keys.2.clone(),
+                vk: e.verification_key,
+                fetch_pk: e.bundle.fetch_pk().clone(),
+                reply_apke_pk: e.bundle.apke().clone(),
                 signed_longterm_key_bytes: e.bundle.clone(),
-                selfsig: e.selfsig,
                 nr_signature: enrolled.nr_sig,
             }
         })
@@ -153,7 +155,7 @@ pub(crate) async fn get_journalist_ephemeral_keys(
         let bundle = bundles.swap_remove(idx);
 
         responses.push(JournalistEphemeralKeys {
-            vk: enrolled.enrollment.keys.0,
+            vk: enrolled.enrollment.verification_key,
             ephemeral: bundle,
         });
     }
