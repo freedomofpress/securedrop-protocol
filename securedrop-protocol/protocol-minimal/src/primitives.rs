@@ -39,6 +39,14 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
     use crate::primitives::provider::hkdf;
     use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 
+    if key.len() != KEY_LEN {
+        return Err(anyhow::anyhow!(
+            "DH shared secret length must be {} bytes, got {} bytes",
+            KEY_LEN,
+            key.len()
+        ));
+    }
+
     let mut challenge_key: [u8; 32] = [0u8; KEY_LEN];
     // Key is KDF(shared_secret, newsroom_id)
     hkdf::sha256(&mut challenge_key, CHALLENGE_SALT, key, NR_ID)
