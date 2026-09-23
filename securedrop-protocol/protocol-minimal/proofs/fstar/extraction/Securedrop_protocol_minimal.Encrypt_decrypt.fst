@@ -11,18 +11,6 @@ let _ =
   let open Securedrop_protocol_minimal.Traits in
   ()
 
-let v_NR_ID: t_Slice u8 =
-  (let list =
-      [
-        mk_u8 77; mk_u8 79; mk_u8 67; mk_u8 75; mk_u8 95; mk_u8 78; mk_u8 69; mk_u8 87; mk_u8 83;
-        mk_u8 82; mk_u8 79; mk_u8 79; mk_u8 77; mk_u8 95; mk_u8 73; mk_u8 68
-      ]
-    in
-    FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 16);
-    Rust_primitives.Hax.array_of_list 16 list)
-  <:
-  t_Slice u8
-
 #push-options "--admit_smt_queries true"
 
 /// Encrypt a message from a sender to a recipient (step 6).
@@ -75,7 +63,7 @@ let encrypt
             Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
         <:
         t_Slice u8)
-      v_NR_ID
+      Securedrop_protocol_minimal.Primitives.v_NR_ID
       pk_r_fetch
   in
   let rng:v_R = tmp0 in
@@ -249,7 +237,7 @@ let decrypt_with_sender
             Securedrop_protocol_minimal.Message.t_MessagePrivateKey)
           sender_pk
           envelope.Securedrop_protocol_minimal.Ciphertext.f_ct_apke
-          v_NR_ID
+          Securedrop_protocol_minimal.Primitives.v_NR_ID
           pk_r_fetch
         <:
         Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
