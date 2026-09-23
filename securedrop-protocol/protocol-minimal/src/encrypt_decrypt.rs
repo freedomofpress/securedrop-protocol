@@ -6,14 +6,14 @@ use crate::primitives::ristretto255::{
     random_dh_public_key,
 };
 use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
-use crate::primitives::{decrypt_message_id, encrypt_message_id};
+use crate::primitives::{decrypt_message_id, derive_challenge_key, encrypt_message_id};
 use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, UserSecret};
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
 // Mock Newsroom ID
-const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
+pub const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
 
 /// Encrypt a message from a sender to a recipient (step 6).
 ///
@@ -137,7 +137,8 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 
             // 3-party DH yields shared_secret used to encrypt message_id
             let shared_secret = dh_shared_secret(&envelope.mgdh, &eph_sk);
-            let enc_mid = encrypt_message_id(&shared_secret.into_bytes(), message_id).unwrap();
+            let key = derive_challenge_key(&shared_secret, NR_ID);
+            let enc_mid = encrypt_message_id(&key, message_id).unwrap();
 
             // `copy_from_slice` rather than `try_into()`: Core_models has no
             // `TryInto<Vec<u8>, [u8; N]>` instance, and this is the codebase's
@@ -181,10 +182,11 @@ pub fn solve_fetch_challenges<S: UserSecret>(
     for chall in challenges.iter() {
         // Compute 3-party DH on the pmgdh
         let maybe_kmid_secret = dh_shared_secret(&chall.pmgdh, recipient.fetch_keypair().0);
+        let challenge_key = derive_challenge_key(&maybe_kmid_secret, NR_ID);
 
         // Try decrypting the encrypted message id
         // Convert to UUID (v4) format and add to message ID list on success
-        match decrypt_message_id(&maybe_kmid_secret.into_bytes(), &chall.enc_id) {
+        match decrypt_message_id(&challenge_key, &chall.enc_id) {
             Ok(message_id_bytes) => {
                 let uuid = crate::primitives::provider::uuid_parse::from_slice(&message_id_bytes);
 
