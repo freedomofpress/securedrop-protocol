@@ -1,5 +1,6 @@
 use crate::message::MessagePublicKey;
 use crate::metadata;
+use crate::primitives::NR_ID;
 use crate::primitives::provider::constants::{LEN_KMID, LEN_MESSAGE_ID};
 use crate::primitives::ristretto255::{
     DHPublicKey, dh_shared_secret, generate_dh_keypair, generate_random_scalar,
@@ -11,9 +12,6 @@ use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, Us
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
-
-// Mock Newsroom ID
-const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
 
 /// Encrypt a message from a sender to a recipient (step 6).
 ///

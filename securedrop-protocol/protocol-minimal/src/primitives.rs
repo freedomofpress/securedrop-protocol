@@ -15,6 +15,12 @@ pub(crate) mod xwing;
 /// regardless of how many actual messages exist.
 pub const MESSAGE_ID_FETCH_SIZE: usize = 10;
 
+// Mock Newsroom ID
+pub const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
+
+/// Fixed, public salt for challenge id encryption.
+const CHALLENGE_SALT: &[u8] = b"securedrop-challenge-v1";
+
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
 ///
 /// This is used in step 7 for encrypting message IDs with a shared secret
@@ -30,11 +36,13 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
     message_id: &[u8],
     rng: &mut R,
 ) -> Result<Vec<u8>, Error> {
+    use crate::primitives::provider::hkdf;
     use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 
-    if key.len() != KEY_LEN {
-        return Err(anyhow::anyhow!("Invalid key length"));
-    }
+    let mut challenge_key: [u8; 32] = [0u8; KEY_LEN];
+    // Key is KDF(shared_secret, newsroom_id)
+    hkdf::sha256(&mut challenge_key, CHALLENGE_SALT, key, NR_ID)
+        .expect("HKDF fetch key derivation failed");
 
     // Generate a random nonce with supplied rng
     let mut nonce = [0u8; NONCE_LEN];
@@ -45,12 +53,15 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
     output.extend_from_slice(&nonce);
 
     let mut ciphertext = alloc::vec![0u8; message_id.len() + TAG_LEN];
-    let result = key.try_into();
-    let key_array = result.map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
 
     // Encrypt the message ID
-    match provider::chacha20poly1305::encrypt(&key_array, message_id, &mut ciphertext, &[], &nonce)
-    {
+    match provider::chacha20poly1305::encrypt(
+        &challenge_key,
+        message_id,
+        &mut ciphertext,
+        &[],
+        &nonce,
+    ) {
         Ok(_) => {}
         Err(e) => {
             return Err(anyhow::anyhow!(
@@ -67,11 +78,13 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
 ///
 /// This is used in step 7 for decrypting message IDs with a shared secret
 pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, Error> {
+    use crate::primitives::provider::hkdf;
     use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 
-    if key.len() != KEY_LEN {
-        return Err(anyhow::anyhow!("Invalid key length"));
-    }
+    let mut challenge_key: [u8; 32] = [0u8; KEY_LEN];
+    // Key is KDF(shared_secret, newsroom_id)
+    hkdf::sha256(&mut challenge_key, CHALLENGE_SALT, key, NR_ID)
+        .expect("HKDF fetch key derivation failed");
 
     if encrypted_data.len() < NONCE_LEN + TAG_LEN {
         return Err(anyhow::anyhow!("Encrypted data too short"));
@@ -84,13 +97,10 @@ pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, 
 
     // Prepare output buffer
     let mut plaintext = alloc::vec![0u8; ciphertext.len() - TAG_LEN];
-    let key_arr_res = key.try_into();
-    let key_array: [u8; KEY_LEN] =
-        key_arr_res.map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
 
     // Decrypt the message ID
     provider::chacha20poly1305::decrypt(
-        &key_array,
+        &challenge_key,
         &mut plaintext,
         ciphertext,
         &[], // empty AAD
