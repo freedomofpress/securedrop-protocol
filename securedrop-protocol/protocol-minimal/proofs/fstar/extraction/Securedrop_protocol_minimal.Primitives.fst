@@ -62,90 +62,35 @@ let encrypt_message_id
           <:
           usize))
       (fun _ -> Prims.l_True) =
-  let (challenge_key: t_Array u8 (mk_usize 32)):t_Array u8 (mk_usize 32) =
-    Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
-  in
-  let
-  (tmp0: t_Array u8 (mk_usize 32)),
-  (out: Core_models.Result.t_Result Prims.unit Libcrux_hkdf.t_ExpandError) =
-    Securedrop_protocol_minimal.Primitives.Provider.Hkdf.sha256 challenge_key
-      v_CHALLENGE_SALT
-      key
-      v_NR_ID
-  in
-  let challenge_key:t_Array u8 (mk_usize 32) = tmp0 in
-  let _:Prims.unit =
-    Core_models.Result.impl__expect #Prims.unit
-      #Libcrux_hkdf.t_ExpandError
-      out
-      "HKDF fetch key derivation failed"
-  in
-  let nonce:t_Array u8 (mk_usize 12) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 12) in
-  let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 12)) =
-    Securedrop_protocol_minimal.Primitives.Provider.Rng.fill_bytes #v_R (mk_usize 12) rng nonce
-  in
-  let rng:v_R = tmp0 in
-  let nonce:t_Array u8 (mk_usize 12) = tmp1 in
-  let _:Prims.unit = () in
-  let output:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = Alloc.Vec.impl__new #u8 () in
-  let output:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global output (nonce <: t_Slice u8)
-  in
-  let ciphertext:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Alloc.Vec.from_elem #u8
-      (mk_u8 0)
-      ((Core_models.Slice.impl__len #u8 message_id <: usize) +!
-        Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_TAG_LEN
-        <:
-        usize)
-  in
-  let
-  (tmp0: t_Slice u8),
-  (out: Core_models.Result.t_Result Prims.unit Libcrux_chacha20poly1305.t_AeadError) =
-    Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.encrypt challenge_key
-      message_id
-      (Alloc.Vec.impl_1__as_slice ciphertext <: t_Slice u8)
-      ((let list:Prims.list u8 = [] in
-          FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
-          Rust_primitives.Hax.array_of_list 0 list)
-        <:
-        t_Slice u8)
-      nonce
-  in
-  let ciphertext:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = Alloc.Slice.impl__to_vec tmp0 in
-  match out <: Core_models.Result.t_Result Prims.unit Libcrux_chacha20poly1305.t_AeadError with
-  | Core_models.Result.Result_Ok _ ->
-    let output:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-      Alloc.Vec.impl_2__extend_from_slice #u8
-        #Alloc.Alloc.t_Global
-        output
-        (Alloc.Vec.impl_1__as_slice ciphertext <: t_Slice u8)
-    in
-    let hax_temp_output:Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-      Anyhow.t_Error =
-      Core_models.Result.Result_Ok output
+  if
+    (Core_models.Slice.impl__len #u8 key <: usize) <>.
+    Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_KEY_LEN
+  then
+    let args:(usize & usize) =
+      Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_KEY_LEN,
+      Core_models.Slice.impl__len #u8 key
       <:
-      Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
+      (usize & usize)
     in
-    rng, hax_temp_output
-    <:
-    (v_R & Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
-  | Core_models.Result.Result_Err e ->
-    let args:Libcrux_chacha20poly1305.t_AeadError = e <: Libcrux_chacha20poly1305.t_AeadError in
-    let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
-      let list = [Core_models.Fmt.Rt.impl__new_debug #Libcrux_chacha20poly1305.t_AeadError args] in
-      FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-      Rust_primitives.Hax.array_of_list 1 list
+    let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 2) =
+      let list =
+        [
+          Core_models.Fmt.Rt.impl__new_display #usize args._1;
+          Core_models.Fmt.Rt.impl__new_display #usize args._2
+        ]
+      in
+      FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 2);
+      Rust_primitives.Hax.array_of_list 2 list
     in
     rng,
     (Core_models.Result.Result_Err
       (Anyhow.Error.impl__msg #Alloc.String.t_String
           (Core_models.Hint.must_use #Alloc.String.t_String
-              (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
-                      (mk_usize 1)
-                      (let list = ["ChaCha20-Poly1305 encryption failed: "] in
-                        FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-                        Rust_primitives.Hax.array_of_list 1 list)
+              (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 3)
+                      (mk_usize 2)
+                      (let list = ["DH shared secret length must be "; " bytes, got "; " bytes"] in
+                        FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 3);
+                        Rust_primitives.Hax.array_of_list 3 list)
                       args
                     <:
                     Core_models.Fmt.t_Arguments)
@@ -157,6 +102,104 @@ let encrypt_message_id
       Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
     <:
     (v_R & Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
+  else
+    let (challenge_key: t_Array u8 (mk_usize 32)):t_Array u8 (mk_usize 32) =
+      Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
+    in
+    let
+    (tmp0: t_Array u8 (mk_usize 32)),
+    (out: Core_models.Result.t_Result Prims.unit Libcrux_hkdf.t_ExpandError) =
+      Securedrop_protocol_minimal.Primitives.Provider.Hkdf.sha256 challenge_key
+        v_CHALLENGE_SALT
+        key
+        v_NR_ID
+    in
+    let challenge_key:t_Array u8 (mk_usize 32) = tmp0 in
+    let _:Prims.unit =
+      Core_models.Result.impl__expect #Prims.unit
+        #Libcrux_hkdf.t_ExpandError
+        out
+        "HKDF fetch key derivation failed"
+    in
+    let nonce:t_Array u8 (mk_usize 12) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 12) in
+    let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 12)) =
+      Securedrop_protocol_minimal.Primitives.Provider.Rng.fill_bytes #v_R (mk_usize 12) rng nonce
+    in
+    let rng:v_R = tmp0 in
+    let nonce:t_Array u8 (mk_usize 12) = tmp1 in
+    let _:Prims.unit = () in
+    let output:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = Alloc.Vec.impl__new #u8 () in
+    let output:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+      Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global output (nonce <: t_Slice u8)
+    in
+    let ciphertext:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+      Alloc.Vec.from_elem #u8
+        (mk_u8 0)
+        ((Core_models.Slice.impl__len #u8 message_id <: usize) +!
+          Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_TAG_LEN
+          <:
+          usize)
+    in
+    let
+    (tmp0: t_Slice u8),
+    (out: Core_models.Result.t_Result Prims.unit Libcrux_chacha20poly1305.t_AeadError) =
+      Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.encrypt challenge_key
+        message_id
+        (Alloc.Vec.impl_1__as_slice ciphertext <: t_Slice u8)
+        ((let list:Prims.list u8 = [] in
+            FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
+            Rust_primitives.Hax.array_of_list 0 list)
+          <:
+          t_Slice u8)
+        nonce
+    in
+    let ciphertext:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = Alloc.Slice.impl__to_vec tmp0 in
+    match out <: Core_models.Result.t_Result Prims.unit Libcrux_chacha20poly1305.t_AeadError with
+    | Core_models.Result.Result_Ok _ ->
+      let output:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+        Alloc.Vec.impl_2__extend_from_slice #u8
+          #Alloc.Alloc.t_Global
+          output
+          (Alloc.Vec.impl_1__as_slice ciphertext <: t_Slice u8)
+      in
+      let hax_temp_output:Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+        Anyhow.t_Error =
+        Core_models.Result.Result_Ok output
+        <:
+        Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
+      in
+      rng, hax_temp_output
+      <:
+      (v_R & Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
+    | Core_models.Result.Result_Err e ->
+      let args:Libcrux_chacha20poly1305.t_AeadError = e <: Libcrux_chacha20poly1305.t_AeadError in
+      let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
+        let list =
+          [Core_models.Fmt.Rt.impl__new_debug #Libcrux_chacha20poly1305.t_AeadError args]
+        in
+        FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+        Rust_primitives.Hax.array_of_list 1 list
+      in
+      rng,
+      (Core_models.Result.Result_Err
+        (Anyhow.Error.impl__msg #Alloc.String.t_String
+            (Core_models.Hint.must_use #Alloc.String.t_String
+                (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
+                        (mk_usize 1)
+                        (let list = ["ChaCha20-Poly1305 encryption failed: "] in
+                          FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                          Rust_primitives.Hax.array_of_list 1 list)
+                        args
+                      <:
+                      Core_models.Fmt.t_Arguments)
+                  <:
+                  Alloc.String.t_String)
+              <:
+              Alloc.String.t_String))
+        <:
+        Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
+      <:
+      (v_R & Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
 
 /// Symmetric decryption for message IDs using ChaCha20-Poly1305
 /// This is used in step 7 for decrypting message IDs with a shared secret
