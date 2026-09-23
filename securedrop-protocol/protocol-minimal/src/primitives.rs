@@ -39,18 +39,14 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
     use crate::primitives::provider::hkdf;
     use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 
-    if key.len() != KEY_LEN {
-        return Err(anyhow::anyhow!(
-            "DH shared secret length must be {} bytes, got {} bytes",
-            KEY_LEN,
-            key.len()
-        ));
-    }
-
     let mut challenge_key: [u8; 32] = [0u8; KEY_LEN];
     // Key is KDF(shared_secret, newsroom_id)
     hkdf::sha256(&mut challenge_key, CHALLENGE_SALT, key, NR_ID)
         .expect("HKDF fetch key derivation failed");
+    // Try enforcing the challenge key length after the KDF operation for hax
+    let key_array: [u8; 32] = challenge_key
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
 
     // Generate a random nonce with supplied rng
     let mut nonce = [0u8; NONCE_LEN];
@@ -63,13 +59,8 @@ pub fn encrypt_message_id<R: RngCore + CryptoRng>(
     let mut ciphertext = alloc::vec![0u8; message_id.len() + TAG_LEN];
 
     // Encrypt the message ID
-    match provider::chacha20poly1305::encrypt(
-        &challenge_key,
-        message_id,
-        &mut ciphertext,
-        &[],
-        &nonce,
-    ) {
+    match provider::chacha20poly1305::encrypt(&key_array, message_id, &mut ciphertext, &[], &nonce)
+    {
         Ok(_) => {}
         Err(e) => {
             return Err(anyhow::anyhow!(
@@ -99,7 +90,8 @@ pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, 
     }
 
     // Extract nonce and ciphertext
-    let nonce_r = encrypted_data[..NONCE_LEN].try_into();
+    let nonce_r: Result<[u8; 12], core::array::TryFromSliceError> =
+        encrypted_data[..NONCE_LEN].try_into();
     let nonce: [u8; NONCE_LEN] = nonce_r.map_err(|_| anyhow::anyhow!("Nonce extraction failed"))?;
     let ciphertext = &encrypted_data[NONCE_LEN..];
 
