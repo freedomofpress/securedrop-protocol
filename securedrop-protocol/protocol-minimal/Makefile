@@ -4,7 +4,8 @@
 
 include versions.env
 
-HAX_VERSION = $(shell cargo pkgid hax-lib 2>/dev/null | sed 's/.*@//')
+HAX_VERSION = $(shell cargo tree -p securedrop-protocol-minimal --target all --depth 1 --prefix none 2>/dev/null | \
+  sed -n 's/^hax-lib v\([^ ]*\).*/\1/p' | head -1)
 HAX_IMAGE = hax:$(HAX_VERSION)
 
 # NB. We don't use the high-level libcrux crate directly.  Since libcrux's
