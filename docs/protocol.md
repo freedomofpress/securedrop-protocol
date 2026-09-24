@@ -668,7 +668,7 @@ For some newsroom $NR$:
 |                                                                                                  | $\longleftarrow$ `RequestMessages`             |                                                                                                       |
 | $`challs \gets \emptyset`$                                                                       |                                                |                                                                                                       |
 | $`\forall k \in [0, \texttt{MAX\_MESSAGES}]`$[^1]                                                |                                                |                                                                                                       |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`r_k \gets^{\$} \mathbb{Z}_\ell`$                                       |                                                |                                                                                                       |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`r_k \gets^{\$} \mathbb{Z}_\ell`$[^3]                                   |                                                |                                                                                                       |
 | &nbsp;&nbsp;&nbsp;&nbsp;If $`C_k = (id_k, C_{S_k}, X_k, Z_k) \in database:`$                     |                                                |                                                                                                       |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$`Q_k \gets X_k^{r_k}`$                          |                                                |                                                                                                       |
 | &nbsp;&nbsp;&nbsp;&nbsp;Otherwise, pad with random values up to `MAX_MESSAGES`:                  |                                                |                                                                                                       |
@@ -708,6 +708,8 @@ For some newsroom $NR$:
 > $\text{SD-APKE.AuthDec}()$ reconstructs the `info` parameter used by the sender by concatenating the PQ encapsulated shared secret, decrypted $`pk_S^{APKE}`$, and the receiver's own $`pk_R^{fetch}`$. See [info parameter][hpke info parameter].
 
 Implementors MUST mitigate timing attacks via the API that could leak the number of ciphertexts on the server, for example by ensuring that `requestMessages` is constant-time at the server.
+
+[^3]: Implementors SHOULD use a fresh scalar $`r_k`$ for each challenge for [challenge unlinkability](README.md#challenge-unlinkability).
 
 ### Message formats
 
