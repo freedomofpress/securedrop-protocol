@@ -373,10 +373,10 @@ let compute_fetch_challenges
                   Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
                     Anyhow.t_Error)
             in
-            let kmid:t_Array u8 (mk_usize 44) =
-              Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 44)
+            let kmid:t_Array u8 (mk_usize 32) =
+              Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
             in
-            let kmid:t_Array u8 (mk_usize 44) =
+            let kmid:t_Array u8 (mk_usize 32) =
               Core_models.Slice.impl__copy_from_slice #u8
                 kmid
                 (Alloc.Vec.impl_1__as_slice enc_mid <: t_Slice u8)
@@ -460,14 +460,14 @@ let compute_fetch_challenges
           (rng: v_R) =
             temp_0_
           in
-          let (pad_kmid: t_Array u8 (mk_usize 44)):t_Array u8 (mk_usize 44) =
-            Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 44)
+          let (pad_kmid: t_Array u8 (mk_usize 32)):t_Array u8 (mk_usize 32) =
+            Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
           in
-          let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 44)) =
+          let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 32)) =
             Rand_core.f_fill_bytes #v_R #FStar.Tactics.Typeclasses.solve rng pad_kmid
           in
           let rng:v_R = tmp0 in
-          let pad_kmid:t_Array u8 (mk_usize 44) = tmp1 in
+          let pad_kmid:t_Array u8 (mk_usize 32) = tmp1 in
           let _:Prims.unit = () in
           let (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
           =
