@@ -150,7 +150,7 @@ Throughout this document, keys are notated as $component_{owner}^{scheme}$, wher
 - $`owner \in \{FPF, NR, J, S\}`$ for FPF, newsroom $NR$, journalist $J$, or source $S$
 - $`scheme \in \{fetch, sig, APKE, PKE\}`$ for:
   - $fetch$ for [message-fetching keys][message-fetching]
-  - $sig$ for a signature scheme TBD
+  - $sig$ for Ed25519 signatures
   - $APKE = \text{SD-APKE}$ ($APKE_E$ if one-time) for [message encryption keys][SD-APKE]
   - $PKE = \text{SD-PKE}$ ($PKE_E$ if one-time) for [metadata encryption keys][SD-PKE]
 
@@ -158,19 +158,19 @@ FPF keys:
 
 | Private Key      | Public Key       | Purpose | Lifetime  | Algorithm | Signed by | Bundled in |
 | ---------------- | ---------------- | ------- | --------- | --------- | --------- | ---------- |
-| $sk_{FPF}^{sig}$ | $vk_{FPF}^{sig}$ | Signing | Long-term | ?         |           |            |
+| $sk_{FPF}^{sig}$ | $vk_{FPF}^{sig}$ | Signing | Long-term | Ed25519   |           |            |
 
 Newsroom keys:
 
 | Private Key     | Public Key      | Purpose | Lifetime  | Algorithm | Signed by        | Bundled in       |
 | --------------- | --------------- | ------- | --------- | --------- | ---------------- | ---------------- |
-| $sk_{NR}^{sig}$ | $vk_{NR}^{sig}$ | Signing | Long-term | ?         | $sk_{FPF}^{sig}$ | [Welcome bundle] |
+| $sk_{NR}^{sig}$ | $vk_{NR}^{sig}$ | Signing | Long-term | Ed25519   | $sk_{FPF}^{sig}$ | [Welcome bundle] |
 
 Journalist keys:
 
 | Private Key         | Public Key          | Purpose       | Lifetime  | Algorithm                                     | Signed by       | Bundled in          |
 | ------------------- | ------------------- | ------------- | --------- | --------------------------------------------- | --------------- | ------------------- |
-| $sk_J^{sig}$        | $vk_J^{sig}$        | Signing       | Long-term | ?                                             | $sk_{NR}^{sig}$ | [Roster]            |
+| $sk_J^{sig}$        | $vk_J^{sig}$        | Signing       | Long-term | Ed25519                                       | $sk_{NR}^{sig}$ | [Roster]            |
 | $sk_J^{fetch}$      | $pk_J^{fetch}$      | Fetching      | TBD[^6]   | ristretto255                                  | $sk_J^{sig}$    | [Roster]            |
 | $sk_J^{APKE}$       | $pk_J^{APKE}$       | Message (out) | Long-term | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$    | [Roster]            |
 | $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | Message (in)  | One-time  | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$    | [Signed key bundle] |
