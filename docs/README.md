@@ -85,6 +85,8 @@ Implementors must ensure that:
 - The challenge list is regenerated with fresh randomness for each request.
 - The server does not expose retrieval-dependent or message-dependent timing, logging, or status information.
 
+The protocol uses a fixed nonce for challenge encryption because shared keys are constructed to be ephemeral. The key pair is derived from DH shares from the receiver fetch key and the ephemeral sender and server scalars. If a malicious sender reuses their DH scalar when constructing messages and the server uses a single scalar per-request, the derived key will be identical and the attacker may recover the plaintext message ID. Per-message scalars `r_k` MUST be used when using a fixed nonce for challenge encryption for message ID confidentiality.
+
 This provides fetch-result **unobservability**: a sender cannot determine from the public API whether a receiver solved a challenge or retrieved a message.
 
 ### Challenge Unlinkability
