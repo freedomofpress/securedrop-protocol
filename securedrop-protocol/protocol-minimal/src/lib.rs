@@ -23,7 +23,7 @@ pub use ciphertext::{Envelope, FetchResponse, Plaintext};
 
 pub use keys::{
     DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, SessionStorage, SignedKeyBundlePublic,
-    SignedLongtermPubKeyBytes, SigningKeyPair,
+    SignedLongtermKeyBundle, SigningKeyPair,
 };
 pub use primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
 pub use primitives::mlkem::{MLKEM768_PRIVATE_KEY_LEN, MLKEM768_PUBLIC_KEY_LEN};

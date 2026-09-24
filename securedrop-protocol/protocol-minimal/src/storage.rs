@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::message::MessagePublicKey;
 use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{JournalistLongTermKey, NewsroomOnJournalist, Signature, VerifyingKey};
-use crate::{Enrollment, Envelope, SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
+use crate::{Enrollment, Envelope, SignedKeyBundlePublic, SignedLongtermKeyBundle};
 
 pub type ServerMessageStore = HashMap<Uuid, Envelope>;
 
@@ -19,8 +19,7 @@ pub struct ServerStorage {
             VerifyingKey,
             DHPublicKey,
             MessagePublicKey,
-            Signature<JournalistLongTermKey>,
-            SignedLongtermPubKeyBytes,
+            SignedLongtermKeyBundle,
             Signature<NewsroomOnJournalist>,
         ),
     >,
@@ -119,8 +118,7 @@ impl ServerStorage {
             VerifyingKey,
             DHPublicKey,
             MessagePublicKey,
-            Signature<JournalistLongTermKey>,
-            SignedLongtermPubKeyBytes,
+            SignedLongtermKeyBundle,
             Signature<NewsroomOnJournalist>,
         ),
     > {
@@ -134,13 +132,14 @@ impl ServerStorage {
         newsroom_signature: Signature<NewsroomOnJournalist>,
     ) -> Uuid {
         let journalist_id = Uuid::new_v4();
+
         // match hashmap above
+        let bundle = journalist.bundle;
         let values = (
-            journalist.keys.0,
-            journalist.keys.1,
-            journalist.keys.2,
-            journalist.selfsig,
-            journalist.bundle,
+            journalist.verification_key,
+            bundle.bundle.fetch_pk.clone(),
+            bundle.bundle.apke.clone(),
+            bundle,
             newsroom_signature,
         );
 
@@ -153,7 +152,7 @@ impl ServerStorage {
     ///
     /// TODO: Remove?
     pub fn find_journalist_by_verifying_key(&self, verifying_key: &VerifyingKey) -> Option<Uuid> {
-        for (journalist_id, (stored_vk, _, _, _, _, _)) in &self.journalists {
+        for (journalist_id, (stored_vk, _, _, _, _)) in &self.journalists {
             if stored_vk.into_bytes() == verifying_key.into_bytes() {
                 return Some(*journalist_id);
             }

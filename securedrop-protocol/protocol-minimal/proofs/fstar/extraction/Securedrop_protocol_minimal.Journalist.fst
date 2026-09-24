@@ -9,8 +9,6 @@ let _ =
   let open Anyhow.Error in
   let open Rand_core in
   let open Securedrop_protocol_minimal.Keys in
-  let open Securedrop_protocol_minimal.Message in
-  let open Securedrop_protocol_minimal.Primitives.Ristretto255 in
   let open Securedrop_protocol_minimal.Sign in
   let open Securedrop_protocol_minimal.Traits in
   ()
@@ -29,7 +27,7 @@ type t_Journalist = {
   f_reply_apke:Securedrop_protocol_minimal.Message.t_MessageKeyPair;
   f_self_signature:Securedrop_protocol_minimal.Sign.t_Signature
   Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey;
-  f_signed_longterm_key_bytes:Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes;
+  f_signed_longterm_key_bytes:Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle;
   f_session_storage:Securedrop_protocol_minimal.Keys.t_SessionStorage
 }
 
@@ -37,9 +35,7 @@ type t_JournalistPublicView = {
   f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
   f_fetch_pk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
   f_reply_apke_pk:Securedrop_protocol_minimal.Message.t_MessagePublicKey;
-  f_signed_longterm_key_bytes:Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes;
-  f_selfsig:Securedrop_protocol_minimal.Sign.t_Signature
-  Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey;
+  f_signed_longterm_key_bytes:Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle;
   f_kb:(Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
     Securedrop_protocol_minimal.Sign.t_Signature
     Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
@@ -49,10 +45,7 @@ let impl_JournalistPublicView__new
       (vk: Securedrop_protocol_minimal.Sign.t_VerifyingKey)
       (fetch: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
       (reply_apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
-      (selfsig:
-          Securedrop_protocol_minimal.Sign.t_Signature
-          Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey)
-      (signed_longterm_key_bytes: Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes)
+      (signed_longterm_key_bytes: Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle)
       (kb:
           (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
             Securedrop_protocol_minimal.Sign.t_Signature
@@ -62,7 +55,6 @@ let impl_JournalistPublicView__new
     f_vk = vk;
     f_fetch_pk = fetch;
     f_reply_apke_pk = reply_apke;
-    f_selfsig = selfsig;
     f_signed_longterm_key_bytes = signed_longterm_key_bytes;
     f_kb = kb
   }
@@ -135,13 +127,16 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_JournalistPublic t_JournalistPu
           Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey)
         ->
         true);
-    f_self_signature = (fun (self: t_JournalistPublicView) -> self.f_selfsig);
+    f_self_signature
+    =
+    (fun (self: t_JournalistPublicView) ->
+        self.f_signed_longterm_key_bytes.Securedrop_protocol_minimal.Keys.f_selfsig);
     f_signed_keybytes_pre = (fun (self: t_JournalistPublicView) -> true);
     f_signed_keybytes_post
     =
     (fun
         (self: t_JournalistPublicView)
-        (out: Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes)
+        (out: Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle)
         ->
         true);
     f_signed_keybytes = (fun (self: t_JournalistPublicView) -> self.f_signed_longterm_key_bytes);
@@ -404,25 +399,12 @@ let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
         {
           Securedrop_protocol_minimal.Keys.f_bundle
           =
-          Core_models.Clone.f_clone #Securedrop_protocol_minimal.Keys.t_SignedLongtermPubKeyBytes
+          Core_models.Clone.f_clone #Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle
             #FStar.Tactics.Typeclasses.solve
             self.f_signed_longterm_key_bytes;
-          Securedrop_protocol_minimal.Keys.f_selfsig = self.f_self_signature;
-          Securedrop_protocol_minimal.Keys.f_keys
+          Securedrop_protocol_minimal.Keys.f_verification_key
           =
-          self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk,
-          Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
-            #FStar.Tactics.Typeclasses.solve
-            self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk,
-          Core_models.Clone.f_clone #Securedrop_protocol_minimal.Message.t_MessagePublicKey
-            #FStar.Tactics.Typeclasses.solve
-            (Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key self.f_reply_apke
-              <:
-              Securedrop_protocol_minimal.Message.t_MessagePublicKey)
-          <:
-          (Securedrop_protocol_minimal.Sign.t_VerifyingKey &
-            Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey &
-            Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+          self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk
         }
         <:
         Securedrop_protocol_minimal.Keys.t_Enrollment);

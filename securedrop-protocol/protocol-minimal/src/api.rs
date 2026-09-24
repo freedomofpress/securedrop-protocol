@@ -238,8 +238,8 @@ where
         journalist
             .vk
             .verify(
-                journalist.signed_longterm_key_bytes.as_bytes(),
-                &journalist.selfsig,
+                &journalist.signed_longterm_key_bytes.bundle_bytes(),
+                &journalist.signed_longterm_key_bytes.selfsig,
             )
             .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
         Ok(())
@@ -259,7 +259,6 @@ where
             long_term.vk,
             long_term.fetch_pk.clone(),
             long_term.reply_apke_pk.clone(),
-            long_term.selfsig,
             long_term.signed_longterm_key_bytes.clone(),
             ephemeral.clone(),
         ))
