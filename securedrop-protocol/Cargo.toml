@@ -22,7 +22,7 @@ libcrux-ml-kem = "0.0.10"
 libcrux-sha2 = "0.0.8"
 libcrux-hkdf = "0.0.8"
 
-hax-lib = "0.3.7"
+hax-lib = "0.4.1"
 
 # Everything else:
 anyhow = "1.0"
