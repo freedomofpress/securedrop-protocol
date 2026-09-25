@@ -284,10 +284,8 @@ pub mod constants {
     // Message ID (uuid) and KMID
     #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const LEN_MESSAGE_ID: usize = 16;
-    // TODO: current implementation prepends the nonce to the encrypted message.
-    // Recheck this when switching implementations.
+    // Encryption uses fixed nonce (not transported over the wire)
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) const LEN_KMID: usize = crate::primitives::provider::chacha20poly1305::TAG_LEN
-        + crate::primitives::provider::chacha20poly1305::NONCE_LEN
-        + LEN_MESSAGE_ID;
+    pub(crate) const LEN_KMID: usize =
+        crate::primitives::provider::chacha20poly1305::TAG_LEN + LEN_MESSAGE_ID;
 }
