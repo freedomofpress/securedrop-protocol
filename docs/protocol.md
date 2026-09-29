@@ -787,15 +787,12 @@ Len: [16, len(`encrypted_envelope`), 32, 32, 12 ] per row; server pads to fixed 
 
 $`(eid_k, Q_k)`$ <!-- mgdh, dh(mgdh, receiver fetch) --> (`encrypted_uuid, message_challenge_3party`)
 
-where `eid_k = nonce_k || ciphertext_k`
+where
 
-and
-
-- `nonce_k` is the nonce used for AEAD encryption, which may be zero-filled
-- `ciphertext_k` is the ChaCha20-Poly1305 encryption of the 16-byte message ID with its 16-byte auth tag
+- `eid_k` is the ChaCha20-Poly1305 encryption of the 16-byte message ID with its 16-byte auth tag
 - `Q_k` is a 32-byte Ristretto255 group element
 
-Len: 12 + 16 + 16 + 32 = 76 bytes * n challenges; server pads to fixed number of challenges
+Len: 16 + 16 + 32 = 64 bytes * n challenges; server pads to fixed number of challenges
 
 ## Known limitations
 
