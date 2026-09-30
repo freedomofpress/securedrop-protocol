@@ -13,7 +13,7 @@ use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
 // Mock Newsroom ID
-pub const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
+const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
 
 /// Encrypt a message from a sender to a recipient (step 6).
 ///
