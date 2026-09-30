@@ -158,7 +158,7 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
     Core_models.Result.Result_Err err <: Core_models.Result.t_Result t_Plaintext Anyhow.t_Error
 
 type t_FetchResponse = {
-  f_enc_id:t_Array u8 (mk_usize 44);
+  f_enc_id:t_Array u8 (mk_usize 32);
   f_pmgdh:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
 }
 
@@ -173,6 +173,6 @@ unfold
 let impl_8 = impl_8'
 
 let impl_FetchResponse__new
-      (enc_id: t_Array u8 (mk_usize 44))
+      (enc_id: t_Array u8 (mk_usize 32))
       (pmgdh: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : t_FetchResponse = { f_enc_id = enc_id; f_pmgdh = pmgdh } <: t_FetchResponse

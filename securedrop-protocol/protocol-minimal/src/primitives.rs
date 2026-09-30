@@ -25,25 +25,18 @@ pub const MESSAGE_ID_FETCH_SIZE: usize = 10;
             - provider::chacha20poly1305::NONCE_LEN
             - provider::chacha20poly1305::TAG_LEN
 ))]
-pub fn encrypt_message_id<R: RngCore + CryptoRng>(
-    key: &[u8],
-    message_id: &[u8],
-    rng: &mut R,
-) -> Result<Vec<u8>, Error> {
+pub fn encrypt_message_id(key: &[u8], message_id: &[u8]) -> Result<Vec<u8>, Error> {
     use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
 
     if key.len() != KEY_LEN {
         return Err(anyhow::anyhow!("Invalid key length"));
     }
 
-    // Generate a random nonce with supplied rng
-    let mut nonce = [0u8; NONCE_LEN];
-    provider::rng::fill_bytes(rng, &mut nonce);
+    // Use a zero-filled nonce
+    let nonce = [0u8; NONCE_LEN];
 
-    // Prepare output buffer: nonce + ciphertext + tag
+    // Prepare output buffer: ciphertext + tag
     let mut output = alloc::vec::Vec::new();
-    output.extend_from_slice(&nonce);
-
     let mut ciphertext = alloc::vec![0u8; message_id.len() + TAG_LEN];
     let result = key.try_into();
     let key_array = result.map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
@@ -73,17 +66,15 @@ pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, 
         return Err(anyhow::anyhow!("Invalid key length"));
     }
 
-    if encrypted_data.len() < NONCE_LEN + TAG_LEN {
+    if encrypted_data.len() < TAG_LEN {
         return Err(anyhow::anyhow!("Encrypted data too short"));
     }
 
-    // Extract nonce and ciphertext
-    let nonce_r = encrypted_data[..NONCE_LEN].try_into();
-    let nonce: [u8; NONCE_LEN] = nonce_r.map_err(|_| anyhow::anyhow!("Nonce extraction failed"))?;
-    let ciphertext = &encrypted_data[NONCE_LEN..];
+    // Decrypt ciphertext with zero-filled nonce
+    let nonce = [0u8; NONCE_LEN];
 
     // Prepare output buffer
-    let mut plaintext = alloc::vec![0u8; ciphertext.len() - TAG_LEN];
+    let mut plaintext = alloc::vec![0u8; encrypted_data.len() - TAG_LEN];
     let key_arr_res = key.try_into();
     let key_array: [u8; KEY_LEN] =
         key_arr_res.map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
@@ -92,7 +83,7 @@ pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, 
     provider::chacha20poly1305::decrypt(
         &key_array,
         &mut plaintext,
-        ciphertext,
+        encrypted_data,
         &[], // empty AAD
         &nonce,
     )

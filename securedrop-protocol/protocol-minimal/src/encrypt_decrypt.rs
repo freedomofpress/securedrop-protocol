@@ -137,7 +137,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 
             // 3-party DH yields shared_secret used to encrypt message_id
             let shared_secret = dh_shared_secret(&envelope.mgdh, &eph_sk);
-            let enc_mid = encrypt_message_id(&shared_secret.into_bytes(), message_id, rng).unwrap();
+            let enc_mid = encrypt_message_id(&shared_secret.into_bytes(), message_id).unwrap();
 
             // `copy_from_slice` rather than `try_into()`: Core_models has no
             // `TryInto<Vec<u8>, [u8; N]>` instance, and this is the codebase's
