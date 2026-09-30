@@ -56,16 +56,17 @@ Freedom of the Press Foundation (FPF) is the entity responsible for maintaining 
 
 ### Behavioral analysis
 
-Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading ephemeral keys). Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
+Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading short-lived keys). Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
 
-### Ephemeral key exhaustion
+### Short-lived key exhaustion
 
-A known problem with this type of protocol is the issue of ephemeral key exhaustion, either by an adversary or due to infrequent journalist activity.
+A known problem with this protocol is short-lived key exhaustion due to infrequent journalist activity. Alerting mechanisms can be scheduled periodically to ensure the journalist refreshes their short-lived keys before they expire.
 
-### Ephemeral key reuse (malicious server)
+Each short-lived key must have a validity window of configurable size `EPOCH`. Servers MUST accept key bundles up to a a configured `REPLENISHMENT` window. The `EPOCH` limits the affect of a short-lived key's compromise (for forward secrecy); all messages sent during the `EPOCH` window with the compromised key may be leaked. The `REPLENISHMENT` window allows a journalist to stage short-lived keys in advance. A compromised long-lived journalist signing key may control keys in this window until the compromise is detected and the server revokes any existing short-lived keys.
 
-Attempts by a malicious server to reuse ephemeral keys will need to be detected and mitigated.
-Key expiration is not currently implemented, but ephemeral keys could include a short (30/60 day) expiration date along with their PK signature. Journalists can routinely query the server for ephemeral keys and heuristically test if the server is being dishonest as well. They can also check during decryption as well and see if an already used key has worked: in that case the server is malicious as well.
+### Short lived key reuse (malicious server)
+
+Attempts by a malicious server to serve stale short-lived keys can be detected. Clients MUST validate the signature over key bundle and validate the validity window's freshness before message submission. Journalists can routinely query the server for short-lived keys and heuristically test if the server is being dishonest as well.
 
 ### Decoy traffic
 
@@ -121,7 +122,6 @@ A good existing protocol for serving the revocation would be OCSP stapling serve
 This protocol can be hardened further in specific parts, such as:
 
 - rotating fetching keys regularly on the journalist side;
-- adding a short (e.g., 30 day) expiration to ephemeral keys so that they are guaranteed to rotate even in case of malicious servers.
 
 These details are left for internal team evaluation and production implementation constraints.
 
