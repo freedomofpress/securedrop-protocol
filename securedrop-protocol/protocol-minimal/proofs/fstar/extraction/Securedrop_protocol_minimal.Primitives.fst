@@ -30,14 +30,53 @@ let v_CHALLENGE_SALT: t_Slice u8 =
 
 /// Derive symmetric key used for ChaCha20-Poly1305 challenge encryption
 /// This is used in step 7 for encrypting message IDs with a shared secret
-assume
-val derive_challenge_key':
-    shared_secret: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey ->
-    newsroom_id: t_Slice u8
-  -> t_Array u8 (mk_usize 32)
+let derive_challenge_key
+      (shared_secret: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
+      (newsroom_id: t_Slice u8)
+    : Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error =
+  let (challenge_key: t_Array u8 (mk_usize 32)):t_Array u8 (mk_usize 32) =
+    Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
+  in
+  let
+  (tmp0: t_Array u8 (mk_usize 32)),
+  (out: Core_models.Result.t_Result Prims.unit Libcrux_hkdf.t_ExpandError) =
+    Securedrop_protocol_minimal.Primitives.Provider.Hkdf.sha256 challenge_key
+      v_CHALLENGE_SALT
+      (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes shared_secret
 
-unfold
-let derive_challenge_key = derive_challenge_key'
+        <:
+        t_Slice u8)
+      newsroom_id
+  in
+  let challenge_key:t_Array u8 (mk_usize 32) = tmp0 in
+  match
+    Core_models.Result.impl__map_err #Prims.unit
+      #Libcrux_hkdf.t_ExpandError
+      #Anyhow.t_Error
+      #(Libcrux_hkdf.t_ExpandError -> Anyhow.t_Error)
+      out
+      (fun temp_0_ ->
+          let _:Libcrux_hkdf.t_ExpandError = temp_0_ in
+          let error:Anyhow.t_Error =
+            Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
+                  (let list = ["HKDF challenge key derivation failed"] in
+                    FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                    Rust_primitives.Hax.array_of_list 1 list)
+                <:
+                Core_models.Fmt.t_Arguments)
+          in
+          Anyhow.__private.must_use error)
+    <:
+    Core_models.Result.t_Result Prims.unit Anyhow.t_Error
+  with
+  | Core_models.Result.Result_Ok _ ->
+    Core_models.Result.Result_Ok challenge_key
+    <:
+    Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
+  | Core_models.Result.Result_Err err ->
+    Core_models.Result.Result_Err err
+    <:
+    Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
 
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
 /// This is used in step 7 for encrypting message IDs with a shared secret

@@ -362,7 +362,11 @@ let compute_fetch_challenges
                 eph_sk
             in
             let key:t_Array u8 (mk_usize 32) =
-              Securedrop_protocol_minimal.Primitives.derive_challenge_key shared_secret v_NR_ID
+              Core_models.Result.impl__unwrap #(t_Array u8 (mk_usize 32))
+                #Anyhow.t_Error
+                (Securedrop_protocol_minimal.Primitives.derive_challenge_key shared_secret v_NR_ID
+                  <:
+                  Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error)
             in
             let enc_mid:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
               Core_models.Result.impl__unwrap #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
@@ -545,7 +549,11 @@ let solve_fetch_challenges
                 ._1
           in
           let challenge_key:t_Array u8 (mk_usize 32) =
-            Securedrop_protocol_minimal.Primitives.derive_challenge_key maybe_kmid_secret v_NR_ID
+            Core_models.Result.impl__unwrap #(t_Array u8 (mk_usize 32))
+              #Anyhow.t_Error
+              (Securedrop_protocol_minimal.Primitives.derive_challenge_key maybe_kmid_secret v_NR_ID
+                <:
+                Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error)
           in
           match
             Securedrop_protocol_minimal.Primitives.decrypt_message_id challenge_key

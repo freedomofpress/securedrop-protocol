@@ -259,6 +259,7 @@ pub mod hkdf {
 
     /// HKDF-SHA256
     #[cfg_attr(hax, hax_lib::opaque)]
+    #[cfg_attr(hax, hax_lib::ensures(|_| future(okm).len() == okm.len()))]
     pub(crate) fn sha256(
         okm: &mut [u8],
         salt: &[u8],
