@@ -9,11 +9,40 @@ pub(crate) mod provider;
 pub mod ristretto255;
 pub(crate) mod xwing;
 
+use provider::chacha20poly1305::KEY_LEN;
+
+use crate::primitives::ristretto255::DHPublicKey;
+
 /// Fixed number of message ID entries to return in privacy-preserving fetch
 ///
 /// This prevents traffic analysis by always returning the same number of entries,
 /// regardless of how many actual messages exist.
 pub const MESSAGE_ID_FETCH_SIZE: usize = 10;
+
+/// Fixed, public salt for challenge id encryption.
+const CHALLENGE_SALT: &[u8] = b"securedrop-challenge-v1";
+
+/// Derive symmetric key used for ChaCha20-Poly1305 challenge encryption
+///
+/// This is used in step 7 for encrypting message IDs with a shared secret
+///
+#[cfg_attr(hax, hax_lib::opaque)]
+pub fn derive_challenge_key(shared_secret: &DHPublicKey, newsroom_id: &[u8]) -> [u8; KEY_LEN] {
+    use crate::primitives::provider::hkdf;
+    use provider::chacha20poly1305::KEY_LEN;
+
+    let mut challenge_key: [u8; KEY_LEN] = [0u8; KEY_LEN];
+    // Key is KDF(shared_secret, newsroom_id)
+    hkdf::sha256(
+        &mut challenge_key,
+        CHALLENGE_SALT,
+        &shared_secret.into_bytes(),
+        newsroom_id,
+    )
+    .expect("HKDF fetch key derivation failed");
+
+    challenge_key
+}
 
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
 ///
@@ -25,12 +54,8 @@ pub const MESSAGE_ID_FETCH_SIZE: usize = 10;
             - provider::chacha20poly1305::NONCE_LEN
             - provider::chacha20poly1305::TAG_LEN
 ))]
-pub fn encrypt_message_id(key: &[u8], message_id: &[u8]) -> Result<Vec<u8>, Error> {
-    use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
-
-    if key.len() != KEY_LEN {
-        return Err(anyhow::anyhow!("Invalid key length"));
-    }
+pub fn encrypt_message_id(key: &[u8; KEY_LEN], message_id: &[u8]) -> Result<Vec<u8>, Error> {
+    use provider::chacha20poly1305::{NONCE_LEN, TAG_LEN};
 
     // Use a zero-filled nonce
     let nonce = [0u8; NONCE_LEN];
@@ -38,12 +63,9 @@ pub fn encrypt_message_id(key: &[u8], message_id: &[u8]) -> Result<Vec<u8>, Erro
     // Prepare output buffer: ciphertext + tag
     let mut output = alloc::vec::Vec::new();
     let mut ciphertext = alloc::vec![0u8; message_id.len() + TAG_LEN];
-    let result = key.try_into();
-    let key_array = result.map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
 
     // Encrypt the message ID
-    match provider::chacha20poly1305::encrypt(&key_array, message_id, &mut ciphertext, &[], &nonce)
-    {
+    match provider::chacha20poly1305::encrypt(key, message_id, &mut ciphertext, &[], &nonce) {
         Ok(_) => {}
         Err(e) => {
             return Err(anyhow::anyhow!(
@@ -59,12 +81,8 @@ pub fn encrypt_message_id(key: &[u8], message_id: &[u8]) -> Result<Vec<u8>, Erro
 /// Symmetric decryption for message IDs using ChaCha20-Poly1305
 ///
 /// This is used in step 7 for decrypting message IDs with a shared secret
-pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, Error> {
-    use provider::chacha20poly1305::{KEY_LEN, NONCE_LEN, TAG_LEN};
-
-    if key.len() != KEY_LEN {
-        return Err(anyhow::anyhow!("Invalid key length"));
-    }
+pub fn decrypt_message_id(key: &[u8; KEY_LEN], encrypted_data: &[u8]) -> Result<Vec<u8>, Error> {
+    use provider::chacha20poly1305::{NONCE_LEN, TAG_LEN};
 
     if encrypted_data.len() < TAG_LEN {
         return Err(anyhow::anyhow!("Encrypted data too short"));
@@ -75,13 +93,10 @@ pub fn decrypt_message_id(key: &[u8], encrypted_data: &[u8]) -> Result<Vec<u8>, 
 
     // Prepare output buffer
     let mut plaintext = alloc::vec![0u8; encrypted_data.len() - TAG_LEN];
-    let key_arr_res = key.try_into();
-    let key_array: [u8; KEY_LEN] =
-        key_arr_res.map_err(|_| anyhow::anyhow!("Key length mismatch"))?;
 
     // Decrypt the message ID
     provider::chacha20poly1305::decrypt(
-        &key_array,
+        key,
         &mut plaintext,
         encrypted_data,
         &[], // empty AAD

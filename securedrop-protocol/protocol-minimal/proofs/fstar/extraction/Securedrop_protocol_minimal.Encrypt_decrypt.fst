@@ -361,13 +361,13 @@ let compute_fetch_challenges
                   .Securedrop_protocol_minimal.Ciphertext.f_mgdh
                 eph_sk
             in
+            let key:t_Array u8 (mk_usize 32) =
+              Securedrop_protocol_minimal.Primitives.derive_challenge_key shared_secret v_NR_ID
+            in
             let enc_mid:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
               Core_models.Result.impl__unwrap #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
                 #Anyhow.t_Error
-                (Securedrop_protocol_minimal.Primitives.encrypt_message_id (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes
-                        shared_secret
-                      <:
-                      t_Slice u8)
+                (Securedrop_protocol_minimal.Primitives.encrypt_message_id key
                     (message_id <: t_Slice u8)
                   <:
                   Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
@@ -544,11 +544,11 @@ let solve_fetch_challenges
                   Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey))
                 ._1
           in
+          let challenge_key:t_Array u8 (mk_usize 32) =
+            Securedrop_protocol_minimal.Primitives.derive_challenge_key maybe_kmid_secret v_NR_ID
+          in
           match
-            Securedrop_protocol_minimal.Primitives.decrypt_message_id (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes
-                  maybe_kmid_secret
-                <:
-                t_Slice u8)
+            Securedrop_protocol_minimal.Primitives.decrypt_message_id challenge_key
               (chall.Securedrop_protocol_minimal.Ciphertext.f_enc_id <: t_Slice u8)
             <:
             Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
