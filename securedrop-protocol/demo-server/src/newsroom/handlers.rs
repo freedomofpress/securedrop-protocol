@@ -118,9 +118,7 @@ pub(crate) async fn get_welcome(
             let e = &enrolled.enrollment;
             JournalistLongTermView {
                 vk: e.verification_key,
-                fetch_pk: e.bundle.fetch_pk().clone(),
-                reply_apke_pk: e.bundle.apke().clone(),
-                signed_longterm_key_bytes: e.bundle.clone(),
+                signed_longterm_key_bundle: e.bundle.clone(),
                 nr_signature: enrolled.nr_sig,
             }
         })

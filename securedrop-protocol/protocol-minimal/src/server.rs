@@ -182,13 +182,10 @@ impl Server {
 
         let mut journalists = Vec::new();
         for (_id, entry) in self.storage.get_journalists().iter() {
-            let (vk, fetch_pk, reply_apke_pk, signed_longterm_key_bytes, nr_signature) =
-                entry.clone();
+            let (vk, signed_longterm_key_bundle, nr_signature) = entry.clone();
             journalists.push(JournalistLongTermView {
                 vk,
-                fetch_pk,
-                reply_apke_pk,
-                signed_longterm_key_bytes,
+                signed_longterm_key_bundle,
                 nr_signature,
             });
         }

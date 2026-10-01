@@ -17,8 +17,6 @@ pub struct ServerStorage {
         Uuid,
         (
             VerifyingKey,
-            DHPublicKey,
-            MessagePublicKey,
             SignedLongtermKeyBundle,
             Signature<NewsroomOnJournalist>,
         ),
@@ -116,8 +114,6 @@ impl ServerStorage {
         Uuid,
         (
             VerifyingKey,
-            DHPublicKey,
-            MessagePublicKey,
             SignedLongtermKeyBundle,
             Signature<NewsroomOnJournalist>,
         ),
@@ -135,13 +131,7 @@ impl ServerStorage {
 
         // match hashmap above
         let bundle = journalist.bundle;
-        let values = (
-            journalist.verification_key,
-            bundle.bundle.fetch_pk.clone(),
-            bundle.bundle.apke.clone(),
-            bundle,
-            newsroom_signature,
-        );
+        let values = (journalist.verification_key, bundle, newsroom_signature);
 
         self.journalists.insert(journalist_id, values);
         journalist_id
@@ -152,7 +142,7 @@ impl ServerStorage {
     ///
     /// TODO: Remove?
     pub fn find_journalist_by_verifying_key(&self, verifying_key: &VerifyingKey) -> Option<Uuid> {
-        for (journalist_id, (stored_vk, _, _, _, _)) in &self.journalists {
+        for (journalist_id, (stored_vk, _, _)) in &self.journalists {
             if stored_vk.into_bytes() == verifying_key.into_bytes() {
                 return Some(*journalist_id);
             }

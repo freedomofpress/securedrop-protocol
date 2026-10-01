@@ -18,9 +18,7 @@ use uuid::Uuid;
 #[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct JournalistLongTermView {
     pub vk: VerifyingKey,
-    pub fetch_pk: DHPublicKey,
-    pub reply_apke_pk: MessagePublicKey,
-    pub signed_longterm_key_bytes: SignedLongtermKeyBundle,
+    pub signed_longterm_key_bundle: SignedLongtermKeyBundle,
     pub nr_signature: Signature<NewsroomOnJournalist>,
 }
 
