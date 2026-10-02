@@ -137,7 +137,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 
             // 3-party DH yields shared_secret used to encrypt message_id
             let shared_secret = dh_shared_secret(&envelope.mgdh, &eph_sk);
-            let key = derive_challenge_key(&shared_secret, NR_ID);
+            let key = derive_challenge_key(&shared_secret, NR_ID).unwrap();
             let enc_mid = encrypt_message_id(&key, message_id).unwrap();
 
             // `copy_from_slice` rather than `try_into()`: Core_models has no
@@ -182,7 +182,7 @@ pub fn solve_fetch_challenges<S: UserSecret>(
     for chall in challenges.iter() {
         // Compute 3-party DH on the pmgdh
         let maybe_kmid_secret = dh_shared_secret(&chall.pmgdh, recipient.fetch_keypair().0);
-        let challenge_key = derive_challenge_key(&maybe_kmid_secret, NR_ID);
+        let challenge_key = derive_challenge_key(&maybe_kmid_secret, NR_ID).unwrap();
 
         // Try decrypting the encrypted message id
         // Convert to UUID (v4) format and add to message ID list on success

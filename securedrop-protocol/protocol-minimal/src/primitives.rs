@@ -26,10 +26,11 @@ const CHALLENGE_SALT: &[u8] = b"securedrop-challenge-v1";
 ///
 /// This is used in step 7 for encrypting message IDs with a shared secret
 ///
-#[cfg_attr(hax, hax_lib::opaque)]
-pub fn derive_challenge_key(shared_secret: &DHPublicKey, newsroom_id: &[u8]) -> [u8; KEY_LEN] {
+pub fn derive_challenge_key(
+    shared_secret: &DHPublicKey,
+    newsroom_id: &[u8],
+) -> Result<[u8; KEY_LEN], Error> {
     use crate::primitives::provider::hkdf;
-    use provider::chacha20poly1305::KEY_LEN;
 
     let mut challenge_key: [u8; KEY_LEN] = [0u8; KEY_LEN];
     // Key is KDF(shared_secret, newsroom_id)
@@ -39,9 +40,9 @@ pub fn derive_challenge_key(shared_secret: &DHPublicKey, newsroom_id: &[u8]) -> 
         &shared_secret.into_bytes(),
         newsroom_id,
     )
-    .expect("HKDF fetch key derivation failed");
+    .map_err(|_| anyhow::anyhow!("HKDF challenge key derivation failed"))?;
 
-    challenge_key
+    Ok(challenge_key)
 }
 
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
