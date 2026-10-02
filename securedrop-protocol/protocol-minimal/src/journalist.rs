@@ -35,7 +35,8 @@ pub struct Journalist {
     message_keys: Vec<SignedMessageKeyBundle>,
     /// Long-term SD-APKE key tuple `(sk_J^APKE, pk_J^APKE)`
     reply_apke: MessageKeyPair,
-    signed_longterm_key_bundle: SignedLongtermKeyBundle,
+    /// Self-signature `σ_J` over `(pk_J^APKE, pk_J^fetch)`
+    self_signature: Signature<JournalistLongTermKey>,
     session_storage: SessionStorage,
 }
 
@@ -164,7 +165,7 @@ impl UserSecret for Journalist {
 impl Enrollable for Journalist {
     fn enroll(&self) -> Enrollment {
         Enrollment {
-            bundle: self.signed_longterm_key_bundle.clone(),
+            bundle: self.signed_longterm_key_bundle(),
             verification_key: self.signing_key.vk,
         }
     }
@@ -211,7 +212,6 @@ impl Journalist {
         let longterm_bundle = LongtermKeyBundle::new(reply_apke.public_key().clone(), pk_fetch);
         let self_signature: Signature<JournalistLongTermKey> =
             signing_key.sign(&longterm_bundle.as_bytes());
-        let selfsigned_pubkeys = SignedLongtermKeyBundle::new(longterm_bundle, self_signature);
 
         // Generate one-time/short-lived keybundles.
         for _ in 0..num_keybundles {
@@ -233,7 +233,7 @@ impl Journalist {
             },
             reply_apke,
             message_keys: key_bundles,
-            signed_longterm_key_bundle: selfsigned_pubkeys,
+            self_signature,
             session_storage,
         }
     }
@@ -243,8 +243,16 @@ impl Journalist {
         let kb = self.message_keys.get(idx).expect("Bad index");
         JournalistPublicView::new(
             self.signing_key.vk,
-            self.signed_longterm_key_bundle.clone(),
+            self.signed_longterm_key_bundle(),
             (kb.bundle.public(), kb.selfsig),
+        )
+    }
+
+    /// Long-term public keys with the signature over them.
+    fn signed_longterm_key_bundle(&self) -> SignedLongtermKeyBundle {
+        SignedLongtermKeyBundle::new(
+            LongtermKeyBundle::new(self.reply_apke.public_key().clone(), self.fetch_key.pk),
+            self.self_signature,
         )
     }
 
@@ -294,8 +302,6 @@ impl Journalist {
         let longterm_bundle = LongtermKeyBundle::new(reply_apke.public_key().clone(), pk_fetch);
         let self_signature: Signature<JournalistLongTermKey> =
             signing_key.sign(&longterm_bundle.as_bytes());
-        let signed_longterm_key_bundle =
-            SignedLongtermKeyBundle::new(longterm_bundle, self_signature);
 
         Ok(Self {
             signing_key,
@@ -305,7 +311,7 @@ impl Journalist {
             },
             reply_apke,
             message_keys: Vec::new(),
-            signed_longterm_key_bundle,
+            self_signature,
             session_storage: SessionStorage {
                 fpf_key: None,
                 nr_key: None,
@@ -619,8 +625,8 @@ mod tests {
                 restored.signing_key.vk.into_bytes()
             );
             prop_assert_eq!(
-                original.signed_longterm_key_bundle.as_bytes(),
-                restored.signed_longterm_key_bundle.as_bytes()
+                original.signed_longterm_key_bundle().as_bytes(),
+                restored.signed_longterm_key_bundle().as_bytes()
             );
             prop_assert!(restored.message_keys.is_empty());
         }
