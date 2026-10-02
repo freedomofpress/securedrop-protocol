@@ -13,7 +13,7 @@ use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey};
 use crate::primitives::mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey};
 use crate::primitives::provider;
 use crate::primitives::ristretto255::{DHPrivateKey, DHPublicKey, generate_dh_keypair};
-use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey};
+use crate::sign::{JournalistLongTermKey, JournalistShortTermKey, Signature, SigningKey};
 use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, UserSecret};
 
 // caution: do not re-export!
@@ -27,7 +27,7 @@ impl RestrictedApi for Journalist {}
 
 /// Journalists: ingredients.
 /// Journalists have a signing/verifying key, a reply key,
-/// a fetch key, and a collection of one-time signed key bundles
+/// a fetch key, and a collection of short-lived signed key bundles
 pub struct Journalist {
     signing_key: SigningKeyPair,
     fetch_key: DhFetchKeyPair,
@@ -106,7 +106,7 @@ impl JournalistPublic for JournalistPublicView {
         &self.kb.0
     }
 
-    fn ephemeral_signature(&self) -> &Signature<JournalistEphemeralKey> {
+    fn ephemeral_signature(&self) -> &Signature<JournalistShortTermKey> {
         &self.kb.1
     }
 }
@@ -192,26 +192,27 @@ impl Enrollable for Journalist {
     }
 }
 
-/// Generate one ephemeral key bundle and sign its pubkeys.
+/// Generate one short-term key bundle for `epoch` and sign its pubkey and epoch
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 fn make_signed_bundle<R: RngCore + CryptoRng>(
     rng: &mut R,
     signing_key: &SigningKey,
+    epoch: Epoch,
 ) -> SignedMessageKeyBundle {
     let apke_kp = message_keygen(rng).expect("SD-APKE ephemeral keygen failed");
     let metadata_kp = metadata_keygen(rng).expect("Failed to generate metadata keys");
 
-    let bundle = MessageKeyBundle::new(apke_kp, metadata_kp);
+    let bundle = MessageKeyBundle::new(apke_kp, metadata_kp, epoch);
 
     let pubkey_bytes = bundle.public().as_bytes();
-    let selfsig: Signature<JournalistEphemeralKey> = signing_key.sign(&pubkey_bytes);
+    let selfsig: Signature<JournalistShortTermKey> = signing_key.sign(&pubkey_bytes);
 
     SignedMessageKeyBundle { bundle, selfsig }
 }
 
 impl Journalist {
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R, num_keybundles: usize) -> Self {
+    pub fn new<R: RngCore + CryptoRng>(rng: &mut R, num_keybundles: usize, epoch: Epoch) -> Self {
         let mut key_bundles: Vec<SignedMessageKeyBundle> = Vec::with_capacity(num_keybundles);
 
         let signing_key = SigningKey::new(rng).expect("Signing keygen failed");
@@ -228,9 +229,9 @@ impl Journalist {
         let self_signature: Signature<JournalistLongTermKey> =
             signing_key.sign(selfsigned_pubkeys.as_bytes());
 
-        // Generate one-time/short-lived keybundles.
+        // Generate short-term keybundles for `epoch`.
         for _ in 0..num_keybundles {
-            key_bundles.push(make_signed_bundle(rng, &signing_key));
+            key_bundles.push(make_signed_bundle(rng, &signing_key, epoch));
         }
         assert_eq!(key_bundles.len(), num_keybundles);
 
@@ -340,16 +341,21 @@ impl Journalist {
         })
     }
 
-    /// Generate `n` fresh signed ephemeral key bundles and retain them in memory.
+    /// Generate `n` fresh signed short-term key bundles for `epoch` and retain them in memory.
     ///
     /// The public halves are uploaded to the server via
     /// [`create_ephemeral_key_request`](crate::api::JournalistApi::create_ephemeral_key_request).
     ///
     /// The secret halves should be persisted via [`Journalist::ephemeral_bundle_bytes`].
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub fn generate_ephemeral_bundles<R: RngCore + CryptoRng>(&mut self, rng: &mut R, n: usize) {
+    pub fn generate_ephemeral_bundles<R: RngCore + CryptoRng>(
+        &mut self,
+        rng: &mut R,
+        n: usize,
+        epoch: Epoch,
+    ) {
         for _ in 0..n {
-            let signed = make_signed_bundle(rng, &self.signing_key.sk);
+            let signed = make_signed_bundle(rng, &self.signing_key.sk, epoch);
             self.message_keys.push(signed);
         }
     }
@@ -376,7 +382,7 @@ impl Journalist {
             let pubkey_bytes = bundle.public().as_bytes();
             // Temp: doing this just because we are generating SignedMessageKeyBundle here
             // and we didnt persist the signature
-            let selfsig: Signature<JournalistEphemeralKey> =
+            let selfsig: Signature<JournalistShortTermKey> =
                 self.signing_key.sk.sign(&pubkey_bytes);
             self.message_keys
                 .push(SignedMessageKeyBundle { bundle, selfsig });
@@ -445,23 +451,25 @@ impl JournalistLongTermBytes {
     }
 }
 
-/// Byte representation of one ephemeral key bundle's secret halves
+/// Byte representation of one short-term key bundle's secret halves and key epoch
 pub struct EphemeralBundleBytes {
     pub apke_dhakem_sk: [u8; 32],
     pub apke_mlkem_sk: [u8; crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN],
     pub apke_mlkem_pk: [u8; crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN],
     pub metadata_sk: [u8; crate::primitives::xwing::XWING_PRIVATE_KEY_LEN],
     pub metadata_pk: [u8; crate::primitives::xwing::XWING_PUBLIC_KEY_LEN],
+    pub epoch: [u8; Epoch::ENCODED_LEN],
 }
 
 impl EphemeralBundleBytes {
     /// Serialized length of
-    /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk`.
+    /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk || epoch`.
     pub const LEN: usize = 32
         + crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN
         + crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN
         + crate::primitives::xwing::XWING_PRIVATE_KEY_LEN
-        + crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
+        + crate::primitives::xwing::XWING_PUBLIC_KEY_LEN
+        + Epoch::ENCODED_LEN;
 
     fn from_bundle(bundle: &MessageKeyBundle) -> Self {
         Self {
@@ -470,6 +478,7 @@ impl EphemeralBundleBytes {
             apke_mlkem_pk: *bundle.apke.public_key().mlkem.as_bytes(),
             metadata_sk: *bundle.metadata_kp.secret_bytes(),
             metadata_pk: *bundle.metadata_kp.public_bytes(),
+            epoch: bundle.epoch.as_bytes(),
         }
     }
 
@@ -490,11 +499,13 @@ impl EphemeralBundleBytes {
         );
         let metadata_kp = MetadataKeyPair::from_key_bytes(self.metadata_sk, self.metadata_pk);
 
-        MessageKeyBundle::new(apke, metadata_kp)
+        let epoch = Epoch(u64::from_be_bytes(self.epoch));
+
+        MessageKeyBundle::new(apke, metadata_kp, epoch)
     }
 
     /// Serialize as
-    /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk`.
+    /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk || epoch`.
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(Self::LEN);
         out.extend_from_slice(&self.apke_dhakem_sk);
@@ -502,11 +513,12 @@ impl EphemeralBundleBytes {
         out.extend_from_slice(&self.apke_mlkem_pk);
         out.extend_from_slice(&self.metadata_sk);
         out.extend_from_slice(&self.metadata_pk);
+        out.extend_from_slice(&self.epoch);
         out
     }
 
     /// Deserialize from
-    /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk` bytes.
+    /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk || epoch` bytes.
     ///
     /// # Errors
     ///
@@ -525,8 +537,8 @@ impl EphemeralBundleBytes {
             rest.split_at(crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN);
         let (apke_mlkem_pk, rest) =
             rest.split_at(crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN);
-        let (metadata_sk, metadata_pk) =
-            rest.split_at(crate::primitives::xwing::XWING_PRIVATE_KEY_LEN);
+        let (metadata_sk, rest) = rest.split_at(crate::primitives::xwing::XWING_PRIVATE_KEY_LEN);
+        let (metadata_pk, epoch) = rest.split_at(crate::primitives::xwing::XWING_PUBLIC_KEY_LEN);
 
         // the expects here are fine bc the length check above ensures we have the correct length
         Ok(Self {
@@ -535,6 +547,7 @@ impl EphemeralBundleBytes {
             apke_mlkem_pk: apke_mlkem_pk.try_into().expect("wrong checked length"),
             metadata_sk: metadata_sk.try_into().expect("wrong checked length"),
             metadata_pk: metadata_pk.try_into().expect("wrong checked length"),
+            epoch: epoch.try_into().expect("wrong checked length"),
         })
     }
 }
@@ -548,10 +561,12 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
+    const EPOCH: Epoch = Epoch(2900);
+
     #[test]
     fn test_journalist_setup_request_serde_roundtrip() {
         let mut rng = ChaCha20Rng::seed_from_u64(7);
-        let journalist = Journalist::new(&mut rng, 0);
+        let journalist = Journalist::new(&mut rng, 0, EPOCH);
         let req = JournalistSetupRequest {
             enrollment: journalist.enroll(),
         };
@@ -583,7 +598,7 @@ mod tests {
     fn test_journalist_setup() {
         let mut rng = ChaCha20Rng::seed_from_u64(666);
 
-        let journalist = Journalist::new(&mut rng, 5);
+        let journalist = Journalist::new(&mut rng, 5, EPOCH);
         assert_eq!(journalist.message_keys.len(), 5);
         let skb: Vec<SignedKeyBundlePublic> = journalist.signed_keybundles();
         assert_eq!(journalist.message_keys.len(), skb.len());
@@ -623,7 +638,7 @@ mod tests {
     fn test_journalist_enroll_selfsig() {
         let mut rng = ChaCha20Rng::seed_from_u64(666);
 
-        let journalist = Journalist::new(&mut rng, 5);
+        let journalist = Journalist::new(&mut rng, 5, EPOCH);
         let e = journalist.enroll();
 
         journalist
@@ -638,7 +653,7 @@ mod tests {
         #[test]
         fn test_journalist_long_term_bytes_roundtrip(rng_seed: u64) {
             let mut rng = ChaCha20Rng::seed_from_u64(rng_seed);
-            let original = Journalist::new(&mut rng, 0);
+            let original = Journalist::new(&mut rng, 0, EPOCH);
             let parts = original.long_term_bytes();
             let restored =
                 Journalist::from_long_term_bytes(parts).expect("valid long-term bytes");
@@ -662,7 +677,7 @@ mod tests {
         #[test]
         fn test_journalist_long_term_bytes_serde_roundtrip(rng_seed: u64) {
             let mut rng = ChaCha20Rng::seed_from_u64(rng_seed);
-            let parts = Journalist::new(&mut rng, 0).long_term_bytes();
+            let parts = Journalist::new(&mut rng, 0, EPOCH).long_term_bytes();
 
             let bytes = parts.as_bytes();
             prop_assert_eq!(bytes.len(), JournalistLongTermBytes::LEN);
@@ -678,8 +693,8 @@ mod tests {
         #[test]
         fn test_ephemeral_bundle_bytes_roundtrip(rng_seed: u64, n in 0usize..4) {
             let mut rng = ChaCha20Rng::seed_from_u64(rng_seed);
-            let mut original = Journalist::new(&mut rng, 0);
-            original.generate_ephemeral_bundles(&mut rng, n);
+            let mut original = Journalist::new(&mut rng, 0, EPOCH);
+            original.generate_ephemeral_bundles(&mut rng, n, EPOCH);
 
             let persisted: Vec<EphemeralBundleBytes> = original
                 .ephemeral_bundle_bytes()
@@ -700,6 +715,7 @@ mod tests {
             prop_assert_eq!(orig_pub.len(), n);
             prop_assert_eq!(restored_pub.len(), n);
             for (a, b) in orig_pub.iter().zip(restored_pub.iter()) {
+                prop_assert_eq!(b.0.epoch, EPOCH);
                 prop_assert_eq!(a.0.as_bytes(), b.0.as_bytes());
                 prop_assert_eq!(a.1.as_bytes(), b.1.as_bytes());
             }
@@ -708,8 +724,8 @@ mod tests {
         #[test]
         fn test_journalist_ephemeral_key_request_serde_roundtrip(rng_seed: u64, n in 1usize..4) {
             let mut rng = ChaCha20Rng::seed_from_u64(rng_seed);
-            let mut journalist = Journalist::new(&mut rng, 0);
-            journalist.generate_ephemeral_bundles(&mut rng, n);
+            let mut journalist = Journalist::new(&mut rng, 0, EPOCH);
+            journalist.generate_ephemeral_bundles(&mut rng, n, EPOCH);
 
             let req = journalist.create_ephemeral_key_request();
             let json = serde_json::to_string(&req).expect("serialize");
