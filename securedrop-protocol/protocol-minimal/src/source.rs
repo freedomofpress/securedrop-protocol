@@ -53,7 +53,6 @@ impl core::fmt::Debug for Source {
 #[derive(Debug, Clone)]
 pub struct SourcePublicView {
     fetch_pk: DHPublicKey,
-    apke_pk: MessagePublicKey,
     message_pks: KeyBundlePublic,
 }
 
@@ -63,7 +62,7 @@ impl UserPublic for SourcePublicView {
     }
 
     fn message_auth_pk(&self) -> &MessagePublicKey {
-        &self.apke_pk
+        &self.message_pks.apke_pk
     }
 
     fn message_metadata_pk(&self) -> &MetadataPublicKey {
@@ -216,7 +215,6 @@ impl Source {
     pub fn public(&self) -> SourcePublicView {
         SourcePublicView {
             fetch_pk: self.fetch_key.pk,
-            apke_pk: self.message_keys.apke.public_key().clone(),
             message_pks: self.message_keys.public(),
         }
     }
@@ -232,7 +230,6 @@ impl SourcePublicView {
     ) -> Self {
         SourcePublicView {
             fetch_pk,
-            apke_pk: apke.clone(),
             message_pks: KeyBundlePublic {
                 apke_pk: apke,
                 metadata_pk,

@@ -7,7 +7,6 @@ let _ =
   (* This module has implicit dependencies, here we make them explicit. *)
   (* The implicit dependencies arise from typeclasses instances. *)
   let open Rand_core in
-  let open Securedrop_protocol_minimal.Message in
   ()
 
 /// Fixed, public, application-specific salt for source key derivation.
@@ -42,7 +41,6 @@ type t_Source = {
 /// The public key material of a source, used by journalists to send replies.
 type t_SourcePublicView = {
   f_fetch_pk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
-  f_apke_pk:Securedrop_protocol_minimal.Message.t_MessagePublicKey;
   f_message_pks:Securedrop_protocol_minimal.Keys.t_KeyBundlePublic
 }
 
@@ -73,7 +71,10 @@ let impl: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
     =
     (fun (self: t_SourcePublicView) (out: Securedrop_protocol_minimal.Message.t_MessagePublicKey) ->
         true);
-    f_message_auth_pk = (fun (self: t_SourcePublicView) -> self.f_apke_pk);
+    f_message_auth_pk
+    =
+    (fun (self: t_SourcePublicView) -> self.f_message_pks.Securedrop_protocol_minimal.Keys.f_apke_pk
+    );
     f_message_metadata_pk_pre = (fun (self: t_SourcePublicView) -> true);
     f_message_metadata_pk_post
     =
@@ -286,14 +287,6 @@ let impl_Source__from_master_key = impl_Source__from_master_key'
 let impl_Source__public (self: t_Source) : t_SourcePublicView =
   {
     f_fetch_pk = self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk;
-    f_apke_pk
-    =
-    Core_models.Clone.f_clone #Securedrop_protocol_minimal.Message.t_MessagePublicKey
-      #FStar.Tactics.Typeclasses.solve
-      (Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key self.f_message_keys
-            .Securedrop_protocol_minimal.Keys.f_apke
-        <:
-        Securedrop_protocol_minimal.Message.t_MessagePublicKey);
     f_message_pks
     =
     Securedrop_protocol_minimal.Keys.impl_MessageKeyBundle__public self.f_message_keys
@@ -310,11 +303,6 @@ let impl_SourcePublicView__from_reply_keys
     : t_SourcePublicView =
   {
     f_fetch_pk = fetch_pk;
-    f_apke_pk
-    =
-    Core_models.Clone.f_clone #Securedrop_protocol_minimal.Message.t_MessagePublicKey
-      #FStar.Tactics.Typeclasses.solve
-      apke;
     f_message_pks
     =
     {
