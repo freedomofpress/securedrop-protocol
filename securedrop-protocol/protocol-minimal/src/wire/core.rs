@@ -35,12 +35,12 @@ pub struct WelcomeBundle {
     pub journalists: Vec<JournalistLongTermView>,
 }
 
-/// One journalist's one-time (ephemeral) key bundle. `vk` identifies which
-/// journalist - the server consumes the bundle when it serves it.
+/// One journalist's short-term key bundle. `vk` identifies which
+/// journalist
 #[cfg_attr(not(hax), derive(Serialize, Deserialize))]
-pub struct JournalistEphemeralKeys {
+pub struct JournalistShortTermKeys {
     pub vk: VerifyingKey,
-    pub ephemeral: SignedKeyBundlePublic,
+    pub short_term: SignedKeyBundlePublic,
 }
 
 /// User (source or journalist) fetches message IDs

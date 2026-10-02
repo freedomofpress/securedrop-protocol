@@ -168,13 +168,13 @@ Newsroom keys:
 
 Journalist keys:
 
-| Private Key         | Public Key          | Purpose       | Lifetime  | Algorithm                                     | Signed by       | Bundled in          |
-| ------------------- | ------------------- | ------------- | --------- | --------------------------------------------- | --------------- | ------------------- |
-| $sk_J^{sig}$        | $vk_J^{sig}$        | Signing       | Long-term | Ed25519                                       | $sk_{NR}^{sig}$ | [Roster]            |
-| $sk_J^{fetch}$      | $pk_J^{fetch}$      | Fetching      | TBD[^6]   | ristretto255                                  | $sk_J^{sig}$    | [Roster]            |
-| $sk_J^{APKE}$       | $pk_J^{APKE}$       | Message (out) | Long-term | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$    | [Roster]            |
-| $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | Message (in)  | One-time  | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$    | [Signed key bundle] |
-| $sk_{J,i}^{PKE_E}$  | $pk_{J,i}^{PKE_E}$  | Metadata (in) | One-time  | X-Wing(X25519, ML-KEM-768)                    | $sk_J^{sig}$    | [Signed key bundle] |
+| Private Key         | Public Key          | Purpose       | Lifetime    | Algorithm                                     | Signed by       | Bundled in          |
+| ------------------- | ------------------- | ------------- | ----------- | --------------------------------------------- | --------------- | ------------------- |
+| $sk_J^{sig}$        | $vk_J^{sig}$        | Signing       | Long-term   | Ed25519                                       | $sk_{NR}^{sig}$ | [Roster]            |
+| $sk_J^{fetch}$      | $pk_J^{fetch}$      | Fetching      | TBD[^6]     | ristretto255                                  | $sk_J^{sig}$    | [Roster]            |
+| $sk_J^{APKE}$       | $pk_J^{APKE}$       | Message (out) | Long-term   | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$    | [Roster]            |
+| $sk_{J,i}^{APKE_E}$ | $pk_{J,i}^{APKE_E}$ | Message (in)  | Short-lived | DHKEM(X25519, HKDF-SHA256) + ML-KEM-768 [^13] | $sk_J^{sig}$    | [Signed key bundle] |
+| $sk_{J,i}^{PKE_E}$  | $pk_{J,i}^{PKE_E}$  | Metadata (in) | Short-lived | X-Wing(X25519, ML-KEM-768)                    | $sk_J^{sig}$    | [Signed key bundle] |
 
 Source keys:
 
@@ -270,23 +270,31 @@ Then:
 <!-- Figure 3(a) as of b1e4d41 -->
 
 Following [enrollment][step 3.1], each journalist $J$ MUST generate and maintain
-a pool of $n$ [signed key bundles][signed key bundle]. Each bundle consists of
-an ephemeral SD-APKE (message) public key, an ephemeral SD-PKE (metadata) public key, for which the journalist locally retains the complete keypair, and a signature by the
-journalist's long-term signing key.
+a pool of $n$ [signed key bundles][signed key bundle]. The bundle payload consists of
+a short-lived SD-APKE (message) public key, a short-lived SD-PKE (metadata) public key, for which the journalist locally retains the complete keypair, and a validity window `[valid_from, valid_until]` of length `EPOCH`. A signature over the payload with the journalist's long-term signing key is included in the bundle.
 
-The server verifies the signature, and stores the signed key bundle.
+The server stores the signed key bundle if
+
+- The signature over the payload is valid
+- The validity window is well-formed: `valid_from < valid_until`
+- The validity window `valid_until - valid_from` is not greater than `EPOCH`
+- The current time `t` is not greater than `valid_until`
+- The validity falls within the `REPLENISHMENT` window: `valid_until - t < REPLENISHMENT`
+
+FIXME: add validation to table below
+
 These keys are used by other participants to address messages to the journalist.
 
 For each key bundle $i$:[^11]
 
-| Journalist                                                                                                              |                                                                         | Server                                                                                                               |
-| ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                                             |                                                                         |                                                                                                                      |
-| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                                                |                                                                         |                                                                                                                      |
-| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}))`$ |                                                                         |                                                                                                                      |
-|                                                                                                                         | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ |                                                                                                                      |
-|                                                                                                                         |                                                                         | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i})`$ |
-|                                                                                                                         |                                                                         | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E})`$ for $J$                                    |
+| Journalist                                                                                                                                                |                                                                                                      | Server                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| $`(sk_{J,i}^{APKE_E}, pk_{J,i}^{APKE_E}) \gets^{\$} \text{SD-APKE.KGen}()`$                                                                               |                                                                                                      |                                                                                                                                                      |
+| $`(sk_{J,i}^{PKE_E}, pk_{J,i}^{PKE_E}) \gets^{\$} \text{SD-PKE.KGen}()`$                                                                                  |                                                                                                      |                                                                                                                                                      |
+| $`\sigma_{J,i} \gets^{\$} \text{SIG.Sign}(sk_J^{sig}, \texttt{j-sig-stk} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}) \Vert [valid\_from, valid\_until])`$ |                                                                                                      |                                                                                                                                                      |
+|                                                                                                                                                           | $`\longrightarrow (\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, [valid\_from, valid\_until])`$ |                                                                                                                                                      |
+|                                                                                                                                                           |                                                                                                      | $`b \gets \text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-stk} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i} \Vert [valid_from, valid_until])`$ |
+|                                                                                                                                                           |                                                                                                      | If $b = 1$: Store $`(\sigma_{J,i}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, [valid_from, valid_until])`$ for $J$                                         |
 
 ##### 3.3. Journalist long-term key rotation
 
@@ -294,6 +302,8 @@ A journalist rotates their long-term keys by re-executing the initial
 [enrollment][step 3.1]. After the newsroom manually verifies the journalist's
 new verification key and the signature over the new long-term keys, the newsroom
 MUST update the journalist's keys in the [roster]. This occurs after a scheduled rotation, lost or destroyed keys, or a key compromise.
+
+The server MUST remove stored short-lived bundles associated with the journalist's previous verification key.
 
 #### Protocol Step 4: Source key setup
 
@@ -523,8 +533,7 @@ The server answers a sender's key request in two parts, which differ in lifetime
 
 1. The [welcome bundle], including the [roster], is per-session, and the sender
    MAY cache it.
-2. Each journalist's one-time [signed key bundle] is consumed by the server once
-   served. See ["Known limitations"][known limitations] re: key exhaustion.
+2. A valid short-lived [signed key bundle] for each journalist See [Short-lived key exhaustion](./README.md#short-lived-key-exhaustion).
 
 A sender MUST verify the welcome bundle before use. It MUST associate each
 signed key bundle with a journalist in the roster by $vk_J^{sig}$ and discard
@@ -539,6 +548,8 @@ Given:
 
 Then:
 
+FIXME: add valid_from validation to table
+
 | Sender                                                                                                                                           |                                 | Server                                                                                                          |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 |                                                                                                                                                  | $\longrightarrow$ `RequestKeys` |                                                                                                                 |
@@ -550,9 +561,11 @@ Then:
 | If $`\sigma_{FPF}^{NR} \neq \bot`$ and $`\text{SIG.Vfy}(vk_{FPF}^{sig}, \texttt{fpf-sig-nr} \Vert vk_{NR}^{sig}, \sigma_{FPF}^{NR}) = 0`$: abort |                                 |                                                                                                                 |
 | If $`\text{SIG.Vfy}(vk_{NR}^{sig}, \texttt{nr-sig} \Vert vk_J^{sig}, \sigma_{NR}^{J}) = 0`$ for some $J$: abort                                  |                                 |                                                                                                                 |
 | If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-ltk} \Vert (pk_J^{APKE}, pk_J^{fetch}), \sigma_J) = 0`$ for some $J$: abort                        |                                 |                                                                                                                 |
-| If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-eph} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}) = 0`$ for some $J, i$: abort       |                                 |                                                                                                                 |
+| If $`\text{SIG.Vfy}(vk_J^{sig}, \texttt{j-sig-stk} \Vert (pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}) = 0`$ for some $J, i$: abort       |                                 |                                                                                                                 |
 
-**Key exhaustion**: If $`(pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}), \sigma_{J,i}`$ are unavailable for $`J`$, $`J`$ is skipped (no "key of last resort" approach). See [key replenishment][known limitations].
+A server SHOULD delete short-lived bundles that are expired.
+
+**Key exhaustion**: If $`(pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, [valid\_from, valid\_until]), \sigma_{J,i}`$ are unavailable for $`J`$, $`J`$ is skipped (no "key of last resort" approach).
 
 #### Protocol Step 6: Sender submits a message
 
@@ -561,7 +574,7 @@ Then:
 For each recipient, a sender produces a message ciphertext (SD-APKE ciphertext), a metadata ciphertext (SD-PKE ciphertext), and a message delivery hint.
 
 A sender knows their own keys, the newsroom's verification key $vk_{NR}^{sig}$, and
-the $pks$ and $sigs$ they previously [fetched].
+the $pks$ and $sigs$ they previously [fetched]. The short-lived $pks$ MUST be valid at the time the sender submits the message.
 
 In addition, in the **reply case,** if the sender is a journalist replying to a
 source, they also already know their recipient's keys without further
@@ -623,7 +636,7 @@ Then, for some message $m$:
 | Sender                                                                                                                                                               |                                 | Server                                         |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
 | **Reply case:** A journalist $J$ replaces their own entry, holding key bundle $i$, with the key bundle and fetching key of the source $R$ to whom they are replying: |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, pk_J^{fetch}, \_)\}`$                                          |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, [valid\_from, valid\_until], pk_J^{fetch}, \_)\}`$             |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \cup \{(-, pk_R^{APKE}, pk_R^{PKE}, pk_R^{fetch}, -)\}`$                                                                     |                                 |                                                |
 | $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, pk_{R,i}^{fetch}, \_) \in pks`$:                                                                                     |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`pt \gets pk_S^{fetch} \Vert pk_S^{PKE} \Vert m`$                                                                                           |                                 |                                                |
@@ -804,7 +817,6 @@ Len: 16 + 16 + 32 = 64 bytes * n challenges; server pads to fixed number of chal
 ## Known limitations
 
 - The protocol does not currently include a specification for transferring attachments.
-- The protocol does not currently include a specification for journalist key replenishment.
 - The protocol does not currently include a specification for rotation of the newsroom key. The relationship between the newsroom key and the server URL is not yet specified.
 - The protocol is not designed for scalability. There is a maximum number of messages that can be held by the server, constrained by the number of per-request challenges that the server can reasonably perform during message-fetching without unacceptable latency for users, particularly over Tor. See benchmarks for more information.
 - The use of HPKE's implicit authentication for message sending means that the protocol is vulnerable to [key compromise impersonation][RFC 9180 §9.1.1].
@@ -818,9 +830,8 @@ A user's [SD-APKE] message key and [SD-PKE] metadata key. Sources' and
 journalists' key bundles have different lifetimes (see ["Key
 hierarchy"][key hierarchy]):
 
-- A journalist's ephemeral, one-time key bundles are generated during their
-  initial setup and then periodically refreshed (see [step 3.2]) and are consumed
-  by the server when [served to a sender][fetched].
+- A journalist's short-lived key bundles are generated during their
+  initial setup and then periodically refreshed (see [step 3.2]) and [served to a sender][fetched]. They include a validity window.
 
 - A source's permanent key bundle is derived from their passphrase (see [step
   4]) and included in each message they send to journalists.

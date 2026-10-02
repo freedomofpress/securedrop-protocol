@@ -56,16 +56,29 @@ Freedom of the Press Foundation (FPF) is the entity responsible for maintaining 
 
 ### Behavioral analysis
 
-Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading ephemeral keys). Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
+Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading short-lived keys). Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
 
-### Ephemeral key exhaustion
+### Short-lived key exhaustion
 
-A known problem with this type of protocol is the issue of ephemeral key exhaustion, either by an adversary or due to infrequent journalist activity.
+A known problem with this protocol is short-lived key exhaustion due to infrequent journalist activity. Alerting mechanisms can be scheduled periodically to ensure the journalist refreshes their short-lived keys before they expire.
 
-### Ephemeral key reuse (malicious server)
+Each short-lived key has a validity window of configurable size `EPOCH`. The validity window is specified in `EPOCH`s anchored to Unix time so that the `n`th `EPOCH` valid window indicates the time period `[n * EPOCH, (n+1) * EPOCH)`. Anchored epochs ensures that each journalist's key's validity windows are equivalent, preventing any metadata leakage that may link a journalist's activity with their key validity time.
 
-Attempts by a malicious server to reuse ephemeral keys will need to be detected and mitigated.
-Key expiration is not currently implemented, but ephemeral keys could include a short (30/60 day) expiration date along with their PK signature. Journalists can routinely query the server for ephemeral keys and heuristically test if the server is being dishonest as well. They can also check during decryption as well and see if an already used key has worked: in that case the server is malicious as well.
+Servers MUST accept key bundles up to a a configured `REPLENISHMENT` window. The `EPOCH` limits the affect of a short-lived key's compromise (for forward secrecy); all messages sent during the `EPOCH` window with the compromised key may be leaked. The `REPLENISHMENT` window allows a journalist to stage short-lived keys in advance. A compromised long-lived journalist signing key may control keys in this window until the compromise is detected and the server revokes any existing short-lived keys.
+
+### Short lived key reuse (malicious server)
+
+Attempts by a malicious server to serve stale short-lived keys can be detected. Clients MUST validate the signature over key bundle and validate the validity window's freshness before message submission. Journalists can routinely query the server for short-lived keys and heuristically test if the server is being dishonest as well.
+
+### Synchronization
+
+Forward secrecy and the security of the short-lived keys relies on clock synchronization between the server, journalist, and client. Each party depends on clock time:
+
+- The journalist decides how to generate and upload short-lived key bundles
+- The server verifies the validity window and decides when to serve bundles and remove expired bundles
+- The source verifies the validity bundle before using it
+
+The protocol may fail if the clocks disagree or near a boundary. Clients and servers MAY use a configurable clock `SKEW` to verify bundle validity.
 
 ### Decoy traffic
 
@@ -112,7 +125,7 @@ To minimize logging, and mix traffic better, it could be reasonable to make all 
 
 ### Revocation
 
-Revocation is a spicy topic. For ephemeral keys, we expect key expiration to be a sufficient measure. For long-term keys, it will be necessary to implement the infrastructure to support journalist de-enrollment and newsroom key rotation. For example, FPF could routinely publish a revocation list and host Newsroom revocation lists as well; however, a key design constraint is to ensure that the entire SecureDrop system can be set up autonomously, and can function even without FPF's direct involvement.
+Revocation is a spicy topic. For short-lived keys, we expect key expiration to be a sufficient measure. For long-term keys, it will be necessary to implement the infrastructure to support journalist de-enrollment and newsroom key rotation. For example, FPF could routinely publish a revocation list and host Newsroom revocation lists as well; however, a key design constraint is to ensure that the entire SecureDrop system can be set up autonomously, and can function even without FPF's direct involvement.
 
 A good existing protocol for serving the revocation would be OCSP stapling served back directly by the SecureDrop server, so that clients (both sources and journalists) do not have to perform external requests. Otherwise we could find a way to (ab)use the current internet revocation infrastructure and build on top of that.
 
@@ -121,7 +134,6 @@ A good existing protocol for serving the revocation would be OCSP stapling serve
 This protocol can be hardened further in specific parts, such as:
 
 - rotating fetching keys regularly on the journalist side;
-- adding a short (e.g., 30 day) expiration to ephemeral keys so that they are guaranteed to rotate even in case of malicious servers.
 
 These details are left for internal team evaluation and production implementation constraints.
 
