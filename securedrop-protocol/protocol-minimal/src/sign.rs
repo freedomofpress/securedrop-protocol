@@ -35,9 +35,9 @@ pub trait DomainTag {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JournalistLongTermKey;
 
-/// Journalist self-signature over ephemeral key bundles (step 3.2).
+/// Journalist self-signature over short-term key bundles (step 3.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct JournalistEphemeralKey;
+pub struct JournalistShortTermKey;
 
 /// Newsroom signature over a journalist's verifying key (steps 3.1, 5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +52,7 @@ mod sealed_impls {
     use super::*;
 
     impl private::Sealed for JournalistLongTermKey {}
-    impl private::Sealed for JournalistEphemeralKey {}
+    impl private::Sealed for JournalistShortTermKey {}
     impl private::Sealed for NewsroomOnJournalist {}
     impl private::Sealed for FpfOnNewsroom {}
 }
@@ -62,9 +62,9 @@ impl DomainTag for JournalistLongTermKey {
         b"j-sig-ltk"
     }
 }
-impl DomainTag for JournalistEphemeralKey {
+impl DomainTag for JournalistShortTermKey {
     fn tag() -> &'static [u8] {
-        b"j-sig-eph"
+        b"j-sig-stk"
     }
 }
 impl DomainTag for NewsroomOnJournalist {
@@ -367,7 +367,7 @@ mod tests {
             let mut rng = get_rng();
             let signing_key = SigningKey::new(&mut rng).unwrap();
             let sig: Signature<JournalistLongTermKey> = signing_key.sign(&msg);
-            let cross_domain_sig: Signature<JournalistEphemeralKey> =
+            let cross_domain_sig: Signature<JournalistShortTermKey> =
                 Signature::from_bytes(sig.bytes);
             assert!(signing_key.vk.verify(&msg, &cross_domain_sig).is_err());
         }

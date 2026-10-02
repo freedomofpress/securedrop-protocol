@@ -62,11 +62,23 @@ Both source and journalist traffic would go through the Tor network, but they mi
 
 A known problem with this protocol is short-lived key exhaustion due to infrequent journalist activity. Alerting mechanisms can be scheduled periodically to ensure the journalist refreshes their short-lived keys before they expire.
 
-Each short-lived key must have a validity window of configurable size `EPOCH`. Servers MUST accept key bundles up to a a configured `REPLENISHMENT` window. The `EPOCH` limits the affect of a short-lived key's compromise (for forward secrecy); all messages sent during the `EPOCH` window with the compromised key may be leaked. The `REPLENISHMENT` window allows a journalist to stage short-lived keys in advance. A compromised long-lived journalist signing key may control keys in this window until the compromise is detected and the server revokes any existing short-lived keys.
+Each short-lived key has a validity window of configurable size `EPOCH`. The validity window is specified in `EPOCH`s anchored to Unix time so that the `n`th `EPOCH` valid window indicates the time period `[n * EPOCH, (n+1) * EPOCH)`. Anchored epochs ensures that each journalist's key's validity windows are equivalent, preventing any metadata leakage that may link a journalist's activity with their key validity time.
+
+Servers MUST accept key bundles up to a a configured `REPLENISHMENT` window. The `EPOCH` limits the affect of a short-lived key's compromise (for forward secrecy); all messages sent during the `EPOCH` window with the compromised key may be leaked. The `REPLENISHMENT` window allows a journalist to stage short-lived keys in advance. A compromised long-lived journalist signing key may control keys in this window until the compromise is detected and the server revokes any existing short-lived keys.
 
 ### Short lived key reuse (malicious server)
 
 Attempts by a malicious server to serve stale short-lived keys can be detected. Clients MUST validate the signature over key bundle and validate the validity window's freshness before message submission. Journalists can routinely query the server for short-lived keys and heuristically test if the server is being dishonest as well.
+
+### Synchronization
+
+Forward secrecy and the security of the short-lived keys relies on clock synchronization between the server, journalist, and client. Each party depends on clock time:
+
+- The journalist decides how to generate and upload short-lived key bundles
+- The server verifies the validity window and decides when to serve bundles and remove expired bundles
+- The source verifies the validity bundle before using it
+
+The protocol may fail if the clocks disagree or near a boundary. Clients and servers MAY use a configurable clock `SKEW` to verify bundle validity.
 
 ### Decoy traffic
 
@@ -113,7 +125,7 @@ To minimize logging, and mix traffic better, it could be reasonable to make all 
 
 ### Revocation
 
-Revocation is a spicy topic. For ephemeral keys, we expect key expiration to be a sufficient measure. For long-term keys, it will be necessary to implement the infrastructure to support journalist de-enrollment and newsroom key rotation. For example, FPF could routinely publish a revocation list and host Newsroom revocation lists as well; however, a key design constraint is to ensure that the entire SecureDrop system can be set up autonomously, and can function even without FPF's direct involvement.
+Revocation is a spicy topic. For short-lived keys, we expect key expiration to be a sufficient measure. For long-term keys, it will be necessary to implement the infrastructure to support journalist de-enrollment and newsroom key rotation. For example, FPF could routinely publish a revocation list and host Newsroom revocation lists as well; however, a key design constraint is to ensure that the entire SecureDrop system can be set up autonomously, and can function even without FPF's direct involvement.
 
 A good existing protocol for serving the revocation would be OCSP stapling served back directly by the SecureDrop server, so that clients (both sources and journalists) do not have to perform external requests. Otherwise we could find a way to (ab)use the current internet revocation infrastructure and build on top of that.
 
