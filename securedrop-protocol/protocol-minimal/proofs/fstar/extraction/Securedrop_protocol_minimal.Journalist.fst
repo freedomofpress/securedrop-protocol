@@ -8,7 +8,7 @@ let _ =
   (* The implicit dependencies arise from typeclasses instances. *)
   let open Anyhow.Error in
   let open Rand_core in
-  let open Securedrop_protocol_minimal.Keys in
+  let open Securedrop_protocol_minimal.Message in
   let open Securedrop_protocol_minimal.Sign in
   let open Securedrop_protocol_minimal.Traits in
   ()
@@ -25,7 +25,8 @@ type t_Journalist = {
   f_message_keys:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle
     Alloc.Alloc.t_Global;
   f_reply_apke:Securedrop_protocol_minimal.Message.t_MessageKeyPair;
-  f_signed_longterm_key_bundle:Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle;
+  f_self_signature:Securedrop_protocol_minimal.Sign.t_Signature
+  Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey;
   f_session_storage:Securedrop_protocol_minimal.Keys.t_SessionStorage
 }
 
@@ -382,55 +383,6 @@ let impl_4: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
           t_Slice Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle)
   }
 
-[@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
-  {
-    f_enroll_pre = (fun (self: t_Journalist) -> true);
-    f_enroll_post
-    =
-    (fun (self: t_Journalist) (out: Securedrop_protocol_minimal.Keys.t_Enrollment) -> true);
-    f_enroll
-    =
-    (fun (self: t_Journalist) ->
-        {
-          Securedrop_protocol_minimal.Keys.f_bundle
-          =
-          Core_models.Clone.f_clone #Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle
-            #FStar.Tactics.Typeclasses.solve
-            self.f_signed_longterm_key_bundle;
-          Securedrop_protocol_minimal.Keys.f_verification_key
-          =
-          self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk
-        }
-        <:
-        Securedrop_protocol_minimal.Keys.t_Enrollment);
-    f_signed_keybundles_pre = (fun (self: t_Journalist) -> true);
-    f_signed_keybundles_post
-    =
-    (fun
-        (self: t_Journalist)
-        (out:
-          Alloc.Vec.t_Vec
-            (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-              Securedrop_protocol_minimal.Sign.t_Signature
-              Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global)
-        ->
-        true);
-    f_signed_keybundles
-    =
-    (fun (self: t_Journalist) ->
-        signed_keybundle_publics (Alloc.Vec.impl_1__as_slice self.f_message_keys
-            <:
-            t_Slice Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle));
-    f_signing_key_pre = (fun (self: t_Journalist) -> true);
-    f_signing_key_post
-    =
-    (fun (self: t_Journalist) (out: Securedrop_protocol_minimal.Sign.t_VerifyingKey) -> true);
-    f_signing_key
-    =
-    fun (self: t_Journalist) -> self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk
-  }
-
 #push-options "--admit_smt_queries true"
 
 /// Generate one ephemeral key bundle and sign its pubkeys.
@@ -520,6 +472,69 @@ val impl_Journalist__public': self: t_Journalist -> idx: usize -> t_JournalistPu
 
 unfold
 let impl_Journalist__public = impl_Journalist__public'
+
+/// Long-term public keys with the signature over them.
+let impl_Journalist__signed_longterm_key_bundle (self: t_Journalist)
+    : Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle =
+  Securedrop_protocol_minimal.Keys.impl_SignedLongtermKeyBundle__new (Securedrop_protocol_minimal.Keys.impl_LongtermKeyBundle__new
+        (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Message.t_MessagePublicKey
+            #FStar.Tactics.Typeclasses.solve
+            (Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key self.f_reply_apke
+              <:
+              Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+          <:
+          Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+        self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk
+      <:
+      Securedrop_protocol_minimal.Keys.t_LongtermKeyBundle)
+    self.f_self_signature
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
+  {
+    f_enroll_pre = (fun (self: t_Journalist) -> true);
+    f_enroll_post
+    =
+    (fun (self: t_Journalist) (out: Securedrop_protocol_minimal.Keys.t_Enrollment) -> true);
+    f_enroll
+    =
+    (fun (self: t_Journalist) ->
+        {
+          Securedrop_protocol_minimal.Keys.f_bundle
+          =
+          impl_Journalist__signed_longterm_key_bundle self;
+          Securedrop_protocol_minimal.Keys.f_verification_key
+          =
+          self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk
+        }
+        <:
+        Securedrop_protocol_minimal.Keys.t_Enrollment);
+    f_signed_keybundles_pre = (fun (self: t_Journalist) -> true);
+    f_signed_keybundles_post
+    =
+    (fun
+        (self: t_Journalist)
+        (out:
+          Alloc.Vec.t_Vec
+            (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
+              Securedrop_protocol_minimal.Sign.t_Signature
+              Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global)
+        ->
+        true);
+    f_signed_keybundles
+    =
+    (fun (self: t_Journalist) ->
+        signed_keybundle_publics (Alloc.Vec.impl_1__as_slice self.f_message_keys
+            <:
+            t_Slice Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle));
+    f_signing_key_pre = (fun (self: t_Journalist) -> true);
+    f_signing_key_post
+    =
+    (fun (self: t_Journalist) (out: Securedrop_protocol_minimal.Sign.t_VerifyingKey) -> true);
+    f_signing_key
+    =
+    fun (self: t_Journalist) -> self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk
+  }
 
 /// Generate `n` fresh signed ephemeral key bundles and retain them in memory.
 /// The public halves are uploaded to the server via
