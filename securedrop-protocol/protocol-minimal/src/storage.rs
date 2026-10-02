@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::message::MessagePublicKey;
 use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{JournalistLongTermKey, NewsroomOnJournalist, Signature, VerifyingKey};
-use crate::{Enrollment, Envelope, SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
+use crate::{Enrollment, Envelope, SignedKeyBundlePublic, SignedLongtermKeyBundle};
 
 pub type ServerMessageStore = HashMap<Uuid, Envelope>;
 
@@ -17,10 +17,7 @@ pub struct ServerStorage {
         Uuid,
         (
             VerifyingKey,
-            DHPublicKey,
-            MessagePublicKey,
-            Signature<JournalistLongTermKey>,
-            SignedLongtermPubKeyBytes,
+            SignedLongtermKeyBundle,
             Signature<NewsroomOnJournalist>,
         ),
     >,
@@ -117,10 +114,7 @@ impl ServerStorage {
         Uuid,
         (
             VerifyingKey,
-            DHPublicKey,
-            MessagePublicKey,
-            Signature<JournalistLongTermKey>,
-            SignedLongtermPubKeyBytes,
+            SignedLongtermKeyBundle,
             Signature<NewsroomOnJournalist>,
         ),
     > {
@@ -134,15 +128,10 @@ impl ServerStorage {
         newsroom_signature: Signature<NewsroomOnJournalist>,
     ) -> Uuid {
         let journalist_id = Uuid::new_v4();
+
         // match hashmap above
-        let values = (
-            journalist.keys.0,
-            journalist.keys.1,
-            journalist.keys.2,
-            journalist.selfsig,
-            journalist.bundle,
-            newsroom_signature,
-        );
+        let bundle = journalist.bundle;
+        let values = (journalist.verification_key, bundle, newsroom_signature);
 
         self.journalists.insert(journalist_id, values);
         journalist_id
@@ -153,7 +142,7 @@ impl ServerStorage {
     ///
     /// TODO: Remove?
     pub fn find_journalist_by_verifying_key(&self, verifying_key: &VerifyingKey) -> Option<Uuid> {
-        for (journalist_id, (stored_vk, _, _, _, _, _)) in &self.journalists {
+        for (journalist_id, (stored_vk, _, _)) in &self.journalists {
             if stored_vk.into_bytes() == verifying_key.into_bytes() {
                 return Some(*journalist_id);
             }

@@ -30,7 +30,7 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
     let mut trusted_senders: HashSet<Vec<u8>> = HashSet::new();
     for journalist in &welcome.journalists {
         // A journalist replies using their long-term APKE key.
-        trusted_senders.insert(journalist.reply_apke_pk.as_bytes());
+        trusted_senders.insert(journalist.signed_longterm_key_bundle.apke().as_bytes());
     }
 
     // Fetch the challenge set and solve it with our fetch key.

@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 
 use crate::ciphertext::Plaintext;
 use crate::keys::{
-    Enrollment, KeyBundlePublic, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermPubKeyBytes,
+    Enrollment, KeyBundlePublic, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermKeyBundle,
 };
 
 // Sealed traits that downstream crates should not implement.
@@ -39,7 +39,7 @@ pub trait UserPublic {
 pub trait JournalistPublic: UserPublic {
     fn verifying_key(&self) -> &VerifyingKey;
     fn self_signature(&self) -> &Signature<JournalistLongTermKey>;
-    fn signed_keybytes(&self) -> &SignedLongtermPubKeyBytes;
+    fn signed_keybytes(&self) -> &SignedLongtermKeyBundle;
     fn ephemeral_bundle(&self) -> &KeyBundlePublic;
     fn ephemeral_signature(&self) -> &Signature<JournalistEphemeralKey>;
 }

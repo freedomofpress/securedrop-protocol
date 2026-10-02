@@ -1,5 +1,5 @@
 use crate::FetchResponse;
-use crate::keys::{SignedKeyBundlePublic, SignedLongtermPubKeyBytes};
+use crate::keys::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
 use crate::message::MessagePublicKey;
 use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{
@@ -18,10 +18,7 @@ use uuid::Uuid;
 #[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct JournalistLongTermView {
     pub vk: VerifyingKey,
-    pub fetch_pk: DHPublicKey,
-    pub reply_apke_pk: MessagePublicKey,
-    pub signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
-    pub selfsig: Signature<JournalistLongTermKey>,
+    pub signed_longterm_key_bundle: SignedLongtermKeyBundle,
     pub nr_signature: Signature<NewsroomOnJournalist>,
 }
 
