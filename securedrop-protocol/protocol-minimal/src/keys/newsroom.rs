@@ -4,7 +4,6 @@ use crate::sign::{DomainTag, Signature, SigningKey, VerifyingKey};
 
 /// Newsroom keypair used for signing.
 pub struct NewsroomKeyPair {
-    vk: VerifyingKey,
     sk: SigningKey,
 }
 
@@ -15,7 +14,7 @@ impl core::fmt::Debug for NewsroomKeyPair {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // Redacts secret key
         f.debug_struct("NewsroomKeyPair")
-            .field("vk", &self.vk)
+            .field("vk", &self.sk.vk)
             .finish_non_exhaustive()
     }
 }
@@ -23,13 +22,12 @@ impl core::fmt::Debug for NewsroomKeyPair {
 impl NewsroomKeyPair {
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, anyhow::Error> {
         let sk = SigningKey::new(rng)?;
-        let vk = sk.vk;
-        Ok(Self { sk, vk })
+        Ok(Self { sk })
     }
 
     /// Returns the verification key.
     pub fn verifying_key(&self) -> VerifyingKey {
-        self.vk
+        self.sk.vk
     }
 
     /// Sign `msg` in domain `D` using the newsroom signing key.
@@ -44,9 +42,9 @@ impl NewsroomKeyPair {
 
     /// Reconstruct a [`NewsroomKeyPair`] from its secret.
     pub fn from_bytes(seed: [u8; SigningKey::SEED_LEN]) -> Self {
-        let sk = SigningKey::from_seed(seed);
-        let vk = sk.vk;
-        Self { vk, sk }
+        Self {
+            sk: SigningKey::from_seed(seed),
+        }
     }
 }
 
