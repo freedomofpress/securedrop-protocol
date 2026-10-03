@@ -261,10 +261,7 @@ type t_SessionStorage = {
 }
 
 /// A key pair for FPF (Freedom of the Press Foundation).
-type t_FPFKeyPair = {
-  f_sk:Securedrop_protocol_minimal.Sign.t_SigningKey;
-  f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey
-}
+type t_FPFKeyPair = { f_sk:Securedrop_protocol_minimal.Sign.t_SigningKey }
 
 /// Generate a new FPF key pair.
 /// # Errors
@@ -285,11 +282,8 @@ let impl_FPFKeyPair__new
     out <: Core_models.Result.t_Result Securedrop_protocol_minimal.Sign.t_SigningKey Anyhow.t_Error
   with
   | Core_models.Result.Result_Ok sk ->
-    let vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey =
-      sk.Securedrop_protocol_minimal.Sign.f_vk
-    in
     let hax_temp_output:Core_models.Result.t_Result t_FPFKeyPair Anyhow.t_Error =
-      Core_models.Result.Result_Ok ({ f_sk = sk; f_vk = vk } <: t_FPFKeyPair)
+      Core_models.Result.Result_Ok ({ f_sk = sk } <: t_FPFKeyPair)
       <:
       Core_models.Result.t_Result t_FPFKeyPair Anyhow.t_Error
     in
@@ -302,7 +296,8 @@ let impl_FPFKeyPair__new
 
 /// Returns the verification key.
 let impl_FPFKeyPair__verifying_key (self: t_FPFKeyPair)
-    : Securedrop_protocol_minimal.Sign.t_VerifyingKey = self.f_vk
+    : Securedrop_protocol_minimal.Sign.t_VerifyingKey =
+  self.f_sk.Securedrop_protocol_minimal.Sign.f_vk
 
 /// Sign `msg` in domain `D` using the FPF signing key.
 let impl_FPFKeyPair__sign
@@ -321,10 +316,4 @@ let impl_FPFKeyPair__as_bytes (self: t_FPFKeyPair) : t_Array u8 (mk_usize 32) =
 
 /// Reconstruct an [`FPFKeyPair`] from its secret.
 let impl_FPFKeyPair__from_bytes (seed: t_Array u8 (mk_usize 32)) : t_FPFKeyPair =
-  let sk:Securedrop_protocol_minimal.Sign.t_SigningKey =
-    Securedrop_protocol_minimal.Sign.impl_SigningKey__from_seed seed
-  in
-  let vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey =
-    sk.Securedrop_protocol_minimal.Sign.f_vk
-  in
-  { f_sk = sk; f_vk = vk } <: t_FPFKeyPair
+  { f_sk = Securedrop_protocol_minimal.Sign.impl_SigningKey__from_seed seed } <: t_FPFKeyPair
