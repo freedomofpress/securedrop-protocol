@@ -601,11 +601,17 @@ let impl_Journalist__from_long_term_bytes = impl_Journalist__from_long_term_byte
 
 /// Serialized length of `sig_seed || fetch_sk || apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk`.
 let impl_JournalistLongTermBytes__LEN: usize =
-  (((mk_usize 32 +! mk_usize 32 <: usize) +! mk_usize 32 <: usize) +!
-    Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PRIVATE_KEY_LEN
+  (((Securedrop_protocol_minimal.Sign.impl_SigningKey__SEED_LEN +!
+        Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPrivateKey__LEN
+        <:
+        usize) +!
+      Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPrivateKey__LEN
+      <:
+      usize) +!
+    Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PrivateKey__LEN
     <:
     usize) +!
-  Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PUBLIC_KEY_LEN
+  Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
 
 /// Serialize as `sig_seed || fetch_sk || apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk`.
 let impl_JournalistLongTermBytes__as_bytes (self: t_JournalistLongTermBytes)
@@ -684,18 +690,24 @@ let impl_JournalistLongTermBytes__from_bytes (bytes: t_Slice u8)
     Core_models.Result.t_Result t_JournalistLongTermBytes Anyhow.t_Error
   else
     let (sig_seed: t_Slice u8), (rest: t_Slice u8) =
-      Core_models.Slice.impl__split_at #u8 bytes (mk_usize 32)
+      Core_models.Slice.impl__split_at #u8
+        bytes
+        Securedrop_protocol_minimal.Sign.impl_SigningKey__SEED_LEN
     in
     let (fetch_sk: t_Slice u8), (rest: t_Slice u8) =
-      Core_models.Slice.impl__split_at #u8 rest (mk_usize 32)
+      Core_models.Slice.impl__split_at #u8
+        rest
+        Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPrivateKey__LEN
     in
     let (apke_dhakem_sk: t_Slice u8), (rest: t_Slice u8) =
-      Core_models.Slice.impl__split_at #u8 rest (mk_usize 32)
+      Core_models.Slice.impl__split_at #u8
+        rest
+        Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPrivateKey__LEN
     in
     let (apke_mlkem_sk: t_Slice u8), (apke_mlkem_pk: t_Slice u8) =
       Core_models.Slice.impl__split_at #u8
         rest
-        Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PRIVATE_KEY_LEN
+        Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PrivateKey__LEN
     in
     Core_models.Result.Result_Ok
     ({
@@ -798,15 +810,17 @@ let impl_Journalist__load_ephemeral_bundles = impl_Journalist__load_ephemeral_bu
 /// Serialized length of
 /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk`.
 let impl_EphemeralBundleBytes__LEN: usize =
-  (((mk_usize 32 +! Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PRIVATE_KEY_LEN <: usize
-      ) +!
-      Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PUBLIC_KEY_LEN
+  (((Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPrivateKey__LEN +!
+        Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PrivateKey__LEN
+        <:
+        usize) +!
+      Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
       <:
       usize) +!
-    Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PRIVATE_KEY_LEN
+    Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPrivateKey__LEN
     <:
     usize) +!
-  Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PUBLIC_KEY_LEN
+  Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
 
 let impl_EphemeralBundleBytes__from_bundle
       (bundle: Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
@@ -931,22 +945,24 @@ let impl_EphemeralBundleBytes__from_bytes (bytes: t_Slice u8)
     Core_models.Result.t_Result t_EphemeralBundleBytes Anyhow.t_Error
   else
     let (apke_dhakem_sk: t_Slice u8), (rest: t_Slice u8) =
-      Core_models.Slice.impl__split_at #u8 bytes (mk_usize 32)
+      Core_models.Slice.impl__split_at #u8
+        bytes
+        Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPrivateKey__LEN
     in
     let (apke_mlkem_sk: t_Slice u8), (rest: t_Slice u8) =
       Core_models.Slice.impl__split_at #u8
         rest
-        Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PRIVATE_KEY_LEN
+        Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PrivateKey__LEN
     in
     let (apke_mlkem_pk: t_Slice u8), (rest: t_Slice u8) =
       Core_models.Slice.impl__split_at #u8
         rest
-        Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PUBLIC_KEY_LEN
+        Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
     in
     let (metadata_sk: t_Slice u8), (metadata_pk: t_Slice u8) =
       Core_models.Slice.impl__split_at #u8
         rest
-        Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PRIVATE_KEY_LEN
+        Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPrivateKey__LEN
     in
     Core_models.Result.Result_Ok
     ({

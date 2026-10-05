@@ -27,8 +27,7 @@ use rand_core::{CryptoRng, RngCore};
 use serde::de::Error as _;
 
 use crate::primitives::xwing::{
-    LEN_XWING_SHAREDSECRET_ENCAPS, XWING_PRIVATE_KEY_LEN, XWING_PUBLIC_KEY_LEN, XWingPrivateKey,
-    XWingPublicKey, generate_xwing_keypair,
+    LEN_XWING_SHAREDSECRET_ENCAPS, XWingPrivateKey, XWingPublicKey, generate_xwing_keypair,
 };
 
 // TODO: maybe needs a better location
@@ -61,8 +60,8 @@ impl MetadataKeyPair {
 
     /// Reconstruct a keypair from the raw X-Wing secret and public key bytes
     pub(crate) fn from_key_bytes(
-        sk: [u8; XWING_PRIVATE_KEY_LEN],
-        pk: [u8; XWING_PUBLIC_KEY_LEN],
+        sk: [u8; XWingPrivateKey::LEN],
+        pk: [u8; XWingPublicKey::LEN],
     ) -> Self {
         Self {
             sk: MetadataPrivateKey(XWingPrivateKey::from_bytes(sk)),
@@ -71,12 +70,12 @@ impl MetadataKeyPair {
     }
 
     /// Raw X-Wing secret key bytes
-    pub(crate) fn secret_bytes(&self) -> &[u8; XWING_PRIVATE_KEY_LEN] {
+    pub(crate) fn secret_bytes(&self) -> &[u8; XWingPrivateKey::LEN] {
         self.sk.0.as_bytes()
     }
 
     /// Raw X-Wing public key bytes
-    pub(crate) fn public_bytes(&self) -> &[u8; XWING_PUBLIC_KEY_LEN] {
+    pub(crate) fn public_bytes(&self) -> &[u8; XWingPublicKey::LEN] {
         self.pk.0.as_bytes()
     }
 }
@@ -167,7 +166,9 @@ pub fn keygen<R: RngCore + CryptoRng>(rng: &mut R) -> Result<MetadataKeyPair, an
 /// # Errors
 ///
 /// Returns an error if X-Wing key generation fails.
-pub(crate) fn deterministic_keygen(randomness: [u8; 32]) -> Result<MetadataKeyPair, anyhow::Error> {
+pub(crate) fn deterministic_keygen(
+    randomness: [u8; XWingPrivateKey::SEED_LEN],
+) -> Result<MetadataKeyPair, anyhow::Error> {
     use crate::primitives::xwing::deterministic_keygen as xwing_derand;
     let (sk_s, pk_s) = xwing_derand(randomness)?;
     Ok(MetadataKeyPair {
@@ -177,6 +178,8 @@ pub(crate) fn deterministic_keygen(randomness: [u8; 32]) -> Result<MetadataKeyPa
 }
 
 impl MetadataPublicKey {
+    pub const LEN: usize = XWingPublicKey::LEN;
+
     /// Returns the public key as bytes.
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
@@ -188,10 +191,10 @@ impl MetadataPublicKey {
     ///
     /// Returns an error if the byte slice has incorrect length.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
-        let arr: [u8; XWING_PUBLIC_KEY_LEN] = bytes.try_into().map_err(|_| {
+        let arr: [u8; XWingPublicKey::LEN] = bytes.try_into().map_err(|_| {
             anyhow::anyhow!(
                 "Invalid MetadataPublicKey length: expected {}, got {}",
-                XWING_PUBLIC_KEY_LEN,
+                XWingPublicKey::LEN,
                 bytes.len()
             )
         })?;
@@ -274,8 +277,8 @@ pub fn decrypt(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
-    use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
+    use crate::primitives::dh_akem::DhAkemPublicKey;
+    use crate::primitives::mlkem::MLKEM768PublicKey;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{SeedableRng, TryRng};
@@ -292,7 +295,7 @@ mod tests {
             let mut rng = get_rng();
             let kp = keygen(&mut rng).expect("KGen failed");
 
-            let mut fake_key_bytes: [u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN] = [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN];
+            let mut fake_key_bytes: [u8; DhAkemPublicKey::LEN + MLKEM768PublicKey::LEN] = [0u8; DhAkemPublicKey::LEN + MLKEM768PublicKey::LEN];
             rng.try_fill_bytes(&mut fake_key_bytes);
 
             let m = MessagePublicKey::from_bytes(&fake_key_bytes).unwrap();
@@ -309,8 +312,8 @@ mod tests {
         let mut rng = get_rng();
         let kp = keygen(&mut rng).expect("KGen failed");
         let wrong_kp = keygen(&mut rng).expect("KGen failed");
-        let mut fake_key_bytes: [u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN] =
-            [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN];
+        let mut fake_key_bytes: [u8; DhAkemPublicKey::LEN + MLKEM768PublicKey::LEN] =
+            [0u8; DhAkemPublicKey::LEN + MLKEM768PublicKey::LEN];
         rng.try_fill_bytes(&mut fake_key_bytes);
 
         let m = MessagePublicKey::from_bytes(&fake_key_bytes).unwrap();

@@ -17,6 +17,8 @@ let v_XWING_PRIVATE_KEY_LEN: usize = mk_usize 32
 
 let v_LEN_XWING_SHAREDSECRET_ENCAPS: usize = mk_usize 1120
 
+let v_XWING_SEED_LEN: usize = v_XWING_PRIVATE_KEY_LEN
+
 /// XWING public key.
 type t_XWingPublicKey = | XWingPublicKey : t_Array u8 (mk_usize 1216) -> t_XWingPublicKey
 
@@ -43,12 +45,18 @@ let impl_6 = impl_6'
 let impl_7: Core_models.Clone.t_Clone t_XWingPrivateKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
+let impl_XWingPublicKey__LEN: usize = v_XWING_PUBLIC_KEY_LEN
+
 /// Get the public key as bytes
 let impl_XWingPublicKey__as_bytes (self: t_XWingPublicKey) : t_Array u8 (mk_usize 1216) = self._0
 
 /// Create from bytes
 let impl_XWingPublicKey__from_bytes (bytes: t_Array u8 (mk_usize 1216)) : t_XWingPublicKey =
   XWingPublicKey bytes <: t_XWingPublicKey
+
+let impl_XWingPrivateKey__LEN: usize = v_XWING_PRIVATE_KEY_LEN
+
+let impl_XWingPrivateKey__SEED_LEN: usize = v_XWING_SEED_LEN
 
 /// Get the private key as bytes
 let impl_XWingPrivateKey__as_bytes (self: t_XWingPrivateKey) : t_Array u8 (mk_usize 32) = self._0

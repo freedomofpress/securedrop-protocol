@@ -23,6 +23,8 @@ let v_DH_AKEM_SECRET_LEN: usize =
 let v_DH_AKEM_ENCAPS_SECRET_LEN: usize =
   Securedrop_protocol_minimal.Primitives.Provider.Curve25519.v_LEN_DH_SHARE
 
+let v_DH_AKEM_SEED_LEN: usize = v_DH_AKEM_PRIVATE_KEY_LEN
+
 /// An DH-AKEM public key.
 type t_DhAkemPublicKey = | DhAkemPublicKey : t_Array u8 (mk_usize 32) -> t_DhAkemPublicKey
 
@@ -62,10 +64,16 @@ let impl_9 = impl_9'
 let impl_10: Core_models.Clone.t_Clone t_DhAkemSecret =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
+let impl_DhAkemPublicKey__LEN: usize = v_DH_AKEM_PUBLIC_KEY_LEN
+
 let impl_DhAkemPublicKey__as_bytes (self: t_DhAkemPublicKey) : t_Array u8 (mk_usize 32) = self._0
 
 let impl_DhAkemPublicKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_DhAkemPublicKey =
   DhAkemPublicKey bytes <: t_DhAkemPublicKey
+
+let impl_DhAkemPrivateKey__LEN: usize = v_DH_AKEM_PRIVATE_KEY_LEN
+
+let impl_DhAkemPrivateKey__SEED_LEN: usize = v_DH_AKEM_SEED_LEN
 
 let impl_DhAkemPrivateKey__as_bytes (self: t_DhAkemPrivateKey) : t_Array u8 (mk_usize 32) = self._0
 

@@ -93,6 +93,8 @@ impl MessageKeyPair {
 }
 
 impl MessagePublicKey {
+    pub const LEN: usize = DhAkemPublicKey::LEN + MLKEM768PublicKey::LEN;
+
     /// Serialize the key tuple in canonical byte order: `pk1 || pk2`.
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
@@ -107,21 +109,18 @@ impl MessagePublicKey {
     ///
     /// Returns an error if the byte slice has incorrect length.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
-        use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
-
-        if bytes.len() != DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN {
+        if bytes.len() != Self::LEN {
             return Err(anyhow::anyhow!(
                 "Invalid MessagePublicKey length: expected {}, got {}",
-                DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN,
+                Self::LEN,
                 bytes.len()
             ));
         }
 
-        let dhakem_bytes: [u8; DH_AKEM_PUBLIC_KEY_LEN] = bytes[..DH_AKEM_PUBLIC_KEY_LEN]
+        let dhakem_bytes: [u8; DhAkemPublicKey::LEN] = bytes[..DhAkemPublicKey::LEN]
             .try_into()
             .expect("checked length");
-        let mlkem_bytes: [u8; MLKEM768_PUBLIC_KEY_LEN] = bytes[DH_AKEM_PUBLIC_KEY_LEN..]
+        let mlkem_bytes: [u8; MLKEM768PublicKey::LEN] = bytes[DhAkemPublicKey::LEN..]
             .try_into()
             .expect("checked length");
 
@@ -239,8 +238,8 @@ pub fn keygen<R: RngCore + CryptoRng>(rng: &mut R) -> Result<MessageKeyPair, Err
 ///
 /// For use in passphrase-derived key generation only.
 pub(crate) fn deterministic_keygen(
-    dh_seed: [u8; 32],
-    mlkem_seed: [u8; 64],
+    dh_seed: [u8; DhAkemPrivateKey::SEED_LEN],
+    mlkem_seed: [u8; MLKEM768PrivateKey::SEED_LEN],
 ) -> Result<MessageKeyPair, Error> {
     let (sk1, pk1) = dhakem_derand(dh_seed)?;
     let (sk2, pk2) = mlkem_derand(mlkem_seed)?;

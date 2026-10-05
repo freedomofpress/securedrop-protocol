@@ -6,10 +6,11 @@ use rand_core::{CryptoRng, RngCore};
 // https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.203.pdf
 // See Table 2 which shows k = 3 for ML-KEM-768 and
 // Algorithm 19 which defines the size of the encap and decap keys in terms of k
-pub const MLKEM768_PUBLIC_KEY_LEN: usize = 1184;
-pub const MLKEM768_PRIVATE_KEY_LEN: usize = 2400;
+const MLKEM768_PUBLIC_KEY_LEN: usize = 1184;
+const MLKEM768_PRIVATE_KEY_LEN: usize = 2400;
 
 pub(crate) const LEN_MLKEM_SHAREDSECRET_ENCAPS: usize = 1088;
+const MLKEM768_SEED_LEN: usize = KEY_GENERATION_SEED_SIZE;
 
 /// MLKEM-768 public key.
 #[derive(Debug, Clone)]
@@ -20,6 +21,8 @@ pub(crate) struct MLKEM768PublicKey([u8; MLKEM768_PUBLIC_KEY_LEN]);
 pub(crate) struct MLKEM768PrivateKey([u8; MLKEM768_PRIVATE_KEY_LEN]);
 
 impl MLKEM768PublicKey {
+    pub(crate) const LEN: usize = MLKEM768_PUBLIC_KEY_LEN;
+
     pub(crate) fn as_bytes(&self) -> &[u8; MLKEM768_PUBLIC_KEY_LEN] {
         &self.0
     }
@@ -30,6 +33,9 @@ impl MLKEM768PublicKey {
 }
 
 impl MLKEM768PrivateKey {
+    pub(crate) const LEN: usize = MLKEM768_PRIVATE_KEY_LEN;
+    pub(crate) const SEED_LEN: usize = MLKEM768_SEED_LEN;
+
     pub(crate) fn as_bytes(&self) -> &[u8; MLKEM768_PRIVATE_KEY_LEN] {
         &self.0
     }

@@ -5,7 +5,7 @@ use crate::primitives::ristretto255::{
     DHPublicKey, dh_shared_secret, generate_dh_keypair, generate_random_scalar,
     random_dh_public_key,
 };
-use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
+use crate::primitives::xwing::XWingPublicKey;
 use crate::primitives::{decrypt_message_id, derive_challenge_key, encrypt_message_id};
 use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, UserSecret};
 use alloc::vec::Vec;
@@ -206,7 +206,7 @@ pub fn solve_fetch_challenges<S: UserSecret>(
 /// but for toy purposes, everyone builds a Plaintext message the same way
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
-    let mut reply_key_pq_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
+    let mut reply_key_pq_hybrid = [0u8; XWingPublicKey::LEN];
     reply_key_pq_hybrid.copy_from_slice(sender.message_metadata_pk().as_bytes());
 
     Plaintext {
@@ -222,7 +222,6 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::primitives::ristretto255::DH_PUBLIC_KEY_LEN;
     use crate::{Journalist, Source, SourcePublicView, storage::ServerStorage};
 
     use super::*;
@@ -262,7 +261,7 @@ mod tests {
         );
         assert_eq!(
             pt.len(),
-            &pt_ref.msg.len() + DH_PUBLIC_KEY_LEN + XWING_PUBLIC_KEY_LEN
+            &pt_ref.msg.len() + DHPublicKey::LEN + XWingPublicKey::LEN
         );
     }
 

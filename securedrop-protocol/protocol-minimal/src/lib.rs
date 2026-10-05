@@ -25,10 +25,8 @@ pub use keys::{
     DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, SessionStorage, SignedKeyBundlePublic,
     SignedLongtermKeyBundle, SigningKeyPair,
 };
-pub use primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
-pub use primitives::mlkem::{MLKEM768_PRIVATE_KEY_LEN, MLKEM768_PUBLIC_KEY_LEN};
-pub use primitives::ristretto255::DH_PUBLIC_KEY_LEN;
-pub use primitives::xwing::XWING_PUBLIC_KEY_LEN;
+
+pub use primitives::ristretto255::DHPublicKey;
 
 pub use traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
 

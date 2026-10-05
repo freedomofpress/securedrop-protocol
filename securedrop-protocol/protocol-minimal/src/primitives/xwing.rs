@@ -3,9 +3,10 @@ use crate::primitives::provider::kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
 
 // From: https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/#name-encoding-and-sizes
-pub const XWING_PUBLIC_KEY_LEN: usize = 1216;
-pub(crate) const XWING_PRIVATE_KEY_LEN: usize = 32;
+const XWING_PUBLIC_KEY_LEN: usize = 1216;
+const XWING_PRIVATE_KEY_LEN: usize = 32;
 pub(crate) const LEN_XWING_SHAREDSECRET_ENCAPS: usize = 1120;
+const XWING_SEED_LEN: usize = XWING_PRIVATE_KEY_LEN;
 
 /// XWING public key.
 #[derive(Debug, Clone)]
@@ -16,6 +17,8 @@ pub(crate) struct XWingPublicKey([u8; XWING_PUBLIC_KEY_LEN]);
 pub(crate) struct XWingPrivateKey([u8; XWING_PRIVATE_KEY_LEN]);
 
 impl XWingPublicKey {
+    pub(crate) const LEN: usize = XWING_PUBLIC_KEY_LEN;
+
     /// Get the public key as bytes
     pub(crate) fn as_bytes(&self) -> &[u8; XWING_PUBLIC_KEY_LEN] {
         &self.0
@@ -28,6 +31,9 @@ impl XWingPublicKey {
 }
 
 impl XWingPrivateKey {
+    pub(crate) const LEN: usize = XWING_PRIVATE_KEY_LEN;
+    pub(crate) const SEED_LEN: usize = XWING_SEED_LEN;
+
     /// Get the private key as bytes
     pub(crate) fn as_bytes(&self) -> &[u8; XWING_PRIVATE_KEY_LEN] {
         &self.0
@@ -54,7 +60,7 @@ impl From<XWingPublicKey> for HpkePublicKey {
 /// Generate XWING keypair from external randomness
 /// FOR TEST PURPOSES ONLY
 pub(crate) fn deterministic_keygen(
-    randomness: [u8; 32],
+    randomness: [u8; XWING_SEED_LEN],
 ) -> Result<(XWingPrivateKey, XWingPublicKey), anyhow::Error> {
     use crate::primitives::provider::kem::{Algorithm, key_gen_derand};
 

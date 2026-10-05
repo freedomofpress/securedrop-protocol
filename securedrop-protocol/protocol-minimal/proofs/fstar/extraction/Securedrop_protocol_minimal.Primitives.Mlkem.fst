@@ -16,6 +16,9 @@ let v_MLKEM768_PRIVATE_KEY_LEN: usize = mk_usize 2400
 
 let v_LEN_MLKEM_SHAREDSECRET_ENCAPS: usize = mk_usize 1088
 
+let v_MLKEM768_SEED_LEN: usize =
+  Securedrop_protocol_minimal.Primitives.Provider.Mlkem.v_KEY_GENERATION_SEED_SIZE
+
 /// MLKEM-768 public key.
 type t_MLKEM768PublicKey = | MLKEM768PublicKey : t_Array u8 (mk_usize 1184) -> t_MLKEM768PublicKey
 
@@ -43,11 +46,17 @@ let impl_4 = impl_4'
 let impl_5: Core_models.Clone.t_Clone t_MLKEM768PrivateKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
+let impl_MLKEM768PublicKey__LEN: usize = v_MLKEM768_PUBLIC_KEY_LEN
+
 let impl_MLKEM768PublicKey__as_bytes (self: t_MLKEM768PublicKey) : t_Array u8 (mk_usize 1184) =
   self._0
 
 let impl_MLKEM768PublicKey__from_bytes (bytes: t_Array u8 (mk_usize 1184)) : t_MLKEM768PublicKey =
   MLKEM768PublicKey bytes <: t_MLKEM768PublicKey
+
+let impl_MLKEM768PrivateKey__LEN: usize = v_MLKEM768_PRIVATE_KEY_LEN
+
+let impl_MLKEM768PrivateKey__SEED_LEN: usize = v_MLKEM768_SEED_LEN
 
 let impl_MLKEM768PrivateKey__as_bytes (self: t_MLKEM768PrivateKey) : t_Array u8 (mk_usize 2400) =
   self._0

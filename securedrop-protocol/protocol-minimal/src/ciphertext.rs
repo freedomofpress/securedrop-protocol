@@ -1,8 +1,8 @@
 use crate::message::MessageCiphertext;
 use crate::metadata::MetadataCiphertext;
 use crate::primitives::provider::constants::LEN_KMID;
-use crate::primitives::ristretto255::{DH_PUBLIC_KEY_LEN, DHPublicKey};
-use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
+use crate::primitives::ristretto255::DHPublicKey;
+use crate::primitives::xwing::XWingPublicKey;
 use alloc::vec::Vec;
 use anyhow::Error;
 #[cfg(not(hax))]
@@ -77,7 +77,7 @@ pub struct Plaintext {
     /// Fetching key: $pk_S^{fetch}$ in the spec
     pub sender_fetch_key: DHPublicKey,
     /// Metadata key: $pk_S^{PKE}$ in the spec
-    pub sender_reply_pubkey_hybrid: [u8; XWING_PUBLIC_KEY_LEN],
+    pub sender_reply_pubkey_hybrid: [u8; XWingPublicKey::LEN],
     /// Message
     pub msg: Vec<u8>,
 }
@@ -94,23 +94,22 @@ impl Plaintext {
     }
 
     pub fn len(&self) -> usize {
-        DH_PUBLIC_KEY_LEN + XWING_PUBLIC_KEY_LEN + self.msg.len()
+        DHPublicKey::LEN + XWingPublicKey::LEN + self.msg.len()
     }
 
     // Toy parsing only
     pub fn from_bytes(pt_bytes: &[u8]) -> Result<Self, Error> {
         let mut offset = 0;
 
-        let mut fetch_key_bytes = [0u8; DH_PUBLIC_KEY_LEN];
-        fetch_key_bytes.copy_from_slice(&pt_bytes[offset..offset + DH_PUBLIC_KEY_LEN]);
+        let mut fetch_key_bytes = [0u8; DHPublicKey::LEN];
+        fetch_key_bytes.copy_from_slice(&pt_bytes[offset..offset + DHPublicKey::LEN]);
 
         let sender_fetch_key = DHPublicKey::decode(fetch_key_bytes)?;
-        offset += DH_PUBLIC_KEY_LEN;
+        offset += DHPublicKey::LEN;
 
-        let mut sender_reply_pubkey_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
-        sender_reply_pubkey_hybrid
-            .copy_from_slice(&pt_bytes[offset..offset + XWING_PUBLIC_KEY_LEN]);
-        offset += XWING_PUBLIC_KEY_LEN;
+        let mut sender_reply_pubkey_hybrid = [0u8; XWingPublicKey::LEN];
+        sender_reply_pubkey_hybrid.copy_from_slice(&pt_bytes[offset..offset + XWingPublicKey::LEN]);
+        offset += XWingPublicKey::LEN;
 
         let msg = pt_bytes[offset..].to_vec();
 

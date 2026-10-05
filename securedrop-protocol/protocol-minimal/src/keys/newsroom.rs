@@ -38,12 +38,12 @@ impl NewsroomKeyPair {
     }
 
     /// The newsroom signing key used as a secret.
-    pub fn as_bytes(&self) -> [u8; 32] {
+    pub fn as_bytes(&self) -> [u8; SigningKey::SEED_LEN] {
         self.sk.as_bytes()
     }
 
     /// Reconstruct a [`NewsroomKeyPair`] from its secret.
-    pub fn from_bytes(seed: [u8; 32]) -> Self {
+    pub fn from_bytes(seed: [u8; SigningKey::SEED_LEN]) -> Self {
         let sk = SigningKey::from_seed(seed);
         let vk = sk.vk;
         Self { vk, sk }
@@ -57,7 +57,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn newsroom_keypair_seed_roundtrip(seed: [u8; 32]) {
+        fn newsroom_keypair_seed_roundtrip(seed: [u8; SigningKey::SEED_LEN]) {
             let kp = NewsroomKeyPair::from_bytes(seed);
             prop_assert_eq!(kp.as_bytes(), seed);
             let kp2 = NewsroomKeyPair::from_bytes(kp.as_bytes());
