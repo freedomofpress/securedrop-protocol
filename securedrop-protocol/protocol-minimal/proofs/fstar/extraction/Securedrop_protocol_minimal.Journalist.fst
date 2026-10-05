@@ -25,8 +25,6 @@ type t_Journalist = {
   f_message_keys:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle
     Alloc.Alloc.t_Global;
   f_reply_apke:Securedrop_protocol_minimal.Message.t_MessageKeyPair;
-  f_self_signature:Securedrop_protocol_minimal.Sign.t_Signature
-  Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey;
   f_session_storage:Securedrop_protocol_minimal.Keys.t_SessionStorage
 }
 
@@ -473,21 +471,31 @@ val impl_Journalist__public': self: t_Journalist -> idx: usize -> t_JournalistPu
 unfold
 let impl_Journalist__public = impl_Journalist__public'
 
-/// Long-term public keys with the signature over them.
+/// Self-sign the long-term public keys
 let impl_Journalist__signed_longterm_key_bundle (self: t_Journalist)
     : Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle =
-  Securedrop_protocol_minimal.Keys.impl_SignedLongtermKeyBundle__new (Securedrop_protocol_minimal.Keys.impl_LongtermKeyBundle__new
-        (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Message.t_MessagePublicKey
-            #FStar.Tactics.Typeclasses.solve
-            (Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key self.f_reply_apke
-              <:
-              Securedrop_protocol_minimal.Message.t_MessagePublicKey)
-          <:
-          Securedrop_protocol_minimal.Message.t_MessagePublicKey)
-        self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk
-      <:
-      Securedrop_protocol_minimal.Keys.t_LongtermKeyBundle)
-    self.f_self_signature
+  let longterm_bundle:Securedrop_protocol_minimal.Keys.t_LongtermKeyBundle =
+    Securedrop_protocol_minimal.Keys.impl_LongtermKeyBundle__new (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Message.t_MessagePublicKey
+          #FStar.Tactics.Typeclasses.solve
+          (Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key self.f_reply_apke
+            <:
+            Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+        <:
+        Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+      self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk
+  in
+  let
+  (self_signature:
+    Securedrop_protocol_minimal.Sign.t_Signature
+    Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey):Securedrop_protocol_minimal.Sign.t_Signature
+  Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey =
+    Securedrop_protocol_minimal.Sign.impl_SigningKey__sign #Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey
+      self.f_signing_key.Securedrop_protocol_minimal.Keys.f_sk
+      (Securedrop_protocol_minimal.Keys.impl_LongtermKeyBundle__as_bytes longterm_bundle
+        <:
+        t_Slice u8)
+  in
+  Securedrop_protocol_minimal.Keys.impl_SignedLongtermKeyBundle__new longterm_bundle self_signature
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
