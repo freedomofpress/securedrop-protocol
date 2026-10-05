@@ -64,10 +64,12 @@ pub(crate) fn load_ephemeral_secrets() -> Result<Vec<EphemeralBundleBytes>> {
             EphemeralBundleBytes::LEN
         );
     }
-    bytes
-        .chunks_exact(EphemeralBundleBytes::LEN)
+    Ok(bytes
+        .as_chunks::<{ EphemeralBundleBytes::LEN }>()
+        .0
+        .iter()
         .map(EphemeralBundleBytes::from_bytes)
-        .collect()
+        .collect())
 }
 
 /// Save ephemeral secrets to disk for later use

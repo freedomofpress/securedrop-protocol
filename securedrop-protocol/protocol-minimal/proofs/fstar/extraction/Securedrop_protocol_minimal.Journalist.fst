@@ -907,12 +907,113 @@ let impl_EphemeralBundleBytes__as_bytes (self: t_EphemeralBundleBytes)
 
 /// Deserialize from
 /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk` bytes.
+let impl_EphemeralBundleBytes__from_bytes (bytes: t_Array u8 (mk_usize 4864))
+    : t_EphemeralBundleBytes =
+  let (apke_dhakem_sk: t_Slice u8), (rest: t_Slice u8) =
+    Core_models.Slice.impl__split_at #u8
+      (bytes <: t_Slice u8)
+      Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPrivateKey__LEN
+  in
+  let (apke_mlkem_sk: t_Slice u8), (rest: t_Slice u8) =
+    Core_models.Slice.impl__split_at #u8
+      rest
+      Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PrivateKey__LEN
+  in
+  let (apke_mlkem_pk: t_Slice u8), (rest: t_Slice u8) =
+    Core_models.Slice.impl__split_at #u8
+      rest
+      Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
+  in
+  let (metadata_sk: t_Slice u8), (metadata_pk: t_Slice u8) =
+    Core_models.Slice.impl__split_at #u8
+      rest
+      Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPrivateKey__LEN
+  in
+  {
+    f_apke_dhakem_sk
+    =
+    Core_models.Result.impl__expect #(t_Array u8 (mk_usize 32))
+      #Core_models.Array.t_TryFromSliceError
+      (Core_models.Convert.f_try_into #(t_Slice u8)
+          #(t_Array u8 (mk_usize 32))
+          #FStar.Tactics.Typeclasses.solve
+          apke_dhakem_sk
+        <:
+        Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Core_models.Array.t_TryFromSliceError
+      )
+      "wrong checked length";
+    f_apke_mlkem_sk
+    =
+    Core_models.Result.impl__expect #(t_Array u8 (mk_usize 2400))
+      #Core_models.Array.t_TryFromSliceError
+      (Core_models.Convert.f_try_into #(t_Slice u8)
+          #(t_Array u8 (mk_usize 2400))
+          #FStar.Tactics.Typeclasses.solve
+          apke_mlkem_sk
+        <:
+        Core_models.Result.t_Result (t_Array u8 (mk_usize 2400))
+          Core_models.Array.t_TryFromSliceError)
+      "wrong checked length";
+    f_apke_mlkem_pk
+    =
+    Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1184))
+      #Core_models.Array.t_TryFromSliceError
+      (Core_models.Convert.f_try_into #(t_Slice u8)
+          #(t_Array u8 (mk_usize 1184))
+          #FStar.Tactics.Typeclasses.solve
+          apke_mlkem_pk
+        <:
+        Core_models.Result.t_Result (t_Array u8 (mk_usize 1184))
+          Core_models.Array.t_TryFromSliceError)
+      "wrong checked length";
+    f_metadata_sk
+    =
+    Core_models.Result.impl__expect #(t_Array u8 (mk_usize 32))
+      #Core_models.Array.t_TryFromSliceError
+      (Core_models.Convert.f_try_into #(t_Slice u8)
+          #(t_Array u8 (mk_usize 32))
+          #FStar.Tactics.Typeclasses.solve
+          metadata_sk
+        <:
+        Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Core_models.Array.t_TryFromSliceError
+      )
+      "wrong checked length";
+    f_metadata_pk
+    =
+    Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1216))
+      #Core_models.Array.t_TryFromSliceError
+      (Core_models.Convert.f_try_into #(t_Slice u8)
+          #(t_Array u8 (mk_usize 1216))
+          #FStar.Tactics.Typeclasses.solve
+          metadata_pk
+        <:
+        Core_models.Result.t_Result (t_Array u8 (mk_usize 1216))
+          Core_models.Array.t_TryFromSliceError)
+      "wrong checked length"
+  }
+  <:
+  t_EphemeralBundleBytes
+
+/// Deserialize from
+/// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk` bytes.
 /// # Errors
 /// Returns an error if the byte slice has the incorrect length.
-let impl_EphemeralBundleBytes__from_bytes (bytes: t_Slice u8)
+let impl_EphemeralBundleBytes__try_from_bytes (bytes: t_Slice u8)
     : Core_models.Result.t_Result t_EphemeralBundleBytes Anyhow.t_Error =
-  if (Core_models.Slice.impl__len #u8 bytes <: usize) <>. impl_EphemeralBundleBytes__LEN
-  then
+  match
+    Core_models.Convert.f_try_into #(t_Slice u8)
+      #(t_Array u8 (mk_usize 4864))
+      #FStar.Tactics.Typeclasses.solve
+      bytes
+    <:
+    Core_models.Result.t_Result (t_Array u8 (mk_usize 4864)) Core_models.Array.t_TryFromSliceError
+  with
+  | Core_models.Result.Result_Ok bytes ->
+    let (bytes: t_Array u8 (mk_usize 4864)):t_Array u8 (mk_usize 4864) = bytes in
+    Core_models.Result.Result_Ok (impl_EphemeralBundleBytes__from_bytes bytes)
+    <:
+    Core_models.Result.t_Result t_EphemeralBundleBytes Anyhow.t_Error
+  | Core_models.Result.Result_Err _ ->
     let args:(usize & usize) =
       impl_EphemeralBundleBytes__LEN, Core_models.Slice.impl__len #u8 bytes <: (usize & usize)
     in
@@ -941,93 +1042,5 @@ let impl_EphemeralBundleBytes__from_bytes (bytes: t_Slice u8)
               Alloc.String.t_String)
           <:
           Alloc.String.t_String))
-    <:
-    Core_models.Result.t_Result t_EphemeralBundleBytes Anyhow.t_Error
-  else
-    let (apke_dhakem_sk: t_Slice u8), (rest: t_Slice u8) =
-      Core_models.Slice.impl__split_at #u8
-        bytes
-        Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPrivateKey__LEN
-    in
-    let (apke_mlkem_sk: t_Slice u8), (rest: t_Slice u8) =
-      Core_models.Slice.impl__split_at #u8
-        rest
-        Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PrivateKey__LEN
-    in
-    let (apke_mlkem_pk: t_Slice u8), (rest: t_Slice u8) =
-      Core_models.Slice.impl__split_at #u8
-        rest
-        Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
-    in
-    let (metadata_sk: t_Slice u8), (metadata_pk: t_Slice u8) =
-      Core_models.Slice.impl__split_at #u8
-        rest
-        Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPrivateKey__LEN
-    in
-    Core_models.Result.Result_Ok
-    ({
-        f_apke_dhakem_sk
-        =
-        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 32))
-          #Core_models.Array.t_TryFromSliceError
-          (Core_models.Convert.f_try_into #(t_Slice u8)
-              #(t_Array u8 (mk_usize 32))
-              #FStar.Tactics.Typeclasses.solve
-              apke_dhakem_sk
-            <:
-            Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
-              Core_models.Array.t_TryFromSliceError)
-          "wrong checked length";
-        f_apke_mlkem_sk
-        =
-        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 2400))
-          #Core_models.Array.t_TryFromSliceError
-          (Core_models.Convert.f_try_into #(t_Slice u8)
-              #(t_Array u8 (mk_usize 2400))
-              #FStar.Tactics.Typeclasses.solve
-              apke_mlkem_sk
-            <:
-            Core_models.Result.t_Result (t_Array u8 (mk_usize 2400))
-              Core_models.Array.t_TryFromSliceError)
-          "wrong checked length";
-        f_apke_mlkem_pk
-        =
-        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1184))
-          #Core_models.Array.t_TryFromSliceError
-          (Core_models.Convert.f_try_into #(t_Slice u8)
-              #(t_Array u8 (mk_usize 1184))
-              #FStar.Tactics.Typeclasses.solve
-              apke_mlkem_pk
-            <:
-            Core_models.Result.t_Result (t_Array u8 (mk_usize 1184))
-              Core_models.Array.t_TryFromSliceError)
-          "wrong checked length";
-        f_metadata_sk
-        =
-        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 32))
-          #Core_models.Array.t_TryFromSliceError
-          (Core_models.Convert.f_try_into #(t_Slice u8)
-              #(t_Array u8 (mk_usize 32))
-              #FStar.Tactics.Typeclasses.solve
-              metadata_sk
-            <:
-            Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
-              Core_models.Array.t_TryFromSliceError)
-          "wrong checked length";
-        f_metadata_pk
-        =
-        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 1216))
-          #Core_models.Array.t_TryFromSliceError
-          (Core_models.Convert.f_try_into #(t_Slice u8)
-              #(t_Array u8 (mk_usize 1216))
-              #FStar.Tactics.Typeclasses.solve
-              metadata_pk
-            <:
-            Core_models.Result.t_Result (t_Array u8 (mk_usize 1216))
-              Core_models.Array.t_TryFromSliceError)
-          "wrong checked length"
-      }
-      <:
-      t_EphemeralBundleBytes)
     <:
     Core_models.Result.t_Result t_EphemeralBundleBytes Anyhow.t_Error

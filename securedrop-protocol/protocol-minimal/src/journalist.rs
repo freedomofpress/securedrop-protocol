@@ -492,28 +492,37 @@ impl EphemeralBundleBytes {
     /// # Errors
     ///
     /// Returns an error if the byte slice has the incorrect length.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
-        if bytes.len() != Self::LEN {
-            return Err(anyhow::anyhow!(
-                "Invalid EphemeralBundleBytes length: expected {}, got {}",
-                Self::LEN,
-                bytes.len()
-            ));
-        }
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
+        let bytes: [u8; Self::LEN] = match bytes.try_into() {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                return Err(anyhow::anyhow!(
+                    "Invalid EphemeralBundleBytes length: expected {}, got {}",
+                    Self::LEN,
+                    bytes.len()
+                ));
+            }
+        };
 
+        Ok(Self::from_bytes(&bytes))
+    }
+
+    /// Deserialize from
+    /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk` bytes.
+    pub fn from_bytes(bytes: &[u8; Self::LEN]) -> Self {
         let (apke_dhakem_sk, rest) = bytes.split_at(DhAkemPrivateKey::LEN);
         let (apke_mlkem_sk, rest) = rest.split_at(MLKEM768PrivateKey::LEN);
         let (apke_mlkem_pk, rest) = rest.split_at(MLKEM768PublicKey::LEN);
         let (metadata_sk, metadata_pk) = rest.split_at(XWingPrivateKey::LEN);
 
-        // the expects here are fine bc the length check above ensures we have the correct length
-        Ok(Self {
+        // the expects here are fine because we know we have the correct length
+        Self {
             apke_dhakem_sk: apke_dhakem_sk.try_into().expect("wrong checked length"),
             apke_mlkem_sk: apke_mlkem_sk.try_into().expect("wrong checked length"),
             apke_mlkem_pk: apke_mlkem_pk.try_into().expect("wrong checked length"),
             metadata_sk: metadata_sk.try_into().expect("wrong checked length"),
             metadata_pk: metadata_pk.try_into().expect("wrong checked length"),
-        })
+        }
     }
 }
 
@@ -653,7 +662,7 @@ mod tests {
                 .map(|b| {
                     let bytes = b.as_bytes();
                     prop_assert_eq!(bytes.len(), EphemeralBundleBytes::LEN);
-                    Ok(EphemeralBundleBytes::from_bytes(&bytes).expect("valid length"))
+                    Ok(EphemeralBundleBytes::try_from_bytes(&bytes).expect("valid length"))
                 })
                 .collect::<Result<_, TestCaseError>>()?;
 
