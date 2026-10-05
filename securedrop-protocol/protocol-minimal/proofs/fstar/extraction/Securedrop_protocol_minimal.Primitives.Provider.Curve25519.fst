@@ -9,11 +9,7 @@ val v_SK_LEN': usize
 unfold
 let v_SK_LEN = v_SK_LEN'
 
-assume
-val v_PK_LEN': usize
-
-unfold
-let v_PK_LEN = v_PK_LEN'
+let v_PK_LEN: usize = Libcrux_curve25519.v_EK_LEN
 
 assume
 val v_LEN_DH_SHARE': usize
