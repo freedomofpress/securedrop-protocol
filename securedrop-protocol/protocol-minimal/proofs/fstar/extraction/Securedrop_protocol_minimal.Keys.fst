@@ -111,6 +111,10 @@ let impl_7 = impl_7'
 let impl_8: Core_models.Clone.t_Clone t_LongtermKeyBundle =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
+let impl_LongtermKeyBundle__LEN: usize =
+  Securedrop_protocol_minimal.Message.impl_MessagePublicKey__LEN +!
+  Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__LEN
+
 let impl_LongtermKeyBundle__new
       (apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
       (fetch_pk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)

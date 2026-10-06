@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use directories::ProjectDirs;
+use securedrop_protocol_minimal::DHPublicKey;
 use securedrop_protocol_minimal::message::MessagePublicKey;
 use securedrop_protocol_minimal::metadata::MetadataPublicKey;
-use securedrop_protocol_minimal::primitives::ristretto255::DHPublicKey;
 use securedrop_protocol_minimal::{
     EphemeralBundleBytes, Journalist, JournalistLongTermBytes, VerifyingKey,
 };
@@ -39,9 +39,13 @@ pub(crate) fn load_newsroom_vk() -> Result<VerifyingKey> {
     let path = newsroom_vk_path()?;
     let bytes = fs::read(&path)
         .with_context(|| format!("reading {} (run `enroll` first)", path.display()))?;
-    let vk_bytes: [u8; 32] = bytes
-        .try_into()
-        .map_err(|v: Vec<u8>| anyhow::anyhow!("newsroom vk is {} bytes, expected 32", v.len()))?;
+    let vk_bytes: [u8; VerifyingKey::LEN] = bytes.try_into().map_err(|v: Vec<u8>| {
+        anyhow::anyhow!(
+            "newsroom vk is {} bytes, expected {}",
+            v.len(),
+            VerifyingKey::LEN
+        )
+    })?;
     Ok(VerifyingKey::from_bytes(vk_bytes))
 }
 

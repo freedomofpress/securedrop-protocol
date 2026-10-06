@@ -13,6 +13,7 @@ use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey};
 use crate::primitives::mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey};
 use crate::primitives::provider;
 use crate::primitives::ristretto255::{DHPrivateKey, DHPublicKey, generate_dh_keypair};
+use crate::primitives::xwing::{XWingPrivateKey, XWingPublicKey};
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey};
 use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, UserSecret};
 
@@ -150,7 +151,7 @@ impl UserSecret for Journalist {
         // another scheme (fixme)
         Plaintext {
             sender_fetch_key: crate::primitives::ristretto255::placeholder_public_key(),
-            sender_reply_pubkey_hybrid: [0u8; crate::primitives::xwing::XWING_PUBLIC_KEY_LEN],
+            sender_reply_pubkey_hybrid: [0u8; XWingPublicKey::LEN],
             msg: message,
         }
     }
@@ -277,7 +278,7 @@ impl Journalist {
         let sk_fetch = DHPrivateKey::decode(parts.fetch_sk)?;
         let pk_fetch = sk_fetch.public_key();
 
-        let mut apke_dhakem_pk_bytes = [0u8; 32];
+        let mut apke_dhakem_pk_bytes = [0u8; DhAkemPublicKey::LEN];
         provider::curve25519::secret_to_public(&mut apke_dhakem_pk_bytes, &parts.apke_dhakem_sk);
         let apke_dhakem_sk = DhAkemPrivateKey::from_bytes(parts.apke_dhakem_sk);
         let apke_dhakem_pk = DhAkemPublicKey::from_bytes(apke_dhakem_pk_bytes);
@@ -369,20 +370,20 @@ impl Journalist {
 /// to reconstruct the long-term state via
 /// [`Journalist::from_long_term_bytes`].
 pub struct JournalistLongTermBytes {
-    pub sig_seed: [u8; 32],
-    pub fetch_sk: [u8; 32],
-    pub apke_dhakem_sk: [u8; 32],
-    pub apke_mlkem_sk: [u8; crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN],
-    pub apke_mlkem_pk: [u8; crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN],
+    pub sig_seed: [u8; SigningKey::SEED_LEN],
+    pub fetch_sk: [u8; DHPrivateKey::LEN],
+    pub apke_dhakem_sk: [u8; DhAkemPrivateKey::LEN],
+    pub apke_mlkem_sk: [u8; MLKEM768PrivateKey::LEN],
+    pub apke_mlkem_pk: [u8; MLKEM768PublicKey::LEN],
 }
 
 impl JournalistLongTermBytes {
     /// Serialized length of `sig_seed || fetch_sk || apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk`.
-    pub const LEN: usize = 32
-        + 32
-        + 32
-        + crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN
-        + crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
+    pub const LEN: usize = SigningKey::SEED_LEN
+        + DHPrivateKey::LEN
+        + DhAkemPrivateKey::LEN
+        + MLKEM768PrivateKey::LEN
+        + MLKEM768PublicKey::LEN;
 
     /// Serialize as `sig_seed || fetch_sk || apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk`.
     pub fn as_bytes(&self) -> Vec<u8> {
@@ -409,11 +410,10 @@ impl JournalistLongTermBytes {
             ));
         }
 
-        let (sig_seed, rest) = bytes.split_at(32);
-        let (fetch_sk, rest) = rest.split_at(32);
-        let (apke_dhakem_sk, rest) = rest.split_at(32);
-        let (apke_mlkem_sk, apke_mlkem_pk) =
-            rest.split_at(crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN);
+        let (sig_seed, rest) = bytes.split_at(SigningKey::SEED_LEN);
+        let (fetch_sk, rest) = rest.split_at(DHPrivateKey::LEN);
+        let (apke_dhakem_sk, rest) = rest.split_at(DhAkemPrivateKey::LEN);
+        let (apke_mlkem_sk, apke_mlkem_pk) = rest.split_at(MLKEM768PrivateKey::LEN);
 
         // the expects here are fine because the length check above ensures we have the correct length
         Ok(Self {
@@ -428,21 +428,21 @@ impl JournalistLongTermBytes {
 
 /// Byte representation of one ephemeral key bundle's secret halves
 pub struct EphemeralBundleBytes {
-    pub apke_dhakem_sk: [u8; 32],
-    pub apke_mlkem_sk: [u8; crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN],
-    pub apke_mlkem_pk: [u8; crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN],
-    pub metadata_sk: [u8; crate::primitives::xwing::XWING_PRIVATE_KEY_LEN],
-    pub metadata_pk: [u8; crate::primitives::xwing::XWING_PUBLIC_KEY_LEN],
+    pub apke_dhakem_sk: [u8; DhAkemPrivateKey::LEN],
+    pub apke_mlkem_sk: [u8; MLKEM768PrivateKey::LEN],
+    pub apke_mlkem_pk: [u8; MLKEM768PublicKey::LEN],
+    pub metadata_sk: [u8; XWingPrivateKey::LEN],
+    pub metadata_pk: [u8; XWingPublicKey::LEN],
 }
 
 impl EphemeralBundleBytes {
     /// Serialized length of
     /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk`.
-    pub const LEN: usize = 32
-        + crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN
-        + crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN
-        + crate::primitives::xwing::XWING_PRIVATE_KEY_LEN
-        + crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
+    pub const LEN: usize = DhAkemPrivateKey::LEN
+        + MLKEM768PrivateKey::LEN
+        + MLKEM768PublicKey::LEN
+        + XWingPrivateKey::LEN
+        + XWingPublicKey::LEN;
 
     fn from_bundle(bundle: &MessageKeyBundle) -> Self {
         Self {
@@ -456,7 +456,7 @@ impl EphemeralBundleBytes {
 
     #[cfg_attr(hax, hax_lib::opaque)]
     fn into_bundle(self) -> MessageKeyBundle {
-        let mut apke_dhakem_pk_bytes = [0u8; 32];
+        let mut apke_dhakem_pk_bytes = [0u8; DhAkemPublicKey::LEN];
         provider::curve25519::secret_to_public(&mut apke_dhakem_pk_bytes, &self.apke_dhakem_sk);
 
         let apke = MessageKeyPair::new(
@@ -501,13 +501,10 @@ impl EphemeralBundleBytes {
             ));
         }
 
-        let (apke_dhakem_sk, rest) = bytes.split_at(32);
-        let (apke_mlkem_sk, rest) =
-            rest.split_at(crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN);
-        let (apke_mlkem_pk, rest) =
-            rest.split_at(crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN);
-        let (metadata_sk, metadata_pk) =
-            rest.split_at(crate::primitives::xwing::XWING_PRIVATE_KEY_LEN);
+        let (apke_dhakem_sk, rest) = bytes.split_at(DhAkemPrivateKey::LEN);
+        let (apke_mlkem_sk, rest) = rest.split_at(MLKEM768PrivateKey::LEN);
+        let (apke_mlkem_pk, rest) = rest.split_at(MLKEM768PublicKey::LEN);
+        let (metadata_sk, metadata_pk) = rest.split_at(XWingPrivateKey::LEN);
 
         // the expects here are fine bc the length check above ensures we have the correct length
         Ok(Self {

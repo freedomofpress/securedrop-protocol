@@ -370,6 +370,8 @@ let impl_39 = impl_39'
 /// An Ed25519 signing key.
 type t_SigningSecretKey = | SigningSecretKey : t_Array u8 (mk_usize 32) -> t_SigningSecretKey
 
+let impl_VerifyingKey__LEN: usize = v_KEY_LEN_ED25519
+
 let impl_VerifyingKey__as_bytes (self: t_VerifyingKey) : t_Array u8 (mk_usize 32) = self._0
 
 let impl_VerifyingKey__from_bytes (bytes: t_Array u8 (mk_usize 32)) : t_VerifyingKey =
@@ -384,6 +386,8 @@ type t_SigningKey = {
   f_vk:t_VerifyingKey;
   f_sk:t_SigningSecretKey
 }
+
+let impl_SigningKey__SEED_LEN: usize = v_KEY_LEN_ED25519
 
 /// Generate a signing key from the supplied `rng`.
 let impl_SigningKey__new

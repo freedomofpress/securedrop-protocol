@@ -271,6 +271,9 @@ let deterministic_keygen (randomness: t_Array u8 (mk_usize 32))
     <:
     Core_models.Result.t_Result t_MetadataKeyPair Anyhow.t_Error
 
+let impl_MetadataPublicKey__LEN: usize =
+  Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
+
 /// Returns the public key as bytes.
 let impl_MetadataPublicKey__as_bytes (self: t_MetadataPublicKey) : t_Slice u8 =
   Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__as_bytes self._0 <: t_Slice u8
@@ -295,7 +298,7 @@ let impl_MetadataPublicKey__from_bytes (bytes: t_Slice u8)
       (fun temp_0_ ->
           let _:Core_models.Array.t_TryFromSliceError = temp_0_ in
           let args:(usize & usize) =
-            Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PUBLIC_KEY_LEN,
+            Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN,
             Core_models.Slice.impl__len #u8 bytes
             <:
             (usize & usize)

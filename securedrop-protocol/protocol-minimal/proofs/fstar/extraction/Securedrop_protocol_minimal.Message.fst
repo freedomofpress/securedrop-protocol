@@ -71,6 +71,10 @@ let impl_MessageKeyPair__public_key (self: t_MessageKeyPair) : t_MessagePublicKe
 /// Returns the private key.
 let impl_MessageKeyPair__private_key (self: t_MessageKeyPair) : t_MessagePrivateKey = self.f_sk
 
+let impl_MessagePublicKey__LEN: usize =
+  Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPublicKey__LEN +!
+  Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
+
 /// Serialize the key tuple in canonical byte order: `pk1 || pk2`.
 let impl_MessagePublicKey__as_bytes (self: t_MessagePublicKey)
     : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
@@ -98,19 +102,10 @@ let impl_MessagePublicKey__as_bytes (self: t_MessagePublicKey)
 /// Returns an error if the byte slice has incorrect length.
 let impl_MessagePublicKey__from_bytes (bytes: t_Slice u8)
     : Core_models.Result.t_Result t_MessagePublicKey Anyhow.t_Error =
-  if
-    (Core_models.Slice.impl__len #u8 bytes <: usize) <>.
-    (Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_PUBLIC_KEY_LEN +!
-      Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PUBLIC_KEY_LEN
-      <:
-      usize)
+  if (Core_models.Slice.impl__len #u8 bytes <: usize) <>. impl_MessagePublicKey__LEN
   then
     let args:(usize & usize) =
-      Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_PUBLIC_KEY_LEN +!
-      Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PUBLIC_KEY_LEN,
-      Core_models.Slice.impl__len #u8 bytes
-      <:
-      (usize & usize)
+      impl_MessagePublicKey__LEN, Core_models.Slice.impl__len #u8 bytes <: (usize & usize)
     in
     let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 2) =
       let list =
@@ -149,7 +144,7 @@ let impl_MessagePublicKey__from_bytes (bytes: t_Slice u8)
             (bytes.[ {
                   Core_models.Ops.Range.f_end
                   =
-                  Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_PUBLIC_KEY_LEN
+                  Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPublicKey__LEN
                 }
                 <:
                 Core_models.Ops.Range.t_RangeTo usize ]
@@ -169,7 +164,7 @@ let impl_MessagePublicKey__from_bytes (bytes: t_Slice u8)
             (bytes.[ {
                   Core_models.Ops.Range.f_start
                   =
-                  Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_PUBLIC_KEY_LEN
+                  Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPublicKey__LEN
                 }
                 <:
                 Core_models.Ops.Range.t_RangeFrom usize ]

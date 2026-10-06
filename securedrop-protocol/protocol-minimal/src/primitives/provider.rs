@@ -3,13 +3,10 @@
 ///
 pub mod curve25519 {
 
-    #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const SK_LEN: usize = libcrux_curve25519::DK_LEN;
 
-    #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const PK_LEN: usize = libcrux_curve25519::EK_LEN;
 
-    #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const LEN_DH_SHARE: usize = libcrux_curve25519::SS_LEN;
 
     #[cfg_attr(hax, hax_lib::opaque)]

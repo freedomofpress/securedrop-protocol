@@ -5,11 +5,11 @@ use rand_core::{CryptoRng, RngCore};
 use crate::primitives::provider;
 use crate::primitives::provider::ristretto255::{Point, Scalar};
 
-pub const DH_PUBLIC_KEY_LEN: usize = provider::ristretto255::PK_LEN;
-pub(crate) const DH_PRIVATE_KEY_LEN: usize = provider::ristretto255::SK_LEN;
+const DH_PUBLIC_KEY_LEN: usize = provider::ristretto255::PK_LEN;
+const DH_PRIVATE_KEY_LEN: usize = provider::ristretto255::SK_LEN;
 
 /// Uniform bytes required to derive a scalar per [RFC 9496] section 4.4.
-pub const DH_SEED_LEN: usize = provider::ristretto255::SEED_LEN;
+const DH_SEED_LEN: usize = provider::ristretto255::SEED_LEN;
 
 /// A ristretto255 group element.
 ///
@@ -30,6 +30,8 @@ pub struct DHPublicKey(Point);
 pub struct DHPrivateKey(Scalar);
 
 impl DHPublicKey {
+    pub const LEN: usize = DH_PUBLIC_KEY_LEN;
+
     /// Decode a group element from its 32 byte encoding, validating that it is a
     /// real ristretto255 element.
     ///
@@ -48,6 +50,9 @@ impl DHPublicKey {
 }
 
 impl DHPrivateKey {
+    pub const LEN: usize = DH_PRIVATE_KEY_LEN;
+    pub const SEED_LEN: usize = DH_SEED_LEN;
+
     /// Decode a scalar from bytes, validating it is a canonical element of
     /// $\mathbb{Z}_\ell$.
     pub fn decode(bytes: [u8; DH_PRIVATE_KEY_LEN]) -> Result<Self, Error> {

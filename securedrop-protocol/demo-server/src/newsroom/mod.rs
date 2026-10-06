@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
-use securedrop_protocol_minimal::{FpfOnNewsroom, Signature, VerifyingKey};
+use securedrop_protocol_minimal::{FpfOnNewsroom, Signature, SigningKey, VerifyingKey};
 
 use crate::state::{data_dir, write_secret};
 
@@ -46,7 +46,7 @@ pub fn show_vk() -> Result<()> {
 pub fn set_fpf_sig(sig_hex: &str, fpf_vk_hex: &str, force: bool) -> Result<()> {
     let mut sig_bytes = [0u8; 64];
     hex::decode_to_slice(sig_hex.trim(), &mut sig_bytes).context("parsing FPF signature")?;
-    let mut fpf_vk_bytes = [0u8; 32];
+    let mut fpf_vk_bytes = [0u8; VerifyingKey::LEN];
     hex::decode_to_slice(fpf_vk_hex.trim(), &mut fpf_vk_bytes)
         .context("parsing FPF verifying key")?;
 
@@ -81,8 +81,13 @@ pub(crate) fn load_keypair() -> Result<NewsroomKeyPair> {
     let path = key_path()?;
     let bytes = fs::read(&path)
         .with_context(|| format!("reading {} (run `newsroom init` first)", path.display()))?;
-    let seed: [u8; 32] = bytes.try_into().map_err(|v: Vec<u8>| {
-        anyhow::anyhow!("{} is {} bytes, expected 32", path.display(), v.len())
+    let seed: [u8; SigningKey::SEED_LEN] = bytes.try_into().map_err(|v: Vec<u8>| {
+        anyhow::anyhow!(
+            "{} is {} bytes, expected {}",
+            path.display(),
+            v.len(),
+            SigningKey::SEED_LEN
+        )
     })?;
     Ok(NewsroomKeyPair::from_bytes(seed))
 }

@@ -9,9 +9,7 @@ use crate::sign::{
 
 use crate::message::{MessageKeyPair, MessagePublicKey};
 use crate::metadata::{MetadataKeyPair, MetadataPublicKey};
-use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
-use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
-use crate::primitives::ristretto255::{DH_PUBLIC_KEY_LEN, DHPrivateKey, DHPublicKey};
+use crate::primitives::ristretto255::{DHPrivateKey, DHPublicKey};
 use alloc::string::String;
 use alloc::vec::Vec;
 use serde::de::Error as _;
@@ -84,6 +82,8 @@ pub(crate) struct LongtermKeyBundle {
 }
 
 impl LongtermKeyBundle {
+    pub const LEN: usize = MessagePublicKey::LEN + DHPublicKey::LEN;
+
     pub fn new(apke: MessagePublicKey, fetch_pk: DHPublicKey) -> Self {
         Self { apke, fetch_pk }
     }
@@ -92,12 +92,11 @@ impl LongtermKeyBundle {
     ///
     /// Byte layout (per spec §3.1): `pk_J^APKE || pk_J^fetch`
     /// where `pk_J^APKE = pk_J^AKEM (DH-AKEM) || pk_J^PQ (ML-KEM)`
-    pub fn as_bytes(&self) -> [u8; 1248] {
+    pub fn as_bytes(&self) -> [u8; Self::LEN] {
         let apke_bytes = self.apke.as_bytes();
         let fetch_bytes = self.fetch_pk.into_bytes();
 
-        let mut pubkey_bytes =
-            [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN];
+        let mut pubkey_bytes = [0u8; Self::LEN];
         pubkey_bytes[..apke_bytes.len()].copy_from_slice(&apke_bytes);
         pubkey_bytes[apke_bytes.len()..].copy_from_slice(&fetch_bytes);
 
@@ -127,7 +126,7 @@ impl SignedLongtermKeyBundle {
         pubkey_bytes
     }
 
-    pub fn bundle_bytes(&self) -> [u8; 1248] {
+    pub fn bundle_bytes(&self) -> [u8; LongtermKeyBundle::LEN] {
         self.bundle.as_bytes()
     }
 
@@ -151,17 +150,16 @@ impl Serialize for SignedLongtermKeyBundle {
 impl<'de> Deserialize<'de> for SignedLongtermKeyBundle {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
         let s = String::deserialize(de)?;
-        let mut bytes =
-            [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN + 64];
+        let mut bytes = [0u8; LongtermKeyBundle::LEN + 64];
         hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
 
-        let offset = DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN;
+        let offset = MessagePublicKey::LEN;
         let apke = MessagePublicKey::from_bytes(&bytes[..offset]).map_err(D::Error::custom)?;
-        let mut fetch_key_bytes = [0u8; DH_PUBLIC_KEY_LEN];
-        fetch_key_bytes.copy_from_slice(&bytes[offset..offset + DH_PUBLIC_KEY_LEN]);
+        let mut fetch_key_bytes = [0u8; DHPublicKey::LEN];
+        fetch_key_bytes.copy_from_slice(&bytes[offset..offset + DHPublicKey::LEN]);
         let fetch = DHPublicKey::decode(fetch_key_bytes).map_err(D::Error::custom)?;
         let mut sig_bytes = [0u8; 64];
-        sig_bytes.copy_from_slice(&bytes[offset + DH_PUBLIC_KEY_LEN..]);
+        sig_bytes.copy_from_slice(&bytes[offset + DHPublicKey::LEN..]);
         Ok(Self {
             bundle: LongtermKeyBundle::new(apke, fetch),
             selfsig: Signature::from_bytes(sig_bytes),
@@ -224,12 +222,12 @@ impl FPFKeyPair {
     }
 
     /// The FPF signing key used as a secret.
-    pub fn as_bytes(&self) -> [u8; 32] {
+    pub fn as_bytes(&self) -> [u8; SigningKey::SEED_LEN] {
         self.sk.as_bytes()
     }
 
     /// Reconstruct an [`FPFKeyPair`] from its secret.
-    pub fn from_bytes(seed: [u8; 32]) -> Self {
+    pub fn from_bytes(seed: [u8; SigningKey::SEED_LEN]) -> Self {
         let sk = SigningKey::from_seed(seed);
         let vk = sk.vk;
         Self { sk, vk }
@@ -243,7 +241,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn fpf_keypair_seed_roundtrip(seed: [u8; 32]) {
+        fn fpf_keypair_seed_roundtrip(seed: [u8; SigningKey::SEED_LEN]) {
             let kp = FPFKeyPair::from_bytes(seed);
             prop_assert_eq!(kp.as_bytes(), seed);
             let kp2 = FPFKeyPair::from_bytes(kp.as_bytes());
