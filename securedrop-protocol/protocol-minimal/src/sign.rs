@@ -10,6 +10,8 @@ use crate::primitives::provider;
 
 const KEY_LEN_ED25519: usize = 32;
 
+const SIG_LEN_ED25519: usize = 64;
+
 // Sealing module: prevents external crates from implementing `DomainTag`.
 #[cfg(not(hax))]
 mod private {
@@ -84,7 +86,7 @@ impl DomainTag for FpfOnNewsroom {
 /// domain `D`, making cross-domain misuse a compile error rather than a
 /// runtime failure.
 pub struct Signature<D: DomainTag> {
-    bytes: [u8; 64],
+    bytes: [u8; SIG_LEN_ED25519],
     // `PhantomData<D>` rather than `PhantomData<fn() -> D>`: the function type
     // has no decidable equality in F*, which blocks `t_Signature` extraction.
     _phantom: PhantomData<D>,
@@ -117,8 +119,10 @@ impl<D: DomainTag> PartialEq for Signature<D> {
 impl<D: DomainTag> Eq for Signature<D> {}
 
 impl<D: DomainTag> Signature<D> {
+    pub const LEN: usize = SIG_LEN_ED25519;
+
     /// Reconstruct a [`Signature`] from its serialization.
-    pub fn from_bytes(bytes: [u8; 64]) -> Self {
+    pub fn from_bytes(bytes: [u8; SIG_LEN_ED25519]) -> Self {
         Self {
             bytes,
             _phantom: PhantomData,
@@ -126,7 +130,7 @@ impl<D: DomainTag> Signature<D> {
     }
 
     /// The byte serialization of this signature.
-    pub fn as_bytes(&self) -> [u8; 64] {
+    pub fn as_bytes(&self) -> [u8; SIG_LEN_ED25519] {
         self.bytes
     }
 }
@@ -142,7 +146,7 @@ impl<D: DomainTag> serde::Serialize for Signature<D> {
 impl<'de, D: DomainTag> serde::Deserialize<'de> for Signature<D> {
     fn deserialize<De: serde::Deserializer<'de>>(de: De) -> Result<Self, De::Error> {
         let s = String::deserialize(de)?;
-        let mut bytes = [0u8; 64];
+        let mut bytes = [0u8; Self::LEN];
         hex::decode_to_slice(s.trim(), &mut bytes).map_err(De::Error::custom)?;
         Ok(Self::from_bytes(bytes))
     }

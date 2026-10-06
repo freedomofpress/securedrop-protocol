@@ -149,8 +149,9 @@ impl Serialize for SignedLongtermKeyBundle {
 #[cfg_attr(hax, hax_lib::exclude)]
 impl<'de> Deserialize<'de> for SignedLongtermKeyBundle {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        type Sig = Signature<JournalistLongTermKey>;
         let s = String::deserialize(de)?;
-        let mut bytes = [0u8; LongtermKeyBundle::LEN + 64];
+        let mut bytes = [0u8; LongtermKeyBundle::LEN + Sig::LEN];
         hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
 
         let offset = MessagePublicKey::LEN;
@@ -158,11 +159,11 @@ impl<'de> Deserialize<'de> for SignedLongtermKeyBundle {
         let mut fetch_key_bytes = [0u8; DHPublicKey::LEN];
         fetch_key_bytes.copy_from_slice(&bytes[offset..offset + DHPublicKey::LEN]);
         let fetch = DHPublicKey::decode(fetch_key_bytes).map_err(D::Error::custom)?;
-        let mut sig_bytes = [0u8; 64];
+        let mut sig_bytes = [0u8; Sig::LEN];
         sig_bytes.copy_from_slice(&bytes[offset + DHPublicKey::LEN..]);
         Ok(Self {
             bundle: LongtermKeyBundle::new(apke, fetch),
-            selfsig: Signature::from_bytes(sig_bytes),
+            selfsig: Sig::from_bytes(sig_bytes),
         })
     }
 }

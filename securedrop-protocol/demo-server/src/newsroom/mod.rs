@@ -44,7 +44,8 @@ pub fn show_vk() -> Result<()> {
 }
 
 pub fn set_fpf_sig(sig_hex: &str, fpf_vk_hex: &str, force: bool) -> Result<()> {
-    let mut sig_bytes = [0u8; 64];
+    type Sig = Signature<FpfOnNewsroom>;
+    let mut sig_bytes = [0u8; Sig::LEN];
     hex::decode_to_slice(sig_hex.trim(), &mut sig_bytes).context("parsing FPF signature")?;
     let mut fpf_vk_bytes = [0u8; VerifyingKey::LEN];
     hex::decode_to_slice(fpf_vk_hex.trim(), &mut fpf_vk_bytes)
@@ -61,7 +62,7 @@ pub fn set_fpf_sig(sig_hex: &str, fpf_vk_hex: &str, force: bool) -> Result<()> {
     let nr_kp = load_keypair()?;
     let vk_nr_bytes = nr_kp.verifying_key().into_bytes();
     let vk_fpf = VerifyingKey::from_bytes(fpf_vk_bytes);
-    let sig = Signature::<FpfOnNewsroom>::from_bytes(sig_bytes);
+    let sig = Sig::from_bytes(sig_bytes);
 
     vk_fpf
         .verify(&vk_nr_bytes, &sig)
@@ -94,15 +95,21 @@ pub(crate) fn load_keypair() -> Result<NewsroomKeyPair> {
 
 /// Load the stored FPF signature over the newsroom verifying key if present
 pub(crate) fn load_fpf_sig() -> Result<Option<Signature<FpfOnNewsroom>>> {
+    type Sig = Signature<FpfOnNewsroom>;
     let path = fpf_sig_path()?;
     if !path.exists() {
         return Ok(None);
     }
     let bytes = fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
-    let sig_bytes: [u8; 64] = bytes.try_into().map_err(|v: Vec<u8>| {
-        anyhow::anyhow!("{} is {} bytes, expected 64", path.display(), v.len())
+    let sig_bytes: [u8; Sig::LEN] = bytes.try_into().map_err(|v: Vec<u8>| {
+        anyhow::anyhow!(
+            "{} is {} bytes, expected {}",
+            path.display(),
+            v.len(),
+            Sig::LEN
+        )
     })?;
-    Ok(Some(Signature::<FpfOnNewsroom>::from_bytes(sig_bytes)))
+    Ok(Some(Sig::from_bytes(sig_bytes)))
 }
 
 fn key_path() -> Result<PathBuf> {

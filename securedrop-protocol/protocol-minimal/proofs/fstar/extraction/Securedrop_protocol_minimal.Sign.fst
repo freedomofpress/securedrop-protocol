@@ -11,6 +11,8 @@ let _ =
 
 let v_KEY_LEN_ED25519: usize = mk_usize 32
 
+let v_SIG_LEN_ED25519: usize = mk_usize 64
+
 class t_DomainTag (v_Self: Type0) = {
   f_tag_pre:Prims.unit -> Type0;
   f_tag_post:Prims.unit -> t_Slice u8 -> Type0;
@@ -301,6 +303,9 @@ let impl_6 (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_Domain
     f_eq_post = (fun (self: t_Signature v_D) (other: t_Signature v_D) (out: bool) -> true);
     f_eq = fun (self: t_Signature v_D) (other: t_Signature v_D) -> self.f_bytes =. other.f_bytes
   }
+
+let impl_7__LEN (#v_D: Type0) (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: t_DomainTag v_D)
+    : usize = v_SIG_LEN_ED25519
 
 /// Reconstruct a [`Signature`] from its serialization.
 let impl_7__from_bytes
