@@ -1,12 +1,13 @@
 use anyhow::{Context, Result};
 use rand_core::{CryptoRng, RngCore};
 use securedrop_protocol_minimal::api::Api;
-use securedrop_protocol_minimal::wire::core::{JournalistEphemeralKeys, WelcomeBundle};
+use securedrop_protocol_minimal::wire::core::{JournalistShortTermKeys, WelcomeBundle};
 use securedrop_protocol_minimal::{
     Enrollable, Journalist, JournalistPublicView, SourcePublicView, UserPublic,
 };
 use serde::Deserialize;
 
+use crate::now;
 use crate::storage::{load_inbox, load_journalist, load_newsroom_vk};
 
 #[derive(Deserialize)]
@@ -41,24 +42,24 @@ pub(crate) fn reply(server: &str, message_id: &str, message: &str) -> Result<()>
         .error_for_status()
         .context("newsroom rejected welcome request")?
         .json()?;
-    let ephemeral: Vec<JournalistEphemeralKeys> = client
+    let short_term: Vec<JournalistShortTermKeys> = client
         .get(format!("{server}/journalists/keys"))
         .send()
         .with_context(|| format!("fetching {server}/journalists/keys"))?
         .error_for_status()
-        .context("newsroom rejected ephemeral key request")?
+        .context("newsroom rejected short term key request")?
         .json()?;
 
     let mut other_journalists: Vec<JournalistPublicView> = Vec::new();
-    for eph in &ephemeral {
+    for st in &short_term {
         // we don't want to reply to ourselves
-        if eph.vk.into_bytes() == own_vk {
+        if st.vk.into_bytes() == own_vk {
             continue;
         }
         let Some(long_term) = welcome
             .journalists
             .iter()
-            .find(|j| j.vk.into_bytes() == eph.vk.into_bytes())
+            .find(|j| j.vk.into_bytes() == st.vk.into_bytes())
         else {
             continue;
         };
@@ -66,8 +67,8 @@ pub(crate) fn reply(server: &str, message_id: &str, message: &str) -> Result<()>
             .verify_long_term(long_term, &newsroom_vk)
             .context("journalist long-term keys failed verification")?;
         let view = journalist
-            .verify_ephemeral(long_term, &eph.ephemeral)
-            .context("journalist one-time keys failed verification")?;
+            .verify_short_term(long_term, &st.short_term, now())
+            .context("journalist short-term keys failed verification")?;
         other_journalists.push(view);
     }
 

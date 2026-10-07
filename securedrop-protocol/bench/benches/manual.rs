@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use securedrop_protocol_minimal::{Envelope, FetchResponse, Journalist, Source, UserSecret};
 
+use securedrop_protocol_minimal::keys::Epoch;
 use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
 
 use securedrop_protocol_bench::{bench_decrypt, bench_encrypt, bench_fetch};
@@ -145,7 +146,7 @@ fn bench_encrypt_loop(iterations: usize, keybundles: usize, include_rng: bool) -
     for _ in 0..iterations {
         let mut prep_rng = mk_rng();
         let sender = Source::new(&mut prep_rng);
-        let recipient = Journalist::new(&mut prep_rng, keybundles);
+        let recipient = Journalist::new(&mut prep_rng, keybundles, Epoch(11));
         let msg = b"super secret msg".to_vec();
 
         let plaintext = sender.build_message(msg);
@@ -194,7 +195,7 @@ fn bench_decrypt_loop(iterations: usize, keybundles: usize) -> Vec<Duration> {
     for _ in 0..iterations {
         let mut prep_rng = mk_rng();
         let sender = Source::new(&mut prep_rng);
-        let recipient = Journalist::new(&mut prep_rng, keybundles);
+        let recipient = Journalist::new(&mut prep_rng, keybundles, Epoch(11));
         let msg = b"super secret msg".to_vec();
 
         let pt = sender.build_message(msg);
@@ -228,7 +229,7 @@ fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> 
 
     for i in 0..iterations {
         let mut prep_rng = mk_rng();
-        let journalist = Journalist::new(&mut prep_rng, keybundles);
+        let journalist = Journalist::new(&mut prep_rng, keybundles, Epoch(11));
         let source = Source::new(&mut prep_rng);
 
         // Build store (prep)
@@ -406,7 +407,7 @@ fn die(msg: &str) -> ! {
 fn help_and_exit() -> ! {
     eprintln!(
         "Usage: cargo bench --bench manual -- <encrypt|decrypt|fetch|all> \
-         [-n <iterations>] [-k <num one-time journalist keybundles>] [-j <challenges>] \
+         [-n <iterations>] [-k <num short-term journalist keybundles>] [-j <challenges>] \
          [--include-rng] [--raw json|csv] [--quiet]\n\
          Defaults: -n 10, -k 500, -j 3000\n\
          Examples:\n  \

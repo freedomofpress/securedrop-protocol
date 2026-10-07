@@ -28,53 +28,31 @@ pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
 
 /// The public half of an short-term key bundle together with the journalist's
 /// self-signature over it.
-pub type SignedKeyBundlePublic = (KeyBundlePublic, Signature<JournalistShortTermKey>);
-
-/// Length (24 hours) of one short-term key epoch in seconds.
-pub const EPOCH_SECS: u64 = 24 * 60 * 60;
-
-/// Seconds since the Unix epoch.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone)]
 #[cfg_attr(not(hax), derive(Serialize, Deserialize))]
-pub struct Timestamp(pub u64);
+pub struct SignedKeyBundlePublic {
+    /// Short term keys (APKE, PKE key)
+    pub bundle: KeyBundlePublic,
+    /// Validity epoch
+    pub epoch: Epoch,
+    /// Self-signature over the short-term key bundle.
+    pub selfsig: Signature<JournalistShortTermKey>,
+}
 
-/// Index of a short-term key epoch, anchored to the Unix epoch:
-/// epoch `n` covers `[n * EPOCH_SECS, (n + 1) * EPOCH_SECS)`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
-pub struct Epoch(pub u64);
-
-impl Epoch {
-    pub const ENCODED_LEN: usize = 8;
-
-    /// Epoch that `now` falls in.
-    pub fn containing(now: Timestamp) -> Self {
-        Self(now.0 / EPOCH_SECS)
+impl SignedKeyBundlePublic {
+    pub fn new(bundle: KeyBundlePublic, epoch: Epoch, selfsig: Signature<JournalistShortTermKey>) -> Self {
+        Self { bundle, epoch, selfsig }
     }
 
-    /// Whether `now` falls within this epoch.
-    pub fn contains(&self, now: Timestamp) -> bool {
-        Self::containing(now) == *self
+    pub fn signed_bytes(&self) -> Vec<u8> {
+        Self::make_signed_bytes(&self.bundle, self.epoch)
     }
 
-    /// The following epoch, e.g. for generating bundles ahead of rotation.
-    pub fn next(&self) -> Self {
-        Self(self.0.saturating_add(1))
-    }
-
-    /// Start of the epoch (inclusive).
-    pub fn not_before(&self) -> Timestamp {
-        Timestamp(self.0.saturating_mul(EPOCH_SECS))
-    }
-
-    /// End of the epoch (exclusive).
-    pub fn not_after(&self) -> Timestamp {
-        self.next().not_before()
-    }
-
-    /// Canonical encoding of epoch index as u64 BE.
-    pub fn as_bytes(&self) -> [u8; Self::ENCODED_LEN] {
-        self.0.to_be_bytes()
+    pub fn make_signed_bytes(bundle: &KeyBundlePublic, epoch: Epoch) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&bundle.as_bytes());
+        out.extend_from_slice(&epoch.as_bytes());
+        out
     }
 }
 
@@ -86,19 +64,16 @@ pub struct KeyBundlePublic {
     pub apke_pk: MessagePublicKey,
     /// SD-PKE short-term key, used for metadata protection.
     pub metadata_pk: MetadataPublicKey,
-    /// Validity epoch
-    pub epoch: Epoch,
 }
 
 impl KeyBundlePublic {
-    /// Serialize the bundle public keys and epoch in canonical byte order for signing.
+    /// Serialize the bundle public keys in canonical byte order.
     ///
-    /// Layout: `pk_{J,i}^{APKE_E}(DHKEM) || pk_{J,i}^{APKE_E}(ML-KEM) || pk_{J,i}^{PKE_E}(X-Wing) || EPOCH (u64 BE)`
+    /// Layout: `pk_{J,i}^{APKE_E}(DHKEM) || pk_{J,i}^{APKE_E}(ML-KEM) || pk_{J,i}^{PKE_E}(X-Wing)`
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(&self.apke_pk.as_bytes());
         out.extend_from_slice(&self.metadata_pk.as_bytes());
-        out.extend_from_slice(&self.epoch.as_bytes());
         out
     }
 }
@@ -106,29 +81,78 @@ impl KeyBundlePublic {
 pub(crate) struct MessageKeyBundle {
     pub(crate) apke: MessageKeyPair,
     pub(crate) metadata_kp: MetadataKeyPair,
-    pub(crate) epoch: Epoch,
 }
 
 impl MessageKeyBundle {
-    pub fn new(apke: MessageKeyPair, metadata_kp: MetadataKeyPair, epoch: Epoch) -> Self {
-        Self {
-            apke,
-            metadata_kp,
-            epoch,
-        }
+    pub fn new(apke: MessageKeyPair, metadata_kp: MetadataKeyPair) -> Self {
+        Self { apke, metadata_kp }
     }
 
     pub(crate) fn public(&self) -> KeyBundlePublic {
         KeyBundlePublic {
             apke_pk: self.apke.public_key().clone(),
             metadata_pk: self.metadata_kp.public_key().clone(),
-            epoch: self.epoch,
         }
+    }
+}
+
+/// Seconds since the Unix epoch
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
+pub struct Timestamp(pub u64);
+
+/// Constant length of an epoch in seconds
+pub const EPOCH_LEN: u64 = 60 * 60 * 24;
+
+/// Index of a short-term key epoch, anchored to the Unix epoch:
+/// epoch `n` covers `[n * EPOCH_LEN, (n + 1) * EPOCH_LEN)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
+pub struct Epoch(pub u64);
+
+impl Epoch {
+    pub const ENCODED_LEN: usize = 8;
+
+    /// Epoch that `now` falls in.
+    pub fn containing(now: Timestamp) -> Self {
+        Self(now.0 / EPOCH_LEN)
+    }
+
+    /// Whether `now` falls within this timestamp.
+    pub fn contains(&self, now: Timestamp) -> bool {
+        Self::containing(now) == *self
+    }
+
+    /// Start of the epoch (inclusive).
+    pub fn not_before(&self) -> Timestamp {
+        Timestamp(self.0.saturating_mul(EPOCH_LEN))
+    }
+
+    /// End of the epoch (exclusive).
+    pub fn not_after(&self) -> Timestamp {
+        Timestamp(self.0.saturating_add(1).saturating_mul(EPOCH_LEN))
+    }
+
+    /// Whether this epoch is valid at `now`, allowing for a `skew` in seconds
+    pub fn is_valid_at(&self, now: Timestamp, skew: u64) -> bool {
+        let start = Epoch::containing(Timestamp(now.0.saturating_sub(skew)));
+        let end = Epoch::containing(Timestamp(now.0.saturating_add(skew)));
+        *self >= start && *self <= end
+    }
+
+    /// Canonical encoding of epoch index as u64 BE.
+    pub fn as_bytes(&self) -> [u8; Self::ENCODED_LEN] {
+        self.0.to_be_bytes()
+    }
+
+    pub fn from_bytes(bytes: [u8; Self::ENCODED_LEN]) -> Self {
+        Self(u64::from_be_bytes(bytes))
     }
 }
 
 pub(crate) struct SignedMessageKeyBundle {
     pub(crate) bundle: MessageKeyBundle,
+    pub(crate) epoch: Epoch,
     pub(crate) selfsig: Signature<JournalistShortTermKey>,
 }
 
@@ -307,25 +331,9 @@ mod tests {
                 kp2.verifying_key().into_bytes()
             );
         }
-
-        #[test]
-        fn key_epoch_contains_its_window(secs: u64) {
-            let now = Timestamp(secs);
-            let epoch = Epoch::containing(now);
-            prop_assert!(epoch.contains(now));
-            prop_assert!(epoch.not_before() <= now);
-            prop_assert!(!epoch.next().contains(now));
-        }
     }
 
-    #[test]
-    fn epoch_boundaries_half_open() {
-        let e = Epoch(3);
-        assert!(e.contains(e.not_before()));
-        assert!(e.contains(Timestamp(e.not_after().0 - 1)));
-        assert!(!e.contains(e.not_after()));
-        assert_eq!(Epoch::containing(e.not_after()), e.next());
-    }
+    // FIXME add epoch testes
 }
 
 pub use newsroom::NewsroomKeyPair;

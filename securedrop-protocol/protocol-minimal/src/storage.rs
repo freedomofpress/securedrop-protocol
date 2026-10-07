@@ -3,6 +3,7 @@ use hashbrown::HashMap;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
+use crate::keys::Epoch;
 use crate::message::MessagePublicKey;
 use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{JournalistLongTermKey, NewsroomOnJournalist, Signature, VerifyingKey};
@@ -22,11 +23,10 @@ pub struct ServerStorage {
         ),
     >,
 
-    /// Journalists ephemeral keystore
-    /// Maps journalist ID to a vector of ephemeral key sets
-    /// Each journalist maintains a pool of ephemeral keys that are randomly selected and removed when fetched
-    /// TODO recheck lifetime
-    ephemeral_keys: HashMap<Uuid, Vec<SignedKeyBundlePublic>>,
+    /// Journalists short term keystore
+    /// Maps journalist ID to a vector of short term key sets
+    /// Each journalist maintains a pool of short term keys with a given validity window. They are removed when expired
+    short_term_keys: HashMap<Uuid, Vec<SignedKeyBundlePublic>>,
 
     /// Store of messages
     messages: HashMap<Uuid, Envelope>,
@@ -38,56 +38,63 @@ impl ServerStorage {
         Self::default()
     }
 
-    /// Add ephemeral keys for a journalist
-    pub fn add_ephemeral_keys(&mut self, journalist_id: Uuid, keys: Vec<SignedKeyBundlePublic>) {
+    /// Add short term keys for a journalist
+    pub fn add_short_term_keys(&mut self, journalist_id: Uuid, keys: Vec<SignedKeyBundlePublic>) {
         let journalist_keys = self
-            .ephemeral_keys
+            .short_term_keys
             .entry(journalist_id)
             // avoid `or_insert_with(Vec::new)` because hax doesn't accept FnMut/FnOnce closure
             .or_insert(Vec::new());
         journalist_keys.extend(keys);
     }
 
-    /// Get a random ephemeral key set for a journalist and remove it from the pool
-    /// Returns None if no keys are available for this journalist
+    /// Get a random short term key set valid in the `current` epoch for a journalist.
+    /// Returns None if no keys are available for this journalist in `current`.
     ///
-    /// Note: This method deletes the ephemeral key from storage.
-    /// The returned key is permanently removed from the journalist's ephemeral key pool.
-    pub fn pop_random_ephemeral_keys<R: RngCore + CryptoRng>(
+    /// Bundles are valid for their whole epoch and may be served any number of times,
+    /// so the returned key stays in storage.
+    ///
+    /// Note: This method deletes any expired short term keys (epochs before `current`)
+    /// for this journalist. Keys staged for later epochs are kept.
+    pub fn random_short_term_keys<R: RngCore + CryptoRng>(
         &mut self,
         journalist_id: Uuid,
         rng: &mut R,
+        current: Epoch,
     ) -> Option<SignedKeyBundlePublic> {
-        if let Some(keys) = self.ephemeral_keys.get_mut(&journalist_id) {
-            if keys.is_empty() {
-                return None;
-            }
+        let keys = self.short_term_keys.get_mut(&journalist_id)?;
 
-            // Select a "random" index (note: Modulo bias, Toy purposes only!)
-            let index = rng.next_u32() as usize % keys.len();
+        // Drop expired keys
+        keys.retain(|key| key.epoch >= current);
 
-            // Remove and return the selected key set
-            Some(keys.remove(index))
-        } else {
-            None
+        // Keys valid in the current epoch
+        let candidates: Vec<&SignedKeyBundlePublic> =
+            keys.iter().filter(|key| key.epoch == current).collect();
+        if candidates.is_empty() {
+            return None;
         }
+
+        // Select a "random" index (note: Modulo bias, Toy purposes only!)
+        let index = rng.next_u32() as usize % candidates.len();
+
+        Some(candidates[index].clone())
     }
 
-    /// Get random ephemeral keys for all journalists
-    /// Returns a vector of (journalist_id, ephemeral_keys) pairs
-    /// Only includes journalists that have available keys
+    /// Get a random short term key valid in the `current` epoch for each journalist
+    /// Returns a vector of (journalist_id, short_term_key) pairs
+    /// Only includes journalists that have available keys for `current`
     ///
-    /// Note: This method deletes the ephemeral keys from storage.
-    /// Each call removes the returned keys from the journalist's ephemeral key pool.
-    pub fn get_all_ephemeral_keys<R: RngCore + CryptoRng>(
+    /// Note: Served keys stay in storage; expired keys are deleted.
+    pub fn get_all_short_term_keys<R: RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,
+        current: Epoch,
     ) -> Vec<(Uuid, SignedKeyBundlePublic)> {
         let mut result = Vec::new();
-        let journalist_ids: Vec<Uuid> = self.ephemeral_keys.keys().copied().collect();
+        let journalist_ids: Vec<Uuid> = self.short_term_keys.keys().copied().collect();
 
         for journalist_id in journalist_ids {
-            if let Some(keys) = self.pop_random_ephemeral_keys(journalist_id, rng) {
+            if let Some(keys) = self.random_short_term_keys(journalist_id, rng, current) {
                 result.push((journalist_id, keys));
             }
         }
@@ -95,16 +102,16 @@ impl ServerStorage {
         result
     }
 
-    /// Check how many ephemeral keys are available for a journalist
-    pub fn ephemeral_keys_count(&self, journalist_id: Uuid) -> usize {
-        self.ephemeral_keys
+    /// Check how many short term keys are available for a journalist
+    pub fn short_term_keys_count(&self, journalist_id: Uuid) -> usize {
+        self.short_term_keys
             .get(&journalist_id)
             .map_or(0, |keys| keys.len())
     }
 
-    /// Check if a journalist has any ephemeral keys available
-    pub fn has_ephemeral_keys(&self, journalist_id: Uuid) -> bool {
-        self.ephemeral_keys_count(journalist_id) > 0
+    /// Check if a journalist has any short term keys available
+    pub fn has_short_term_keys(&self, journalist_id: Uuid) -> bool {
+        self.short_term_keys_count(journalist_id) > 0
     }
 
     /// Get all journalists

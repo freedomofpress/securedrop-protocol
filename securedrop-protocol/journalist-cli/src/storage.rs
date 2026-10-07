@@ -8,7 +8,7 @@ use securedrop_protocol_minimal::DHPublicKey;
 use securedrop_protocol_minimal::message::MessagePublicKey;
 use securedrop_protocol_minimal::metadata::MetadataPublicKey;
 use securedrop_protocol_minimal::{
-    EphemeralBundleBytes, Journalist, JournalistLongTermBytes, VerifyingKey,
+    ShortTermBundleBytes, Journalist, JournalistLongTermBytes, VerifyingKey,
 };
 use serde::{Deserialize, Serialize};
 
@@ -49,30 +49,30 @@ pub(crate) fn load_newsroom_vk() -> Result<VerifyingKey> {
     Ok(VerifyingKey::from_bytes(vk_bytes))
 }
 
-/// Load the saved ephemeral secret bundles.
-pub(crate) fn load_ephemeral_secrets() -> Result<Vec<EphemeralBundleBytes>> {
-    let path = ephemeral_path()?;
+/// Load the saved short term secret bundles.
+pub(crate) fn load_short_term_secrets() -> Result<Vec<ShortTermBundleBytes>> {
+    let path = short_term_path()?;
     if !path.exists() {
         return Ok(Vec::new());
     }
     let bytes = fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
-    if bytes.len() % EphemeralBundleBytes::LEN != 0 {
+    if bytes.len() % ShortTermBundleBytes::LEN != 0 {
         bail!(
             "{} is corrupt: length {} is not a multiple of {}",
             path.display(),
             bytes.len(),
-            EphemeralBundleBytes::LEN
+            ShortTermBundleBytes::LEN
         );
     }
     bytes
-        .chunks_exact(EphemeralBundleBytes::LEN)
-        .map(EphemeralBundleBytes::from_bytes)
+        .chunks_exact(ShortTermBundleBytes::LEN)
+        .map(ShortTermBundleBytes::from_bytes)
         .collect()
 }
 
-/// Save ephemeral secrets to disk for later use
-pub(crate) fn append_ephemeral_secrets(bundles: &[EphemeralBundleBytes]) -> Result<()> {
-    let path = ephemeral_path()?;
+/// Save short term secrets to disk for later use
+pub(crate) fn append_short_term_secrets(bundles: &[ShortTermBundleBytes]) -> Result<()> {
+    let path = short_term_path()?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
     }
@@ -124,8 +124,8 @@ pub(crate) fn long_term_path() -> Result<PathBuf> {
     Ok(data_dir()?.join("long-term.bin"))
 }
 
-pub(crate) fn ephemeral_path() -> Result<PathBuf> {
-    Ok(data_dir()?.join("ephemeral.bin"))
+pub(crate) fn short_term_path() -> Result<PathBuf> {
+    Ok(data_dir()?.join("short-term.bin"))
 }
 
 pub(crate) fn inbox_path() -> Result<PathBuf> {

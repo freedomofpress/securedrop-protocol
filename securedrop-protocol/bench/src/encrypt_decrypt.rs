@@ -16,6 +16,7 @@ use securedrop_protocol_minimal::{
 };
 
 use securedrop_protocol_minimal::DHPublicKey;
+use securedrop_protocol_minimal::keys::Epoch;
 use securedrop_protocol_minimal::metadata::MetadataPublicKey;
 
 #[inline]
@@ -58,7 +59,7 @@ impl WJournalist {
         getrandom::fill(&mut seed).expect("getrandom failed");
         let mut rng = rng_from_seed(seed);
         WJournalist {
-            inner: Journalist::new(&mut rng, num_keybundles),
+            inner: Journalist::new(&mut rng, num_keybundles, Epoch(0)),
         }
     }
 

@@ -6,13 +6,13 @@ use securedrop_protocol_minimal::encrypt_decrypt::decrypt_with_sender;
 use securedrop_protocol_minimal::metadata::MetadataPublicKey;
 use securedrop_protocol_minimal::wire::core::MessageChallengeFetchResponse;
 
-use crate::storage::{InboxEntry, load_ephemeral_secrets, load_inbox, load_journalist, save_inbox};
+use crate::storage::{InboxEntry, load_short_term_secrets, load_inbox, load_journalist, save_inbox};
 
 pub(crate) fn fetch(server: &str) -> Result<()> {
-    // Load the long term keys plus the retained ephemeral secrets
-    // The fetch key solves the challenges, and the ephemeral bundles decrypt the messages.
+    // Load the long term keys plus the retained short_term secrets
+    // The fetch key solves the challenges, and the short_term bundles decrypt the messages.
     let mut journalist = load_journalist()?;
-    journalist.load_ephemeral_bundles(load_ephemeral_secrets()?);
+    journalist.load_short_term_bundles(load_short_term_secrets()?);
 
     let client = reqwest::blocking::Client::new();
 

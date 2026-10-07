@@ -4,7 +4,7 @@
 //! clients. The [`Api`] trait provides common operations such as key fetching,
 //! signature verification, and message submission. The [`JournalistApi`] trait
 //! extends [`Api`] with journalist-specific operations like enrollment and
-//! ephemeral key management.
+//! short term key management.
 //!
 //! # Trust model
 //!
@@ -12,20 +12,15 @@
 //! 1. The FPF signing key is a trust anchor (pre-distributed out of band).
 //! 2. The newsroom's verifying key is signed by FPF.
 //! 3. Each journalist's signing key is signed by the newsroom.
-//! 4. Each journalist's long-term and one-time key bundles are self-signed.
+//! 4. Each journalist's long-term and short-term key bundles are self-signed.
 
 use crate::{
-    Enrollable, Envelope, FetchResponse, JournalistPublicView, UserPublic, UserSecret,
-    VerifyingKey,
-    encrypt_decrypt::{encrypt, solve_fetch_challenges},
-    keys::SignedKeyBundlePublic,
-    traits::RestrictedApi,
-    wire::{
+    Enrollable, Envelope, FetchResponse, JournalistPublicView, UserPublic, UserSecret, VerifyingKey, encrypt_decrypt::{encrypt, solve_fetch_challenges}, keys::{SignedKeyBundlePublic, Timestamp}, traits::RestrictedApi, wire::{
         core::{
             JournalistLongTermView, MessageChallengeFetchRequest, MessageFetchRequest,
             WelcomeBundle,
         },
-        setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest},
+        setup::{JournalistSetupRequest, JournalistShortTermKeyRequest},
     },
 };
 use alloc::vec::Vec;
@@ -129,16 +124,17 @@ pub trait Api: Client {
         newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error>;
 
-    /// Verifies a journalist's one-time bundle against their already verified
+    /// Verifies a journalist's short-term bundle against their already verified
     /// long-term view and assembles a `JournalistPublicView` for encryption.
     ///
     /// # Errors
     ///
-    /// Returns an error if the signature on the one-time bundle is invalid.
-    fn verify_ephemeral(
+    /// Returns an error if the signature on the short-term bundle is invalid.
+    fn verify_short_term(
         &self,
         long_term: &JournalistLongTermView,
-        ephemeral: &SignedKeyBundlePublic,
+        short_term: &SignedKeyBundlePublic,
+        now: Timestamp,
     ) -> Result<JournalistPublicView, Error>;
 }
 
@@ -245,20 +241,27 @@ where
         Ok(())
     }
 
-    fn verify_ephemeral(
+    fn verify_short_term(
         &self,
         long_term: &JournalistLongTermView,
-        ephemeral: &SignedKeyBundlePublic,
+        short_term: &SignedKeyBundlePublic,
+        now: Timestamp,
     ) -> Result<JournalistPublicView, Error> {
         long_term
             .vk
-            .verify(&ephemeral.0.as_bytes(), &ephemeral.1)
-            .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on one-time keys"))?;
+            .verify(&short_term.signed_bytes(), &short_term.selfsig)
+            .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on short-term keys"))?;
+
+        if !short_term.epoch.contains(now) {
+            return Err(anyhow::anyhow!(
+                "short-term key bundle is not valid for the current epoch"
+            ));
+        }
 
         Ok(JournalistPublicView::new(
             long_term.vk,
             long_term.signed_longterm_key_bundle.clone(),
-            ephemeral.clone(),
+            short_term.clone(),
         ))
     }
 }
@@ -279,8 +282,8 @@ where
         })
     }
 
-    fn create_ephemeral_key_request(&self) -> JournalistEphemeralKeyRequest {
-        JournalistEphemeralKeyRequest {
+    fn create_short_term_key_request(&self) -> JournalistShortTermKeyRequest {
+        JournalistShortTermKeyRequest {
             verifying_key: self.signing_key().clone(),
             bundles: self.signed_keybundles(),
         }
@@ -289,7 +292,7 @@ where
 
 /// Journalist-specific API operations.
 ///
-/// Extends [`Api`] with enrollment and ephemeral key management.
+/// Extends [`Api`] with enrollment and short term key management.
 pub trait JournalistApi {
     /// Creates an enrollment request for initial journalist onboarding.
     ///
@@ -301,9 +304,9 @@ pub trait JournalistApi {
     /// Returns an error if enrollment data cannot be constructed.
     fn create_setup_request(&self) -> Result<JournalistSetupRequest, Error>;
 
-    /// Creates a request to replenish ephemeral key bundles on the server.
+    /// Creates a request to replenish short term key bundles on the server.
     ///
     /// Collects all current signed key bundles and packages them into a
-    /// [`JournalistEphemeralKeyRequest`] for upload to the server (step 3.2).
-    fn create_ephemeral_key_request(&self) -> JournalistEphemeralKeyRequest;
+    /// [`JournalistShortTermKeyRequest`] for upload to the server (step 3.2).
+    fn create_short_term_key_request(&self) -> JournalistShortTermKeyRequest;
 }

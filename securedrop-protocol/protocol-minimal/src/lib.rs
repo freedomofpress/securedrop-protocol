@@ -31,7 +31,7 @@ pub use primitives::ristretto255::DHPublicKey;
 pub use traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
 
 pub use journalist::{
-    EphemeralBundleBytes, Journalist, JournalistLongTermBytes, JournalistPublicView,
+    ShortTermBundleBytes, Journalist, JournalistLongTermBytes, JournalistPublicView,
 };
 pub use source::{Source, SourcePublicView};
 
@@ -40,7 +40,7 @@ pub(crate) use keys::MessageKeyBundle;
 // Primitives for signing
 pub mod sign;
 pub use sign::{
-    DomainTag, FpfOnNewsroom, JournalistEphemeralKey, JournalistLongTermKey, NewsroomOnJournalist,
+    DomainTag, FpfOnNewsroom, JournalistLongTermKey, JournalistShortTermKey, NewsroomOnJournalist,
     Signature, SigningKey, VerifyingKey,
 };
 

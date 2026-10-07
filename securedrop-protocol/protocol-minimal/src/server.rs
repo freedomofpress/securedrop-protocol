@@ -7,20 +7,55 @@ use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
-use crate::Envelope;
+use crate::{Envelope, SignedKeyBundlePublic};
 use crate::encrypt_decrypt::compute_fetch_challenges;
-use crate::keys::NewsroomKeyPair;
+use crate::keys::{Epoch, NewsroomKeyPair, Timestamp};
 use crate::primitives;
 use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 use crate::wire::core::{
-    JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchRequest,
+    JournalistLongTermView, JournalistShortTermKeys, MessageChallengeFetchRequest,
     MessageChallengeFetchResponse, MessageFetchRequest, WelcomeBundle,
 };
 use crate::wire::setup::{
-    JournalistEphemeralKeyRequest, JournalistSetupRequest, JournalistSetupResponse,
+    JournalistSetupRequest, JournalistSetupResponse, JournalistShortTermKeyRequest,
     NewsroomSetupRequest,
 };
+
+
+/// Server policy for short-term key bundles.
+#[derive(Debug, Clone, Copy)]
+pub struct ShortTermKeyPolicy {
+    /// Number of future epochs a journalist can stage bundles for (`REPLENISHMENT`)
+    pub replenishment: u64,
+    /// Allowed clock difference between the server and journalists, in seconds
+    /// (`SKEW`)
+    pub skew: u64,
+}
+
+impl Default for ShortTermKeyPolicy {
+    fn default() -> Self {
+        Self {
+            replenishment: 7,
+            skew: 5 * 60,
+        }
+    }
+}
+
+impl ShortTermKeyPolicy {
+    /// The epoch at `now`
+    pub fn current_epoch(&self, now: Timestamp) -> Epoch {
+        Epoch::containing(now)
+    }
+
+    /// Range of bundle epochs the server accepts at `now`. This is the current epoch plus `replenishment` epochs, and allowing for a `skew` in the journalist's clock.
+    pub fn acceptable_upload_epochs(&self, now: Timestamp) -> (Epoch, Epoch) {
+        let first = Epoch::containing(now);
+        let ahead = Epoch::containing(Timestamp(now.0.saturating_add(self.skew)));
+        (first, Epoch(ahead.0.saturating_add(self.replenishment)))
+    }
+}
+
 
 /// Server session for handling source requests
 #[derive(Default)]
@@ -29,6 +64,8 @@ pub struct Server {
     newsroom_keys: Option<NewsroomKeyPair>,
     /// Signature from FPF over the newsroom keys
     signature: Option<Signature<FpfOnNewsroom>>,
+    /// Policy for short-term key bundles
+    short_term_policy: ShortTermKeyPolicy,
 }
 
 impl Server {
@@ -104,18 +141,18 @@ impl Server {
         })
     }
 
-    /// Handle journalist ephemeral key replenishment. This corresponds to step 3.2 in the spec.
+    /// Handle journalist short term key replenishment. This corresponds to step 3.2 in the spec.
     ///
-    /// The journalist sends ephemeral keys signed by their signing key, and the server
-    /// verifies the signature and stores the ephemeral keys.
+    /// The journalist sends short term keys signed by their signing key, and the server
+    /// verifies the signature and stores the short term keys.
     ///
     /// # Errors
     ///
-    /// Returns an error if the journalist is not found in storage, or if any bundle
-    /// signature fails verification.
-    pub fn handle_ephemeral_key_request(
+    /// Returns an error if the journalist is not found in storage, a bundle signature fails verification, or a bundle validity window is not in range.
+    pub fn handle_short_term_key_request(
         &mut self,
-        request: JournalistEphemeralKeyRequest,
+        request: JournalistShortTermKeyRequest,
+        now: Timestamp,
     ) -> Result<(), Error> {
         // Look up the journalist by their verifying key
         let journalist_id = self
@@ -124,16 +161,24 @@ impl Server {
             .ok_or_else(|| anyhow::anyhow!("Journalist not found in storage"))?;
 
         // TODO: more efficient way than verifying each signature!
-        // Verify each ephemeral bundle signature.
+        // Verify each short term bundle signature.
         request
             .bundles
             .iter()
-            .try_for_each(|k| request.verifying_key.verify(&k.0.as_bytes(), &k.1))
-            .map_err(|_| anyhow::anyhow!("Invalid signature on ephemeral keys"))?;
+            .try_for_each(|k| request.verifying_key.verify(&k.signed_bytes(), &k.selfsig))
+            .map_err(|_| anyhow::anyhow!("Invalid signature on short term keys"))?;
 
-        // Store the ephemeral keys for the journalist
+        // Check bundle validity
+        let (first, last) = self.short_term_policy.acceptable_upload_epochs(now);
+        let valid_bundles: Vec<SignedKeyBundlePublic> = request
+            .bundles
+            .into_iter()
+            .filter(|k| k.epoch >= first && k.epoch <= last)
+            .collect();
+
+        // Store the short term keys for the journalist
         self.storage
-            .add_ephemeral_keys(journalist_id, request.bundles);
+            .add_short_term_keys(journalist_id, valid_bundles);
 
         Ok(())
     }
@@ -148,14 +193,14 @@ impl Server {
         self.signature = Some(signature);
     }
 
-    /// Get the ephemeral key count for a journalist
-    pub fn ephemeral_keys_count(&self, journalist_id: Uuid) -> usize {
-        self.storage.ephemeral_keys_count(journalist_id)
+    /// Get the short term key count for a journalist
+    pub fn short_term_keys_count(&self, journalist_id: Uuid) -> usize {
+        self.storage.short_term_keys_count(journalist_id)
     }
 
-    /// Check if a journalist has ephemeral keys available
-    pub fn has_ephemeral_keys(&self, journalist_id: Uuid) -> bool {
-        self.storage.has_ephemeral_keys(journalist_id)
+    /// Check if a journalist has short term keys available
+    pub fn has_short_term_keys(&self, journalist_id: Uuid) -> bool {
+        self.storage.has_short_term_keys(journalist_id)
     }
 
     /// Find journalist ID by verifying key
@@ -197,15 +242,18 @@ impl Server {
         }
     }
 
-    pub fn handle_journalist_ephemeral_keys<R: RngCore + CryptoRng>(
+    pub fn handle_journalist_short_term_keys<R: RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,
-    ) -> Vec<JournalistEphemeralKeys> {
+        now: Timestamp,
+    ) -> Vec<JournalistShortTermKeys> {
+        let current = self.short_term_policy.current_epoch(now);
+
         let mut responses = Vec::new();
 
-        let journalist_ephemeral_keys = self.storage.get_all_ephemeral_keys(rng);
+        let journalist_short_term_keys = self.storage.get_all_short_term_keys(rng, current);
 
-        for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys.iter() {
+        for (journalist_id, short_term_bundle) in journalist_short_term_keys.iter() {
             // TODO: Do something better than expect here
             let entry = self
                 .storage
@@ -215,9 +263,9 @@ impl Server {
                 .clone();
             let vk = entry.0;
 
-            responses.push(JournalistEphemeralKeys {
+            responses.push(JournalistShortTermKeys {
                 vk,
-                ephemeral: ephemeral_bundle.clone(),
+                short_term: short_term_bundle.clone(),
             });
         }
 

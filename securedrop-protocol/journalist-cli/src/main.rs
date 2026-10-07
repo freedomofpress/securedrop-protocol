@@ -7,6 +7,7 @@ mod storage;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use securedrop_protocol_minimal::keys::Timestamp;
 
 #[derive(Parser)]
 #[command(name = "journalist-cli", about = "Demo SecureDrop journalist client")]
@@ -32,12 +33,12 @@ enum Command {
         #[arg(long)]
         force: bool,
     },
-    /// Generate fresh ephemeral key bundles and upload them to the server.
+    /// Generate fresh short term key bundles and upload them to the server.
     Replenish {
         /// Newsroom server URL, e.g. `http://localhost:8000`.
         #[arg(long, default_value = "http://127.0.0.1:8000")]
         server: String,
-        /// Number of ephemeral key bundles to generate and upload.
+        /// Number of short term key bundles to generate and upload.
         #[arg(long, default_value_t = 10)]
         count: usize,
     },
@@ -73,4 +74,13 @@ fn main() -> Result<()> {
             message,
         } => reply::reply(&server, &message_id, &message),
     }
+}
+
+/// Current wall-clock time as seconds since the Unix epoch.
+pub(crate) fn now() -> Timestamp {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock is before the Unix epoch")
+        .as_secs();
+    Timestamp(secs)
 }

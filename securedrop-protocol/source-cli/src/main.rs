@@ -54,7 +54,7 @@ fn main() -> Result<()> {
             server,
             fpf_vk,
             message,
-        } => submit::submit(&server, &fpf_vk, &message),
+        } => submit::submit(&server, &fpf_vk, &message, util::now()),
         Command::Fetch { server, fpf_vk } => fetch::fetch(&server, &fpf_vk),
     }
 }

@@ -6,6 +6,7 @@ use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, 
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use securedrop_protocol_minimal::encrypt_decrypt::{compute_fetch_challenges, encrypt};
+use securedrop_protocol_minimal::keys::Epoch;
 use securedrop_protocol_minimal::{Envelope, Journalist, Source, UserSecret};
 
 const STORE_SIZES: &[usize] = &[100, 500, 1000, 2000, 5000, 10000];
@@ -13,9 +14,11 @@ const STORE_SIZES: &[usize] = &[100, 500, 1000, 2000, 5000, 10000];
 /// Number of journalist keybundles that stored messages are spread across
 const KEYBUNDLES: usize = 8;
 
+const TEST_EPOCH: Epoch = Epoch(11);
+
 fn build_store(n: usize) -> Vec<([u8; 16], Envelope)> {
     let mut rng = ChaCha20Rng::from_rng(&mut rand::rng());
-    let journalist = Journalist::new(&mut rng, KEYBUNDLES);
+    let journalist = Journalist::new(&mut rng, KEYBUNDLES, TEST_EPOCH);
     let source = Source::new(&mut rng);
 
     let mut store = Vec::with_capacity(n);

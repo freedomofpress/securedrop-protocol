@@ -4,12 +4,15 @@ use anyhow::{Context, Result, bail};
 use securedrop_protocol_minimal::api::JournalistApi;
 use securedrop_protocol_minimal::wire::core::WelcomeBundle;
 use securedrop_protocol_minimal::wire::setup::{
-    JournalistEphemeralKeyResponse, JournalistSetupRequest, JournalistSetupResponse,
+    JournalistShortTermKeyResponse, JournalistSetupRequest, JournalistSetupResponse,
 };
+use securedrop_protocol_minimal::keys::Epoch;
 use securedrop_protocol_minimal::{Enrollable, Journalist};
 
+use crate::now;
+
 use crate::storage::{
-    append_ephemeral_secrets, load_journalist, long_term_path, newsroom_sig_path, newsroom_vk_path,
+    append_short_term_secrets, load_journalist, long_term_path, newsroom_sig_path, newsroom_vk_path,
     write_secret,
 };
 
@@ -23,7 +26,7 @@ pub(crate) fn init(force: bool) -> Result<()> {
     }
 
     let mut rng = rand::rng();
-    let journalist = Journalist::new(&mut rng, 0);
+    let journalist = Journalist::new(&mut rng, 0, Epoch::containing(now()));
     let vk = (*journalist.signing_key()).into_bytes();
     let bytes = journalist.long_term_bytes().as_bytes();
 
@@ -104,25 +107,25 @@ pub(crate) fn replenish(server: &str, count: usize) -> Result<()> {
 
     let mut journalist = load_journalist()?;
     let mut rng = rand::rng();
-    journalist.generate_ephemeral_bundles(&mut rng, count);
+    journalist.generate_short_term_bundles(&mut rng, count, Epoch::containing(now()));
 
-    let request = journalist.create_ephemeral_key_request();
+    let request = journalist.create_short_term_key_request();
     let client = reqwest::blocking::Client::new();
-    let response: JournalistEphemeralKeyResponse = client
+    let response: JournalistShortTermKeyResponse = client
         .post(format!("{server}/newsroom/journalists/keys"))
         .json(&request)
         .send()
-        .context("posting ephemeral keys")?
+        .context("posting short term keys")?
         .error_for_status()
-        .context("newsroom rejected ephemeral key replenishment")?
+        .context("newsroom rejected short term key replenishment")?
         .json()?;
 
     // We save the secrets so we can use them later
-    append_ephemeral_secrets(&journalist.ephemeral_bundle_bytes())?;
+    append_short_term_secrets(&journalist.short_term_bundle_bytes())?;
 
-    println!("Uploaded {count} ephemeral key bundles to {server}.\n");
+    println!("Uploaded {count} short term key bundles to {server}.\n");
     println!(
-        "Server now stores {} ephemeral key bundles for this journalist.",
+        "Server now stores {} short term key bundles for this journalist.",
         response.stored
     );
     Ok(())

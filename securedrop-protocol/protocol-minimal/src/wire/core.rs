@@ -12,8 +12,8 @@ use uuid::Uuid;
 /// A journalist's long-term public key material, as carried in the
 /// [`WelcomeBundle`].
 ///
-/// Combined with a one-time [`SignedKeyBundlePublic`] (fetched separately
-/// by an ephemeral key request) to reconstruct a `JournalistPublicView` for
+/// Combined with a short-term [`SignedKeyBundlePublic`] (fetched separately
+/// by an short term key request) to reconstruct a `JournalistPublicView` for
 /// encryption.
 #[cfg_attr(not(hax), derive(Serialize, Deserialize))]
 pub struct JournalistLongTermView {

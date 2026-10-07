@@ -1,7 +1,7 @@
 //! The setup steps included here are:
 //! * Newsroom onboarding (step 2 in the spec),
 //! * Journalist initial onboarding (step 3.1 in the spec),
-//! * Journalist ephemeral key replenishment (step 3.2 in the spec).
+//! * Journalist short term key replenishment (step 3.2 in the spec).
 //!
 //! The FPF setup process (step 1 in the spec) and source initial setup (step 4 in the spec)
 //! are both local only and do not involve any protocol messages.
@@ -49,25 +49,25 @@ pub struct JournalistSetupResponse {
     pub sig: Signature<NewsroomOnJournalist>,
 }
 
-/// Request from the journalist to the SecureDrop server for ephemeral key replenishment.
+/// Request from the journalist to the SecureDrop server for short term key replenishment.
 ///
 /// Step 3.2 in the spec.
 #[derive(Debug)]
 #[cfg_attr(not(hax), derive(Serialize, Deserialize))]
-pub struct JournalistEphemeralKeyRequest {
+pub struct JournalistShortTermKeyRequest {
     /// The journalist's long-term signing key, used by the server to look up the journalist
     /// and verify each bundle signature.
     pub verifying_key: VerifyingKey,
-    /// The signed ephemeral key bundles to be stored by the server.
+    /// The signed short term key bundles to be stored by the server.
     pub bundles: Vec<SignedKeyBundlePublic>,
 }
 
-/// Response from the SecureDrop server to the journalist for ephemeral key replenishment.
+/// Response from the SecureDrop server to the journalist for short term key replenishment.
 ///
 /// Step 3.2 in the spec.
 #[derive(Debug)]
 #[cfg_attr(not(hax), derive(Serialize, Deserialize))]
-pub struct JournalistEphemeralKeyResponse {
-    /// The number of ephemeral key bundles now stored by the server for this journalist.
+pub struct JournalistShortTermKeyResponse {
+    /// The number of short term key bundles now stored by the server for this journalist.
     pub stored: usize,
 }

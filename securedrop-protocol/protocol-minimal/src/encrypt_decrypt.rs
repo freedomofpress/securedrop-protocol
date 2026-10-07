@@ -222,9 +222,11 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::{Journalist, Source, SourcePublicView, storage::ServerStorage};
+    use crate::{Journalist, Source, SourcePublicView, keys::Epoch, storage::ServerStorage};
 
     use super::*;
+
+    const TEST_EPOCH: Epoch = Epoch(11);
 
     // Test purposes only!
     fn setup_rng() -> impl rand_core::CryptoRng + rand_core::RngCore {
@@ -270,7 +272,7 @@ mod tests {
         let mut rng = setup_rng();
 
         let sender = Source::new(&mut rng);
-        let recipient = Journalist::new(&mut rng, 2);
+        let recipient = Journalist::new(&mut rng, 2, TEST_EPOCH);
 
         let msg = b"Encrypt-decrypt-test".to_vec();
 
@@ -306,7 +308,7 @@ mod tests {
         let mut rng = setup_rng();
 
         let source = Source::new(&mut rng);
-        let journalist = Journalist::new(&mut rng, 2);
+        let journalist = Journalist::new(&mut rng, 2, TEST_EPOCH);
 
         // pubkey-only capabilities (for receiver)
         let journalist_public = journalist.public(0);
@@ -338,9 +340,9 @@ mod tests {
         let mut rng = setup_rng();
 
         let source = Source::new(&mut rng);
-        let journalist = Journalist::new(&mut rng, 2);
+        let journalist = Journalist::new(&mut rng, 2, TEST_EPOCH);
 
-        let wrong_journalist = Journalist::new(&mut rng, 2);
+        let wrong_journalist = Journalist::new(&mut rng, 2, TEST_EPOCH);
 
         // pubkey-only capabilities (for receiver)
         let journalist_public = journalist.public(0);
@@ -376,7 +378,7 @@ mod tests {
 
         // Source submits to journalist.
         let source = Source::new(&mut rng);
-        let journalist = Journalist::new(&mut rng, 2);
+        let journalist = Journalist::new(&mut rng, 2, TEST_EPOCH);
         let journalist_public = journalist.public(0);
 
         let submission = build_message(&source.public(), b"howdy".to_vec());
@@ -405,8 +407,8 @@ mod tests {
     fn test_encrypt_decrypt_journalist_only() {
         let mut rng = setup_rng();
 
-        let journalist = Journalist::new(&mut rng, 2);
-        let j2 = Journalist::new(&mut rng, 2);
+        let journalist = Journalist::new(&mut rng, 2, TEST_EPOCH);
+        let j2 = Journalist::new(&mut rng, 2, TEST_EPOCH);
 
         let msg = "Test message".as_bytes().to_vec();
 

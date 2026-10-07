@@ -5,16 +5,18 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
 use securedrop_protocol_minimal::api::{Client, JournalistApi};
-use securedrop_protocol_minimal::keys::FPFKeyPair;
+use securedrop_protocol_minimal::keys::{Epoch, FPFKeyPair};
 use securedrop_protocol_minimal::sign::{FpfOnNewsroom, Signature};
 use securedrop_protocol_minimal::wire::setup::{
-    JournalistEphemeralKeyRequest, JournalistSetupRequest,
+    JournalistSetupRequest, JournalistShortTermKeyRequest,
 };
 
 use securedrop_protocol_minimal::DHPublicKey;
 use securedrop_protocol_minimal::VerifyingKey;
 use securedrop_protocol_minimal::server::Server;
 use securedrop_protocol_minimal::{Journalist, Source, UserPublic, UserSecret};
+
+const TEST_EPOCH: Epoch = Epoch(11);
 
 // Toy implementation purposes
 fn get_rng() -> ChaCha20Rng {
@@ -64,7 +66,7 @@ fn setup_journalist<R: RngCore + CryptoRng>(
     fpf_pubkey: &VerifyingKey,
     fpf_signature: &Signature<FpfOnNewsroom>,
 ) -> (Journalist, JournalistSetupRequest) {
-    let mut journalist = Journalist::new(&mut rng, num_keybundles);
+    let mut journalist = Journalist::new(&mut rng, num_keybundles, TEST_EPOCH);
 
     // Journalist: verify nr key correctly signed, then store it.
     // Then request enrollment
@@ -189,9 +191,9 @@ fn protocol_step_3_1_journalist_enrollment() {
     );
 }
 
-/// Step 3.2: Journalist ephemeral key replenishment
+/// Step 3.2: Journalist short term key replenishment
 #[test]
-fn protocol_step_3_2_journalist_ephemeral_keys() {
+fn protocol_step_3_2_journalist_short_term_keys() {
     let mut rng = get_rng();
 
     // Setup: FPF generates their keys (Step 1)
@@ -236,19 +238,19 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
             .is_ok()
     );
 
-    // Step 3.2: Journalist generates ephemeral keys and signs them
-    // Journalist creates ephemeral key request
-    let ephemeral_key_request = journalist.create_ephemeral_key_request();
+    // Step 3.2: Journalist generates short term keys and signs them
+    // Journalist creates short term key request
+    let short_term_key_request = journalist.create_short_term_key_request();
 
-    let bundles = ephemeral_key_request.bundles.clone();
+    let bundles = short_term_key_request.bundles.clone();
 
-    // Server: Process ephemeral key request, including verification
+    // Server: Process short term key request, including verification
     server_session
-        .handle_ephemeral_key_request(ephemeral_key_request)
-        .expect("Can handle ephemeral key request");
+        .handle_short_term_key_request(short_term_key_request, TEST_EPOCH.not_before())
+        .expect("Can handle short term key request");
 
-    // Test that server rejects ephemeral keys from unknown journalist
-    let unknown_journalist_request = JournalistEphemeralKeyRequest {
+    // Test that server rejects short term keys from unknown journalist
+    let unknown_journalist_request = JournalistShortTermKeyRequest {
         verifying_key: FPFKeyPair::new(&mut rng)
             .expect("key generation failed")
             .verifying_key(),
@@ -256,7 +258,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
     };
     assert!(
         server_session
-            .handle_ephemeral_key_request(unknown_journalist_request)
+            .handle_short_term_key_request(unknown_journalist_request, TEST_EPOCH.not_before())
             .is_err()
     );
 }

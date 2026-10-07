@@ -1,7 +1,8 @@
 use anyhow::{Context, Result, bail};
 use securedrop_protocol_minimal::Source;
 use securedrop_protocol_minimal::api::Api;
-use securedrop_protocol_minimal::wire::core::{JournalistEphemeralKeys, WelcomeBundle};
+use securedrop_protocol_minimal::keys::Timestamp;
+use securedrop_protocol_minimal::wire::core::{JournalistShortTermKeys, WelcomeBundle};
 use serde::Deserialize;
 
 use crate::util::{parse_fpf_vk, read_passphrase};
@@ -11,7 +12,7 @@ struct MessageSubmitResponse {
     message_id: String,
 }
 
-pub(crate) fn submit(server: &str, fpf_vk_hex: &str, message: &str) -> Result<()> {
+pub(crate) fn submit(server: &str, fpf_vk_hex: &str, message: &str, now: Timestamp) -> Result<()> {
     let fpf_vk = parse_fpf_vk(fpf_vk_hex)?;
 
     let passphrase = read_passphrase()?;
@@ -35,33 +36,33 @@ pub(crate) fn submit(server: &str, fpf_vk_hex: &str, message: &str) -> Result<()
         bail!("no journalists enrolled at this newsroom");
     }
 
-    // Fetch one one-time key bundle per journalist (this consumes them).
-    let ephemeral: Vec<JournalistEphemeralKeys> = client
+    // Fetch one short-term key bundle per journalist
+    let short_term: Vec<JournalistShortTermKeys> = client
         .get(format!("{server}/journalists/keys"))
         .send()
         .with_context(|| format!("fetching {server}/journalists/keys"))?
         .error_for_status()
-        .context("newsroom rejected ephemeral key request")?
+        .context("newsroom rejected short term key request")?
         .json()?;
-    if ephemeral.is_empty() {
-        bail!("no journalist ephemeral keys available (all out of one-time keys)");
+    if short_term.is_empty() {
+        bail!("no journalist short term keys available (all out of short-term keys)");
     }
 
-    // Pair each one-time bundle with its journalist's (verified) long-term keys,
+    // Pair each short-term bundle with its journalist's (verified) long-term keys,
     // assemble the public view, encrypt, and submit one envelope each.
     let mut message_ids = Vec::new();
-    for eph in &ephemeral {
+    for st in &short_term {
         let Some(long_term) = welcome
             .journalists
             .iter()
-            .find(|j| j.vk.into_bytes() == eph.vk.into_bytes())
+            .find(|j| j.vk.into_bytes() == st.vk.into_bytes())
         else {
-            // one-time keys for a journalist not in the welcome roster... skipping
+            // short-term keys for a journalist not in the welcome roster... skipping
             continue;
         };
         let journalist = source
-            .verify_ephemeral(long_term, &eph.ephemeral)
-            .context("journalist one-time key failed verification")?;
+            .verify_short_term(long_term, &st.short_term, now)
+            .context("journalist short-term key failed verification")?;
 
         let envelope = source
             .submit_message(&mut rng, message.as_bytes(), &source, &journalist)

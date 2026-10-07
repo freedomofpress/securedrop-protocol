@@ -4,7 +4,7 @@ use crate::message::MessagePublicKey;
 use crate::metadata::MetadataPublicKey;
 use crate::primitives::ristretto255::DHPrivateKey;
 use crate::primitives::ristretto255::DHPublicKey;
-use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature};
+use crate::sign::{JournalistLongTermKey, JournalistShortTermKey, Signature};
 use alloc::vec::Vec;
 
 use crate::ciphertext::Plaintext;
@@ -32,7 +32,7 @@ pub trait UserPublic {
     /// The long-term SD-APKE public key `pk^APKE`.
     fn message_auth_pk(&self) -> &MessagePublicKey;
     fn message_metadata_pk(&self) -> &MetadataPublicKey;
-    /// The ephemeral SD-APKE public key `pk^{APKE_E}` from a key bundle.
+    /// The short_term SD-APKE public key `pk^{APKE_E}` from a key bundle.
     fn message_enc_pk(&self) -> &MessagePublicKey;
 }
 
@@ -40,8 +40,8 @@ pub trait JournalistPublic: UserPublic {
     fn verifying_key(&self) -> &VerifyingKey;
     fn self_signature(&self) -> &Signature<JournalistLongTermKey>;
     fn signed_keybytes(&self) -> &SignedLongtermKeyBundle;
-    fn ephemeral_bundle(&self) -> &KeyBundlePublic;
-    fn ephemeral_signature(&self) -> &Signature<JournalistEphemeralKey>;
+    fn short_term_bundle(&self) -> &KeyBundlePublic;
+    fn short_term_signature(&self) -> &Signature<JournalistShortTermKey>;
 }
 
 #[cfg(not(hax))]

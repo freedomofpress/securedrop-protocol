@@ -35,8 +35,8 @@ pub(crate) struct AppState {
     pub(crate) fpf_sig: Option<Signature<FpfOnNewsroom>>,
     /// Enrolled journalists, keyed by long term verifying key
     pub(crate) journalists: Arc<Mutex<HashMap<String, EnrolledJournalist>>>,
-    /// Stored ephemeral key bundles, keyed by journalist verifying key
-    pub(crate) ephemeral_keys: Arc<Mutex<HashMap<String, Vec<SignedKeyBundlePublic>>>>,
+    /// Stored short term key bundles, keyed by journalist verifying key
+    pub(crate) short_term_keys: Arc<Mutex<HashMap<String, Vec<SignedKeyBundlePublic>>>>,
     /// Submitted messages, keyed by server-assigned message ID
     pub(crate) messages: Arc<Mutex<ServerMessageStore>>,
 }
@@ -63,7 +63,7 @@ async fn serve(port: u16) -> Result<()> {
         newsroom_kp: Arc::new(kp),
         fpf_sig,
         journalists: Arc::new(Mutex::new(HashMap::new())),
-        ephemeral_keys: Arc::new(Mutex::new(HashMap::new())),
+        short_term_keys: Arc::new(Mutex::new(HashMap::new())),
         messages: Arc::new(Mutex::new(ServerMessageStore::default())),
     };
 
@@ -72,7 +72,7 @@ async fn serve(port: u16) -> Result<()> {
         .route("/welcome", get(get_welcome))
         .route("/newsroom/journalists/enroll", post(post_enroll))
         .route("/newsroom/journalists/keys", post(post_replenish))
-        .route("/journalists/keys", get(get_journalist_ephemeral_keys))
+        .route("/journalists/keys", get(get_journalist_short_term_keys))
         .route("/messages", post(post_message))
         .route("/messages/:id", get(get_message).delete(delete_message))
         .route("/challenges", get(get_challenges))

@@ -5,7 +5,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 use securedrop_protocol_minimal::api::{Api, Client, JournalistApi};
-use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
+use securedrop_protocol_minimal::keys::{Epoch, FPFKeyPair, NewsroomKeyPair};
 
 use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::server::Server;
@@ -13,6 +13,8 @@ use securedrop_protocol_minimal::{Journalist, JournalistPublic, Source, UserPubl
 
 // TODO: better way (eg parameterize as in benchmarks)
 pub const DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST: usize = 3;
+
+pub const TEST_EPOCH: Epoch = Epoch(11);
 
 // Canonical BIP39 test vector: 16 zero bytes of entropy.
 const TEST_MNEMONIC: &str =
@@ -51,7 +53,7 @@ fn protocol_step_5_source_fetch_keys() {
     server_session.set_fpf_signature(newsroom_setup_response.sig);
 
     // setup journalist (new)
-    let journalist = Journalist::new(&mut rng, DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST);
+    let journalist = Journalist::new(&mut rng, DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST, TEST_EPOCH);
 
     let journalist_setup_request = journalist
         .create_setup_request()
@@ -61,17 +63,17 @@ fn protocol_step_5_source_fetch_keys() {
         .setup_journalist(journalist_setup_request)
         .expect("Can setup journalist");
 
-    // Journalist provides ephemeral keys
-    let ephemeral_key_request = journalist.create_ephemeral_key_request();
+    // Journalist provides short term keys
+    let short_term_key_request = journalist.create_short_term_key_request();
 
     assert_eq!(
-        ephemeral_key_request.bundles.len(),
+        short_term_key_request.bundles.len(),
         DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST
     );
 
     server_session
-        .handle_ephemeral_key_request(ephemeral_key_request)
-        .expect("Can handle ephemeral key request");
+        .handle_short_term_key_request(short_term_key_request, TEST_EPOCH.not_before())
+        .expect("Can handle short term key request");
 
     // Step 4: Generate source session from passphrase
     let mut source_session = Source::from_passphrase(TEST_MNEMONIC).expect("valid test mnemonic");
@@ -85,18 +87,18 @@ fn protocol_step_5_source_fetch_keys() {
     // We only have one journalist rn
     assert_eq!(welcome.journalists.len(), 1);
 
-    // Source fetches one ephemeral bundle per journalist (consuming) and
+    // Source fetches one short-term bundle per journalist and
     // assembles the journalist's public view.
-    let ephemeral = server_session.handle_journalist_ephemeral_keys(&mut rng);
-    assert_eq!(ephemeral.len(), 1);
+    let short_term = server_session.handle_journalist_short_term_keys(&mut rng, TEST_EPOCH.not_before());
+    assert_eq!(short_term.len(), 1);
     let long_term = welcome
         .journalists
         .iter()
-        .find(|j| j.vk.into_bytes() == ephemeral[0].vk.into_bytes())
+        .find(|j| j.vk.into_bytes() == short_term[0].vk.into_bytes())
         .expect("matching long-term view");
     let journalist_view = source_session
-        .verify_ephemeral(long_term, &ephemeral[0].ephemeral)
-        .expect("Journalist ephemeral keys should be valid");
+        .verify_short_term(long_term, &short_term[0].short_term, TEST_EPOCH.not_before())
+        .expect("Journalist short term keys should be valid");
 
     // Verify the journalist's signing key matches our expectation
     // (todo improve this)
@@ -121,25 +123,27 @@ fn protocol_step_5_source_fetch_keys() {
         journalist.message_auth_keypair().public_key().as_bytes()
     );
 
-    // Verify that ephemeral keys were consumed (deleted from server storage)
-    // After fetching, the journalist should have no ephemeral keys left
+    // Verify that short term keys are not consumed: bundles are valid for their whole
+    // epoch and can be served repeatedly
     let journalist_id = server_session
         .find_journalist_id(&jvk)
         .expect("Journalist should be found");
     assert_eq!(
-        server_session.ephemeral_keys_count(journalist_id),
-        DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST - 1
+        server_session.short_term_keys_count(journalist_id),
+        DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST
     );
-
-    // Consume the remaining keys
-    for _i in 0..DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST - 1 {
-        let _ = server_session.handle_journalist_ephemeral_keys(&mut rng);
+    for _i in 0..DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST {
+        let responses =
+            server_session.handle_journalist_short_term_keys(&mut rng, TEST_EPOCH.not_before());
+        assert_eq!(responses.len(), 1);
     }
-    assert!(!server_session.has_ephemeral_keys(journalist_id));
+    assert!(server_session.has_short_term_keys(journalist_id));
 
-    // Test that subsequent requests return no keys (since they were consumed)
-    let empty_responses = server_session.handle_journalist_ephemeral_keys(&mut rng);
+    // Test that no keys are served once their epoch has passed, and expired keys are deleted
+    let empty_responses = server_session
+        .handle_journalist_short_term_keys(&mut rng, TEST_EPOCH.not_after());
     assert_eq!(empty_responses.len(), 0);
+    assert!(!server_session.has_short_term_keys(journalist_id));
 
     // Test that invalid FPF signatures are rejected
     let wrong_fpf_keypair = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
@@ -182,7 +186,7 @@ fn protocol_step_6_source_submits_message() {
     server_session.set_fpf_signature(newsroom_setup_response.sig);
 
     // Setup journalist: TODO keybundles somewhere else...
-    let mut journalist = Journalist::new(&mut rng, 10);
+    let mut journalist = Journalist::new(&mut rng, 10, TEST_EPOCH);
     // let mut journalist_session = JournalistClient::new(
     //     journalist,
     //     newsroom_verifying_key,
@@ -199,12 +203,12 @@ fn protocol_step_6_source_submits_message() {
     // Store the newsroom verifying key in the journalist session
     journalist.set_newsroom_verifying_key(newsroom_verifying_key);
 
-    // Journalist provides ephemeral keys
-    let ephemeral_key_request = journalist.create_ephemeral_key_request();
+    // Journalist provides short term keys
+    let short_term_key_request = journalist.create_short_term_key_request();
 
     server_session
-        .handle_ephemeral_key_request(ephemeral_key_request)
-        .expect("Can handle ephemeral key request");
+        .handle_short_term_key_request(short_term_key_request, TEST_EPOCH.not_before())
+        .expect("Can handle short term key request");
 
     // Source setup
     // let source = Source::from_passphrase(&[1u8; 32]);
@@ -216,15 +220,15 @@ fn protocol_step_6_source_submits_message() {
         .handle_welcome(&welcome, &fpf_keypair.verifying_key())
         .expect("Welcome bundle should be valid");
 
-    let ephemeral = server_session.handle_journalist_ephemeral_keys(&mut rng);
+    let short_term = server_session.handle_journalist_short_term_keys(&mut rng, TEST_EPOCH.not_before());
     let long_term = welcome
         .journalists
         .iter()
-        .find(|j| j.vk.into_bytes() == ephemeral[0].vk.into_bytes())
+        .find(|j| j.vk.into_bytes() == short_term[0].vk.into_bytes())
         .expect("matching long-term view");
     let journalist_public = source
-        .verify_ephemeral(long_term, &ephemeral[0].ephemeral)
-        .expect("Journalist ephemeral keys should be valid");
+        .verify_short_term(long_term, &short_term[0].short_term, TEST_EPOCH.not_before())
+        .expect("Journalist short term keys should be valid");
 
     // Step 6: Source submits a message
     let message_content = b"Hello, this is a test message!";
@@ -264,7 +268,7 @@ fn protocol_step_7_message_id_fetch() {
     server_session.set_fpf_signature(newsroom_setup_response.sig);
 
     // Setup journalist : TODO keybundles
-    let mut journalist = Journalist::new(&mut rng, 10);
+    let mut journalist = Journalist::new(&mut rng, 10, TEST_EPOCH);
     // let mut journalist_session = JournalistClient::new(
     //     journalist,
     //     newsroom_verifying_key,
@@ -281,12 +285,12 @@ fn protocol_step_7_message_id_fetch() {
     // Store the newsroom verifying key in the journalist session
     journalist.set_newsroom_verifying_key(newsroom_verifying_key);
 
-    // Journalist provides ephemeral keys
-    let ephemeral_key_request = journalist.create_ephemeral_key_request();
+    // Journalist provides short term keys
+    let short_term_key_request = journalist.create_short_term_key_request();
 
     server_session
-        .handle_ephemeral_key_request(ephemeral_key_request)
-        .expect("Can handle ephemeral key request");
+        .handle_short_term_key_request(short_term_key_request, TEST_EPOCH.not_before())
+        .expect("Can handle short term key request");
 
     // Source setup
     let mut source = Source::from_passphrase(TEST_MNEMONIC).expect("valid test mnemonic");
@@ -297,15 +301,15 @@ fn protocol_step_7_message_id_fetch() {
         .handle_welcome(&welcome, &fpf_keypair.verifying_key())
         .expect("Welcome bundle should be valid");
 
-    let ephemeral = server_session.handle_journalist_ephemeral_keys(&mut rng);
+    let short_term = server_session.handle_journalist_short_term_keys(&mut rng, TEST_EPOCH.not_before());
     let long_term = welcome
         .journalists
         .iter()
-        .find(|j| j.vk.into_bytes() == ephemeral[0].vk.into_bytes())
+        .find(|j| j.vk.into_bytes() == short_term[0].vk.into_bytes())
         .expect("matching long-term view");
     let journalist_public = source
-        .verify_ephemeral(long_term, &ephemeral[0].ephemeral)
-        .expect("Journalist ephemeral keys should be valid");
+        .verify_short_term(long_term, &short_term[0].short_term, TEST_EPOCH.not_before())
+        .expect("Journalist short term keys should be valid");
 
     // Submit a message (Step 6)
     let message_content = b"Hello, this is a test message!";

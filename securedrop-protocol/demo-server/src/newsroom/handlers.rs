@@ -6,10 +6,10 @@ use securedrop_protocol_minimal::Envelope;
 use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
 use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::wire::core::{
-    JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchResponse, WelcomeBundle,
+    JournalistShortTermKeys, JournalistLongTermView, MessageChallengeFetchResponse, WelcomeBundle,
 };
 use securedrop_protocol_minimal::wire::setup::{
-    JournalistEphemeralKeyRequest, JournalistEphemeralKeyResponse, JournalistSetupRequest,
+    JournalistShortTermKeyRequest, JournalistShortTermKeyResponse, JournalistSetupRequest,
     JournalistSetupResponse,
 };
 use serde::Serialize;
@@ -41,7 +41,7 @@ pub(crate) async fn post_enroll(
     let sig = state.newsroom_kp.sign(&vk_j.into_bytes());
 
     // Record the enrollment (with the newsroom signature) so this journalist can
-    // later replenish ephemeral keys and be served to sources.
+    // later replenish short term keys and be served to sources.
     let vk_hex = hex::encode(vk_j.into_bytes());
     state
         .journalists
@@ -61,12 +61,12 @@ pub(crate) async fn post_enroll(
 /// Ephemeral key replenishment
 pub(crate) async fn post_replenish(
     State(state): State<AppState>,
-    Json(req): Json<JournalistEphemeralKeyRequest>,
-) -> Result<Json<JournalistEphemeralKeyResponse>, (StatusCode, String)> {
+    Json(req): Json<JournalistShortTermKeyRequest>,
+) -> Result<Json<JournalistShortTermKeyResponse>, (StatusCode, String)> {
     let vk_j = req.verifying_key;
     let vk_hex = hex::encode(vk_j.into_bytes());
 
-    // Only enrolled journalists may upload ephemeral keys.
+    // Only enrolled journalists may upload short term keys.
     if !state
         .journalists
         .lock()
@@ -80,23 +80,23 @@ pub(crate) async fn post_replenish(
     }
 
     // Verify each bundle's self-signature against the journalist's verifying key.
-    for (bundle, selfsig) in &req.bundles {
-        vk_j.verify(&bundle.as_bytes(), selfsig).map_err(|_| {
+    for b in &req.bundles {
+        vk_j.verify(&b.signed_bytes(), &b.selfsig).map_err(|_| {
             (
                 StatusCode::BAD_REQUEST,
-                "ephemeral key bundle self-signature does not verify".to_string(),
+                "short term key bundle self-signature does not verify".to_string(),
             )
         })?;
     }
 
     let mut store = state
-        .ephemeral_keys
+        .short_term_keys
         .lock()
-        .expect("ephemeral_keys mutex poisoned");
+        .expect("short_term_keys mutex poisoned");
     let stored = store.entry(vk_hex).or_default();
     stored.extend(req.bundles);
 
-    Ok(Json(JournalistEphemeralKeyResponse {
+    Ok(Json(JournalistShortTermKeyResponse {
         stored: stored.len(),
     }))
 }
@@ -131,30 +131,30 @@ pub(crate) async fn get_welcome(
     }))
 }
 
-pub(crate) async fn get_journalist_ephemeral_keys(
+pub(crate) async fn get_journalist_short_term_keys(
     State(state): State<AppState>,
-) -> Json<Vec<JournalistEphemeralKeys>> {
+) -> Json<Vec<JournalistShortTermKeys>> {
     let journalists = state
         .journalists
         .lock()
         .expect("journalists mutex poisoned");
-    let mut ephemeral_keys = state
-        .ephemeral_keys
+    let mut short_term_keys = state
+        .short_term_keys
         .lock()
-        .expect("ephemeral_keys mutex poisoned");
+        .expect("short_term_keys mutex poisoned");
 
     let mut rng = rand::rng();
     let mut responses = Vec::new();
     for (vk_hex, enrolled) in journalists.iter() {
-        let Some(bundles) = ephemeral_keys.get_mut(vk_hex).filter(|b| !b.is_empty()) else {
+        let Some(bundles) = short_term_keys.get_mut(vk_hex).filter(|b| !b.is_empty()) else {
             continue;
         };
         let idx = rng.random_range(0..bundles.len());
-        let bundle = bundles.swap_remove(idx);
+        let bundle = bundles[idx].clone();
 
-        responses.push(JournalistEphemeralKeys {
+        responses.push(JournalistShortTermKeys {
             vk: enrolled.enrollment.verification_key,
-            ephemeral: bundle,
+            short_term: bundle,
         });
     }
 
