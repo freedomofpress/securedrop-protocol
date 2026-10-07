@@ -5,8 +5,8 @@ open Core_models
 
 /// A journalist's long-term public key material, as carried in the
 /// [`WelcomeBundle`].
-/// Combined with a one-time [`SignedKeyBundlePublic`] (fetched separately
-/// by an ephemeral key request) to reconstruct a `JournalistPublicView` for
+/// Combined with a short-term [`SignedKeyBundlePublic`] (fetched separately
+/// by an short term key request) to reconstruct a `JournalistPublicView` for
 /// encryption.
 type t_JournalistLongTermView = {
   f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
@@ -25,13 +25,11 @@ type t_WelcomeBundle = {
   f_journalists:Alloc.Vec.t_Vec t_JournalistLongTermView Alloc.Alloc.t_Global
 }
 
-/// One journalist's one-time (ephemeral) key bundle. `vk` identifies which
-/// journalist - the server consumes the bundle when it serves it.
-type t_JournalistEphemeralKeys = {
+/// One journalist's short-term key bundle. `vk` identifies which
+/// journalist
+type t_JournalistShortTermKeys = {
   f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
-  f_ephemeral:(Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-    Securedrop_protocol_minimal.Sign.t_Signature
-    Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
+  f_short_term:Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic
 }
 
 /// User (source or journalist) fetches message IDs

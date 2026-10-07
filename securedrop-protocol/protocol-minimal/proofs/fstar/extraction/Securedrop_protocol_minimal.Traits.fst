@@ -68,24 +68,24 @@ class t_JournalistPublic (v_Self: Type0) = {
     -> Prims.Pure Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle
         (f_signed_keybytes_pre x0)
         (fun result -> f_signed_keybytes_post x0 result);
-  f_ephemeral_bundle_pre:v_Self -> Type0;
-  f_ephemeral_bundle_post:v_Self -> Securedrop_protocol_minimal.Keys.t_KeyBundlePublic -> Type0;
-  f_ephemeral_bundle:x0: v_Self
+  f_short_term_bundle_pre:v_Self -> Type0;
+  f_short_term_bundle_post:v_Self -> Securedrop_protocol_minimal.Keys.t_KeyBundlePublic -> Type0;
+  f_short_term_bundle:x0: v_Self
     -> Prims.Pure Securedrop_protocol_minimal.Keys.t_KeyBundlePublic
-        (f_ephemeral_bundle_pre x0)
-        (fun result -> f_ephemeral_bundle_post x0 result);
-  f_ephemeral_signature_pre:v_Self -> Type0;
-  f_ephemeral_signature_post:
+        (f_short_term_bundle_pre x0)
+        (fun result -> f_short_term_bundle_post x0 result);
+  f_short_term_signature_pre:v_Self -> Type0;
+  f_short_term_signature_post:
       v_Self ->
       Securedrop_protocol_minimal.Sign.t_Signature
-        Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey
+        Securedrop_protocol_minimal.Sign.t_JournalistShortTermKey
     -> Type0;
-  f_ephemeral_signature:x0: v_Self
+  f_short_term_signature:x0: v_Self
     -> Prims.Pure
         (Securedrop_protocol_minimal.Sign.t_Signature
-          Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
-        (f_ephemeral_signature_pre x0)
-        (fun result -> f_ephemeral_signature_post x0 result)
+          Securedrop_protocol_minimal.Sign.t_JournalistShortTermKey)
+        (f_short_term_signature_pre x0)
+        (fun result -> f_short_term_signature_post x0 result)
 }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
@@ -107,17 +107,12 @@ class t_Enrollable (v_Self: Type0) = {
   f_signed_keybundles_pre:v_Self -> Type0;
   f_signed_keybundles_post:
       v_Self ->
-      Alloc.Vec.t_Vec
-          (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-            Securedrop_protocol_minimal.Sign.t_Signature
-            Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global
+      Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic Alloc.Alloc.t_Global
     -> Type0;
   f_signed_keybundles:x0: v_Self
     -> Prims.Pure
-        (Alloc.Vec.t_Vec
-            (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-              Securedrop_protocol_minimal.Sign.t_Signature
-              Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global)
+        (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic
+            Alloc.Alloc.t_Global)
         (f_signed_keybundles_pre x0)
         (fun result -> f_signed_keybundles_post x0 result)
 }

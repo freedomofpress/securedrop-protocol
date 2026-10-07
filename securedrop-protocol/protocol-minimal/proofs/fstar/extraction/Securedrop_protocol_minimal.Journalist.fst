@@ -15,7 +15,7 @@ let _ =
 
 /// Journalists: ingredients.
 /// Journalists have a signing/verifying key, a reply key,
-/// a fetch key, and a collection of one-time signed key bundles
+/// a fetch key, and a collection of short-lived signed key bundles
 type t_Journalist = {
   f_signing_key:Securedrop_protocol_minimal.Keys.t_KeyPair
     Securedrop_protocol_minimal.Sign.t_SigningKey Securedrop_protocol_minimal.Sign.t_VerifyingKey;
@@ -32,18 +32,13 @@ type t_Journalist = {
 type t_JournalistPublicView = {
   f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
   f_signed_longterm_key_bundle:Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle;
-  f_kb:(Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-    Securedrop_protocol_minimal.Sign.t_Signature
-    Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
+  f_kb:Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic
 }
 
 let impl_JournalistPublicView__new
       (vk: Securedrop_protocol_minimal.Sign.t_VerifyingKey)
       (signed_longterm_key_bundle: Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle)
-      (kb:
-          (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-            Securedrop_protocol_minimal.Sign.t_Signature
-            Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey))
+      (kb: Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic)
     : t_JournalistPublicView =
   { f_vk = vk; f_signed_longterm_key_bundle = signed_longterm_key_bundle; f_kb = kb }
   <:
@@ -89,7 +84,8 @@ let impl_1: Securedrop_protocol_minimal.Traits.t_UserPublic t_JournalistPublicVi
     f_message_metadata_pk
     =
     (fun (self: t_JournalistPublicView) ->
-        self.f_kb._1.Securedrop_protocol_minimal.Keys.f_metadata_pk);
+        self.f_kb.Securedrop_protocol_minimal.Keys.f_bundle
+          .Securedrop_protocol_minimal.Keys.f_metadata_pk);
     f_message_enc_pk_pre = (fun (self: t_JournalistPublicView) -> true);
     f_message_enc_pk_post
     =
@@ -100,7 +96,8 @@ let impl_1: Securedrop_protocol_minimal.Traits.t_UserPublic t_JournalistPublicVi
         true);
     f_message_enc_pk
     =
-    fun (self: t_JournalistPublicView) -> self.f_kb._1.Securedrop_protocol_minimal.Keys.f_apke_pk
+    fun (self: t_JournalistPublicView) ->
+      self.f_kb.Securedrop_protocol_minimal.Keys.f_bundle.Securedrop_protocol_minimal.Keys.f_apke_pk
   }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
@@ -136,23 +133,27 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_JournalistPublic t_JournalistPu
         ->
         true);
     f_signed_keybytes = (fun (self: t_JournalistPublicView) -> self.f_signed_longterm_key_bundle);
-    f_ephemeral_bundle_pre = (fun (self: t_JournalistPublicView) -> true);
-    f_ephemeral_bundle_post
+    f_short_term_bundle_pre = (fun (self: t_JournalistPublicView) -> true);
+    f_short_term_bundle_post
     =
     (fun (self: t_JournalistPublicView) (out: Securedrop_protocol_minimal.Keys.t_KeyBundlePublic) ->
         true);
-    f_ephemeral_bundle = (fun (self: t_JournalistPublicView) -> self.f_kb._1);
-    f_ephemeral_signature_pre = (fun (self: t_JournalistPublicView) -> true);
-    f_ephemeral_signature_post
+    f_short_term_bundle
+    =
+    (fun (self: t_JournalistPublicView) -> self.f_kb.Securedrop_protocol_minimal.Keys.f_bundle);
+    f_short_term_signature_pre = (fun (self: t_JournalistPublicView) -> true);
+    f_short_term_signature_post
     =
     (fun
         (self: t_JournalistPublicView)
         (out:
           Securedrop_protocol_minimal.Sign.t_Signature
-          Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
+          Securedrop_protocol_minimal.Sign.t_JournalistShortTermKey)
         ->
         true);
-    f_ephemeral_signature = fun (self: t_JournalistPublicView) -> self.f_kb._2
+    f_short_term_signature
+    =
+    fun (self: t_JournalistPublicView) -> self.f_kb.Securedrop_protocol_minimal.Keys.f_selfsig
   }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
@@ -246,23 +247,13 @@ let keybundle_refs (message_keys: t_Slice Securedrop_protocol_minimal.Keys.t_Sig
 
 let signed_keybundle_publics
       (message_keys: t_Slice Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle)
-    : Alloc.Vec.t_Vec
-      (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-        Securedrop_protocol_minimal.Sign.t_Signature
-        Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global =
-  let out:Alloc.Vec.t_Vec
-    (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-      Securedrop_protocol_minimal.Sign.t_Signature
-      Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global =
-    Alloc.Vec.impl__new #(Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-        Securedrop_protocol_minimal.Sign.t_Signature
-        Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
-      ()
+    : Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic Alloc.Alloc.t_Global =
+  let out:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic
+    Alloc.Alloc.t_Global =
+    Alloc.Vec.impl__new #Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic ()
   in
-  let out:Alloc.Vec.t_Vec
-    (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-      Securedrop_protocol_minimal.Sign.t_Signature
-      Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global =
+  let out:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic
+    Alloc.Alloc.t_Global =
     Core_models.Iter.Traits.Iterator.f_fold (Core_models.Iter.Traits.Collect.f_into_iter #(Core_models.Slice.Iter.t_Iter
             Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle)
           #FStar.Tactics.Typeclasses.solve
@@ -274,32 +265,25 @@ let signed_keybundle_publics
         Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle)
       out
       (fun out signed ->
-          let out:Alloc.Vec.t_Vec
-            (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-              Securedrop_protocol_minimal.Sign.t_Signature
-              Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global =
+          let out:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic
+            Alloc.Alloc.t_Global =
             out
           in
           let signed:Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle = signed in
-          Alloc.Vec.impl_1__push #(Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-              Securedrop_protocol_minimal.Sign.t_Signature
-              Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
+          Alloc.Vec.impl_1__push #Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic
             #Alloc.Alloc.t_Global
             out
-            ((Securedrop_protocol_minimal.Keys.impl_MessageKeyBundle__public signed
-                    .Securedrop_protocol_minimal.Keys.f_bundle
-                <:
-                Securedrop_protocol_minimal.Keys.t_KeyBundlePublic),
-              signed.Securedrop_protocol_minimal.Keys.f_selfsig
+            (Securedrop_protocol_minimal.Keys.impl_SignedKeyBundlePublic__new (Securedrop_protocol_minimal.Keys.impl_MessageKeyBundle__public
+                    signed.Securedrop_protocol_minimal.Keys.f_bundle
+                  <:
+                  Securedrop_protocol_minimal.Keys.t_KeyBundlePublic)
+                signed.Securedrop_protocol_minimal.Keys.f_epoch
+                signed.Securedrop_protocol_minimal.Keys.f_selfsig
               <:
-              (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-                Securedrop_protocol_minimal.Sign.t_Signature
-                Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey))
+              Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic)
           <:
-          Alloc.Vec.t_Vec
-            (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-              Securedrop_protocol_minimal.Sign.t_Signature
-              Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global)
+          Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic
+            Alloc.Alloc.t_Global)
   in
   out
 
@@ -410,10 +394,8 @@ let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
     (fun
         (self: t_Journalist)
         (out:
-          Alloc.Vec.t_Vec
-            (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-              Securedrop_protocol_minimal.Sign.t_Signature
-              Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global)
+          Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic
+            Alloc.Alloc.t_Global)
         ->
         true);
     f_signed_keybundles
@@ -433,13 +415,14 @@ let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
 
 #push-options "--admit_smt_queries true"
 
-/// Generate one ephemeral key bundle and sign its pubkeys.
+/// Generate one short-term key bundle for `epoch` and sign its pubkey and epoch
 let make_signed_bundle
       (#v_R: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
       (rng: v_R)
       (signing_key: Securedrop_protocol_minimal.Sign.t_SigningKey)
+      (epoch: Securedrop_protocol_minimal.Keys.t_Epoch)
     : (v_R & Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle) =
   let
   (tmp0: v_R),
@@ -453,7 +436,7 @@ let make_signed_bundle
     Core_models.Result.impl__expect #Securedrop_protocol_minimal.Message.t_MessageKeyPair
       #Anyhow.t_Error
       out
-      "SD-APKE ephemeral keygen failed"
+      "SD-APKE short term keygen failed"
   in
   let
   (tmp0: v_R),
@@ -473,23 +456,25 @@ let make_signed_bundle
     Securedrop_protocol_minimal.Keys.impl_MessageKeyBundle__new apke_kp metadata_kp
   in
   let pubkey_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Securedrop_protocol_minimal.Keys.impl_KeyBundlePublic__as_bytes (Securedrop_protocol_minimal.Keys.impl_MessageKeyBundle__public
+    Securedrop_protocol_minimal.Keys.impl_SignedKeyBundlePublic__make_signed_bytes (Securedrop_protocol_minimal.Keys.impl_MessageKeyBundle__public
           bundle
         <:
         Securedrop_protocol_minimal.Keys.t_KeyBundlePublic)
+      epoch
   in
   let
   (selfsig:
     Securedrop_protocol_minimal.Sign.t_Signature
-    Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey):Securedrop_protocol_minimal.Sign.t_Signature
-  Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey =
-    Securedrop_protocol_minimal.Sign.impl_SigningKey__sign #Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey
+    Securedrop_protocol_minimal.Sign.t_JournalistShortTermKey):Securedrop_protocol_minimal.Sign.t_Signature
+  Securedrop_protocol_minimal.Sign.t_JournalistShortTermKey =
+    Securedrop_protocol_minimal.Sign.impl_SigningKey__sign #Securedrop_protocol_minimal.Sign.t_JournalistShortTermKey
       signing_key
       (Alloc.Vec.impl_1__as_slice pubkey_bytes <: t_Slice u8)
   in
   let hax_temp_output:Securedrop_protocol_minimal.Keys.t_SignedMessageKeyBundle =
     {
       Securedrop_protocol_minimal.Keys.f_bundle = bundle;
+      Securedrop_protocol_minimal.Keys.f_epoch = epoch;
       Securedrop_protocol_minimal.Keys.f_selfsig = selfsig
     }
     <:
@@ -505,7 +490,8 @@ val impl_Journalist__new':
     {| i0: Rand_core.t_RngCore v_R |} ->
     {| i1: Rand_core.t_CryptoRng v_R |} ->
     rng: v_R ->
-    num_keybundles: usize
+    num_keybundles: usize ->
+    epoch: Securedrop_protocol_minimal.Keys.t_Epoch
   -> (v_R & t_Journalist)
 
 unfold
@@ -521,26 +507,27 @@ val impl_Journalist__public': self: t_Journalist -> idx: usize -> t_JournalistPu
 unfold
 let impl_Journalist__public = impl_Journalist__public'
 
-/// Generate `n` fresh signed ephemeral key bundles and retain them in memory.
+/// Generate `n` fresh signed short-term key bundles for `epoch` and retain them in memory.
 /// The public halves are uploaded to the server via
-/// [`create_ephemeral_key_request`](crate::api::JournalistApi::create_ephemeral_key_request).
-/// The secret halves should be persisted via [`Journalist::ephemeral_bundle_bytes`].
+/// [`create_short_term_key_request`](crate::api::JournalistApi::create_short_term_key_request).
+/// The secret halves should be persisted via [`Journalist::short_term_bundle_bytes`].
 assume
-val impl_Journalist__generate_ephemeral_bundles':
+val impl_Journalist__generate_short_term_bundles':
     #v_R: Type0 ->
     {| i0: Rand_core.t_RngCore v_R |} ->
     {| i1: Rand_core.t_CryptoRng v_R |} ->
     self: t_Journalist ->
     rng: v_R ->
-    n: usize
+    n: usize ->
+    epoch: Securedrop_protocol_minimal.Keys.t_Epoch
   -> (t_Journalist & v_R)
 
 unfold
-let impl_Journalist__generate_ephemeral_bundles
+let impl_Journalist__generate_short_term_bundles
       (#v_R: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
-     = impl_Journalist__generate_ephemeral_bundles' #v_R #i0 #i1
+     = impl_Journalist__generate_short_term_bundles' #v_R #i0 #i1
 
 /// Byte representation of a [`Journalist`]'s long-term keypairs, sufficient
 /// to reconstruct the long-term state via
@@ -777,54 +764,59 @@ let impl_JournalistLongTermBytes__from_bytes (bytes: t_Slice u8)
     <:
     Core_models.Result.t_Result t_JournalistLongTermBytes Anyhow.t_Error
 
-/// Byte representation of one ephemeral key bundle's secret halves
-type t_EphemeralBundleBytes = {
+/// Byte representation of one short-term key bundle's secret halves and key epoch
+type t_ShortTermBundleBytes = {
   f_apke_dhakem_sk:t_Array u8 (mk_usize 32);
   f_apke_mlkem_sk:t_Array u8 (mk_usize 2400);
   f_apke_mlkem_pk:t_Array u8 (mk_usize 1184);
   f_metadata_sk:t_Array u8 (mk_usize 32);
-  f_metadata_pk:t_Array u8 (mk_usize 1216)
+  f_metadata_pk:t_Array u8 (mk_usize 1216);
+  f_epoch:t_Array u8 (mk_usize 8)
 }
 
-/// Extract the secret halves of the retained ephemeral key bundles so we can
-/// reconstruct them via [`Journalist::load_ephemeral_bundles`].
+/// Extract the secret halves of the retained short term key bundles so we can
+/// reconstruct them via [`Journalist::load_short_term_bundles`].
 /// Used by the demo.
 assume
-val impl_Journalist__ephemeral_bundle_bytes': self: t_Journalist
-  -> Alloc.Vec.t_Vec t_EphemeralBundleBytes Alloc.Alloc.t_Global
+val impl_Journalist__short_term_bundle_bytes': self: t_Journalist
+  -> Alloc.Vec.t_Vec t_ShortTermBundleBytes Alloc.Alloc.t_Global
 
 unfold
-let impl_Journalist__ephemeral_bundle_bytes = impl_Journalist__ephemeral_bundle_bytes'
+let impl_Journalist__short_term_bundle_bytes = impl_Journalist__short_term_bundle_bytes'
 
-/// Reconstruct ephemeral key bundles from persisted secret bytes.
+/// Reconstruct short term key bundles from persisted secret bytes.
 /// Used by the demo
 assume
-val impl_Journalist__load_ephemeral_bundles':
+val impl_Journalist__load_short_term_bundles':
     self: t_Journalist ->
-    bundles: Alloc.Vec.t_Vec t_EphemeralBundleBytes Alloc.Alloc.t_Global
+    bundles: Alloc.Vec.t_Vec t_ShortTermBundleBytes Alloc.Alloc.t_Global
   -> t_Journalist
 
 unfold
-let impl_Journalist__load_ephemeral_bundles = impl_Journalist__load_ephemeral_bundles'
+let impl_Journalist__load_short_term_bundles = impl_Journalist__load_short_term_bundles'
 
 /// Serialized length of
 /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk`.
-let impl_EphemeralBundleBytes__LEN: usize =
-  (((Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPrivateKey__LEN +!
-        Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PrivateKey__LEN
+let impl_ShortTermBundleBytes__LEN: usize =
+  ((((Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPrivateKey__LEN +!
+          Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PrivateKey__LEN
+          <:
+          usize) +!
+        Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
         <:
         usize) +!
-      Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
+      Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPrivateKey__LEN
       <:
       usize) +!
-    Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPrivateKey__LEN
+    Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
     <:
     usize) +!
-  Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
+  Securedrop_protocol_minimal.Keys.impl_Epoch__ENCODED_LEN
 
-let impl_EphemeralBundleBytes__from_bundle
+let impl_ShortTermBundleBytes__from_bundle
       (bundle: Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
-    : t_EphemeralBundleBytes =
+      (epoch: Securedrop_protocol_minimal.Keys.t_Epoch)
+    : t_ShortTermBundleBytes =
   {
     f_apke_dhakem_sk
     =
@@ -854,24 +846,30 @@ let impl_EphemeralBundleBytes__from_bundle
     f_metadata_pk
     =
     Securedrop_protocol_minimal.Metadata.impl_MetadataKeyPair__public_bytes bundle
-        .Securedrop_protocol_minimal.Keys.f_metadata_kp
+        .Securedrop_protocol_minimal.Keys.f_metadata_kp;
+    f_epoch = Securedrop_protocol_minimal.Keys.impl_Epoch__as_bytes epoch
   }
   <:
-  t_EphemeralBundleBytes
+  t_ShortTermBundleBytes
 
 assume
-val impl_EphemeralBundleBytes__into_bundle': self: t_EphemeralBundleBytes
+val impl_ShortTermBundleBytes__into_bundle': self: t_ShortTermBundleBytes
   -> Securedrop_protocol_minimal.Keys.t_MessageKeyBundle
 
 unfold
-let impl_EphemeralBundleBytes__into_bundle = impl_EphemeralBundleBytes__into_bundle'
+let impl_ShortTermBundleBytes__into_bundle = impl_ShortTermBundleBytes__into_bundle'
+
+/// Get the epoch of this short-term bundle.
+let impl_ShortTermBundleBytes__epoch (self: t_ShortTermBundleBytes)
+    : Securedrop_protocol_minimal.Keys.t_Epoch =
+  Securedrop_protocol_minimal.Keys.impl_Epoch__from_bytes self.f_epoch
 
 /// Serialize as
-/// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk`.
-let impl_EphemeralBundleBytes__as_bytes (self: t_EphemeralBundleBytes)
+/// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk || epoch`.
+let impl_ShortTermBundleBytes__as_bytes (self: t_ShortTermBundleBytes)
     : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
   let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Alloc.Vec.impl__with_capacity #u8 impl_EphemeralBundleBytes__LEN
+    Alloc.Vec.impl__with_capacity #u8 impl_ShortTermBundleBytes__LEN
   in
   let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Alloc.Vec.impl_2__extend_from_slice #u8
@@ -903,18 +901,21 @@ let impl_EphemeralBundleBytes__as_bytes (self: t_EphemeralBundleBytes)
       out
       (self.f_metadata_pk <: t_Slice u8)
   in
+  let out:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global out (self.f_epoch <: t_Slice u8)
+  in
   out
 
 /// Deserialize from
-/// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk` bytes.
+/// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk || epoch` bytes.
 /// # Errors
 /// Returns an error if the byte slice has the incorrect length.
-let impl_EphemeralBundleBytes__from_bytes (bytes: t_Slice u8)
-    : Core_models.Result.t_Result t_EphemeralBundleBytes Anyhow.t_Error =
-  if (Core_models.Slice.impl__len #u8 bytes <: usize) <>. impl_EphemeralBundleBytes__LEN
+let impl_ShortTermBundleBytes__from_bytes (bytes: t_Slice u8)
+    : Core_models.Result.t_Result t_ShortTermBundleBytes Anyhow.t_Error =
+  if (Core_models.Slice.impl__len #u8 bytes <: usize) <>. impl_ShortTermBundleBytes__LEN
   then
     let args:(usize & usize) =
-      impl_EphemeralBundleBytes__LEN, Core_models.Slice.impl__len #u8 bytes <: (usize & usize)
+      impl_ShortTermBundleBytes__LEN, Core_models.Slice.impl__len #u8 bytes <: (usize & usize)
     in
     let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 2) =
       let list =
@@ -931,7 +932,7 @@ let impl_EphemeralBundleBytes__from_bytes (bytes: t_Slice u8)
         (Core_models.Hint.must_use #Alloc.String.t_String
             (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 2)
                     (mk_usize 2)
-                    (let list = ["Invalid EphemeralBundleBytes length: expected "; ", got "] in
+                    (let list = ["Invalid ShortTermBundleBytes length: expected "; ", got "] in
                       FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 2);
                       Rust_primitives.Hax.array_of_list 2 list)
                     args
@@ -942,7 +943,7 @@ let impl_EphemeralBundleBytes__from_bytes (bytes: t_Slice u8)
           <:
           Alloc.String.t_String))
     <:
-    Core_models.Result.t_Result t_EphemeralBundleBytes Anyhow.t_Error
+    Core_models.Result.t_Result t_ShortTermBundleBytes Anyhow.t_Error
   else
     let (apke_dhakem_sk: t_Slice u8), (rest: t_Slice u8) =
       Core_models.Slice.impl__split_at #u8
@@ -959,10 +960,15 @@ let impl_EphemeralBundleBytes__from_bytes (bytes: t_Slice u8)
         rest
         Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
     in
-    let (metadata_sk: t_Slice u8), (metadata_pk: t_Slice u8) =
+    let (metadata_sk: t_Slice u8), (rest: t_Slice u8) =
       Core_models.Slice.impl__split_at #u8
         rest
         Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPrivateKey__LEN
+    in
+    let (metadata_pk: t_Slice u8), (epoch: t_Slice u8) =
+      Core_models.Slice.impl__split_at #u8
+        rest
+        Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
     in
     Core_models.Result.Result_Ok
     ({
@@ -1025,9 +1031,21 @@ let impl_EphemeralBundleBytes__from_bytes (bytes: t_Slice u8)
             <:
             Core_models.Result.t_Result (t_Array u8 (mk_usize 1216))
               Core_models.Array.t_TryFromSliceError)
+          "wrong checked length";
+        f_epoch
+        =
+        Core_models.Result.impl__expect #(t_Array u8 (mk_usize 8))
+          #Core_models.Array.t_TryFromSliceError
+          (Core_models.Convert.f_try_into #(t_Slice u8)
+              #(t_Array u8 (mk_usize 8))
+              #FStar.Tactics.Typeclasses.solve
+              epoch
+            <:
+            Core_models.Result.t_Result (t_Array u8 (mk_usize 8))
+              Core_models.Array.t_TryFromSliceError)
           "wrong checked length"
       }
       <:
-      t_EphemeralBundleBytes)
+      t_ShortTermBundleBytes)
     <:
-    Core_models.Result.t_Result t_EphemeralBundleBytes Anyhow.t_Error
+    Core_models.Result.t_Result t_ShortTermBundleBytes Anyhow.t_Error

@@ -59,43 +59,43 @@ val impl_17': Core_models.Cmp.t_Eq t_JournalistLongTermKey
 unfold
 let impl_17 = impl_17'
 
-/// Journalist self-signature over ephemeral key bundles (step 3.2).
-type t_JournalistEphemeralKey = | JournalistEphemeralKey : t_JournalistEphemeralKey
+/// Journalist self-signature over short-term key bundles (step 3.2).
+type t_JournalistShortTermKey = | JournalistShortTermKey : t_JournalistShortTermKey
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_18': Core_models.Fmt.t_Debug t_JournalistEphemeralKey
+val impl_18': Core_models.Fmt.t_Debug t_JournalistShortTermKey
 
 unfold
 let impl_18 = impl_18'
 
-let impl_19: Core_models.Clone.t_Clone t_JournalistEphemeralKey =
+let impl_19: Core_models.Clone.t_Clone t_JournalistShortTermKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_20': Core_models.Marker.t_Copy t_JournalistEphemeralKey
+val impl_20': Core_models.Marker.t_Copy t_JournalistShortTermKey
 
 unfold
 let impl_20 = impl_20'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_21': Core_models.Marker.t_StructuralPartialEq t_JournalistEphemeralKey
+val impl_21': Core_models.Marker.t_StructuralPartialEq t_JournalistShortTermKey
 
 unfold
 let impl_21 = impl_21'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_22': Core_models.Cmp.t_PartialEq t_JournalistEphemeralKey t_JournalistEphemeralKey
+val impl_22': Core_models.Cmp.t_PartialEq t_JournalistShortTermKey t_JournalistShortTermKey
 
 unfold
 let impl_22 = impl_22'
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_23': Core_models.Cmp.t_Eq t_JournalistEphemeralKey
+val impl_23': Core_models.Cmp.t_Eq t_JournalistShortTermKey
 
 unfold
 let impl_23 = impl_23'
@@ -210,7 +210,7 @@ let impl: t_DomainTag t_JournalistLongTermKey =
   }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
-let impl_DomainTag_for_JournalistEphemeralKey: t_DomainTag t_JournalistEphemeralKey =
+let impl_DomainTag_for_JournalistShortTermKey: t_DomainTag t_JournalistShortTermKey =
   {
     f_tag_pre = (fun (_: Prims.unit) -> true);
     f_tag_post = (fun (_: Prims.unit) (out: t_Slice u8) -> true);
@@ -225,9 +225,9 @@ let impl_DomainTag_for_JournalistEphemeralKey: t_DomainTag t_JournalistEphemeral
             mk_u8 105;
             mk_u8 103;
             mk_u8 45;
-            mk_u8 101;
-            mk_u8 112;
-            mk_u8 104
+            mk_u8 115;
+            mk_u8 116;
+            mk_u8 107
           ]
         in
         FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 9);

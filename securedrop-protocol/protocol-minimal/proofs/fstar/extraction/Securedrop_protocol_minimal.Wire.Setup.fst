@@ -55,30 +55,28 @@ val impl_3': Core_models.Fmt.t_Debug t_JournalistSetupResponse
 unfold
 let impl_3 = impl_3'
 
-/// Request from the journalist to the SecureDrop server for ephemeral key replenishment.
+/// Request from the journalist to the SecureDrop server for short term key replenishment.
 /// Step 3.2 in the spec.
-type t_JournalistEphemeralKeyRequest = {
+type t_JournalistShortTermKeyRequest = {
   f_verifying_key:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
-  f_bundles:Alloc.Vec.t_Vec
-    (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-      Securedrop_protocol_minimal.Sign.t_Signature
-      Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global
+  f_bundles:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_SignedKeyBundlePublic
+    Alloc.Alloc.t_Global
 }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_4': Core_models.Fmt.t_Debug t_JournalistEphemeralKeyRequest
+val impl_4': Core_models.Fmt.t_Debug t_JournalistShortTermKeyRequest
 
 unfold
 let impl_4 = impl_4'
 
-/// Response from the SecureDrop server to the journalist for ephemeral key replenishment.
+/// Response from the SecureDrop server to the journalist for short term key replenishment.
 /// Step 3.2 in the spec.
-type t_JournalistEphemeralKeyResponse = { f_stored:usize }
+type t_JournalistShortTermKeyResponse = { f_stored:usize }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
-val impl_5': Core_models.Fmt.t_Debug t_JournalistEphemeralKeyResponse
+val impl_5': Core_models.Fmt.t_Debug t_JournalistShortTermKeyResponse
 
 unfold
 let impl_5 = impl_5'
