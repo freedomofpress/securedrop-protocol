@@ -50,8 +50,8 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Download and decrypt each message addressed to us. Display and delete only
-    // those from a recognized journalist, drop the rest.
+    // Download and decrypt each message addressed to us. Display only those
+    // from a recognized journalist, drop the rest.
     let mut shown = 0;
     let mut discarded = 0;
     for id in message_ids {
@@ -66,7 +66,6 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
         let (plaintext, sender_apke) = decrypt_with_sender(&source, &envelope);
         if !trusted_senders.contains(&sender_apke.as_bytes()) {
             // Reply from a sender that isn't an enrolled journalist, discard
-            // TODO: delete?
             discarded += 1;
             continue;
         }
@@ -75,14 +74,6 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
         println!("[{id}]");
         println!("{}\n", String::from_utf8_lossy(msg));
         shown += 1;
-
-        // Confirm receipt by deleting the server's copy.
-        client
-            .delete(format!("{server}/messages/{id}"))
-            .send()
-            .with_context(|| format!("deleting message {id}"))?
-            .error_for_status()
-            .context("newsroom rejected message deletion")?;
     }
 
     if shown == 0 {

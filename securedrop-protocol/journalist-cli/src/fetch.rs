@@ -28,8 +28,7 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
         .solve_fetch_challenges(&challenges.messages)
         .context("solving fetch challenges")?;
 
-    // Download and decrypt anything new, persist it locally, then delete it from
-    // the server.
+    // Download and decrypt anything new and persist it locally.
     let mut inbox = load_inbox()?;
     let mut new_count = 0;
     for id in message_ids {
@@ -60,14 +59,6 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
             sender_metadata_pk,
         });
         new_count += 1;
-
-        // Confirm receipt by deleting the server's copy.
-        client
-            .delete(format!("{server}/messages/{id}"))
-            .send()
-            .with_context(|| format!("deleting message {id}"))?
-            .error_for_status()
-            .context("newsroom rejected message deletion")?;
     }
     save_inbox(&inbox)?;
 
