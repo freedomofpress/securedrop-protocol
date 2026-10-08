@@ -1,4 +1,17 @@
 //! Demo SecureDrop protocol server.
+//!
+//! This crate exists to exercise the protocol end to end. It is not a
+//! production server!
+//!
+//! Limitations:
+//! - All state is held in memory and lost on exit.
+//! - The newsroom signing key is loaded into the running HTTP server and used
+//!   to sign enrollments on request. In production this key is held offline
+//!   and enrollment signatures are produced out of band by newsroom admins.
+//! - `POST /newsroom/journalists/enroll` is unauthenticated: there is no
+//!   admin flow yet.
+//!
+//! Only run this against localhost with test data!!
 
 mod fpf;
 mod newsroom;

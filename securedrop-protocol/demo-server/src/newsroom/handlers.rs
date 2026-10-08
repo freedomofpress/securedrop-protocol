@@ -22,6 +22,11 @@ pub(crate) struct MessageSubmitResponse {
     message_id: String,
 }
 
+/// Journalist enrollment.
+///
+/// DEMO ONLY! This endpoint is unauthenticated.
+///
+/// In production, enrollment is an offline, admin-authorized operation.
 pub(crate) async fn post_enroll(
     State(state): State<AppState>,
     Json(req): Json<JournalistSetupRequest>,
