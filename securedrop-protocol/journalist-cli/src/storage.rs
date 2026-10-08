@@ -12,11 +12,10 @@ use securedrop_protocol_minimal::{
 };
 use serde::{Deserialize, Serialize};
 
-/// A received message retained locally after `fetch` deletes it from the server.
+/// A received message retained locally by `fetch`.
 ///
 /// Stores the decrypted text and the source's recovered reply keys
-/// (so reply can encrypt back to them without DLing from the server,
-/// because the server no longer has the message).
+/// so reply can encrypt back to them without re-downloading from the server.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct InboxEntry {
     pub(crate) message_id: String,

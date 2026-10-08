@@ -22,6 +22,11 @@ pub(crate) struct MessageSubmitResponse {
     message_id: String,
 }
 
+/// Journalist enrollment.
+///
+/// DEMO ONLY! This endpoint is unauthenticated.
+///
+/// In production, enrollment is an offline, admin-authorized operation.
 pub(crate) async fn post_enroll(
     State(state): State<AppState>,
     Json(req): Json<JournalistSetupRequest>,
@@ -216,26 +221,4 @@ pub(crate) async fn get_message(
         .cloned()
         .map(Json)
         .ok_or((StatusCode::NOT_FOUND, "no such message".to_string()))
-}
-
-/// A recipient deletes a message once it has been received.
-pub(crate) async fn delete_message(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let message_id = Uuid::parse_str(id.trim())
-        .map_err(|_| (StatusCode::BAD_REQUEST, "invalid message ID".to_string()))?;
-
-    let removed = state
-        .messages
-        .lock()
-        .expect("messages mutex poisoned")
-        .remove(&message_id)
-        .is_some();
-
-    if removed {
-        Ok(StatusCode::NO_CONTENT)
-    } else {
-        Err((StatusCode::NOT_FOUND, "no such message".to_string()))
-    }
 }
