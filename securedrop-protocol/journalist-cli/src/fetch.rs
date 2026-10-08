@@ -45,6 +45,11 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
             .context("newsroom rejected message download")?
             .json()?;
 
+        // TODO: once decrypted, the ephemeral key bundle this message was
+        // encrypted to should be deleted. currently protocol-minimal
+        // doesn't yet expose which bundle decrypted the message or a way to
+        // remove it, so consumed keys are currently retained. See
+        // https://github.com/freedomofpress/securedrop-protocol/issues/408
         let (plaintext, sender_apke) = decrypt_with_sender(&journalist, &envelope);
         let text = String::from_utf8_lossy(strip_padding(&plaintext.msg)).into_owned();
         let sender_metadata_pk =
