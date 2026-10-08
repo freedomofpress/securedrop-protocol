@@ -36,7 +36,7 @@ are not reflected in this publication.
   Journalists will be able to send group messages to all other journalists enrolled at their newsroom. Neither journalists nor sources will
   have individual messaging or arbitrary group messaging capabilities exposed to
   them via the UI.
-  (The message delivery behaviour if a particular journalist's ephemeral key supply has been exhausted has yet to be finalized.)
+  (The message delivery behaviour if a particular journalist has no short-lived key bundle for the current epoch has yet to be finalized.)
 
 - **The server OS and filesystem will minimize metadata.** OS implementation-level
   specifications are not part of the protocol, but it is assumed that file creation/deletion operations will not be logged to disk, and options will be explored for minimizing timestamps and other metadata at the filesystem level.
@@ -56,16 +56,33 @@ Freedom of the Press Foundation (FPF) is the entity responsible for maintaining 
 
 ### Behavioral analysis
 
-Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading ephemeral keys). Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
+Both source and journalist traffic would go through the Tor network, but they might perform different actions (such as uploading short-lived keys). Mitigations, such as sending decoy traffic or introducing randomness between requests, must be implemented in the client.
 
-### Ephemeral key exhaustion
+### Short-lived key exhaustion
 
-A known problem with this type of protocol is the issue of ephemeral key exhaustion, either by an adversary or due to infrequent journalist activity.
+A known problem with this protocol is short-lived key unavailability due to infrequent journalist activity. Alerting mechanisms can be scheduled periodically to ensure the journalist refreshes their short-lived keys before their bundles expire.
 
-### Ephemeral key reuse (malicious server)
+Each short-lived key has a validity window of size `EPOCH` configured by the protocol and shared by all parties. The validity window is specified in `EPOCH`s anchored to Unix time so that the `n`th `EPOCH` valid window indicates the time period `[n * EPOCH, (n+1) * EPOCH)`.
 
-Attempts by a malicious server to reuse ephemeral keys will need to be detected and mitigated.
-Key expiration is not currently implemented, but ephemeral keys could include a short (30/60 day) expiration date along with their PK signature. Journalists can routinely query the server for ephemeral keys and heuristically test if the server is being dishonest as well. They can also check during decryption as well and see if an already used key has worked: in that case the server is malicious as well.
+Anchored epochs ensure that each journalist's key's validity windows are equivalent, preventing any metadata leakage that may link a journalist's activity with their key validity time.
+
+Servers MUST accept key bundles with future epochs up to a configured `REPLENISHMENT` window. The `EPOCH` limits the effect of a short-lived key's compromise (for forward secrecy); compromising one bundle exposes all messages sent to that bundle's keys during the `EPOCH` window. The `REPLENISHMENT` window allows a journalist to stage short-lived keys in advance. A compromised long-lived journalist signing key may control keys in this window until the compromise is detected and the server revokes any existing short-lived keys.
+
+### Stale short-lived keys (malicious server)
+
+Attempts by a malicious server to serve stale short-lived keys can be detected. Clients MUST validate the signature over key bundle and validate the bundle's epoch is current before message submission. Journalists can routinely query the server for short-lived keys and heuristically test if the server is being dishonest as well.
+
+### Synchronization
+
+Forward secrecy and the security of the short-lived keys relies on clock synchronization between the server, journalist, and client. Each party depends on clock time:
+
+- The journalist decides how to generate and upload short-lived key bundles
+- The server verifies the bundle's epoch and decides when to serve bundles and remove expired bundles
+- The sender (source or journalist) verifies the bundle's epoch before using it
+
+The protocol may fail if the clocks disagree or near a boundary. Clients and servers MUST use a configurable clock `SKEW` to verify bundle validity.
+
+Clients MUST configure their own skew value, and MUST NOT accept one from the server. A malicious server could instruct the client to use a large skew to make expired bundles pass validation.
 
 ### Decoy traffic
 
@@ -112,7 +129,7 @@ To minimize logging, and mix traffic better, it could be reasonable to make all 
 
 ### Revocation
 
-Revocation is a spicy topic. For ephemeral keys, we expect key expiration to be a sufficient measure. For long-term keys, it will be necessary to implement the infrastructure to support journalist de-enrollment and newsroom key rotation. For example, FPF could routinely publish a revocation list and host Newsroom revocation lists as well; however, a key design constraint is to ensure that the entire SecureDrop system can be set up autonomously, and can function even without FPF's direct involvement.
+Revocation is a spicy topic. For short-lived keys, we expect key expiration to be a sufficient measure. For long-term keys, it will be necessary to implement the infrastructure to support journalist de-enrollment and newsroom key rotation. For example, FPF could routinely publish a revocation list and host Newsroom revocation lists as well; however, a key design constraint is to ensure that the entire SecureDrop system can be set up autonomously, and can function even without FPF's direct involvement.
 
 A good existing protocol for serving the revocation would be OCSP stapling served back directly by the SecureDrop server, so that clients (both sources and journalists) do not have to perform external requests. Otherwise we could find a way to (ab)use the current internet revocation infrastructure and build on top of that.
 
@@ -121,7 +138,6 @@ A good existing protocol for serving the revocation would be OCSP stapling serve
 This protocol can be hardened further in specific parts, such as:
 
 - rotating fetching keys regularly on the journalist side;
-- adding a short (e.g., 30 day) expiration to ephemeral keys so that they are guaranteed to rotate even in case of malicious servers.
 
 These details are left for internal team evaluation and production implementation constraints.
 
@@ -138,8 +154,7 @@ The following are areas of ongoing discussion/development or may be addressed by
 - **Key-fetch**: timing of key-fetch request (avoid timing information about partial/incomplete protocol runs). See also key exhaustion above.
 - **Plaintext message structure**: specifically, application-level "metadata" (which could include non-cryptographic information such as key identifiers, or any other information encrypted along with the message plaintext and transmitted to the recipient) remains to be specified.
 - **Message-fetch batching**: for now, one fetch request corresponds to one message_id, and multiple ids are not fetched at once.
-- **One-time key choice/conflicts**: What to do with messages encrypted to recipient using same recipient key bundle remains to be discussed. See also https://github.com/freedomofpress/securedrop-protocol/issues/99.
-- **Key lifetimes**: The lifetime of the journalist fetching key and journalist DH-AKEM reply key are still to be discussed. See also https://github.com/freedomofpress/securedrop-protocol/issues/99 for separate discussion of lifetime of journalist key bundles for receiving messages (currently one-time use).
+- **Key lifetimes**: The lifetime of the journalist fetching key and journalist DH-AKEM reply key are still to be discussed.
 
 [MAX_MESSAGES]: https://github.com/freedomofpress/securedrop-protocol/blob/d512528f42760f7ccb5205291ba11a377333cc0e/README.md?plain=1#L29
 [berra-2026]: https://eprint.iacr.org/2026/1484
