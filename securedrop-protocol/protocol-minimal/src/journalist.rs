@@ -30,7 +30,7 @@ impl RestrictedApi for Journalist {}
 /// Journalists have a signing/verifying key, a reply key,
 /// a fetch key, and a collection of one-time signed key bundles
 pub struct Journalist {
-    signing_key: SigningKeyPair,
+    signing_key: SigningKey,
     fetch_key: DhFetchKeyPair,
     message_keys: Vec<SignedMessageKeyBundle>,
     /// Long-term SD-APKE key tuple `(sk_J^APKE, pk_J^APKE)`
@@ -165,7 +165,7 @@ impl Enrollable for Journalist {
     fn enroll(&self) -> Enrollment {
         Enrollment {
             bundle: self.signed_longterm_key_bundle.clone(),
-            verification_key: self.signing_key.pk,
+            verification_key: self.signing_key.vk,
         }
     }
 
@@ -174,7 +174,7 @@ impl Enrollable for Journalist {
     }
 
     fn signing_key(&self) -> &VerifyingKey {
-        &self.signing_key.pk
+        &self.signing_key.vk
     }
 }
 
@@ -201,7 +201,6 @@ impl Journalist {
         let mut key_bundles: Vec<SignedMessageKeyBundle> = Vec::with_capacity(num_keybundles);
 
         let signing_key = SigningKey::new(rng).expect("Signing keygen failed");
-        let verifying_key = signing_key.vk;
 
         let (sk_fetch, pk_fetch) = generate_dh_keypair(rng);
 
@@ -227,10 +226,7 @@ impl Journalist {
         };
 
         Self {
-            signing_key: KeyPair {
-                sk: signing_key,
-                pk: verifying_key,
-            },
+            signing_key,
             fetch_key: KeyPair {
                 sk: sk_fetch,
                 pk: pk_fetch,
@@ -246,7 +242,7 @@ impl Journalist {
     pub fn public(&self, idx: usize) -> JournalistPublicView {
         let kb = self.message_keys.get(idx).expect("Bad index");
         JournalistPublicView::new(
-            self.signing_key.pk,
+            self.signing_key.vk,
             self.signed_longterm_key_bundle.clone(),
             (kb.bundle.public(), kb.selfsig),
         )
@@ -257,7 +253,7 @@ impl Journalist {
     /// [`Journalist::from_long_term_bytes`].
     pub fn long_term_bytes(&self) -> JournalistLongTermBytes {
         JournalistLongTermBytes {
-            sig_seed: self.signing_key.sk.as_bytes(),
+            sig_seed: self.signing_key.as_bytes(),
             fetch_sk: self.fetch_key.sk.to_bytes(),
             apke_dhakem_sk: *self.reply_apke.private_key().dhakem.as_bytes(),
             apke_mlkem_sk: *self.reply_apke.private_key().mlkem.as_bytes(),
@@ -274,7 +270,6 @@ impl Journalist {
         use crate::primitives::provider;
 
         let signing_key = SigningKey::from_seed(parts.sig_seed);
-        let verifying_key = signing_key.vk;
         let sk_fetch = DHPrivateKey::decode(parts.fetch_sk)?;
         let pk_fetch = sk_fetch.public_key();
 
@@ -303,10 +298,7 @@ impl Journalist {
             SignedLongtermKeyBundle::new(longterm_bundle, self_signature);
 
         Ok(Self {
-            signing_key: KeyPair {
-                sk: signing_key,
-                pk: verifying_key,
-            },
+            signing_key,
             fetch_key: KeyPair {
                 sk: sk_fetch,
                 pk: pk_fetch,
@@ -331,7 +323,7 @@ impl Journalist {
     #[cfg_attr(hax, hax_lib::opaque)]
     pub fn generate_ephemeral_bundles<R: RngCore + CryptoRng>(&mut self, rng: &mut R, n: usize) {
         for _ in 0..n {
-            let signed = make_signed_bundle(rng, &self.signing_key.sk);
+            let signed = make_signed_bundle(rng, &self.signing_key);
             self.message_keys.push(signed);
         }
     }
@@ -358,8 +350,7 @@ impl Journalist {
             let pubkey_bytes = bundle.public().as_bytes();
             // Temp: doing this just because we are generating SignedMessageKeyBundle here
             // and we didnt persist the signature
-            let selfsig: Signature<JournalistEphemeralKey> =
-                self.signing_key.sk.sign(&pubkey_bytes);
+            let selfsig: Signature<JournalistEphemeralKey> = self.signing_key.sign(&pubkey_bytes);
             self.message_keys
                 .push(SignedMessageKeyBundle { bundle, selfsig });
         }
@@ -615,8 +606,8 @@ mod tests {
 
             // Long-term verifying key and self-signature must match.
             prop_assert_eq!(
-                original.signing_key.pk.into_bytes(),
-                restored.signing_key.pk.into_bytes()
+                original.signing_key.vk.into_bytes(),
+                restored.signing_key.vk.into_bytes()
             );
             prop_assert_eq!(
                 original.signed_longterm_key_bundle.as_bytes(),

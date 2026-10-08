@@ -23,7 +23,7 @@ pub use ciphertext::{Envelope, FetchResponse, Plaintext};
 
 pub use keys::{
     DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, SessionStorage, SignedKeyBundlePublic,
-    SignedLongtermKeyBundle, SigningKeyPair,
+    SignedLongtermKeyBundle,
 };
 
 pub use primitives::ristretto255::DHPublicKey;
