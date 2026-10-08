@@ -444,8 +444,8 @@ let auth_enc
       (m ad: t_Slice u8)
       (info_incl: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : (v_R & Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error) =
-  let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
-    Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
+  let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+    Hpke_rs.impl_7__new #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
       (Hpke_rs.Mode_AuthPsk <: Hpke_rs.t_Mode)
       (Hpke_rs_crypto.Types.KemAlgorithm_DhKem25519 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
@@ -546,12 +546,12 @@ let auth_enc
           t_Slice u8)
     in
     let
-    (tmp0: Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux),
+    (tmp0: Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)),
     (out:
       Core_models.Result.t_Result
         (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
         Hpke_rs.t_HpkeError) =
-      Hpke_rs.impl_7__seal #Hpke_rs_libcrux.t_HpkeLibcrux
+      Hpke_rs.impl_8__seal #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
         hpke
         pkr1
         (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8)
@@ -564,7 +564,9 @@ let auth_enc
         (Core_models.Option.Option_Some sks1 <: Core_models.Option.t_Option Hpke_rs.t_HpkePrivateKey
         )
     in
-    let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux = tmp0 in
+    let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+      tmp0
+    in
     (match
         Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global &
             Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
@@ -649,8 +651,8 @@ let auth_dec
       (ad: t_Slice u8)
       (info_incl: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error =
-  let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
-    Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
+  let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+    Hpke_rs.impl_7__new #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
       (Hpke_rs.Mode_AuthPsk <: Hpke_rs.t_Mode)
       (Hpke_rs_crypto.Types.KemAlgorithm_DhKem25519 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
@@ -749,8 +751,8 @@ let auth_dec
       #Hpke_rs.t_HpkeError
       #Anyhow.t_Error
       #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
-      (Hpke_rs.impl_7__open #Hpke_rs_libcrux.t_HpkeLibcrux hpke (ct.f_c1 <: t_Slice u8) skr1
-          (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8) ad
+      (Hpke_rs.impl_8__open #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) hpke
+          (ct.f_c1 <: t_Slice u8) skr1 (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8) ad
           (Alloc.Vec.impl_1__as_slice ct.f_cp <: t_Slice u8)
           (Core_models.Option.Option_Some (k2 <: t_Slice u8)
             <:
