@@ -74,7 +74,7 @@ async fn serve(port: u16) -> Result<()> {
         .route("/newsroom/journalists/keys", post(post_replenish))
         .route("/journalists/keys", get(get_journalist_ephemeral_keys))
         .route("/messages", post(post_message))
-        .route("/messages/:id", get(get_message))
+        .route("/messages/{id}", get(get_message))
         .route("/challenges", get(get_challenges))
         .with_state(state);
 
