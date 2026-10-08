@@ -51,4 +51,23 @@ wasm-bindgen = "0.2.121"
 wasm-bindgen-test = "=0.3.71"
 
 [workspace.lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(hax)"] }
+deprecated = "allow"
+private_interfaces = "allow"
+unexpected_cfgs = { level = "deny", check-cfg = ["cfg(hax)"] }
+unused = { level = "allow", priority = -1 }
+
+[workspace.lints.clippy]
+all = {level = "deny", priority = -1}
+chunks_exact_to_as_chunks = "allow"
+clone_on_copy = "allow"
+collapsible_if = "allow"
+empty_line_after_doc_comments = "allow"
+items_after_test_module = "allow"
+len_without_is_empty = "allow"
+needless_borrow = "allow"
+needless_range_loop = "allow"
+op_ref = "allow"
+redundant_field_names = "allow"
+single_component_path_imports = "allow"
+unwrap_or_default = "allow"
+useless_conversion = "allow"

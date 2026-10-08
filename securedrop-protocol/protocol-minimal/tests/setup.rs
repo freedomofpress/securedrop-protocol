@@ -19,6 +19,7 @@ use securedrop_protocol_minimal::{Journalist, Source, UserPublic, UserSecret};
 // Toy implementation purposes
 fn get_rng() -> ChaCha20Rng {
     let mut seed = [0u8; 32];
+    #[allow(clippy::disallowed_methods)]
     getrandom::fill(&mut seed).expect("OS random source failed");
     ChaCha20Rng::from_seed(seed)
 }

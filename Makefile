@@ -49,7 +49,6 @@ deps-rust:  ## Install clippy and rustfmt.
 	@which cargo >> /dev/null || { echo "Please install the Rust toolchain"; exit 1; }
 	@rustup component add clippy rustfmt
 
-# future TODO: stricter clippy (append -D warnings)
 .PHONY: clippy
 clippy: deps-rust  ## Check Rust code with clippy
 	@cargo clippy --manifest-path=securedrop-protocol/Cargo.toml --workspace --all-targets --all-features --
@@ -75,4 +74,3 @@ help: ## Prints this message and exits.
 	@perl -F':.*##\s+' -lanE '$$F[1] and say "\033[36m$$F[0]\033[0m : $$F[1]"' $(MAKEFILE_LIST) \
 		| sort \
 		| column -s ':' -t
-
