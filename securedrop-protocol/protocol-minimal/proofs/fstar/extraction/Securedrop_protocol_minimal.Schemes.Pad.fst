@@ -1,4 +1,4 @@
-module Securedrop_protocol_minimal.Primitives.Pad
+module Securedrop_protocol_minimal.Schemes.Pad
 #set-options "--fuel 0 --ifuel 1 --z3rlimit 15"
 open FStar.Mul
 open Core_models
