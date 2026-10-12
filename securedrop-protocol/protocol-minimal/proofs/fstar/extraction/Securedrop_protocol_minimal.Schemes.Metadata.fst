@@ -1,4 +1,4 @@
-module Securedrop_protocol_minimal.Metadata
+module Securedrop_protocol_minimal.Schemes.Metadata
 #set-options "--fuel 0 --ifuel 1 --z3rlimit 15"
 open FStar.Mul
 open Core_models
@@ -345,7 +345,9 @@ let impl_MetadataPublicKey__from_bytes (bytes: t_Slice u8)
 
 /// SD-PKE.Enc: encrypt message `m` to recipient key `pk_r`, returning `(c, c')`.
 /// `m` is the sender's long-term APKE public key, which must be serializable.
-let encrypt (pk_r: t_MetadataPublicKey) (m: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+let encrypt
+      (pk_r: t_MetadataPublicKey)
+      (m: Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
     : Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error =
   let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
     Hpke_rs.impl_7__new #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
@@ -383,7 +385,7 @@ let encrypt (pk_r: t_MetadataPublicKey) (m: Securedrop_protocol_minimal.Message.
           Rust_primitives.Hax.array_of_list 0 list)
         <:
         t_Slice u8)
-      (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Message.impl_MessagePublicKey__as_bytes
+      (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Schemes.Message.impl_MessagePublicKey__as_bytes
               m
             <:
             Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
