@@ -69,7 +69,10 @@ let impl: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
     f_message_auth_pk_pre = (fun (self: t_SourcePublicView) -> true);
     f_message_auth_pk_post
     =
-    (fun (self: t_SourcePublicView) (out: Securedrop_protocol_minimal.Message.t_MessagePublicKey) ->
+    (fun
+        (self: t_SourcePublicView)
+        (out: Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
+        ->
         true);
     f_message_auth_pk
     =
@@ -80,7 +83,7 @@ let impl: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
     =
     (fun
         (self: t_SourcePublicView)
-        (out: Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
+        (out: Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
         ->
         true);
     f_message_metadata_pk
@@ -90,7 +93,10 @@ let impl: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
     f_message_enc_pk_pre = (fun (self: t_SourcePublicView) -> true);
     f_message_enc_pk_post
     =
-    (fun (self: t_SourcePublicView) (out: Securedrop_protocol_minimal.Message.t_MessagePublicKey) ->
+    (fun
+        (self: t_SourcePublicView)
+        (out: Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
+        ->
         true);
     f_message_enc_pk
     =
@@ -105,24 +111,28 @@ let impl_1: Securedrop_protocol_minimal.Api.t_Client t_Source =
     =
     (fun
         (self: t_Source)
-        (out: Core_models.Option.t_Option Securedrop_protocol_minimal.Sign.t_VerifyingKey)
+        (out: Core_models.Option.t_Option Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey)
         ->
         true);
     f_newsroom_verifying_key
     =
     (fun (self: t_Source) ->
-        Core_models.Option.impl__as_ref #Securedrop_protocol_minimal.Sign.t_VerifyingKey
+        Core_models.Option.impl__as_ref #Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey
           self.f_session.Securedrop_protocol_minimal.Keys.f_nr_key);
     f_set_newsroom_verifying_key_pre
     =
-    (fun (self: t_Source) (key: Securedrop_protocol_minimal.Sign.t_VerifyingKey) -> true);
+    (fun (self: t_Source) (key: Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey) -> true);
     f_set_newsroom_verifying_key_post
     =
-    (fun (self: t_Source) (key: Securedrop_protocol_minimal.Sign.t_VerifyingKey) (out: t_Source) ->
+    (fun
+        (self: t_Source)
+        (key: Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey)
+        (out: t_Source)
+        ->
         true);
     f_set_newsroom_verifying_key
     =
-    fun (self: t_Source) (key: Securedrop_protocol_minimal.Sign.t_VerifyingKey) ->
+    fun (self: t_Source) (key: Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey) ->
       let self:t_Source =
         {
           self with
@@ -134,7 +144,7 @@ let impl_1: Securedrop_protocol_minimal.Api.t_Client t_Source =
             =
             Core_models.Option.Option_Some key
             <:
-            Core_models.Option.t_Option Securedrop_protocol_minimal.Sign.t_VerifyingKey
+            Core_models.Option.t_Option Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey
           }
           <:
           Securedrop_protocol_minimal.Keys.t_SessionStorage
@@ -173,7 +183,8 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
     f_message_auth_keypair_pre = (fun (self: t_Source) -> true);
     f_message_auth_keypair_post
     =
-    (fun (self: t_Source) (out: Securedrop_protocol_minimal.Message.t_MessageKeyPair) -> true);
+    (fun (self: t_Source) (out: Securedrop_protocol_minimal.Schemes.Message.t_MessageKeyPair) ->
+        true);
     f_message_auth_keypair
     =
     (fun (self: t_Source) -> self.f_message_keys.Securedrop_protocol_minimal.Keys.f_apke);
@@ -197,10 +208,10 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
         let reply_key_pq_hybrid:t_Array u8 (mk_usize 1216) =
           Core_models.Slice.impl__copy_from_slice #u8
             reply_key_pq_hybrid
-            (Securedrop_protocol_minimal.Metadata.impl_MetadataPublicKey__as_bytes (Securedrop_protocol_minimal.Metadata.impl_MetadataKeyPair__public_key
+            (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__as_bytes (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataKeyPair__public_key
                     self.f_message_keys.Securedrop_protocol_minimal.Keys.f_metadata_kp
                   <:
-                  Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
+                  Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
               <:
               t_Slice u8)
         in
@@ -298,8 +309,8 @@ let impl_Source__public (self: t_Source) : t_SourcePublicView =
 /// decrypting their submission.
 let impl_SourcePublicView__from_reply_keys
       (fetch_pk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
-      (apke: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
-      (metadata_pk: Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
+      (apke: Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
+      (metadata_pk: Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
     : t_SourcePublicView =
   {
     f_fetch_pk = fetch_pk;

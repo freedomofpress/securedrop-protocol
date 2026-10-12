@@ -21,22 +21,26 @@ class t_UserPublic (v_Self: Type0) = {
         (f_fetch_pk_pre x0)
         (fun result -> f_fetch_pk_post x0 result);
   f_message_auth_pk_pre:v_Self -> Type0;
-  f_message_auth_pk_post:v_Self -> Securedrop_protocol_minimal.Message.t_MessagePublicKey -> Type0;
+  f_message_auth_pk_post:v_Self -> Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
+    -> Type0;
   f_message_auth_pk:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Message.t_MessagePublicKey
+    -> Prims.Pure Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
         (f_message_auth_pk_pre x0)
         (fun result -> f_message_auth_pk_post x0 result);
   f_message_metadata_pk_pre:v_Self -> Type0;
-  f_message_metadata_pk_post:v_Self -> Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey
+  f_message_metadata_pk_post:
+      v_Self ->
+      Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey
     -> Type0;
   f_message_metadata_pk:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey
+    -> Prims.Pure Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey
         (f_message_metadata_pk_pre x0)
         (fun result -> f_message_metadata_pk_post x0 result);
   f_message_enc_pk_pre:v_Self -> Type0;
-  f_message_enc_pk_post:v_Self -> Securedrop_protocol_minimal.Message.t_MessagePublicKey -> Type0;
+  f_message_enc_pk_post:v_Self -> Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
+    -> Type0;
   f_message_enc_pk:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Message.t_MessagePublicKey
+    -> Prims.Pure Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
         (f_message_enc_pk_pre x0)
         (fun result -> f_message_enc_pk_post x0 result)
 }
@@ -44,21 +48,21 @@ class t_UserPublic (v_Self: Type0) = {
 class t_JournalistPublic (v_Self: Type0) = {
   [@@@ FStar.Tactics.Typeclasses.no_method]_super_i0:t_UserPublic v_Self;
   f_verifying_key_pre:v_Self -> Type0;
-  f_verifying_key_post:v_Self -> Securedrop_protocol_minimal.Sign.t_VerifyingKey -> Type0;
+  f_verifying_key_post:v_Self -> Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey -> Type0;
   f_verifying_key:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Sign.t_VerifyingKey
+    -> Prims.Pure Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey
         (f_verifying_key_pre x0)
         (fun result -> f_verifying_key_post x0 result);
   f_self_signature_pre:v_Self -> Type0;
   f_self_signature_post:
       v_Self ->
-      Securedrop_protocol_minimal.Sign.t_Signature
-        Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey
+      Securedrop_protocol_minimal.Schemes.Sign.t_Signature
+        Securedrop_protocol_minimal.Schemes.Sign.t_JournalistLongTermKey
     -> Type0;
   f_self_signature:x0: v_Self
     -> Prims.Pure
-        (Securedrop_protocol_minimal.Sign.t_Signature
-          Securedrop_protocol_minimal.Sign.t_JournalistLongTermKey)
+        (Securedrop_protocol_minimal.Schemes.Sign.t_Signature
+          Securedrop_protocol_minimal.Schemes.Sign.t_JournalistLongTermKey)
         (f_self_signature_pre x0)
         (fun result -> f_self_signature_post x0 result);
   f_signed_keybytes_pre:v_Self -> Type0;
@@ -77,13 +81,13 @@ class t_JournalistPublic (v_Self: Type0) = {
   f_ephemeral_signature_pre:v_Self -> Type0;
   f_ephemeral_signature_post:
       v_Self ->
-      Securedrop_protocol_minimal.Sign.t_Signature
-        Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey
+      Securedrop_protocol_minimal.Schemes.Sign.t_Signature
+        Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey
     -> Type0;
   f_ephemeral_signature:x0: v_Self
     -> Prims.Pure
-        (Securedrop_protocol_minimal.Sign.t_Signature
-          Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey)
+        (Securedrop_protocol_minimal.Schemes.Sign.t_Signature
+          Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey)
         (f_ephemeral_signature_pre x0)
         (fun result -> f_ephemeral_signature_post x0 result)
 }
@@ -93,9 +97,9 @@ let _ = fun (v_Self:Type0) {|i: t_JournalistPublic v_Self|} -> i._super_i0
 
 class t_Enrollable (v_Self: Type0) = {
   f_signing_key_pre:v_Self -> Type0;
-  f_signing_key_post:v_Self -> Securedrop_protocol_minimal.Sign.t_VerifyingKey -> Type0;
+  f_signing_key_post:v_Self -> Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey -> Type0;
   f_signing_key:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Sign.t_VerifyingKey
+    -> Prims.Pure Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey
         (f_signing_key_pre x0)
         (fun result -> f_signing_key_post x0 result);
   f_enroll_pre:v_Self -> Type0;
@@ -109,15 +113,16 @@ class t_Enrollable (v_Self: Type0) = {
       v_Self ->
       Alloc.Vec.t_Vec
           (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-            Securedrop_protocol_minimal.Sign.t_Signature
-            Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global
+            Securedrop_protocol_minimal.Schemes.Sign.t_Signature
+            Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global
     -> Type0;
   f_signed_keybundles:x0: v_Self
     -> Prims.Pure
         (Alloc.Vec.t_Vec
             (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
-              Securedrop_protocol_minimal.Sign.t_Signature
-              Securedrop_protocol_minimal.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global)
+              Securedrop_protocol_minimal.Schemes.Sign.t_Signature
+              Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey)
+            Alloc.Alloc.t_Global)
         (f_signed_keybundles_pre x0)
         (fun result -> f_signed_keybundles_post x0 result)
 }
@@ -140,10 +145,10 @@ class t_UserSecret (v_Self: Type0) = {
         (f_fetch_keypair_pre x0)
         (fun result -> f_fetch_keypair_post x0 result);
   f_message_auth_keypair_pre:v_Self -> Type0;
-  f_message_auth_keypair_post:v_Self -> Securedrop_protocol_minimal.Message.t_MessageKeyPair
+  f_message_auth_keypair_post:v_Self -> Securedrop_protocol_minimal.Schemes.Message.t_MessageKeyPair
     -> Type0;
   f_message_auth_keypair:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Message.t_MessageKeyPair
+    -> Prims.Pure Securedrop_protocol_minimal.Schemes.Message.t_MessageKeyPair
         (f_message_auth_keypair_pre x0)
         (fun result -> f_message_auth_keypair_post x0 result);
   f_build_message_pre:v_Self -> Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global -> Type0;
