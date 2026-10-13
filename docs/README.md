@@ -66,7 +66,7 @@ Each short-lived key has a validity window of size `EPOCH` configured by the pro
 
 Anchored epochs ensure that each journalist's key's validity windows are equivalent, preventing any metadata leakage that may link a journalist's activity with their key validity time.
 
-Servers MUST accept key bundles with future epochs up to a configured `REPLENISHMENT` window. The `EPOCH` limits the effect of a short-lived key's compromise (for forward secrecy); compromising one bundle exposes all messages sent to that bundle's keys during the `EPOCH` window. The `REPLENISHMENT` window allows a journalist to stage short-lived keys in advance. A compromised long-lived journalist signing key may control keys in this window until the compromise is detected and the server revokes any existing short-lived keys.
+Servers MUST accept valid key bundles with future epochs up to the `REPLENISHMENT` window. The `EPOCH` limits the effect of a short-lived key's compromise (for forward secrecy); compromising one bundle exposes all messages sent to that bundle's keys during the `EPOCH` window. The `REPLENISHMENT` window allows a journalist to stage short-lived keys in advance. A compromised long-lived journalist signing key may control keys in this window until the compromise is detected and the server revokes any existing short-lived keys.
 
 ### Stale short-lived keys (malicious server)
 
@@ -80,9 +80,9 @@ Forward secrecy and the security of the short-lived keys relies on clock synchro
 - The server verifies the bundle's epoch and decides when to serve bundles and remove expired bundles
 - The sender (source or journalist) verifies the bundle's epoch before using it
 
-The protocol may fail if the clocks disagree or near a boundary. Clients and servers MUST use a configurable clock `SKEW` to verify bundle validity.
+The protocol may fail if the clocks disagree or near a boundary. Clients and servers MUST use the clock skew values defined in [config](./protocol.md#config) to verify bundle validity.
 
-Clients MUST configure their own skew value, and MUST NOT accept one from the server. A malicious server could instruct the client to use a large skew to make expired bundles pass validation.
+To avoid attacks by a malicious server, this protocol does not provide a mechanism for a server to configure a client's skew value, which could make expired bundles pass validation. Clients MUST use the protocol's `SKEW_c` value (see [config](./protocol.md#config)).
 
 ### Decoy traffic
 
@@ -129,6 +129,8 @@ To minimize logging, and mix traffic better, it could be reasonable to make all 
 
 ### Revocation
 
+<!-- TODO(#432): handle revocation of epoch-based keys -->
+
 Revocation is a spicy topic. For short-lived keys, we expect key expiration to be a sufficient measure. For long-term keys, it will be necessary to implement the infrastructure to support journalist de-enrollment and newsroom key rotation. For example, FPF could routinely publish a revocation list and host Newsroom revocation lists as well; however, a key design constraint is to ensure that the entire SecureDrop system can be set up autonomously, and can function even without FPF's direct involvement.
 
 A good existing protocol for serving the revocation would be OCSP stapling served back directly by the SecureDrop server, so that clients (both sources and journalists) do not have to perform external requests. Otherwise we could find a way to (ab)use the current internet revocation infrastructure and build on top of that.
@@ -137,7 +139,7 @@ A good existing protocol for serving the revocation would be OCSP stapling serve
 
 This protocol can be hardened further in specific parts, such as:
 
-- rotating fetching keys regularly on the journalist side;
+- rotating fetching keys regularly on the journalist side
 
 These details are left for internal team evaluation and production implementation constraints.
 
