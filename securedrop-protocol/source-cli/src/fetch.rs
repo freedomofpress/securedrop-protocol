@@ -33,28 +33,32 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
         trusted_senders.insert(journalist.signed_longterm_key_bundle.apke().as_bytes());
     }
 
-    // Fetch the challenge set and solve it with our fetch key.
-    let challenges: MessageChallengeFetchResponse = client
-        .get(format!("{server}/challenges"))
-        .send()
-        .with_context(|| format!("fetching {server}/challenges"))?
-        .error_for_status()
-        .context("newsroom rejected challenge request")?
-        .json()?;
-    let message_ids = source
-        .solve_fetch_challenges(&challenges.messages)
-        .context("solving fetch challenges")?;
-
-    if message_ids.is_empty() {
-        println!("No messages.");
-        return Ok(());
-    }
-
-    // Download and decrypt each message addressed to us. Display and delete only
-    // those from a recognized journalist, drop the rest.
+    let mut fetched: HashSet<String> = HashSet::new();
     let mut shown = 0;
     let mut discarded = 0;
-    for id in message_ids {
+
+    // in the spec in step 7, we request a fresh challenge set, solve it,
+    // download at most one new message, then repeat from `RequestMessages` while
+    // anything remains
+    loop {
+        let challenges: MessageChallengeFetchResponse = client
+            .get(format!("{server}/challenges"))
+            .send()
+            .with_context(|| format!("fetching {server}/challenges"))?
+            .error_for_status()
+            .context("newsroom rejected challenge request")?
+            .json()?;
+        let cids = source
+            .solve_fetch_challenges(&challenges.messages)
+            .context("solving fetch challenges")?;
+
+        let Some(id) = cids
+            .into_iter()
+            .find(|cid| !fetched.contains(&cid.to_string()))
+        else {
+            break;
+        };
+
         let envelope: Envelope = client
             .get(format!("{server}/messages/{id}"))
             .send()
@@ -64,9 +68,9 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
             .json()?;
 
         let (plaintext, sender_apke) = decrypt_with_sender(&source, &envelope);
+        fetched.insert(id.to_string());
         if !trusted_senders.contains(&sender_apke.as_bytes()) {
             // Reply from a sender that isn't an enrolled journalist, discard
-            // TODO: delete?
             discarded += 1;
             continue;
         }
@@ -75,14 +79,6 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
         println!("[{id}]");
         println!("{}\n", String::from_utf8_lossy(msg));
         shown += 1;
-
-        // Confirm receipt by deleting the server's copy.
-        client
-            .delete(format!("{server}/messages/{id}"))
-            .send()
-            .with_context(|| format!("deleting message {id}"))?
-            .error_for_status()
-            .context("newsroom rejected message deletion")?;
     }
 
     if shown == 0 {

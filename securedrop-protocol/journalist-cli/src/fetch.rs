@@ -16,27 +16,31 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
 
     let client = reqwest::blocking::Client::new();
 
-    // Fetch the challenge set and solve it with our fetch key.
-    let challenges: MessageChallengeFetchResponse = client
-        .get(format!("{server}/challenges"))
-        .send()
-        .with_context(|| format!("fetching {server}/challenges"))?
-        .error_for_status()
-        .context("newsroom rejected challenge request")?
-        .json()?;
-    let message_ids = journalist
-        .solve_fetch_challenges(&challenges.messages)
-        .context("solving fetch challenges")?;
-
-    // Download and decrypt anything new, persist it locally, then delete it from
-    // the server.
     let mut inbox = load_inbox()?;
     let mut new_count = 0;
-    for id in message_ids {
+
+    // in the spec in step 7, we request a fresh challenge set, solve it,
+    // download at most one new message, then repeat from `RequestMessages` while
+    // anything remains
+    loop {
+        let challenges: MessageChallengeFetchResponse = client
+            .get(format!("{server}/challenges"))
+            .send()
+            .with_context(|| format!("fetching {server}/challenges"))?
+            .error_for_status()
+            .context("newsroom rejected challenge request")?
+            .json()?;
+        let cids = journalist
+            .solve_fetch_challenges(&challenges.messages)
+            .context("solving fetch challenges")?;
+
+        let Some(id) = cids
+            .into_iter()
+            .find(|cid| !inbox.iter().any(|e| e.message_id == cid.to_string()))
+        else {
+            break;
+        };
         let id_str = id.to_string();
-        if inbox.iter().any(|e| e.message_id == id_str) {
-            continue;
-        }
 
         let envelope: Envelope = client
             .get(format!("{server}/messages/{id}"))
@@ -46,6 +50,11 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
             .context("newsroom rejected message download")?
             .json()?;
 
+        // TODO: once decrypted, the ephemeral key bundle this message was
+        // encrypted to should be deleted. currently protocol-minimal
+        // doesn't yet expose which bundle decrypted the message or a way to
+        // remove it, so consumed keys are currently retained. See
+        // https://github.com/freedomofpress/securedrop-protocol/issues/408
         let (plaintext, sender_apke) = decrypt_with_sender(&journalist, &envelope);
         let text = String::from_utf8_lossy(strip_padding(&plaintext.msg)).into_owned();
         let sender_metadata_pk =
@@ -60,14 +69,6 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
             sender_metadata_pk,
         });
         new_count += 1;
-
-        // Confirm receipt by deleting the server's copy.
-        client
-            .delete(format!("{server}/messages/{id}"))
-            .send()
-            .with_context(|| format!("deleting message {id}"))?
-            .error_for_status()
-            .context("newsroom rejected message deletion")?;
     }
     save_inbox(&inbox)?;
 
