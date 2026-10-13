@@ -41,6 +41,7 @@
   - [Metadata encryption (SD-PKE)][SD-PKE]
   - [Messaging protocol steps]
   - [Message formats]
+- [Config]
 - [Known limitations]
 - [Glossary] <!-- don't list subsections for glossary terms -->
 - [Appendix]
@@ -270,12 +271,14 @@ Then:
 <!-- Figure 3(a) as of b1e4d41 -->
 
 Following [enrollment][step 3.1], each journalist $J$ MUST generate
-a pool of [signed key bundles][signed key bundle]. Each signed key bundle is valid for a single epoch. Epochs are anchored to Unix time so that epoch `e` covers the time interval `[e * EPOCH, (e + 1) * EPOCH)`. The server is configured with a short-term key policy with:
+a pool of [signed key bundles][signed key bundle]. Each signed key bundle is valid for a single epoch. They are not consumed after serving; the server will serve the same epoch key for the entire valid duration preventing key exhaustion. The impact of a short-lived key compromise is limited to the epoch, allowing for a notion of forward secrecy. Epochs are anchored to Unix time so that epoch `e` covers the time interval `[e * EPOCH, (e + 1) * EPOCH)` where `EPOCH` is a fixed protocol constant in seconds (see [config][config]).
+
+Short-term keys also require the protocol configuration constants:
 
 - `REPLENISHMENT`: the number of future epochs for which a journalist can upload a bundle in advance
 - $`SKEW_{NR}`$: the maximum clock difference from the journalist's clock that the server tolerates, in seconds
 
-A journalist learns `REPLENISHMENT` through the newsroom's configuration. At enrollment and each periodic replenishment at time `t`, a journalist SHOULD generate at least one bundle for each epoch in the range $`[e_{current} = Epoch(t), e_{max} = Epoch(t) + REPLENISHMENT]`$ where $`Epoch(t) = \lfloor t / EPOCH \rfloor`$.
+At enrollment and each periodic replenishment at time `t`, a journalist SHOULD generate one bundle for each epoch in the range $`[e_{current} = Epoch(t), e_{max} = Epoch(t) + REPLENISHMENT]`$ where $`Epoch(t) = \lfloor t / EPOCH \rfloor`$.
 
 The bundle payload consists of
 a freshly generated short-lived SD-APKE (message) public key and short-lived SD-PKE (metadata) public key, for which the journalist locally retains the complete keypair, and the validity epoch `e`. A signature over the payload with the journalist's long-term signing key is included in the bundle.
@@ -287,8 +290,9 @@ When receiving a signed key bundle for a journalist at time `t`, the server MUST
 - Verify the signature over the payload
 - Compute the current epoch $`e_{current} = Epoch(t)`$ and the latest allowable epoch $`e_{max} = Epoch(t + SKEW_{NR}) + REPLENISHMENT`$
 - Verify the bundle's epoch is within the inclusive range $`[e_{current}, e_{max}]`$
+- Ensure that a bundle for journalist at epoch $`e`$ is not already stored
 
-If these conditions hold, the server stores the signed key bundle. Signatures MUST be checked before the bundle epoch to ensure the server never acts on unauthenticated data. The server does not need to subtract $`SKEW_{NR}`$ from the acceptable range's lower bound, since a bundle with an expired epoch will never be served.
+If these conditions hold, the server stores the signed key bundle for the given epoch $`e`$. Signatures MUST be checked before the bundle epoch to ensure the server never acts on unauthenticated data. Only one journalist bundle for each epoch must be stored; storing multiple without deletion serves no additional benefit on forward secrecy. The server does not need to subtract $`SKEW_{NR}`$ from the acceptable range's lower bound, since a bundle with an expired epoch will never be served. Servers MAY respond to journalists with a summary of which bundles were accepted.
 
 These keys are used by other participants to address messages to the journalist.
 
@@ -540,7 +544,7 @@ The server answers a sender's key request in two parts, which differ in lifetime
 
 1. The [welcome bundle], including the [roster], is per-session, and the sender
    MAY cache it.
-2. A valid short-lived [signed key bundle] for each journalist See [Short-lived key exhaustion](./README.md#short-lived-key-exhaustion).
+2. A valid short-lived [signed key bundle] for each journalist. See [Short-lived key exhaustion](./README.md#short-lived-key-exhaustion).
 
 At time $`t`$, the server MUST only serve bundles whose epoch equals $`Epoch(t)`$. It SHOULD delete expired bundles whose epoch is less than $`Epoch(t)`$. It MAY serve the same bundle to multiple senders during its valid epoch.
 
@@ -560,7 +564,7 @@ Then at each party's current time `t`:
 | Sender                                                                                                                                                    |                                 | Server                                                                                                                    |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 |                                                                                                                                                           | $\longrightarrow$ `RequestKeys` |                                                                                                                           |
-|                                                                                                                                                           |                                 | For all journalists $J$, select one key bundle $i$ with epoch $`e = Epoch(t)`$ at random                                  |
+|                                                                                                                                                           |                                 | For all journalists $J$, select the key bundle $i$ with epoch $`e = Epoch(t)`$ at random                                  |
 |                                                                                                                                                           |                                 | $`pks \gets \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, e_{J, i}, pk_J^{fetch}, pk_J^{APKE})\}`$ for all $J$[^10] |
 |                                                                                                                                                           |                                 | $`sigs \gets \{(\sigma_{NR}^{J}, \sigma_J, \sigma_{J,i})\}`$ for all $J$                                                  |
 |                                                                                                                                                           | $`pks, sigs \longleftarrow`$    |                                                                                                                           |
@@ -754,6 +758,14 @@ Implementors MUST mitigate timing attacks via the API that could leak the number
 
 Implementors MUST implement robust message-parsing and are expected to gracefully handle malformed plaintext and ciphertext messages, both at the server and on the client.
 
+#### Signed Key Bundle format
+
+`SIGNATURE_BYTES || JOURNALIST_APKE_E_DHAKEM_PUBKEY_BYTES || JOURNALIST_APKE_E_MLKEM_PUBKEY_BYTES || JOURNALIST_SHORT_TERM_PKE_PUBKEY_BYTES || epoch`
+
+where `epoch` is serialized as an unsigned 4 byte integer in little-endian.
+
+Len: 64 + 32 + 1184 + 1216 + 4 = 2500 bytes
+
 #### Plaintext
 
 ##### SD-APKE (message) plaintext
@@ -818,6 +830,20 @@ where
 - `Q_k` is a 32-byte Ristretto255 group element
 
 Len: 16 + 16 + 32 = 64 bytes * n challenges; server pads to fixed number of challenges
+
+## Config
+
+The following values are part of the protocol configuration:
+
+| Variable        | Value             | Components                 | Description                                                                                                                                                                                                                               |
+| --------------- | ----------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EPOCH`         | `86400` (1 day)   | server, source, journalist | The length, in seconds, of an epoch for which a bundle is valid.                                                                                                                                                                          |
+| `REPLENISHMENT` | `14` (2 weeks)    | server, journalist         | The number of future epochs for which a journalist can upload a bundle.                                                                                                                                                                   |
+| $`SKEW_{NR}`$   | `300` (5 minutes) | server                     | The length, in seconds, of allowable clock skew between server and journalist when accepting uploaded bundles.                                                                                                                            |
+| `SKEW_c`        | `3600` (1 hour)   | source, journalist         | The length, in seconds, of allowable clock skew between a sender and server when checking bundle validity.                                                                                                                                |
+| `MAX_MESSAGES`  | `500`             | server                     | How many potential messages the server sends to each party when they try to fetch messages. This must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
+
+The value for `SKEW_c` is larger than the server's $`SKEW_{NR}`$ to handle source connections via Tor.
 
 ## Known limitations
 
@@ -1006,9 +1032,10 @@ insertion order.
 [sequence diagram]: #sequence-diagram
 [signed key bundle]: #signed-key-bundle
 [step 3.1]: #31-journalist-initial-key-setup
-[step 3.2]: #32-setup-and-periodic-replenishment-of--signed-key-bundles
+[step 3.2]: #32-setup-and-periodic-replenishment-of-n-signed-key-bundles
 [step 4]: #protocol-step-4-source-key-setup
 [welcome bundle]: #welcome-bundle
+[config]: #config
 
 <!-- External links -->
 
