@@ -17,8 +17,7 @@ let _ =
 /// Journalists have a signing/verifying key, a reply key,
 /// a fetch key, and a collection of one-time signed key bundles
 type t_Journalist = {
-  f_signing_key:Securedrop_protocol_minimal.Keys.t_KeyPair
-    Securedrop_protocol_minimal.Sign.t_SigningKey Securedrop_protocol_minimal.Sign.t_VerifyingKey;
+  f_signing_key:Securedrop_protocol_minimal.Sign.t_SigningKey;
   f_fetch_key:Securedrop_protocol_minimal.Keys.t_KeyPair
     Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey
     Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
@@ -400,7 +399,7 @@ let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
             self.f_signed_longterm_key_bundle;
           Securedrop_protocol_minimal.Keys.f_verification_key
           =
-          self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk
+          self.f_signing_key.Securedrop_protocol_minimal.Sign.f_vk
         }
         <:
         Securedrop_protocol_minimal.Keys.t_Enrollment);
@@ -428,7 +427,7 @@ let impl_5: Securedrop_protocol_minimal.Traits.t_Enrollable t_Journalist =
     (fun (self: t_Journalist) (out: Securedrop_protocol_minimal.Sign.t_VerifyingKey) -> true);
     f_signing_key
     =
-    fun (self: t_Journalist) -> self.f_signing_key.Securedrop_protocol_minimal.Keys.f_pk
+    fun (self: t_Journalist) -> self.f_signing_key.Securedrop_protocol_minimal.Sign.f_vk
   }
 
 #push-options "--admit_smt_queries true"
@@ -558,10 +557,7 @@ type t_JournalistLongTermBytes = {
 /// [`Journalist::from_long_term_bytes`].
 let impl_Journalist__long_term_bytes (self: t_Journalist) : t_JournalistLongTermBytes =
   {
-    f_sig_seed
-    =
-    Securedrop_protocol_minimal.Sign.impl_SigningKey__as_bytes self.f_signing_key
-        .Securedrop_protocol_minimal.Keys.f_sk;
+    f_sig_seed = Securedrop_protocol_minimal.Sign.impl_SigningKey__as_bytes self.f_signing_key;
     f_fetch_sk
     =
     Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPrivateKey__to_bytes self.f_fetch_key

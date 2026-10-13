@@ -24,7 +24,6 @@ pub struct KeyPair<SK, PK> {
 // silly name but include "fetch" for disambiguation with dh-akem.
 // eventually: ristretto255
 pub type DhFetchKeyPair = KeyPair<DHPrivateKey, DHPublicKey>;
-pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
 
 /// The public half of an ephemeral key bundle together with the journalist's
 /// self-signature over it.
@@ -186,7 +185,6 @@ pub struct SessionStorage {
 /// A key pair for FPF (Freedom of the Press Foundation).
 pub struct FPFKeyPair {
     sk: SigningKey,
-    vk: VerifyingKey,
 }
 
 // hax struggles with the debug format function signature, but it is
@@ -195,7 +193,7 @@ pub struct FPFKeyPair {
 impl core::fmt::Debug for FPFKeyPair {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("FPFKeyPair")
-            .field("vk", &self.vk)
+            .field("vk", &self.sk.vk)
             .finish_non_exhaustive()
     }
 }
@@ -208,13 +206,12 @@ impl FPFKeyPair {
     /// Returns an error if the key generation fails.
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, anyhow::Error> {
         let sk = SigningKey::new(rng)?;
-        let vk = sk.vk;
-        Ok(Self { sk, vk })
+        Ok(Self { sk })
     }
 
     /// Returns the verification key.
     pub fn verifying_key(&self) -> VerifyingKey {
-        self.vk
+        self.sk.vk
     }
 
     /// Sign `msg` in domain `D` using the FPF signing key.
@@ -229,9 +226,9 @@ impl FPFKeyPair {
 
     /// Reconstruct an [`FPFKeyPair`] from its secret.
     pub fn from_bytes(seed: [u8; SigningKey::SEED_LEN]) -> Self {
-        let sk = SigningKey::from_seed(seed);
-        let vk = sk.vk;
-        Self { sk, vk }
+        Self {
+            sk: SigningKey::from_seed(seed),
+        }
     }
 }
 

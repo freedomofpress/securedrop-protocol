@@ -11,10 +11,7 @@ let _ =
   ()
 
 /// Newsroom keypair used for signing.
-type t_NewsroomKeyPair = {
-  f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
-  f_sk:Securedrop_protocol_minimal.Sign.t_SigningKey
-}
+type t_NewsroomKeyPair = { f_sk:Securedrop_protocol_minimal.Sign.t_SigningKey }
 
 let impl_NewsroomKeyPair__new
       (#v_R: Type0)
@@ -32,11 +29,8 @@ let impl_NewsroomKeyPair__new
     out <: Core_models.Result.t_Result Securedrop_protocol_minimal.Sign.t_SigningKey Anyhow.t_Error
   with
   | Core_models.Result.Result_Ok sk ->
-    let vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey =
-      sk.Securedrop_protocol_minimal.Sign.f_vk
-    in
     let hax_temp_output:Core_models.Result.t_Result t_NewsroomKeyPair Anyhow.t_Error =
-      Core_models.Result.Result_Ok ({ f_sk = sk; f_vk = vk } <: t_NewsroomKeyPair)
+      Core_models.Result.Result_Ok ({ f_sk = sk } <: t_NewsroomKeyPair)
       <:
       Core_models.Result.t_Result t_NewsroomKeyPair Anyhow.t_Error
     in
@@ -51,7 +45,8 @@ let impl_NewsroomKeyPair__new
 
 /// Returns the verification key.
 let impl_NewsroomKeyPair__verifying_key (self: t_NewsroomKeyPair)
-    : Securedrop_protocol_minimal.Sign.t_VerifyingKey = self.f_vk
+    : Securedrop_protocol_minimal.Sign.t_VerifyingKey =
+  self.f_sk.Securedrop_protocol_minimal.Sign.f_vk
 
 /// Sign `msg` in domain `D` using the newsroom signing key.
 let impl_NewsroomKeyPair__sign
@@ -70,10 +65,4 @@ let impl_NewsroomKeyPair__as_bytes (self: t_NewsroomKeyPair) : t_Array u8 (mk_us
 
 /// Reconstruct a [`NewsroomKeyPair`] from its secret.
 let impl_NewsroomKeyPair__from_bytes (seed: t_Array u8 (mk_usize 32)) : t_NewsroomKeyPair =
-  let sk:Securedrop_protocol_minimal.Sign.t_SigningKey =
-    Securedrop_protocol_minimal.Sign.impl_SigningKey__from_seed seed
-  in
-  let vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey =
-    sk.Securedrop_protocol_minimal.Sign.f_vk
-  in
-  { f_vk = vk; f_sk = sk } <: t_NewsroomKeyPair
+  { f_sk = Securedrop_protocol_minimal.Sign.impl_SigningKey__from_seed seed } <: t_NewsroomKeyPair
