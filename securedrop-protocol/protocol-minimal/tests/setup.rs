@@ -44,7 +44,7 @@ fn setup_server<R: CryptoRng + RngCore>(
 
     // Sign the newsroom's public key
     let setup_response = newsroom_setup
-        .sign(&fpf_keys)
+        .sign(fpf_keys)
         .expect("Signing should not fail");
 
     assert!(

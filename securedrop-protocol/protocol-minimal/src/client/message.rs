@@ -55,12 +55,8 @@ where
     // spec: pk_S^APKE - sender's long-term APKE public key
     // spec: ct^PKE = SD-PKE.Enc(pk_R^PKE, pk_S^APKE)
     // TODO(#402): Refactor to return Result<T, E> instead of panicking at failed metadata seal
-    let ct_pke = metadata::encrypt(
-        rng,
-        recipient.message_metadata_pk(),
-        &keypair_s.public_key(),
-    )
-    .expect("Valid Keybundle should allow metadata seal");
+    let ct_pke = metadata::encrypt(rng, recipient.message_metadata_pk(), keypair_s.public_key())
+        .expect("Valid Keybundle should allow metadata seal");
 
     Envelope {
         ct_apke,                 // spec: ct^APKE
@@ -173,7 +169,7 @@ mod tests {
         );
         assert_eq!(
             pt.len(),
-            &pt_ref.msg.len() + DHPublicKey::LEN + MetadataPublicKey::LEN
+            pt_ref.msg.len() + DHPublicKey::LEN + MetadataPublicKey::LEN
         );
     }
 
