@@ -146,7 +146,7 @@ impl<D: DomainTag> serde::Serialize for Signature<D> {
 impl<'de, D: DomainTag> serde::Deserialize<'de> for Signature<D> {
     fn deserialize<De: serde::Deserializer<'de>>(de: De) -> Result<Self, De::Error> {
         let s = String::deserialize(de)?;
-        let mut bytes = [0u8; Self::LEN];
+        let mut bytes = [0u8; SIG_LEN_ED25519];
         hex::decode_to_slice(s.trim(), &mut bytes).map_err(De::Error::custom)?;
         Ok(Self::from_bytes(bytes))
     }
