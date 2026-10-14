@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn test_deterministic_keygen() {
         proptest!(|(randomness in proptest::array::uniform32(any::<u8>()).prop_filter("exclude zero", |arr| arr != &[0u8; 32]))| {
-            let (private_key, public_key) = deterministic_keygen(randomness.try_into().unwrap()).unwrap();
+            let (private_key, public_key) = deterministic_keygen(randomness).unwrap();
         });
     }
 }

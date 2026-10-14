@@ -62,7 +62,6 @@ collapsible_if = "allow"
 empty_line_after_doc_comments = "allow"
 len_without_is_empty = "allow"
 unwrap_or_default = "allow"
-useless_conversion = "allow"
 
 # libcrux-hmac 0.0.9 that fails to compile under hax
 # patch libcrux-sha3 (and dep libcrux-traits) that depend on it
