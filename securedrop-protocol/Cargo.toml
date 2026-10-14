@@ -60,7 +60,6 @@ unused = { level = "allow", priority = -1 }
 all = {level = "deny", priority = -1}
 collapsible_if = "allow"
 empty_line_after_doc_comments = "allow"
-items_after_test_module = "allow"
 len_without_is_empty = "allow"
 needless_borrow = "allow"
 needless_range_loop = "allow"
