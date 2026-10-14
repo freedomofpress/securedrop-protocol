@@ -116,7 +116,7 @@ impl WStoreEntry {
         id.copy_from_slice(message_id_16);
         Self {
             message_id: Box::new(id),
-            envelope: envelope,
+            envelope,
         }
     }
 }

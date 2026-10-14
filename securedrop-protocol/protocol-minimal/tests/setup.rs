@@ -251,7 +251,7 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
         verifying_key: FPFKeyPair::new(&mut rng)
             .expect("key generation failed")
             .verifying_key(),
-        bundles: bundles,
+        bundles,
     };
     assert!(
         server_session
