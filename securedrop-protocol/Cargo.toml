@@ -58,7 +58,6 @@ unused = { level = "allow", priority = -1 }
 
 [workspace.lints.clippy]
 all = {level = "deny", priority = -1}
-clone_on_copy = "allow"
 collapsible_if = "allow"
 empty_line_after_doc_comments = "allow"
 items_after_test_module = "allow"

@@ -69,15 +69,14 @@ fn clamp(scalar: &mut [u8; 32]) {
 /// Generate DH-AKEM keypair from external randomness
 /// FOR TEST PURPOSES ONLY
 pub(crate) fn deterministic_keygen(
-    randomness: [u8; DH_AKEM_SEED_LEN],
+    mut randomness: [u8; DH_AKEM_SEED_LEN],
 ) -> Result<(DhAkemPrivateKey, DhAkemPublicKey), anyhow::Error> {
     use crate::primitives::provider::kem::{Algorithm, key_gen_derand};
 
     // Note that the key_gen_derand function expects the seed to be a valid scalar for X25519
-    let mut clamped_randomness = randomness.clone();
-    clamp(&mut clamped_randomness);
+    clamp(&mut randomness);
 
-    let (sk, pk) = key_gen_derand(Algorithm::X25519, &clamped_randomness)
+    let (sk, pk) = key_gen_derand(Algorithm::X25519, &randomness)
         .map_err(|e| anyhow::anyhow!("DH-AKEM deterministic key generation failed: {:?}", e))?;
 
     typed(sk, pk)

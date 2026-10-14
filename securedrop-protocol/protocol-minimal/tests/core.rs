@@ -111,8 +111,8 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Verify the journalist's fetch key matches our expectation
     assert_eq!(
-        journalist_view.fetch_pk().clone().into_bytes(),
-        journalist.fetch_keypair().1.clone().into_bytes()
+        (*journalist_view.fetch_pk()).into_bytes(),
+        (*journalist.fetch_keypair().1).into_bytes()
     );
 
     // Verify the journalist's message (APKE) key matches our expectation

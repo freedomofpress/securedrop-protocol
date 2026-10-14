@@ -50,7 +50,7 @@ fn setup_server<R: CryptoRng + RngCore>(
     assert!(
         fpf_keys
             .verifying_key()
-            .verify(&newsroom_vk.clone().into_bytes(), &setup_response.sig)
+            .verify(&(*newsroom_vk).into_bytes(), &setup_response.sig)
             .is_ok()
     );
 
@@ -130,15 +130,13 @@ fn protocol_step_3_1_journalist_enrollment() {
             .is_ok()
     );
 
-    let vk = newsroom_vk.clone();
-
     // store fpf signature over newsroom vk in session
     server_session.set_fpf_signature(fpf_sig);
 
     // Journalist: Create journalist session and generate setup request
     // todo keybundles
     let (_, journalist_setup_request) =
-        setup_journalist(rng, 10, &vk, &fpf_keys.verifying_key(), &fpf_sig);
+        setup_journalist(rng, 10, &newsroom_vk, &fpf_keys.verifying_key(), &fpf_sig);
 
     // Extract enrollment bundle for verification before moving the request
     let enrollment_bundle = journalist_setup_request.enrollment.clone();

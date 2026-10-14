@@ -165,7 +165,7 @@ mod tests {
 
         assert_eq!(
             pt_ref.sender_fetch_key.into_bytes(),
-            sender_secret.fetch_keypair().1.clone().into_bytes()
+            (*sender_secret.fetch_keypair().1).into_bytes()
         );
         assert_eq!(
             pt_ref.sender_reply_pubkey_hybrid.as_bytes(),

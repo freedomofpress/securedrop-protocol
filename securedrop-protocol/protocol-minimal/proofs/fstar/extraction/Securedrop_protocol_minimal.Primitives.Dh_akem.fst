@@ -263,19 +263,14 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
 /// FOR TEST PURPOSES ONLY
 let deterministic_keygen (randomness: t_Array u8 (mk_usize 32))
     : Core_models.Result.t_Result (t_DhAkemPrivateKey & t_DhAkemPublicKey) Anyhow.t_Error =
-  let clamped_randomness:t_Array u8 (mk_usize 32) =
-    Core_models.Clone.f_clone #(t_Array u8 (mk_usize 32))
-      #FStar.Tactics.Typeclasses.solve
-      randomness
-  in
-  let clamped_randomness:t_Array u8 (mk_usize 32) = clamp clamped_randomness in
+  let randomness:t_Array u8 (mk_usize 32) = clamp randomness in
   match
     Core_models.Result.impl__map_err #(Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey)
       #Libcrux_kem.t_Error
       #Anyhow.t_Error
       #(Libcrux_kem.t_Error -> Anyhow.t_Error)
       (Libcrux_kem.key_gen_derand (Libcrux_kem.Algorithm_X25519 <: Libcrux_kem.t_Algorithm)
-          (clamped_randomness <: t_Slice u8)
+          (randomness <: t_Slice u8)
         <:
         Core_models.Result.t_Result (Libcrux_kem.t_PrivateKey & Libcrux_kem.t_PublicKey)
           Libcrux_kem.t_Error)
