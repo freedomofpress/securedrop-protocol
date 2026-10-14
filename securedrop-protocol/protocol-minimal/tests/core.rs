@@ -2,7 +2,6 @@
 //! These correspond to steps 5-10 of the spec.
 use std::char::MAX;
 
-use getrandom;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
