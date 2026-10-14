@@ -543,24 +543,24 @@ mod tests {
         let kbs: Vec<&MessageKeyBundle> = journalist.keybundles();
         assert_eq!(kbs.len(), journalist.message_keys.len());
 
-        for i in 0..kbs.len() {
+        for (i, key_bundle) in kbs.iter().enumerate() {
             assert_eq!(
                 journalist.message_keys[i].apke.public_key().as_bytes(),
-                kbs[i].apke.public_key().as_bytes()
+                key_bundle.apke.public_key().as_bytes()
             );
             assert_eq!(
                 journalist.message_keys[i]
                     .metadata_kp
                     .private_key()
                     .as_bytes(),
-                kbs[i].metadata_kp.private_key().as_bytes()
+                key_bundle.metadata_kp.private_key().as_bytes()
             );
             assert_eq!(
                 journalist.message_keys[i]
                     .metadata_kp
                     .public_key()
                     .as_bytes(),
-                kbs[i].metadata_kp.public_key().as_bytes()
+                key_bundle.metadata_kp.public_key().as_bytes()
             );
         }
     }

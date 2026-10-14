@@ -61,7 +61,6 @@ all = {level = "deny", priority = -1}
 collapsible_if = "allow"
 empty_line_after_doc_comments = "allow"
 len_without_is_empty = "allow"
-needless_range_loop = "allow"
 unwrap_or_default = "allow"
 useless_conversion = "allow"
 
