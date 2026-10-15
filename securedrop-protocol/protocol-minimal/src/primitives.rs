@@ -4,7 +4,6 @@ use rand_core::{CryptoRng, RngCore};
 
 pub(crate) mod dh_akem;
 pub(crate) mod mlkem;
-pub mod pad;
 pub(crate) mod provider;
 pub mod ristretto255;
 pub(crate) mod xwing;

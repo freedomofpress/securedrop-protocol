@@ -11,6 +11,7 @@ pub mod api;
 mod ciphertext;
 pub mod keys;
 pub mod primitives;
+pub mod schemes;
 pub mod server;
 pub mod setup;
 mod traits;
@@ -18,6 +19,8 @@ pub mod wire;
 
 pub mod journalist;
 pub mod source;
+
+pub use schemes::{message, metadata, sign};
 
 pub use ciphertext::{Envelope, FetchResponse, Plaintext};
 
@@ -38,7 +41,6 @@ pub use source::{Source, SourcePublicView};
 pub(crate) use keys::MessageKeyBundle;
 
 // Primitives for signing
-pub mod sign;
 pub use sign::{
     DomainTag, FpfOnNewsroom, JournalistEphemeralKey, JournalistLongTermKey, NewsroomOnJournalist,
     Signature, SigningKey, VerifyingKey,
@@ -47,8 +49,6 @@ pub use sign::{
 pub mod storage;
 
 pub mod encrypt_decrypt;
-pub mod message;
-pub mod metadata;
 
 // Do not make this module public or re-export it anywhere!
 /// It uses the [sealed trait pattern](https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed)

@@ -9,8 +9,8 @@ open Core_models
 /// - `Z = (pk_R^fetch)^x`: DH share for fetching (hint)
 /// The server stores `(id, C_S, X, Z)` per message.
 type t_Envelope = {
-  f_ct_apke:Securedrop_protocol_minimal.Message.t_MessageCiphertext;
-  f_ct_pke:Securedrop_protocol_minimal.Metadata.t_MetadataCiphertext;
+  f_ct_apke:Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext;
+  f_ct_pke:Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext;
   f_mgdh_pubkey:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
   f_mgdh:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
 }
@@ -26,14 +26,14 @@ let impl_4: Core_models.Clone.t_Clone t_Envelope =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 let impl_Envelope__size_hint (self: t_Envelope) : usize =
-  (Securedrop_protocol_minimal.Message.impl_MessageCiphertext__len self.f_ct_apke <: usize) +!
-  (Securedrop_protocol_minimal.Metadata.impl_MetadataCiphertext__len self.f_ct_pke <: usize)
+  (Securedrop_protocol_minimal.Schemes.Message.impl_MessageCiphertext__len self.f_ct_apke <: usize) +!
+  (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataCiphertext__len self.f_ct_pke <: usize)
 
 let impl_Envelope__cmessage_len (self: t_Envelope) : usize =
-  Securedrop_protocol_minimal.Message.impl_MessageCiphertext__len self.f_ct_apke
+  Securedrop_protocol_minimal.Schemes.Message.impl_MessageCiphertext__len self.f_ct_apke
 
 let impl_Envelope__cmetadata_len (self: t_Envelope) : usize =
-  Securedrop_protocol_minimal.Metadata.impl_MetadataCiphertext__len self.f_ct_pke
+  Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataCiphertext__len self.f_ct_pke
 
 /// Toy pt structure
 type t_Plaintext = {
