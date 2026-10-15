@@ -40,11 +40,7 @@ impl ServerStorage {
 
     /// Add ephemeral keys for a journalist
     pub fn add_ephemeral_keys(&mut self, journalist_id: Uuid, keys: Vec<SignedKeyBundlePublic>) {
-        let journalist_keys = self
-            .ephemeral_keys
-            .entry(journalist_id)
-            // avoid `or_insert_with(Vec::new)` because hax doesn't accept FnMut/FnOnce closure
-            .or_insert(Vec::new());
+        let journalist_keys = self.ephemeral_keys.entry(journalist_id).or_default();
         journalist_keys.extend(keys);
     }
 
