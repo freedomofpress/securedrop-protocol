@@ -54,7 +54,10 @@ To better understand the context of this research and the previous steps that le
 
 ## Setup instructions
 
-Install the Rust toolchain. Use `make help` from the project root to see available make targets, e.g. to install lint tools, run formatting checks, or build crates.
+Install rustup; the repository's `rust-toolchain.toml` installs and selects the
+pinned Rust toolchain. Use `make help` from the project root to see available
+make targets, e.g. to install lint tools, run formatting checks, or build
+crates.
 
 Lint tools are installed in the `lint-tools` directory to avoid interfering with the user's system dependencies; cargo will suggest adding the directory to your $PATH, but that's not required.
 
@@ -112,7 +115,7 @@ Operations should be benchmarked in the environment in which they are expected t
 
 **Dependencies** (install via Homebrew unless noted):
 
-- `rustc` 1.92.0 (via rustup)
+- the Rust toolchain pinned in `rust-toolchain.toml` (via rustup)
 - Node ≥ 22
 - GCC (required for Rust compilation)
 - Firefox
