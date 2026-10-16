@@ -1,7 +1,9 @@
 use anyhow::{Context, Result};
 use rand_core::{CryptoRng, RngCore};
 use securedrop_protocol_minimal::api::Api;
-use securedrop_protocol_minimal::wire::core::{JournalistEphemeralKeys, WelcomeBundle};
+use securedrop_protocol_minimal::wire::core::{
+    JournalistEphemeralKeys, JournalistLongTermView, WelcomeBundle,
+};
 use securedrop_protocol_minimal::{
     Enrollable, Journalist, JournalistPublicView, SourcePublicView, UserPublic,
 };
@@ -49,27 +51,21 @@ pub(crate) fn reply(server: &str, message_id: &str, message: &str) -> Result<()>
         .context("newsroom rejected ephemeral key request")?
         .json()?;
 
-    let mut other_journalists: Vec<JournalistPublicView> = Vec::new();
-    for eph in &ephemeral {
-        // we don't want to reply to ourselves
-        if eph.vk.into_bytes() == own_vk {
-            continue;
-        }
-        let Some(long_term) = welcome
-            .journalists
-            .iter()
-            .find(|j| j.vk.into_bytes() == eph.vk.into_bytes())
-        else {
-            continue;
-        };
-        journalist
-            .verify_long_term(long_term, &newsroom_vk)
-            .context("journalist long-term keys failed verification")?;
-        let view = journalist
-            .verify_ephemeral(long_term, &eph.ephemeral)
-            .context("journalist one-time keys failed verification")?;
-        other_journalists.push(view);
-    }
+    // verify long-term keys of other journalists
+    let others: Vec<JournalistLongTermView> = welcome
+        .journalists
+        .into_iter()
+        .filter(|j| j.vk.into_bytes() != own_vk)
+        .map(|j| {
+            journalist
+                .verify_long_term(&j, &newsroom_vk)
+                .context("journalist long-term keys failed verification")?;
+            Ok(j)
+        })
+        .collect::<Result<_>>()?;
+    let other_journalists = journalist
+        .verify_ephemeral_keys(&others, &ephemeral)
+        .context("journalists one-time key failed verification")?;
 
     // Send the reply to the source and to every other journalist so they have the convo history
     let mut rng = rand::rng();
