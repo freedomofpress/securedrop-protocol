@@ -101,19 +101,19 @@ type t_Ct =
 
 val random_array
       (v_L: usize)
-      (#iimpl_447424039_: Type0)
-      {| i0: Rand_core.t_CryptoRng iimpl_447424039_ |}
-      (rng: iimpl_447424039_)
-    : Prims.Pure (iimpl_447424039_ & Core_models.Result.t_Result (t_Array u8 v_L) t_Error)
+      (#iimpl_925283732_: Type0)
+      {| i0: Rand_core.t_TryCryptoRng iimpl_925283732_ |}
+      (rng: iimpl_925283732_)
+    : Prims.Pure (iimpl_925283732_ & Core_models.Result.t_Result (t_Array u8 v_L) t_Error)
       Prims.l_True
       (fun _ -> Prims.l_True)
 
 val gen_mlkem768
-      (#iimpl_447424039_: Type0)
-      {| i0: Rand_core.t_CryptoRng iimpl_447424039_ |}
-      (rng: iimpl_447424039_)
+      (#iimpl_925283732_: Type0)
+      {| i0: Rand_core.t_TryCryptoRng iimpl_925283732_ |}
+      (rng: iimpl_925283732_)
     : Prims.Pure
-      (iimpl_447424039_ &
+      (iimpl_925283732_ &
         Core_models.Result.t_Result
           (Libcrux_ml_kem.Types.t_MlKemPrivateKey (mk_usize 2400) &
             Libcrux_ml_kem.Types.t_MlKemPublicKey (mk_usize 1184)) t_Error)
@@ -146,12 +146,12 @@ val expand_decap_key (seed: t_Array u8 (mk_usize 32))
 /// * not enough entropy was available
 /// * it was not possible to generate a valid key within a reasonable amount of iterations.
 val key_gen
-      (#iimpl_447424039_: Type0)
-      {| i0: Rand_core.t_CryptoRng iimpl_447424039_ |}
+      (#iimpl_925283732_: Type0)
+      {| i0: Rand_core.t_TryCryptoRng iimpl_925283732_ |}
       (alg: t_Algorithm)
-      (rng: iimpl_447424039_)
+      (rng: iimpl_925283732_)
     : Prims.Pure
-      (iimpl_447424039_ & Core_models.Result.t_Result (t_PrivateKey & t_PublicKey) t_Error)
+      (iimpl_925283732_ & Core_models.Result.t_Result (t_PrivateKey & t_PublicKey) t_Error)
       Prims.l_True
       (fun _ -> Prims.l_True)
 
