@@ -14,7 +14,7 @@ type t_Mode =
   | Mode_Auth : t_Mode
   | Mode_AuthPsk : t_Mode
 
-/// An HPKE context parameterised by a crypto provider tag (e.g. `Hpke_rs_libcrux.t_HpkeLibcrux`).
+/// An HPKE context parameterised by a crypto provider tag (e.g. `Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng`).
 assume
 type t_Hpke : Type0 -> Type0
 
@@ -44,6 +44,8 @@ val impl_HpkePrivateKey_From_Vec
     : Core_models.Convert.t_From t_HpkePrivateKey (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
 
 /// Construct a new HPKE context with the given mode and algorithm triple.
+/// FIXME: update to new_with_rng and replace this method.
+/// hpke-rs 0.0.8 introduces a panic if the PRNG supplied fails
 val impl_7__new
       (#v_Crypto: Type0)
       (mode: t_Mode)
@@ -55,7 +57,7 @@ val impl_7__new
 /// `HPKE.Seal` — encrypt `msg` to `pk_r`, optionally authenticated with
 /// `signer_sk` and with a PSK `(psk, psk_id)`.
 /// Returns the updated HPKE state and a `Result` of `(encapsulation, ciphertext)`.
-val impl_7__seal
+val impl_8__seal
       (#v_Crypto: Type0)
       (self: t_Hpke v_Crypto)
       (pk_r: t_HpkePublicKey)
@@ -74,7 +76,7 @@ val impl_7__seal
 
 /// `HPKE.Open` — decrypt `ct` against encapsulation `enc`, optionally
 /// authenticated with `signer_pk` and with a PSK `(psk, psk_id)`.
-val impl_7__open
+val impl_8__open
       (#v_Crypto: Type0)
       (self: t_Hpke v_Crypto)
       (enc: t_Slice u8)

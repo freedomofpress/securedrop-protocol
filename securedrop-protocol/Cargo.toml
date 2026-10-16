@@ -12,15 +12,15 @@ license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
 # Crypto stack (must be kept in sync with hax-lib):
-hpke-rs = "0.7.0"
-libcrux-ed25519 = "0.0.9"
-libcrux-curve25519 = "0.0.8"
-libcrux-chacha20poly1305 = "0.0.9"
-libcrux-traits = "0.0.8"
-libcrux-kem = "0.0.9"
-libcrux-ml-kem = "0.0.10"
-libcrux-sha2 = "0.0.8"
-libcrux-hkdf = "0.0.8"
+hpke-rs = "0.8.0"
+libcrux-ed25519 = "0.0.10"
+libcrux-curve25519 = "0.0.9"
+libcrux-chacha20poly1305 = "0.0.10"
+libcrux-traits = "0.0.9"
+libcrux-kem = "0.0.10"
+libcrux-ml-kem = "0.0.11"
+libcrux-sha2 = "0.0.9"
+libcrux-hkdf = "0.0.9"
 
 hax-lib = "0.4.1"
 
@@ -70,3 +70,13 @@ redundant_field_names = "allow"
 single_component_path_imports = "allow"
 unwrap_or_default = "allow"
 useless_conversion = "allow"
+
+# libcrux-hmac 0.0.9 that fails to compile under hax
+# patch libcrux-sha3 (and dep libcrux-traits) that depend on it
+# upstream fix is in  https://github.com/celabshq/libcrux/pull/1642
+[patch.crates-io]
+libcrux-sha3 = { git = "https://github.com/celabshq/libcrux", rev = "9d5290ec8e432caad9172e4e02c9062e8fcf4b7f" }
+libcrux-traits = { git = "https://github.com/celabshq/libcrux", rev = "9d5290ec8e432caad9172e4e02c9062e8fcf4b7f" }
+libcrux-secrets = { git = "https://github.com/celabshq/libcrux", rev = "9d5290ec8e432caad9172e4e02c9062e8fcf4b7f" }
+libcrux-platform = { git = "https://github.com/celabshq/libcrux", rev = "9d5290ec8e432caad9172e4e02c9062e8fcf4b7f" }
+libcrux-intrinsics = { git = "https://github.com/celabshq/libcrux", rev = "9d5290ec8e432caad9172e4e02c9062e8fcf4b7f" }
