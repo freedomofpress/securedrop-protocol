@@ -53,6 +53,11 @@ deps-rust:  ## Install clippy and rustfmt.
 clippy: deps-rust  ## Check Rust code with clippy
 	@cargo clippy --manifest-path=securedrop-protocol/Cargo.toml --workspace --all-targets --all-features --
 
+.PHONY: vet
+vet:  ## Supply-chain checks with cargo-vet
+	@cargo install --locked cargo-vet --version $(CARGO_VET_VER) --quiet
+	@cargo vet --locked --manifest-path=securedrop-protocol/Cargo.toml
+
 # Enforces build from a clean cache, to be used before running benchmarks.
 .PHONY: build-wasm-bench
 build-wasm:  ## Compile protocol-minimal and benchmark crates for wasm32-unknown-unknown (browser compat, requires rust toolchain).
