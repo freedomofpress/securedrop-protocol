@@ -27,7 +27,7 @@ HAX_TARGETS += -securedrop_protocol_minimal::api::**
 HAX_TARGETS += +securedrop_protocol_minimal::api::Client
 
 # Admit modules we extract but that fail panic freedom:
-HAX_ADMITS := Securedrop_protocol_minimal.Message.fst
+HAX_ADMITS := Securedrop_protocol_minimal.Schemes.Message.fst
 HAX_ADMITS += Securedrop_protocol_minimal.Ciphertext.fst
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)

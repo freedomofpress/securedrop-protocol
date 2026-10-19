@@ -203,7 +203,7 @@ where
         P: UserPublic,
     {
         // TODO: review padding
-        let padded_message = crate::primitives::pad::pad_message(message);
+        let padded_message = crate::schemes::pad::pad_message(message);
         let plaintext = sender.build_message(padded_message);
         let envelope = encrypt(rng, sender, &plaintext, recipient);
         Ok(envelope)
