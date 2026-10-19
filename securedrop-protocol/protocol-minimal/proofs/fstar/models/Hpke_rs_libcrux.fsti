@@ -3,6 +3,11 @@ module Hpke_rs_libcrux
 open FStar.Mul
 open Core_models
 
-/// Phantom type tag selecting the libcrux-backed HPKE crypto provider.
+/// Phantom type tag selecting the libcrux-backed HPKE crypto provider,
+/// parameterised by its PRNG.
 assume
-type t_HpkeLibcrux : Type0
+type t_HpkeLibcrux (v_R: Type0) : Type0
+
+/// The default PRNG of the libcrux-backed HPKE crypto provider.
+assume
+type t_HpkeLibcruxPrng : Type0

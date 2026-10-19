@@ -3,7 +3,9 @@
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-interfaces-extracted-from-our-dependencies
 
 HAX_LIB_VERSION=$(shell $(MAKE) --no-print-directory -C ../../.. -s hax-lib-version)
-LIBCRUX_REF=libcrux-traits-v$(shell $(MAKE) --no-print-directory -C ../../.. -s libcrux-version)
+LIBCRUX_VERSION=$(shell $(MAKE) --no-print-directory -C ../../.. -s libcrux-version)
+# A release tag maps to libcrux-traits-v${TAG}, and a git rev is as is
+LIBCRUX_REF=$(if $(findstring .,$(LIBCRUX_VERSION)),libcrux-traits-v$(LIBCRUX_VERSION),$(LIBCRUX_VERSION))
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 HAX_IMAGE = hax:$(HAX_LIB_VERSION)

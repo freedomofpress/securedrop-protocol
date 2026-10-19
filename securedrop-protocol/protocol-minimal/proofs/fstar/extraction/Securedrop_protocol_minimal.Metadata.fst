@@ -347,8 +347,8 @@ let impl_MetadataPublicKey__from_bytes (bytes: t_Slice u8)
 /// `m` is the sender's long-term APKE public key, which must be serializable.
 let encrypt (pk_r: t_MetadataPublicKey) (m: Securedrop_protocol_minimal.Message.t_MessagePublicKey)
     : Core_models.Result.t_Result t_MetadataCiphertext Anyhow.t_Error =
-  let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
-    Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
+  let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+    Hpke_rs.impl_7__new #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
       (Hpke_rs.Mode_Base <: Hpke_rs.t_Mode)
       (Hpke_rs_crypto.Types.KemAlgorithm_XWingDraft06 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
@@ -365,12 +365,12 @@ let encrypt (pk_r: t_MetadataPublicKey) (m: Securedrop_protocol_minimal.Message.
         Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPublicKey)
   in
   let
-  (tmp0: Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux),
+  (tmp0: Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)),
   (out:
     Core_models.Result.t_Result
       (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
       Hpke_rs.t_HpkeError) =
-    Hpke_rs.impl_7__seal #Hpke_rs_libcrux.t_HpkeLibcrux
+    Hpke_rs.impl_8__seal #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
       hpke
       pk_r_hpke
       ((let list:Prims.list u8 = [] in
@@ -393,7 +393,9 @@ let encrypt (pk_r: t_MetadataPublicKey) (m: Securedrop_protocol_minimal.Message.
       (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
       (Core_models.Option.Option_None <: Core_models.Option.t_Option Hpke_rs.t_HpkePrivateKey)
   in
-  let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux = tmp0 in
+  let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+    tmp0
+  in
   match
     out
     <:
@@ -476,8 +478,8 @@ let encrypt (pk_r: t_MetadataPublicKey) (m: Securedrop_protocol_minimal.Message.
 /// Returns an error if HPKE decryption fails.
 let decrypt (sk_r: t_MetadataPrivateKey) (ct: t_MetadataCiphertext)
     : Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error =
-  let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
-    Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
+  let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+    Hpke_rs.impl_7__new #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
       (Hpke_rs.Mode_Base <: Hpke_rs.t_Mode)
       (Hpke_rs_crypto.Types.KemAlgorithm_XWingDraft06 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
@@ -497,7 +499,8 @@ let decrypt (sk_r: t_MetadataPrivateKey) (ct: t_MetadataCiphertext)
     #Hpke_rs.t_HpkeError
     #Anyhow.t_Error
     #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
-    (Hpke_rs.impl_7__open #Hpke_rs_libcrux.t_HpkeLibcrux hpke (ct.f_c <: t_Slice u8) sk_r_hpke
+    (Hpke_rs.impl_8__open #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) hpke
+        (ct.f_c <: t_Slice u8) sk_r_hpke
         ((let list:Prims.list u8 = [] in
             FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
             Rust_primitives.Hax.array_of_list 0 list)
