@@ -97,21 +97,27 @@ let encrypt
         Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
       hint_esk
   in
+  let
+  (tmp0: v_R),
+  (out:
+    Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext
+      Anyhow.t_Error) =
+    Securedrop_protocol_minimal.Schemes.Metadata.encrypt #v_R
+      rng
+      (Securedrop_protocol_minimal.Traits.f_message_metadata_pk #v_Recipient
+          #FStar.Tactics.Typeclasses.solve
+          recipient
+        <:
+        Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
+      (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__public_key keypair_s
+        <:
+        Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
+  in
+  let rng:v_R = tmp0 in
   let ct_pke:Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext =
     Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext
       #Anyhow.t_Error
-      (Securedrop_protocol_minimal.Schemes.Metadata.encrypt (Securedrop_protocol_minimal.Traits.f_message_metadata_pk
-              #v_Recipient
-              #FStar.Tactics.Typeclasses.solve
-              recipient
-            <:
-            Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
-          (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__public_key keypair_s
-            <:
-            Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
-        <:
-        Core_models.Result.t_Result
-          Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext Anyhow.t_Error)
+      out
       "Valid Keybundle should allow metadata seal"
   in
   let hax_temp_output:Securedrop_protocol_minimal.Wire.Core.t_Envelope =

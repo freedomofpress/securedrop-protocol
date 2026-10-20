@@ -8,6 +8,7 @@ let _ =
   (* The implicit dependencies arise from typeclasses instances. *)
   let open Hpke_rs in
   let open Hpke_rs_crypto in
+  let open Hpke_rs_crypto.Error in
   let open Hpke_rs_libcrux in
   let open Libcrux_ml_kem.Mlkem768 in
   let open Libcrux_traits.Kem.Arrayref in
@@ -444,43 +445,26 @@ let auth_enc
       (m ad: t_Slice u8)
       (info_incl: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : (v_R & Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error) =
-  let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
-    Hpke_rs.impl_7__new #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
-      (Hpke_rs.Mode_AuthPsk <: Hpke_rs.t_Mode)
-      (Hpke_rs_crypto.Types.KemAlgorithm_DhKem25519 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
-      (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
-      (Hpke_rs_crypto.Types.AeadAlgorithm_ChaCha20Poly1305 <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
-  in
-  let randomness:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
+  let seed:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
   let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 32)) =
-    Rand_core.f_fill_bytes #v_R #FStar.Tactics.Typeclasses.solve rng randomness
+    Rand_core.f_fill_bytes #v_R #FStar.Tactics.Typeclasses.solve rng seed
   in
   let rng:v_R = tmp0 in
-  let randomness:t_Array u8 (mk_usize 32) = tmp1 in
+  let seed:t_Array u8 (mk_usize 32) = tmp1 in
   let _:Prims.unit = () in
   match
-    Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32) & t_Array u8 (mk_usize 1088))
-      #Libcrux_traits.Kem.Arrayref.t_EncapsError
+    Core_models.Result.impl__map_err #Hpke_rs_libcrux.t_HpkeLibcruxPrng
+      #Hpke_rs_crypto.Error.t_Error
       #Anyhow.t_Error
-      #(Libcrux_traits.Kem.Arrayref.t_EncapsError -> Anyhow.t_Error)
-      (Libcrux_traits.Kem.Owned.f_encaps #Libcrux_ml_kem.Mlkem768.t_MlKem768 #(mk_usize 1184)
-          #(mk_usize 2400) #(mk_usize 1088) #(mk_usize 32) #(mk_usize 64) #(mk_usize 32)
-          #FStar.Tactics.Typeclasses.solve
-          (Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__as_bytes pk.f_mlkem
-            <:
-            t_Array u8 (mk_usize 1184)) randomness
+      #(Hpke_rs_crypto.Error.t_Error -> Anyhow.t_Error)
+      (Hpke_rs_libcrux.impl_HpkeLibcruxPrng__try_from_seed seed
         <:
-        Core_models.Result.t_Result (t_Array u8 (mk_usize 32) & t_Array u8 (mk_usize 1088))
-          Libcrux_traits.Kem.Arrayref.t_EncapsError)
+        Core_models.Result.t_Result Hpke_rs_libcrux.t_HpkeLibcruxPrng Hpke_rs_crypto.Error.t_Error)
       (fun e ->
-          let e:Libcrux_traits.Kem.Arrayref.t_EncapsError = e in
-          let args:Libcrux_traits.Kem.Arrayref.t_EncapsError =
-            e <: Libcrux_traits.Kem.Arrayref.t_EncapsError
-          in
+          let e:Hpke_rs_crypto.Error.t_Error = e in
+          let args:Hpke_rs_crypto.Error.t_Error = e <: Hpke_rs_crypto.Error.t_Error in
           let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
-            let list =
-              [Core_models.Fmt.Rt.impl__new_debug #Libcrux_traits.Kem.Arrayref.t_EncapsError args]
-            in
+            let list = [Core_models.Fmt.Rt.impl__new_debug #Hpke_rs_crypto.Error.t_Error args] in
             FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
             Rust_primitives.Hax.array_of_list 1 list
           in
@@ -488,7 +472,7 @@ let auth_enc
             (Core_models.Hint.must_use #Alloc.String.t_String
                 (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
                         (mk_usize 1)
-                        (let list = ["ML-KEM encapsulation failed: "] in
+                        (let list = ["hpke prng instantiation failed: "] in
                           FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
                           Rust_primitives.Hax.array_of_list 1 list)
                         args
@@ -499,86 +483,53 @@ let auth_enc
               <:
               Alloc.String.t_String))
     <:
-    Core_models.Result.t_Result (t_Array u8 (mk_usize 32) & t_Array u8 (mk_usize 1088))
-      Anyhow.t_Error
+    Core_models.Result.t_Result Hpke_rs_libcrux.t_HpkeLibcruxPrng Anyhow.t_Error
   with
-  | Core_models.Result.Result_Ok (k2, c2) ->
-    let (pkr1: Hpke_rs.t_HpkePublicKey):Hpke_rs.t_HpkePublicKey =
-      Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey
-        #Hpke_rs.t_HpkePublicKey
-        #FStar.Tactics.Typeclasses.solve
-        (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey
-            #FStar.Tactics.Typeclasses.solve
-            pk.f_dhakem
-          <:
-          Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey)
-    in
-    let (sks1: Hpke_rs.t_HpkePrivateKey):Hpke_rs.t_HpkePrivateKey =
-      Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey
-        #Hpke_rs.t_HpkePrivateKey
-        #FStar.Tactics.Typeclasses.solve
-        (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey
-            #FStar.Tactics.Typeclasses.solve
-            (impl_MessageKeyPair__private_key kp <: t_MessagePrivateKey).f_dhakem
-          <:
-          Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey)
-    in
-    let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = Alloc.Vec.impl__new #u8 () in
-    let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-      Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global full_info (c2 <: t_Slice u8)
-    in
-    let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-      Alloc.Vec.impl_2__extend_from_slice #u8
-        #Alloc.Alloc.t_Global
-        full_info
-        (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes info_incl
-          <:
-          t_Slice u8)
-    in
-    let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-      Alloc.Vec.impl_2__extend_from_slice #u8
-        #Alloc.Alloc.t_Global
-        full_info
-        (Alloc.Vec.impl_1__as_slice (impl_MessagePublicKey__as_bytes kp.f_pk
-              <:
-              Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-          <:
-          t_Slice u8)
-    in
-    let
-    (tmp0: Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)),
-    (out:
-      Core_models.Result.t_Result
-        (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-        Hpke_rs.t_HpkeError) =
-      Hpke_rs.impl_8__seal #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
-        hpke
-        pkr1
-        (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8)
-        ad
-        m
-        (Core_models.Option.Option_Some (k2 <: t_Slice u8)
-          <:
-          Core_models.Option.t_Option (t_Slice u8))
-        (Core_models.Option.Option_Some v_PSK_ID <: Core_models.Option.t_Option (t_Slice u8))
-        (Core_models.Option.Option_Some sks1 <: Core_models.Option.t_Option Hpke_rs.t_HpkePrivateKey
-        )
-    in
+  | Core_models.Result.Result_Ok prng ->
     let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
-      tmp0
+      Hpke_rs.impl_8__new_with_rng #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng
+        )
+        (Hpke_rs.Mode_AuthPsk <: Hpke_rs.t_Mode)
+        (Hpke_rs_crypto.Types.KemAlgorithm_DhKem25519 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
+        (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
+        (Hpke_rs_crypto.Types.AeadAlgorithm_ChaCha20Poly1305 <: Hpke_rs_crypto.Types.t_AeadAlgorithm
+        )
+        prng
     in
+    let randomness:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
+    let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 32)) =
+      Rand_core.f_fill_bytes #v_R #FStar.Tactics.Typeclasses.solve rng randomness
+    in
+    let rng:v_R = tmp0 in
+    let randomness:t_Array u8 (mk_usize 32) = tmp1 in
+    let _:Prims.unit = () in
     (match
-        Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global &
-            Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-          #Hpke_rs.t_HpkeError
+        Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32) & t_Array u8 (mk_usize 1088))
+          #Libcrux_traits.Kem.Arrayref.t_EncapsError
           #Anyhow.t_Error
-          #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
-          out
+          #(Libcrux_traits.Kem.Arrayref.t_EncapsError -> Anyhow.t_Error)
+          (Libcrux_traits.Kem.Owned.f_encaps #Libcrux_ml_kem.Mlkem768.t_MlKem768 #(mk_usize 1184)
+              #(mk_usize 2400) #(mk_usize 1088) #(mk_usize 32) #(mk_usize 64) #(mk_usize 32)
+              #FStar.Tactics.Typeclasses.solve
+              (Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__as_bytes pk
+                    .f_mlkem
+                <:
+                t_Array u8 (mk_usize 1184)) randomness
+            <:
+            Core_models.Result.t_Result (t_Array u8 (mk_usize 32) & t_Array u8 (mk_usize 1088))
+              Libcrux_traits.Kem.Arrayref.t_EncapsError)
           (fun e ->
-              let e:Hpke_rs.t_HpkeError = e in
-              let args:Hpke_rs.t_HpkeError = e <: Hpke_rs.t_HpkeError in
+              let e:Libcrux_traits.Kem.Arrayref.t_EncapsError = e in
+              let args:Libcrux_traits.Kem.Arrayref.t_EncapsError =
+                e <: Libcrux_traits.Kem.Arrayref.t_EncapsError
+              in
               let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
-                let list = [Core_models.Fmt.Rt.impl__new_debug #Hpke_rs.t_HpkeError args] in
+                let list =
+                  [
+                    Core_models.Fmt.Rt.impl__new_debug #Libcrux_traits.Kem.Arrayref.t_EncapsError
+                      args
+                  ]
+                in
                 FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
                 Rust_primitives.Hax.array_of_list 1 list
               in
@@ -586,7 +537,7 @@ let auth_enc
                 (Core_models.Hint.must_use #Alloc.String.t_String
                     (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
                             (mk_usize 1)
-                            (let list = ["SD-APKE AuthEnc failed: "] in
+                            (let list = ["ML-KEM encapsulation failed: "] in
                               FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
                               Rust_primitives.Hax.array_of_list 1 list)
                             args
@@ -597,31 +548,139 @@ let auth_enc
                   <:
                   Alloc.String.t_String))
         <:
-        Core_models.Result.t_Result
-          (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+        Core_models.Result.t_Result (t_Array u8 (mk_usize 32) & t_Array u8 (mk_usize 1088))
           Anyhow.t_Error
       with
-      | Core_models.Result.Result_Ok (c1_vec, cp) ->
-        let (c1: t_Array u8 (mk_usize 32)):t_Array u8 (mk_usize 32) =
-          Core_models.Result.impl__expect #(t_Array u8 (mk_usize 32))
-            #Core_models.Array.t_TryFromSliceError
-            (Core_models.Convert.f_try_into #(t_Slice u8)
-                #(t_Array u8 (mk_usize 32))
+      | Core_models.Result.Result_Ok (k2, c2) ->
+        let (pkr1: Hpke_rs.t_HpkePublicKey):Hpke_rs.t_HpkePublicKey =
+          Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey
+            #Hpke_rs.t_HpkePublicKey
+            #FStar.Tactics.Typeclasses.solve
+            (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey
                 #FStar.Tactics.Typeclasses.solve
-                (Alloc.Vec.impl_1__as_slice #u8 #Alloc.Alloc.t_Global c1_vec <: t_Slice u8)
+                pk.f_dhakem
               <:
-              Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
-                Core_models.Array.t_TryFromSliceError)
-            "DHKEM(X25519) encapsulation output has unexpected length"
+              Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey)
         in
-        let hax_temp_output:Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error =
-          Core_models.Result.Result_Ok ({ f_c1 = c1; f_cp = cp; f_c2 = c2 } <: t_MessageCiphertext)
-          <:
-          Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error
+        let (sks1: Hpke_rs.t_HpkePrivateKey):Hpke_rs.t_HpkePrivateKey =
+          Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey
+            #Hpke_rs.t_HpkePrivateKey
+            #FStar.Tactics.Typeclasses.solve
+            (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey
+                #FStar.Tactics.Typeclasses.solve
+                (impl_MessageKeyPair__private_key kp <: t_MessagePrivateKey).f_dhakem
+              <:
+              Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey)
         in
-        rng, hax_temp_output
-        <:
-        (v_R & Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error)
+        let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = Alloc.Vec.impl__new #u8 () in
+        let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+          Alloc.Vec.impl_2__extend_from_slice #u8 #Alloc.Alloc.t_Global full_info (c2 <: t_Slice u8)
+        in
+        let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+          Alloc.Vec.impl_2__extend_from_slice #u8
+            #Alloc.Alloc.t_Global
+            full_info
+            (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes info_incl
+
+              <:
+              t_Slice u8)
+        in
+        let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+          Alloc.Vec.impl_2__extend_from_slice #u8
+            #Alloc.Alloc.t_Global
+            full_info
+            (Alloc.Vec.impl_1__as_slice (impl_MessagePublicKey__as_bytes kp.f_pk
+                  <:
+                  Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+              <:
+              t_Slice u8)
+        in
+        let
+        (tmp0: Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)),
+        (out:
+          Core_models.Result.t_Result
+            (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+            Hpke_rs.t_HpkeError) =
+          Hpke_rs.impl_8__seal #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
+            hpke
+            pkr1
+            (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8)
+            ad
+            m
+            (Core_models.Option.Option_Some (k2 <: t_Slice u8)
+              <:
+              Core_models.Option.t_Option (t_Slice u8))
+            (Core_models.Option.Option_Some v_PSK_ID <: Core_models.Option.t_Option (t_Slice u8))
+            (Core_models.Option.Option_Some sks1
+              <:
+              Core_models.Option.t_Option Hpke_rs.t_HpkePrivateKey)
+        in
+        let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+          tmp0
+        in
+        (match
+            Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global &
+                Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+              #Hpke_rs.t_HpkeError
+              #Anyhow.t_Error
+              #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
+              out
+              (fun e ->
+                  let e:Hpke_rs.t_HpkeError = e in
+                  let args:Hpke_rs.t_HpkeError = e <: Hpke_rs.t_HpkeError in
+                  let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
+                    let list = [Core_models.Fmt.Rt.impl__new_debug #Hpke_rs.t_HpkeError args] in
+                    FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                    Rust_primitives.Hax.array_of_list 1 list
+                  in
+                  Anyhow.Error.impl__msg #Alloc.String.t_String
+                    (Core_models.Hint.must_use #Alloc.String.t_String
+                        (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
+                                (mk_usize 1)
+                                (let list = ["SD-APKE AuthEnc failed: "] in
+                                  FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                                  Rust_primitives.Hax.array_of_list 1 list)
+                                args
+                              <:
+                              Core_models.Fmt.t_Arguments)
+                          <:
+                          Alloc.String.t_String)
+                      <:
+                      Alloc.String.t_String))
+            <:
+            Core_models.Result.t_Result
+              (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+              Anyhow.t_Error
+          with
+          | Core_models.Result.Result_Ok (c1_vec, cp) ->
+            let (c1: t_Array u8 (mk_usize 32)):t_Array u8 (mk_usize 32) =
+              Core_models.Result.impl__expect #(t_Array u8 (mk_usize 32))
+                #Core_models.Array.t_TryFromSliceError
+                (Core_models.Convert.f_try_into #(t_Slice u8)
+                    #(t_Array u8 (mk_usize 32))
+                    #FStar.Tactics.Typeclasses.solve
+                    (Alloc.Vec.impl_1__as_slice #u8 #Alloc.Alloc.t_Global c1_vec <: t_Slice u8)
+                  <:
+                  Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
+                    Core_models.Array.t_TryFromSliceError)
+                "DHKEM(X25519) encapsulation output has unexpected length"
+            in
+            let hax_temp_output:Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error =
+              Core_models.Result.Result_Ok
+              ({ f_c1 = c1; f_cp = cp; f_c2 = c2 } <: t_MessageCiphertext)
+              <:
+              Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error
+            in
+            rng, hax_temp_output
+            <:
+            (v_R & Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error)
+          | Core_models.Result.Result_Err err ->
+            rng,
+            (Core_models.Result.Result_Err err
+              <:
+              Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error)
+            <:
+            (v_R & Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error))
       | Core_models.Result.Result_Err err ->
         rng,
         (Core_models.Result.Result_Err err
@@ -651,36 +710,20 @@ let auth_dec
       (ad: t_Slice u8)
       (info_incl: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error =
-  let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
-    Hpke_rs.impl_7__new #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
-      (Hpke_rs.Mode_AuthPsk <: Hpke_rs.t_Mode)
-      (Hpke_rs_crypto.Types.KemAlgorithm_DhKem25519 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
-      (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
-      (Hpke_rs_crypto.Types.AeadAlgorithm_ChaCha20Poly1305 <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
-  in
+  let seed:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
   match
-    Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
-      #Libcrux_traits.Kem.Arrayref.t_DecapsError
+    Core_models.Result.impl__map_err #Hpke_rs_libcrux.t_HpkeLibcruxPrng
+      #Hpke_rs_crypto.Error.t_Error
       #Anyhow.t_Error
-      #(Libcrux_traits.Kem.Arrayref.t_DecapsError -> Anyhow.t_Error)
-      (Libcrux_traits.Kem.Owned.f_decaps #Libcrux_ml_kem.Mlkem768.t_MlKem768 #(mk_usize 1184)
-          #(mk_usize 2400) #(mk_usize 1088) #(mk_usize 32) #(mk_usize 64) #(mk_usize 32)
-          #FStar.Tactics.Typeclasses.solve ct.f_c2
-          (Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PrivateKey__as_bytes sk.f_mlkem
-            <:
-            t_Array u8 (mk_usize 2400))
+      #(Hpke_rs_crypto.Error.t_Error -> Anyhow.t_Error)
+      (Hpke_rs_libcrux.impl_HpkeLibcruxPrng__try_from_seed seed
         <:
-        Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
-          Libcrux_traits.Kem.Arrayref.t_DecapsError)
+        Core_models.Result.t_Result Hpke_rs_libcrux.t_HpkeLibcruxPrng Hpke_rs_crypto.Error.t_Error)
       (fun e ->
-          let e:Libcrux_traits.Kem.Arrayref.t_DecapsError = e in
-          let args:Libcrux_traits.Kem.Arrayref.t_DecapsError =
-            e <: Libcrux_traits.Kem.Arrayref.t_DecapsError
-          in
+          let e:Hpke_rs_crypto.Error.t_Error = e in
+          let args:Hpke_rs_crypto.Error.t_Error = e <: Hpke_rs_crypto.Error.t_Error in
           let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
-            let list =
-              [Core_models.Fmt.Rt.impl__new_debug #Libcrux_traits.Kem.Arrayref.t_DecapsError args]
-            in
+            let list = [Core_models.Fmt.Rt.impl__new_debug #Hpke_rs_crypto.Error.t_Error args] in
             FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
             Rust_primitives.Hax.array_of_list 1 list
           in
@@ -688,7 +731,7 @@ let auth_dec
             (Core_models.Hint.must_use #Alloc.String.t_String
                 (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
                         (mk_usize 1)
-                        (let list = ["ML-KEM decapsulation failed: "] in
+                        (let list = ["hpke prng instantiation failed: "] in
                           FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
                           Rust_primitives.Hax.array_of_list 1 list)
                         args
@@ -699,92 +742,156 @@ let auth_dec
               <:
               Alloc.String.t_String))
     <:
-    Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
+    Core_models.Result.t_Result Hpke_rs_libcrux.t_HpkeLibcruxPrng Anyhow.t_Error
   with
-  | Core_models.Result.Result_Ok k2 ->
-    let (skr1: Hpke_rs.t_HpkePrivateKey):Hpke_rs.t_HpkePrivateKey =
-      Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey
-        #Hpke_rs.t_HpkePrivateKey
-        #FStar.Tactics.Typeclasses.solve
-        (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey
-            #FStar.Tactics.Typeclasses.solve
-            sk.f_dhakem
-          <:
-          Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey)
+  | Core_models.Result.Result_Ok prng ->
+    let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+      Hpke_rs.impl_8__new_with_rng #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng
+        )
+        (Hpke_rs.Mode_AuthPsk <: Hpke_rs.t_Mode)
+        (Hpke_rs_crypto.Types.KemAlgorithm_DhKem25519 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
+        (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
+        (Hpke_rs_crypto.Types.AeadAlgorithm_ChaCha20Poly1305 <: Hpke_rs_crypto.Types.t_AeadAlgorithm
+        )
+        prng
     in
-    let (pks1: Hpke_rs.t_HpkePublicKey):Hpke_rs.t_HpkePublicKey =
-      Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey
-        #Hpke_rs.t_HpkePublicKey
-        #FStar.Tactics.Typeclasses.solve
-        (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey
-            #FStar.Tactics.Typeclasses.solve
-            pk.f_dhakem
-          <:
-          Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey)
-    in
-    let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = Alloc.Vec.impl__new #u8 () in
-    let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-      Alloc.Vec.impl_2__extend_from_slice #u8
-        #Alloc.Alloc.t_Global
-        full_info
-        (ct.f_c2 <: t_Slice u8)
-    in
-    let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-      Alloc.Vec.impl_2__extend_from_slice #u8
-        #Alloc.Alloc.t_Global
-        full_info
-        (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes info_incl
-          <:
-          t_Slice u8)
-    in
-    let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-      Alloc.Vec.impl_2__extend_from_slice #u8
-        #Alloc.Alloc.t_Global
-        full_info
-        (Alloc.Vec.impl_1__as_slice (impl_MessagePublicKey__as_bytes pk
-              <:
-              Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-          <:
-          t_Slice u8)
-    in
-    Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-      #Hpke_rs.t_HpkeError
-      #Anyhow.t_Error
-      #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
-      (Hpke_rs.impl_8__open #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) hpke
-          (ct.f_c1 <: t_Slice u8) skr1 (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8) ad
-          (Alloc.Vec.impl_1__as_slice ct.f_cp <: t_Slice u8)
-          (Core_models.Option.Option_Some (k2 <: t_Slice u8)
+    (match
+        Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
+          #Libcrux_traits.Kem.Arrayref.t_DecapsError
+          #Anyhow.t_Error
+          #(Libcrux_traits.Kem.Arrayref.t_DecapsError -> Anyhow.t_Error)
+          (Libcrux_traits.Kem.Owned.f_decaps #Libcrux_ml_kem.Mlkem768.t_MlKem768 #(mk_usize 1184)
+              #(mk_usize 2400) #(mk_usize 1088) #(mk_usize 32) #(mk_usize 64) #(mk_usize 32)
+              #FStar.Tactics.Typeclasses.solve ct.f_c2
+              (Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PrivateKey__as_bytes sk
+                    .f_mlkem
+                <:
+                t_Array u8 (mk_usize 2400))
             <:
-            Core_models.Option.t_Option (t_Slice u8))
-          (Core_models.Option.Option_Some v_PSK_ID <: Core_models.Option.t_Option (t_Slice u8))
-          (Core_models.Option.Option_Some pks1
-            <:
-            Core_models.Option.t_Option Hpke_rs.t_HpkePublicKey)
-        <:
-        Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Hpke_rs.t_HpkeError)
-      (fun e ->
-          let e:Hpke_rs.t_HpkeError = e in
-          let args:Hpke_rs.t_HpkeError = e <: Hpke_rs.t_HpkeError in
-          let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
-            let list = [Core_models.Fmt.Rt.impl__new_debug #Hpke_rs.t_HpkeError args] in
-            FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-            Rust_primitives.Hax.array_of_list 1 list
-          in
-          Anyhow.Error.impl__msg #Alloc.String.t_String
-            (Core_models.Hint.must_use #Alloc.String.t_String
-                (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
-                        (mk_usize 1)
-                        (let list = ["SD-APKE AuthDec failed: "] in
-                          FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-                          Rust_primitives.Hax.array_of_list 1 list)
-                        args
+            Core_models.Result.t_Result (t_Array u8 (mk_usize 32))
+              Libcrux_traits.Kem.Arrayref.t_DecapsError)
+          (fun e ->
+              let e:Libcrux_traits.Kem.Arrayref.t_DecapsError = e in
+              let args:Libcrux_traits.Kem.Arrayref.t_DecapsError =
+                e <: Libcrux_traits.Kem.Arrayref.t_DecapsError
+              in
+              let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
+                let list =
+                  [
+                    Core_models.Fmt.Rt.impl__new_debug #Libcrux_traits.Kem.Arrayref.t_DecapsError
+                      args
+                  ]
+                in
+                FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                Rust_primitives.Hax.array_of_list 1 list
+              in
+              Anyhow.Error.impl__msg #Alloc.String.t_String
+                (Core_models.Hint.must_use #Alloc.String.t_String
+                    (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
+                            (mk_usize 1)
+                            (let list = ["ML-KEM decapsulation failed: "] in
+                              FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                              Rust_primitives.Hax.array_of_list 1 list)
+                            args
+                          <:
+                          Core_models.Fmt.t_Arguments)
                       <:
-                      Core_models.Fmt.t_Arguments)
+                      Alloc.String.t_String)
                   <:
-                  Alloc.String.t_String)
+                  Alloc.String.t_String))
+        <:
+        Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
+      with
+      | Core_models.Result.Result_Ok k2 ->
+        let (skr1: Hpke_rs.t_HpkePrivateKey):Hpke_rs.t_HpkePrivateKey =
+          Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey
+            #Hpke_rs.t_HpkePrivateKey
+            #FStar.Tactics.Typeclasses.solve
+            (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey
+                #FStar.Tactics.Typeclasses.solve
+                sk.f_dhakem
               <:
-              Alloc.String.t_String))
+              Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPrivateKey)
+        in
+        let (pks1: Hpke_rs.t_HpkePublicKey):Hpke_rs.t_HpkePublicKey =
+          Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey
+            #Hpke_rs.t_HpkePublicKey
+            #FStar.Tactics.Typeclasses.solve
+            (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey
+                #FStar.Tactics.Typeclasses.solve
+                pk.f_dhakem
+              <:
+              Securedrop_protocol_minimal.Primitives.Dh_akem.t_DhAkemPublicKey)
+        in
+        let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = Alloc.Vec.impl__new #u8 () in
+        let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+          Alloc.Vec.impl_2__extend_from_slice #u8
+            #Alloc.Alloc.t_Global
+            full_info
+            (ct.f_c2 <: t_Slice u8)
+        in
+        let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+          Alloc.Vec.impl_2__extend_from_slice #u8
+            #Alloc.Alloc.t_Global
+            full_info
+            (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes info_incl
+
+              <:
+              t_Slice u8)
+        in
+        let full_info:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+          Alloc.Vec.impl_2__extend_from_slice #u8
+            #Alloc.Alloc.t_Global
+            full_info
+            (Alloc.Vec.impl_1__as_slice (impl_MessagePublicKey__as_bytes pk
+                  <:
+                  Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+              <:
+              t_Slice u8)
+        in
+        Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+          #Hpke_rs.t_HpkeError
+          #Anyhow.t_Error
+          #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
+          (Hpke_rs.impl_8__open #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
+              hpke (ct.f_c1 <: t_Slice u8) skr1 (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8)
+              ad (Alloc.Vec.impl_1__as_slice ct.f_cp <: t_Slice u8)
+              (Core_models.Option.Option_Some (k2 <: t_Slice u8)
+                <:
+                Core_models.Option.t_Option (t_Slice u8))
+              (Core_models.Option.Option_Some v_PSK_ID <: Core_models.Option.t_Option (t_Slice u8))
+              (Core_models.Option.Option_Some pks1
+                <:
+                Core_models.Option.t_Option Hpke_rs.t_HpkePublicKey)
+            <:
+            Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+              Hpke_rs.t_HpkeError)
+          (fun e ->
+              let e:Hpke_rs.t_HpkeError = e in
+              let args:Hpke_rs.t_HpkeError = e <: Hpke_rs.t_HpkeError in
+              let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
+                let list = [Core_models.Fmt.Rt.impl__new_debug #Hpke_rs.t_HpkeError args] in
+                FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                Rust_primitives.Hax.array_of_list 1 list
+              in
+              Anyhow.Error.impl__msg #Alloc.String.t_String
+                (Core_models.Hint.must_use #Alloc.String.t_String
+                    (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
+                            (mk_usize 1)
+                            (let list = ["SD-APKE AuthDec failed: "] in
+                              FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                              Rust_primitives.Hax.array_of_list 1 list)
+                            args
+                          <:
+                          Core_models.Fmt.t_Arguments)
+                      <:
+                      Alloc.String.t_String)
+                  <:
+                  Alloc.String.t_String))
+      | Core_models.Result.Result_Err err ->
+        Core_models.Result.Result_Err err
+        <:
+        Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
   | Core_models.Result.Result_Err err ->
     Core_models.Result.Result_Err err
     <:

@@ -43,15 +43,18 @@ val impl_HpkePublicKey_From_Vec
 val impl_HpkePrivateKey_From_Vec
     : Core_models.Convert.t_From t_HpkePrivateKey (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
 
-/// Construct a new HPKE context with the given mode and algorithm triple.
-/// FIXME: update to new_with_rng and replace this method.
-/// hpke-rs 0.0.8 introduces a panic if the PRNG supplied fails
-val impl_7__new
+/// `Hpke::new_with_rng`: construct a new HPKE context with the given mode,
+/// algorithm triple and caller-supplied PRNG.  Infallible: it only stores its
+/// arguments.  (`Hpke::new`/`try_new`, which seed a PRNG from the system RNG,
+/// are not modelled: hpke-rs is built with `libcrux-no-sys-rng`.)
+val impl_8__new_with_rng
       (#v_Crypto: Type0)
       (mode: t_Mode)
       (kem: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (kdf: Hpke_rs_crypto.Types.t_KdfAlgorithm)
       (aead: Hpke_rs_crypto.Types.t_AeadAlgorithm)
+      (#v_Prng: Type0)
+      (prng: v_Prng)
     : Prims.Pure (t_Hpke v_Crypto) Prims.l_True (fun _ -> Prims.l_True)
 
 /// `HPKE.Seal` — encrypt `msg` to `pk_r`, optionally authenticated with

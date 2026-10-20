@@ -30,6 +30,7 @@ use crate::primitives::ristretto255::DHPublicKey;
 use alloc::string::String;
 use alloc::vec::Vec;
 use anyhow::Error;
+use hpke_rs::libcrux::HpkeLibcruxPrng;
 use rand_core::{CryptoRng, RngCore};
 use serde::de::Error as _;
 
@@ -273,8 +274,18 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
     ad: &[u8], // Todo: should always be empty
     info_incl: &DHPublicKey,
 ) -> Result<MessageCiphertext, Error> {
-    let mut hpke =
-        Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+    let mut seed = [0u8; 32];
+    rng.fill_bytes(&mut seed);
+
+    let prng = HpkeLibcruxPrng::try_from_seed(seed)
+        .map_err(|e| anyhow::anyhow!("hpke prng instantiation failed: {:?}", e))?;
+    let mut hpke = Hpke::<HpkeLibcrux>::new_with_rng(
+        Mode::AuthPsk,
+        DhKem25519,
+        HkdfSha256,
+        ChaCha20Poly1305,
+        prng,
+    );
 
     let mut randomness = [0u8; LEN_MLKEM_ENCAPS_RAND];
     rng.fill_bytes(&mut randomness);
@@ -331,7 +342,17 @@ pub fn auth_dec(
     ad: &[u8],
     info_incl: &DHPublicKey,
 ) -> Result<Vec<u8>, Error> {
-    let hpke = Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+    // Decryption doesn't use the PRNG, but we still need to instantiate the HPKE context with a PRNG for the API.
+    let seed = [0u8; 32];
+    let prng = HpkeLibcruxPrng::try_from_seed(seed)
+        .map_err(|e| anyhow::anyhow!("hpke prng instantiation failed: {:?}", e))?;
+    let mut hpke = Hpke::<HpkeLibcrux>::new_with_rng(
+        Mode::AuthPsk,
+        DhKem25519,
+        HkdfSha256,
+        ChaCha20Poly1305,
+        prng,
+    );
 
     // K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
     let k2 = MlKem768::decaps(&ct.c2, sk.mlkem.as_bytes())

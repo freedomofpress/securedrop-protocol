@@ -23,6 +23,7 @@ use crate::{
 };
 use alloc::string::String;
 use alloc::vec::Vec;
+use hpke_rs::libcrux::HpkeLibcruxPrng;
 use rand_core::{CryptoRng, RngCore};
 use serde::de::Error as _;
 
@@ -229,11 +230,23 @@ impl MetadataPrivateKey {
 /// SD-PKE.Enc: encrypt message `m` to recipient key `pk_r`, returning `(c, c')`.
 ///
 /// `m` is the sender's long-term APKE public key, which must be serializable.
-pub(crate) fn encrypt(
+pub(crate) fn encrypt<R: RngCore + CryptoRng>(
+    rng: &mut R,
     pk_r: &MetadataPublicKey,
     m: &MessagePublicKey,
 ) -> Result<MetadataCiphertext, anyhow::Error> {
-    let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
+    let mut seed = [0u8; 32];
+    rng.fill_bytes(&mut seed);
+    let prng = HpkeLibcruxPrng::try_from_seed(seed)
+        .map_err(|e| anyhow::anyhow!("hpke prng instantiation failed: {:?}", e))?;
+    let mut hpke = Hpke::<HpkeLibcrux>::new_with_rng(
+        Mode::Base,
+        XWingDraft06,
+        HkdfSha256,
+        ChaCha20Poly1305,
+        prng,
+    );
+
     let pk_r_hpke = pk_r.0.clone().into();
 
     // MetadataPublicKey always holds a valid XWing key, so seal should not fail.
@@ -267,7 +280,17 @@ pub fn decrypt(
     sk_r: &MetadataPrivateKey,
     ct: &MetadataCiphertext,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    let hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
+    let mut seed = [0u8; 32];
+    let prng = HpkeLibcruxPrng::try_from_seed(seed)
+        .map_err(|e| anyhow::anyhow!("hpke prng instantiation failed: {:?}", e))?;
+    let mut hpke = Hpke::<HpkeLibcrux>::new_with_rng(
+        Mode::Base,
+        XWingDraft06,
+        HkdfSha256,
+        ChaCha20Poly1305,
+        prng,
+    );
+
     let sk_r_hpke = sk_r.0.clone().into();
 
     hpke.open(&ct.c, &sk_r_hpke, b"", b"", &ct.cp, None, None, None)
@@ -311,7 +334,7 @@ mod tests {
 
             let m = MessagePublicKey::from_bytes(&fake_key_bytes).unwrap();
 
-            let ct = encrypt(kp.public_key(), &m);
+            let ct = encrypt(&mut rng, kp.public_key(), &m);
             let decrypted = decrypt(kp.private_key(), &ct.unwrap()).expect("Decryption failed");
 
             prop_assert_eq!(m.as_bytes(), decrypted);
@@ -329,7 +352,7 @@ mod tests {
 
         let m = MessagePublicKey::from_bytes(&fake_key_bytes).unwrap();
 
-        let ct = encrypt(kp.public_key(), &m);
+        let ct = encrypt(&mut rng, kp.public_key(), &m);
         assert!(decrypt(wrong_kp.private_key(), &ct.unwrap()).is_err());
     }
 }
