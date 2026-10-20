@@ -69,11 +69,6 @@ impl MessageKeyBundle {
     }
 }
 
-pub(crate) struct SignedMessageKeyBundle {
-    pub(crate) bundle: MessageKeyBundle,
-    pub(crate) selfsig: Signature<JournalistEphemeralKey>,
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct LongtermKeyBundle {
     pub(crate) apke: MessagePublicKey,
