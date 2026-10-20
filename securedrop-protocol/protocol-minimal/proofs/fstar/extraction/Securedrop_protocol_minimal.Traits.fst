@@ -66,16 +66,17 @@ class t_JournalistPublic (v_Self: Type0) = {
         (f_self_signature_pre x0)
         (fun result -> f_self_signature_post x0 result);
   f_signed_keybytes_pre:v_Self -> Type0;
-  f_signed_keybytes_post:v_Self -> Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle
+  f_signed_keybytes_post:v_Self -> Securedrop_protocol_minimal.Wire.Bundle.t_SignedLongtermKeyBundle
     -> Type0;
   f_signed_keybytes:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle
+    -> Prims.Pure Securedrop_protocol_minimal.Wire.Bundle.t_SignedLongtermKeyBundle
         (f_signed_keybytes_pre x0)
         (fun result -> f_signed_keybytes_post x0 result);
   f_ephemeral_bundle_pre:v_Self -> Type0;
-  f_ephemeral_bundle_post:v_Self -> Securedrop_protocol_minimal.Keys.t_KeyBundlePublic -> Type0;
+  f_ephemeral_bundle_post:v_Self -> Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic
+    -> Type0;
   f_ephemeral_bundle:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Keys.t_KeyBundlePublic
+    -> Prims.Pure Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic
         (f_ephemeral_bundle_pre x0)
         (fun result -> f_ephemeral_bundle_post x0 result);
   f_ephemeral_signature_pre:v_Self -> Type0;
@@ -103,23 +104,23 @@ class t_Enrollable (v_Self: Type0) = {
         (f_signing_key_pre x0)
         (fun result -> f_signing_key_post x0 result);
   f_enroll_pre:v_Self -> Type0;
-  f_enroll_post:v_Self -> Securedrop_protocol_minimal.Keys.t_Enrollment -> Type0;
+  f_enroll_post:v_Self -> Securedrop_protocol_minimal.Wire.Enrollment.t_Enrollment -> Type0;
   f_enroll:x0: v_Self
-    -> Prims.Pure Securedrop_protocol_minimal.Keys.t_Enrollment
+    -> Prims.Pure Securedrop_protocol_minimal.Wire.Enrollment.t_Enrollment
         (f_enroll_pre x0)
         (fun result -> f_enroll_post x0 result);
   f_signed_keybundles_pre:v_Self -> Type0;
   f_signed_keybundles_post:
       v_Self ->
       Alloc.Vec.t_Vec
-          (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
+          (Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic &
             Securedrop_protocol_minimal.Schemes.Sign.t_Signature
             Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global
     -> Type0;
   f_signed_keybundles:x0: v_Self
     -> Prims.Pure
         (Alloc.Vec.t_Vec
-            (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
+            (Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic &
               Securedrop_protocol_minimal.Schemes.Sign.t_Signature
               Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey)
             Alloc.Alloc.t_Global)
@@ -164,13 +165,13 @@ class t_UserSecret (v_Self: Type0) = {
   f_keybundles_pre:v_Self -> Type0;
   f_keybundles_post:
       v_Self ->
-      Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_MessageKeyBundle Alloc.Alloc.t_Global
+      Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+          Alloc.Alloc.t_Global
     -> Type0;
   f_keybundles:x0: v_Self
     -> Prims.Pure
-        (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_MessageKeyBundle Alloc.Alloc.t_Global)
-        (f_keybundles_pre x0)
-        (fun result -> f_keybundles_post x0 result)
+        (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+            Alloc.Alloc.t_Global) (f_keybundles_pre x0) (fun result -> f_keybundles_post x0 result)
 }
 
 class t_RestrictedApi (v_Self: Type0) = { __marker_trait_t_RestrictedApi:Prims.unit }

@@ -16,6 +16,8 @@ use crate::primitives::ristretto255::{DHPrivateKey, DHPublicKey, generate_dh_key
 use crate::primitives::xwing::{XWingPrivateKey, XWingPublicKey};
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey};
 use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, UserSecret};
+use crate::wire::bundle::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
+use crate::wire::enrollment::Enrollment;
 
 // caution: do not re-export!
 use crate::sealed;

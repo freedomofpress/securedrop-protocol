@@ -18,8 +18,8 @@ use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublicView, UserPublic, UserSecret,
     VerifyingKey,
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
-    keys::SignedKeyBundlePublic,
     traits::RestrictedApi,
+    wire::bundle::SignedKeyBundlePublic,
     wire::{
         core::{
             JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchRequest,

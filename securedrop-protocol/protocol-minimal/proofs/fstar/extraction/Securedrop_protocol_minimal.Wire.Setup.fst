@@ -32,7 +32,9 @@ let impl_1 = impl_1'
 
 /// Request from the journalist to the newsroom for initial onboarding.
 /// Step 3.1 in the spec.
-type t_JournalistSetupRequest = { f_enrollment:Securedrop_protocol_minimal.Keys.t_Enrollment }
+type t_JournalistSetupRequest = {
+  f_enrollment:Securedrop_protocol_minimal.Wire.Enrollment.t_Enrollment
+}
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
 assume
@@ -60,7 +62,7 @@ let impl_3 = impl_3'
 type t_JournalistEphemeralKeyRequest = {
   f_verifying_key:Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey;
   f_bundles:Alloc.Vec.t_Vec
-    (Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
+    (Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic &
       Securedrop_protocol_minimal.Schemes.Sign.t_Signature
       Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey) Alloc.Alloc.t_Global
 }

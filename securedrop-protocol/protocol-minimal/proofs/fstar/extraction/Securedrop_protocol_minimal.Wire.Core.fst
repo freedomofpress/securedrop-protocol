@@ -10,7 +10,7 @@ open Core_models
 /// encryption.
 type t_JournalistLongTermView = {
   f_vk:Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey;
-  f_signed_longterm_key_bundle:Securedrop_protocol_minimal.Keys.t_SignedLongtermKeyBundle;
+  f_signed_longterm_key_bundle:Securedrop_protocol_minimal.Wire.Bundle.t_SignedLongtermKeyBundle;
   f_nr_signature:Securedrop_protocol_minimal.Schemes.Sign.t_Signature
   Securedrop_protocol_minimal.Schemes.Sign.t_NewsroomOnJournalist
 }
@@ -29,7 +29,7 @@ type t_WelcomeBundle = {
 /// journalist - the server consumes the bundle when it serves it.
 type t_JournalistEphemeralKeys = {
   f_vk:Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey;
-  f_ephemeral:(Securedrop_protocol_minimal.Keys.t_KeyBundlePublic &
+  f_ephemeral:(Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic &
     Securedrop_protocol_minimal.Schemes.Sign.t_Signature
     Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey)
 }

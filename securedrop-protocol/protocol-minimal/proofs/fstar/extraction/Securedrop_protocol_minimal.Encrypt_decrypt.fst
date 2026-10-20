@@ -155,42 +155,47 @@ let decrypt_with_sender
   let
   (found:
     Core_models.Option.t_Option
-    (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)):Core_models.Option.t_Option
-  (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
+    (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+      Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)):Core_models.Option.t_Option
+  (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+    Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
     Core_models.Option.Option_None
     <:
     Core_models.Option.t_Option
-    (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+    (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+      Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
   in
   let found:Core_models.Option.t_Option
-  (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
+  (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+    Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
     Core_models.Iter.Traits.Iterator.f_fold (Core_models.Iter.Traits.Collect.f_into_iter #(Core_models.Slice.Iter.t_Iter
-            Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
+            Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
           #FStar.Tactics.Typeclasses.solve
-          (Core_models.Slice.impl__iter #Securedrop_protocol_minimal.Keys.t_MessageKeyBundle
+          (Core_models.Slice.impl__iter #Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
               (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Traits.f_keybundles #v_U
                       #FStar.Tactics.Typeclasses.solve
                       receiver
                     <:
-                    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_MessageKeyBundle
+                    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
                       Alloc.Alloc.t_Global)
                 <:
-                t_Slice Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
+                t_Slice Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
             <:
-            Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
+            Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+          )
         <:
-        Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
+        Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
       found
       (fun found bundle ->
           let found:Core_models.Option.t_Option
-          (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle &
+          (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
             Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
             found
           in
-          let bundle:Securedrop_protocol_minimal.Keys.t_MessageKeyBundle = bundle in
+          let bundle:Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle = bundle in
           match
             Securedrop_protocol_minimal.Schemes.Metadata.decrypt (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataKeyPair__private_key
-                  bundle.Securedrop_protocol_minimal.Keys.f_metadata_kp
+                  bundle.Securedrop_protocol_minimal.Keys.Bundle.f_metadata_kp
                 <:
                 Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPrivateKey)
               envelope.Securedrop_protocol_minimal.Ciphertext.f_ct_pke
@@ -199,25 +204,25 @@ let decrypt_with_sender
           with
           | Core_models.Result.Result_Ok m ->
             let found:Core_models.Option.t_Option
-            (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle &
+            (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
               Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
               Core_models.Option.Option_Some
               (bundle, m
                 <:
-                (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle &
+                (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
                   Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
               <:
               Core_models.Option.t_Option
-              (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle &
+              (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
                 Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
             in
             found
           | _ -> found)
   in
   let
-  (bundle: Securedrop_protocol_minimal.Keys.t_MessageKeyBundle),
+  (bundle: Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle),
   (raw_metadata: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
-    Core_models.Option.impl__expect #(Securedrop_protocol_minimal.Keys.t_MessageKeyBundle &
+    Core_models.Option.impl__expect #(Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
         Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
       found
       "we should find exactly 1 result"
@@ -244,7 +249,7 @@ let decrypt_with_sender
     Core_models.Result.impl__expect #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
       #Anyhow.t_Error
       (Securedrop_protocol_minimal.Schemes.Message.auth_dec (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__private_key
-              bundle.Securedrop_protocol_minimal.Keys.f_apke
+              bundle.Securedrop_protocol_minimal.Keys.Bundle.f_apke
             <:
             Securedrop_protocol_minimal.Schemes.Message.t_MessagePrivateKey)
           sender_pk

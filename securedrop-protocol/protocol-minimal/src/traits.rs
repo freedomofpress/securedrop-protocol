@@ -7,10 +7,11 @@ use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature};
 use alloc::vec::Vec;
 
+use crate::wire::bundle::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
+use crate::wire::enrollment::Enrollment;
+
 use crate::ciphertext::Plaintext;
-use crate::keys::{
-    Enrollment, KeyBundlePublic, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermKeyBundle,
-};
+use crate::keys::{KeyBundlePublic, MessageKeyBundle};
 
 // Sealed traits that downstream crates should not implement.
 // Do not re-export!
