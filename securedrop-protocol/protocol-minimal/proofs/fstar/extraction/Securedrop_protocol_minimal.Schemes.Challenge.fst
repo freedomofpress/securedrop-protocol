@@ -1,4 +1,4 @@
-module Securedrop_protocol_minimal.Primitives
+module Securedrop_protocol_minimal.Schemes.Challenge
 #set-options "--fuel 0 --ifuel 1 --z3rlimit 15"
 open FStar.Mul
 open Core_models
@@ -12,7 +12,7 @@ let _ =
 /// Fixed number of message ID entries to return in privacy-preserving fetch
 /// This prevents traffic analysis by always returning the same number of entries,
 /// regardless of how many actual messages exist.
-let v_MESSAGE_ID_FETCH_SIZE: usize = mk_usize 10
+let v_MAX_MESSAGES: usize = mk_usize 10
 
 /// Fixed, public salt for challenge id encryption.
 let v_CHALLENGE_SALT: t_Slice u8 =

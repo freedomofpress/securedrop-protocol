@@ -1,13 +1,15 @@
 //! Tests for the core steps of the protocol.
 //! These correspond to steps 5-10 of the spec.
+use std::char::MAX;
+
 use getrandom;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 use securedrop_protocol_minimal::api::{Api, Client, JournalistApi};
+use securedrop_protocol_minimal::challenge::MAX_MESSAGES;
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 
-use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::server::Server;
 use securedrop_protocol_minimal::{Journalist, JournalistPublic, Source, UserPublic, UserSecret};
 
@@ -418,11 +420,8 @@ fn protocol_step_7_message_id_fetch() {
         .expect("should be able to fetch message IDs");
 
     // Verify response structure
-    assert_eq!(journalist_fetch_response.count, MESSAGE_ID_FETCH_SIZE);
-    assert_eq!(
-        journalist_fetch_response.messages.len(),
-        MESSAGE_ID_FETCH_SIZE
-    );
+    assert_eq!(journalist_fetch_response.count, MAX_MESSAGES);
+    assert_eq!(journalist_fetch_response.messages.len(), MAX_MESSAGES);
 
     // Process the response to extract message IDs
     let journalist_message_ids = journalist
@@ -440,6 +439,6 @@ fn protocol_step_7_message_id_fetch() {
     let empty_fetch_response = server_session
         .handle_request_challenges(empty_fetch_request, &mut rng)
         .expect("we should be able to handle message ID fetch");
-    assert_eq!(empty_fetch_response.count, MESSAGE_ID_FETCH_SIZE);
-    assert_eq!(empty_fetch_response.messages.len(), MESSAGE_ID_FETCH_SIZE);
+    assert_eq!(empty_fetch_response.count, MAX_MESSAGES);
+    assert_eq!(empty_fetch_response.messages.len(), MAX_MESSAGES);
 }

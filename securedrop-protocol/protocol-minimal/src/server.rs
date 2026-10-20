@@ -11,6 +11,7 @@ use crate::Envelope;
 use crate::encrypt_decrypt::compute_fetch_challenges;
 use crate::keys::NewsroomKeyPair;
 use crate::primitives;
+use crate::schemes::challenge::MAX_MESSAGES;
 use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 use crate::wire::core::{
@@ -245,7 +246,7 @@ impl Server {
         _request: MessageChallengeFetchRequest,
         rng: &mut R,
     ) -> Result<MessageChallengeFetchResponse, Error> {
-        let total_challenges: usize = primitives::MESSAGE_ID_FETCH_SIZE;
+        let total_challenges: usize = MAX_MESSAGES;
         let entries: Vec<_> = self
             .storage
             .get_messages()
@@ -304,7 +305,7 @@ impl Server {
     //     }
 
     //     // Fill remaining slots with random data
-    //     while q_entries.len() < MESSAGE_ID_FETCH_SIZE {
+    //     while q_entries.len() < MAX_MESSAGES {
     //         // Generate random Q_i that matches the structure of real Q_i
     //         // Real Q_i = DH(X_i, y), so random Q_i should also be a DH shared secret
     //         let random_y = generate_random_scalar(rng).expect("Failed to generate random scalar");
@@ -338,7 +339,7 @@ impl Server {
     //     let (q_entries, cid_entries): (Vec<_>, Vec<_>) = shuffled.into_iter().unzip();
 
     //     Ok(MessageChallengeFetchResponse {
-    //         count: MESSAGE_ID_FETCH_SIZE,
+    //         count: MAX_MESSAGES,
     //         messages: q_entries.into_iter().zip(cid_entries).collect(),
     //     })
     // }

@@ -20,7 +20,7 @@ pub mod wire;
 pub mod journalist;
 pub mod source;
 
-pub use schemes::{message, metadata, sign};
+pub use schemes::{challenge, message, metadata, sign};
 
 pub use ciphertext::{Envelope, FetchResponse, Plaintext};
 
