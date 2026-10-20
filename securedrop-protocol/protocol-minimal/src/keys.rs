@@ -7,7 +7,7 @@ pub mod bundle;
 pub mod fpf;
 
 pub use bundle::KeyBundlePublic;
-pub(crate) use bundle::{LongtermKeyBundle, MessageKeyBundle, SignedMessageKeyBundle};
+pub(crate) use bundle::{LongtermKeyBundle, MessageKeyBundle};
 pub use fpf::FPFKeyPair;
 
 /// Generic KeyPair

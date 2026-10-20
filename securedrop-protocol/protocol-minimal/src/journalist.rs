@@ -30,11 +30,11 @@ impl RestrictedApi for Journalist {}
 
 /// Journalists: ingredients.
 /// Journalists have a signing/verifying key, a reply key,
-/// a fetch key, and a collection of one-time signed key bundles
+/// a fetch key, and a collection of one-time key bundles
 pub struct Journalist {
     signing_key: SigningKey,
     fetch_key: DhFetchKeyPair,
-    message_keys: Vec<SignedMessageKeyBundle>,
+    message_keys: Vec<MessageKeyBundle>,
     /// Long-term SD-APKE key tuple `(sk_J^APKE, pk_J^APKE)`
     reply_apke: MessageKeyPair,
     session_storage: SessionStorage,
@@ -114,19 +114,13 @@ impl Client for Journalist {
 }
 
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
-fn keybundle_refs(message_keys: &[SignedMessageKeyBundle]) -> Vec<&MessageKeyBundle> {
+fn signed_keybundle_publics(
+    message_keys: &[MessageKeyBundle],
+    signing_key: &SigningKey,
+) -> Vec<SignedKeyBundlePublic> {
     let mut out = Vec::new();
-    for signed in message_keys.iter() {
-        out.push(&signed.bundle);
-    }
-    out
-}
-
-#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
-fn signed_keybundle_publics(message_keys: &[SignedMessageKeyBundle]) -> Vec<SignedKeyBundlePublic> {
-    let mut out = Vec::new();
-    for signed in message_keys.iter() {
-        out.push((signed.bundle.public(), signed.selfsig));
+    for bundle in message_keys.iter() {
+        out.push(sign_bundle(bundle, signing_key));
     }
     out
 }
@@ -161,7 +155,7 @@ impl UserSecret for Journalist {
     }
 
     fn keybundles(&self) -> Vec<&MessageKeyBundle> {
-        keybundle_refs(&self.message_keys)
+        self.message_keys.iter().collect()
     }
 }
 
@@ -174,7 +168,7 @@ impl Enrollable for Journalist {
     }
 
     fn signed_keybundles(&self) -> Vec<SignedKeyBundlePublic> {
-        signed_keybundle_publics(&self.message_keys)
+        signed_keybundle_publics(&self.message_keys, &self.signing_key)
     }
 
     fn signing_key(&self) -> &VerifyingKey {
@@ -182,27 +176,26 @@ impl Enrollable for Journalist {
     }
 }
 
-/// Generate one ephemeral key bundle and sign its pubkeys.
+/// Generate one ephemeral key bundle
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
-fn make_signed_bundle<R: RngCore + CryptoRng>(
-    rng: &mut R,
-    signing_key: &SigningKey,
-) -> SignedMessageKeyBundle {
+fn make_key_bundle<R: RngCore + CryptoRng>(rng: &mut R) -> MessageKeyBundle {
     let apke_kp = message_keygen(rng).expect("SD-APKE ephemeral keygen failed");
     let metadata_kp = metadata_keygen(rng).expect("Failed to generate metadata keys");
 
-    let bundle = MessageKeyBundle::new(apke_kp, metadata_kp);
+    MessageKeyBundle::new(apke_kp, metadata_kp)
+}
 
-    let pubkey_bytes = bundle.public().as_bytes();
-    let selfsig: Signature<JournalistEphemeralKey> = signing_key.sign(&pubkey_bytes);
-
-    SignedMessageKeyBundle { bundle, selfsig }
+/// Sign one ephemeral key bundle
+fn sign_bundle(bundle: &MessageKeyBundle, signing_key: &SigningKey) -> SignedKeyBundlePublic {
+    let public = bundle.public();
+    let selfsig: Signature<JournalistEphemeralKey> = signing_key.sign(&public.as_bytes());
+    (public, selfsig)
 }
 
 impl Journalist {
     #[cfg_attr(hax, hax_lib::opaque)]
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R, num_keybundles: usize) -> Self {
-        let mut key_bundles: Vec<SignedMessageKeyBundle> = Vec::with_capacity(num_keybundles);
+        let mut key_bundles: Vec<MessageKeyBundle> = Vec::with_capacity(num_keybundles);
 
         let signing_key = SigningKey::new(rng).expect("Signing keygen failed");
 
@@ -212,7 +205,7 @@ impl Journalist {
 
         // Generate one-time/short-lived keybundles.
         for _ in 0..num_keybundles {
-            key_bundles.push(make_signed_bundle(rng, &signing_key));
+            key_bundles.push(make_key_bundle(rng));
         }
         assert_eq!(key_bundles.len(), num_keybundles);
 
@@ -240,7 +233,7 @@ impl Journalist {
         JournalistPublicView::new(
             self.signing_key.vk,
             self.signed_longterm_key_bundle(),
-            (kb.bundle.public(), kb.selfsig),
+            sign_bundle(kb, &self.signing_key),
         )
     }
 
@@ -321,8 +314,7 @@ impl Journalist {
     #[cfg_attr(hax, hax_lib::opaque)]
     pub fn generate_ephemeral_bundles<R: RngCore + CryptoRng>(&mut self, rng: &mut R, n: usize) {
         for _ in 0..n {
-            let signed = make_signed_bundle(rng, &self.signing_key);
-            self.message_keys.push(signed);
+            self.message_keys.push(make_key_bundle(rng));
         }
     }
 
@@ -334,7 +326,7 @@ impl Journalist {
     pub fn ephemeral_bundle_bytes(&self) -> Vec<EphemeralBundleBytes> {
         self.message_keys
             .iter()
-            .map(|signed| EphemeralBundleBytes::from_bundle(&signed.bundle))
+            .map(EphemeralBundleBytes::from_bundle)
             .collect()
     }
 
@@ -345,12 +337,7 @@ impl Journalist {
     pub fn load_ephemeral_bundles(&mut self, bundles: Vec<EphemeralBundleBytes>) {
         for bytes in bundles {
             let bundle = bytes.into_bundle();
-            let pubkey_bytes = bundle.public().as_bytes();
-            // Temp: doing this just because we are generating SignedMessageKeyBundle here
-            // and we didnt persist the signature
-            let selfsig: Signature<JournalistEphemeralKey> = self.signing_key.sign(&pubkey_bytes);
-            self.message_keys
-                .push(SignedMessageKeyBundle { bundle, selfsig });
+            self.message_keys.push(bundle);
         }
     }
 }
@@ -561,16 +548,11 @@ mod tests {
 
         for i in 0..kbs.len() {
             assert_eq!(
-                journalist.message_keys[i]
-                    .bundle
-                    .apke
-                    .public_key()
-                    .as_bytes(),
+                journalist.message_keys[i].apke.public_key().as_bytes(),
                 kbs[i].apke.public_key().as_bytes()
             );
             assert_eq!(
                 journalist.message_keys[i]
-                    .bundle
                     .metadata_kp
                     .private_key()
                     .as_bytes(),
@@ -578,7 +560,6 @@ mod tests {
             );
             assert_eq!(
                 journalist.message_keys[i]
-                    .bundle
                     .metadata_kp
                     .public_key()
                     .as_bytes(),
