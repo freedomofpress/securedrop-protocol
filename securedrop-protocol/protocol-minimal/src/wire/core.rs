@@ -1,10 +1,10 @@
 use crate::FetchResponse;
-use crate::keys::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
 use crate::message::MessagePublicKey;
 use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{
     FpfOnNewsroom, JournalistLongTermKey, NewsroomOnJournalist, Signature, VerifyingKey,
 };
+use crate::wire::bundle::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

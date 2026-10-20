@@ -24,10 +24,9 @@ pub use schemes::{challenge, message, metadata, sign};
 
 pub use ciphertext::{Envelope, FetchResponse, Plaintext};
 
-pub use keys::{
-    DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, SessionStorage, SignedKeyBundlePublic,
-    SignedLongtermKeyBundle,
-};
+pub use keys::{DhFetchKeyPair, KeyBundlePublic, KeyPair, SessionStorage};
+pub use wire::bundle::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
+pub use wire::enrollment::Enrollment;
 
 pub use primitives::ristretto255::DHPublicKey;
 

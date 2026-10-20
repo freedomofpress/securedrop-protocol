@@ -33,7 +33,7 @@ type t_Source = {
   f_fetch_key:Securedrop_protocol_minimal.Keys.t_KeyPair
     Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey
     Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
-  f_message_keys:Securedrop_protocol_minimal.Keys.t_MessageKeyBundle;
+  f_message_keys:Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle;
   f_passphrase:Alloc.String.t_String;
   f_session:Securedrop_protocol_minimal.Keys.t_SessionStorage
 }
@@ -41,7 +41,7 @@ type t_Source = {
 /// The public key material of a source, used by journalists to send replies.
 type t_SourcePublicView = {
   f_fetch_pk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
-  f_message_pks:Securedrop_protocol_minimal.Keys.t_KeyBundlePublic
+  f_message_pks:Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic
 }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
@@ -76,8 +76,8 @@ let impl: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
         true);
     f_message_auth_pk
     =
-    (fun (self: t_SourcePublicView) -> self.f_message_pks.Securedrop_protocol_minimal.Keys.f_apke_pk
-    );
+    (fun (self: t_SourcePublicView) ->
+        self.f_message_pks.Securedrop_protocol_minimal.Keys.Bundle.f_apke_pk);
     f_message_metadata_pk_pre = (fun (self: t_SourcePublicView) -> true);
     f_message_metadata_pk_post
     =
@@ -89,7 +89,7 @@ let impl: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
     f_message_metadata_pk
     =
     (fun (self: t_SourcePublicView) ->
-        self.f_message_pks.Securedrop_protocol_minimal.Keys.f_metadata_pk);
+        self.f_message_pks.Securedrop_protocol_minimal.Keys.Bundle.f_metadata_pk);
     f_message_enc_pk_pre = (fun (self: t_SourcePublicView) -> true);
     f_message_enc_pk_post
     =
@@ -100,7 +100,8 @@ let impl: Securedrop_protocol_minimal.Traits.t_UserPublic t_SourcePublicView =
         true);
     f_message_enc_pk
     =
-    fun (self: t_SourcePublicView) -> self.f_message_pks.Securedrop_protocol_minimal.Keys.f_apke_pk
+    fun (self: t_SourcePublicView) ->
+      self.f_message_pks.Securedrop_protocol_minimal.Keys.Bundle.f_apke_pk
   }
 
 [@@ FStar.Tactics.Typeclasses.tcinstance]
@@ -187,7 +188,7 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
         true);
     f_message_auth_keypair
     =
-    (fun (self: t_Source) -> self.f_message_keys.Securedrop_protocol_minimal.Keys.f_apke);
+    (fun (self: t_Source) -> self.f_message_keys.Securedrop_protocol_minimal.Keys.Bundle.f_apke);
     f_build_message_pre
     =
     (fun (self: t_Source) (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) -> true);
@@ -209,7 +210,7 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
           Core_models.Slice.impl__copy_from_slice #u8
             reply_key_pq_hybrid
             (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__as_bytes (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataKeyPair__public_key
-                    self.f_message_keys.Securedrop_protocol_minimal.Keys.f_metadata_kp
+                    self.f_message_keys.Securedrop_protocol_minimal.Keys.Bundle.f_metadata_kp
                   <:
                   Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
               <:
@@ -230,19 +231,20 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
     (fun
         (self: t_Source)
         (out:
-          Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_MessageKeyBundle Alloc.Alloc.t_Global)
+          Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+            Alloc.Alloc.t_Global)
         ->
         true);
     f_keybundles
     =
     fun (self: t_Source) ->
-      Alloc.Slice.impl__into_vec #Securedrop_protocol_minimal.Keys.t_MessageKeyBundle
+      Alloc.Slice.impl__into_vec #Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
         #Alloc.Alloc.t_Global
         ((let list = [self.f_message_keys] in
             FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
             Rust_primitives.Hax.array_of_list 1 list)
           <:
-          t_Slice Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
+          t_Slice Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
   }
 
 /// Create a new source with a randomly generated 12-word BIP39 mnemonic.
@@ -300,7 +302,7 @@ let impl_Source__public (self: t_Source) : t_SourcePublicView =
     f_fetch_pk = self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk;
     f_message_pks
     =
-    Securedrop_protocol_minimal.Keys.impl_MessageKeyBundle__public self.f_message_keys
+    Securedrop_protocol_minimal.Keys.Bundle.impl_MessageKeyBundle__public self.f_message_keys
   }
   <:
   t_SourcePublicView
@@ -317,11 +319,11 @@ let impl_SourcePublicView__from_reply_keys
     f_message_pks
     =
     {
-      Securedrop_protocol_minimal.Keys.f_apke_pk = apke;
-      Securedrop_protocol_minimal.Keys.f_metadata_pk = metadata_pk
+      Securedrop_protocol_minimal.Keys.Bundle.f_apke_pk = apke;
+      Securedrop_protocol_minimal.Keys.Bundle.f_metadata_pk = metadata_pk
     }
     <:
-    Securedrop_protocol_minimal.Keys.t_KeyBundlePublic
+    Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic
   }
   <:
   t_SourcePublicView
