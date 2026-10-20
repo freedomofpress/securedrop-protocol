@@ -10,7 +10,7 @@ extern crate alloc;
 pub mod api;
 mod ciphertext;
 pub mod keys;
-pub mod primitives;
+pub(crate) mod primitives;
 pub mod schemes;
 pub mod server;
 pub mod setup;
