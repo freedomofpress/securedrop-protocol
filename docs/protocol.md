@@ -314,7 +314,7 @@ A journalist rotates their long-term keys by re-executing the initial
 new verification key and the signature over the new long-term keys, the newsroom
 MUST update the journalist's keys in the [roster]. This occurs after a scheduled rotation, lost or destroyed keys, or a key compromise.
 
-The server MUST remove stored short-lived bundles associated with the journalist's previous verification key.
+The server MUST remove stored short-lived bundles associated with the journalist's previous verification key. Journalists SHOULD upload new bundles associated with their new long-term signing key after enrollment. Messages encrypted to the previous bundles may still be stored on the server, so journalists MAY retain prior bundle keypairs until the message expiry time removes all associated messages on the server.
 
 #### Protocol Step 4: Source key setup
 
