@@ -249,6 +249,10 @@ fn protocol_step_5_source_rejects_duplicate_journalist_bundles() {
     ephemeral.extend(server_session.handle_journalist_ephemeral_keys(&mut rng));
     assert_eq!(ephemeral.len(), 2);
     assert_eq!(ephemeral[0].vk.into_bytes(), ephemeral[1].vk.into_bytes());
+    assert_ne!(
+        ephemeral[0].ephemeral.0.as_bytes(),
+        ephemeral[1].ephemeral.0.as_bytes()
+    );
 
     assert!(
         source_session

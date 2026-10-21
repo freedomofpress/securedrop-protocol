@@ -259,7 +259,7 @@ where
             };
             if seen.contains(&vk) {
                 return Err(anyhow::anyhow!(
-                    "duplicate journalist ephemeral keys detected"
+                    "detected multiple ephemeral key bundles for the same journalist signing key"
                 ));
             }
             seen.push(vk);
