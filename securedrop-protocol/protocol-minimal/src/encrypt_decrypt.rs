@@ -1,3 +1,4 @@
+use crate::challenge::{decrypt_message_id, derive_challenge_key, encrypt_message_id};
 use crate::message::MessagePublicKey;
 use crate::metadata;
 use crate::primitives::provider::constants::{LEN_KMID, LEN_MESSAGE_ID};
@@ -6,7 +7,6 @@ use crate::primitives::ristretto255::{
     random_dh_public_key,
 };
 use crate::primitives::xwing::XWingPublicKey;
-use crate::primitives::{decrypt_message_id, derive_challenge_key, encrypt_message_id};
 use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, UserSecret};
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};

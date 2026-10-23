@@ -10,7 +10,7 @@ extern crate alloc;
 pub mod api;
 mod ciphertext;
 pub mod keys;
-pub mod primitives;
+pub(crate) mod primitives;
 pub mod schemes;
 pub mod server;
 pub mod setup;
@@ -20,7 +20,7 @@ pub mod wire;
 pub mod journalist;
 pub mod source;
 
-pub use schemes::{message, metadata, sign};
+pub use schemes::{challenge, message, metadata, sign};
 
 pub use ciphertext::{Envelope, FetchResponse, Plaintext};
 

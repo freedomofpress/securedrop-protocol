@@ -3,8 +3,8 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use rand::{Rng, RngExt};
 use securedrop_protocol_minimal::Envelope;
+use securedrop_protocol_minimal::challenge::MAX_MESSAGES;
 use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
-use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::wire::core::{
     JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchResponse, WelcomeBundle,
 };
@@ -193,10 +193,10 @@ pub(crate) async fn get_challenges(
     let store = state.messages.lock().expect("messages mutex poisoned");
     let entries: Vec<_> = store
         .iter()
-        .take(MESSAGE_ID_FETCH_SIZE)
+        .take(MAX_MESSAGES)
         .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
         .collect();
-    let messages = compute_fetch_challenges(&mut rng, &entries, MESSAGE_ID_FETCH_SIZE);
+    let messages = compute_fetch_challenges(&mut rng, &entries, MAX_MESSAGES);
 
     Json(MessageChallengeFetchResponse {
         count: messages.len(),
