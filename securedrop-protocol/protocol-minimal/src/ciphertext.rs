@@ -99,6 +99,10 @@ impl Plaintext {
 
     // Toy parsing only
     pub fn from_bytes(pt_bytes: &[u8]) -> Result<Self, Error> {
+        if pt_bytes.len() < DHPublicKey::LEN + XWingPublicKey::LEN {
+            return Err(anyhow::anyhow!("plaintext is shorter than its key header"));
+        }
+
         let mut offset = 0;
 
         let mut fetch_key_bytes = [0u8; DHPublicKey::LEN];
@@ -147,6 +151,46 @@ mod tests {
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    #[test]
+    fn test_plaintext_rejects_truncated_header() {
+        let header_len = DHPublicKey::LEN + XWingPublicKey::LEN;
+        let bytes = alloc::vec![0u8; header_len];
+
+        for len in 0..header_len {
+            assert!(
+                Plaintext::from_bytes(&bytes[..len]).is_err(),
+                "accepted a truncated plaintext header of {len} bytes"
+            );
+        }
+    }
+
+    #[test]
+    fn test_plaintext_preserves_complete_header_and_message() {
+        let mut rng = ChaCha20Rng::seed_from_u64(42);
+        let fetch_key_bytes = random_dh_public_key(&mut rng).into_bytes();
+        let reply_key_bytes = [0x42u8; XWingPublicKey::LEN];
+
+        for message in [b"".as_slice(), b"\x00\xffbinary message".as_slice()] {
+            // Assemble the wire bytes independently of Plaintext::to_bytes.
+            let mut bytes = fetch_key_bytes.to_vec();
+            bytes.extend_from_slice(&reply_key_bytes);
+            bytes.extend_from_slice(message);
+
+            let restored = Plaintext::from_bytes(&bytes).expect("complete plaintext");
+            assert_eq!(restored.sender_fetch_key.into_bytes(), fetch_key_bytes);
+            assert_eq!(restored.sender_reply_pubkey_hybrid, reply_key_bytes);
+            assert_eq!(restored.msg, message);
+        }
+    }
+
+    #[test]
+    fn test_plaintext_rejects_invalid_fetch_key() {
+        let mut bytes = alloc::vec![0u8; DHPublicKey::LEN + XWingPublicKey::LEN];
+        bytes[..DHPublicKey::LEN].fill(0xff);
+
+        assert!(Plaintext::from_bytes(&bytes).is_err());
+    }
 
     fn message_ct(c1: Vec<u8>, cp: Vec<u8>, c2: Vec<u8>) -> MessageCiphertext {
         MessageCiphertext {
