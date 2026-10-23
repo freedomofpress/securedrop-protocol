@@ -27,7 +27,7 @@ hax-lib = "0.4.1"
 # Everything else:
 anyhow = "1.0"
 axum = "0.8"
-bip39 = { version = "2", default-features = false }
+bip39 = { version = "3", default-features = false }
 clap = "4"
 criterion = "0.8"
 directories = "6"
