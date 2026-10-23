@@ -4,7 +4,8 @@
 #  1. `fstar.exe` to be in PATH (alternatively, you can also set
 #     $FSTAR_HOME to be set to your F* repo/install directory)
 #
-#  2. `cargo`, `rustup`, `hax` and `jq` to be installed and in PATH.
+#  2. `cargo`, `rustup`, `hax` and `jq` to be installed and in PATH. The
+#     nightly Rust toolchain must be available to run hax.
 #
 #  3. the extracted Cargo crate to have "hax-lib" as a dependency:
 #     `hax-lib = { version = "0.1.0-pre.1", git = "https://github.com/hacspec/hax"}`
@@ -49,7 +50,7 @@ GIT_ROOT_DIR   := $(shell git rev-parse --show-toplevel)/
 Q ?= @
 
 # Verify the required executable are in PATH
-EXECUTABLES = cargo cargo-hax jq
+EXECUTABLES = cargo jq
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
@@ -149,7 +150,7 @@ ${HACL_HOME}:
 
 # If no any F* file is detected, we run hax
 ifeq "$(wildcard *.fst *fsti)" ""
-$(shell cargo hax into fstar)
+$(shell cargo +nightly hax into fstar)
 endif
 
 # By default, we process all the files in the current directory
