@@ -47,22 +47,13 @@ pub(crate) fn submit(server: &str, fpf_vk_hex: &str, message: &str) -> Result<()
         bail!("no journalist ephemeral keys available (all out of one-time keys)");
     }
 
-    // Pair each one-time bundle with its journalist's (verified) long-term keys,
-    // assemble the public view, encrypt, and submit one envelope each.
+    // Assemble the public view, encrypt, and submit one envelope each.
     let mut message_ids = Vec::new();
-    for eph in &ephemeral {
-        let Some(long_term) = welcome
-            .journalists
-            .iter()
-            .find(|j| j.vk.into_bytes() == eph.vk.into_bytes())
-        else {
-            // one-time keys for a journalist not in the welcome roster... skipping
-            continue;
-        };
-        let journalist = source
-            .verify_ephemeral(long_term, &eph.ephemeral)
-            .context("journalist one-time key failed verification")?;
+    let journalists = source
+        .verify_ephemeral_keys(&welcome.journalists, &ephemeral)
+        .context("journalists one-time key failed verification")?;
 
+    for journalist in journalists {
         let envelope = source
             .submit_message(&mut rng, message.as_bytes(), &source, &journalist)
             .context("encrypting message")?;
