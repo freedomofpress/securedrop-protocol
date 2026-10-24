@@ -92,6 +92,8 @@ One mitigation for behavioural analysis is the introduction of decoy traffic, wh
 
 Without traditional accounts, it might be easy to flood the service with [too many messages][MAX_MESSAGES] or fetch requests that would be heavy on the server CPU. Depending on the individual _Newsroom_'s previous issues and threat model, classic rate-limiting techniques such as proof of work or captchas (even though we truly dislike them) could mitigate the issue.
 
+By analogy to the [key-exhaustion DoS vector][key exhaustion], one mitigation for this problem is the use of synchronized rounds. This is not an option for this protocol, as discussed in "Related Work" (§3) of [Berra et al. (2026)][berra-2026].
+
 ### Message Observability
 
 The public `requestMessages` endpoint must prevent a sender from observing whether a receiver has retrieved a particular message.
@@ -160,5 +162,6 @@ The following are areas of ongoing discussion/development or may be addressed by
 
 [MAX_MESSAGES]: https://github.com/freedomofpress/securedrop-protocol/blob/d512528f42760f7ccb5205291ba11a377333cc0e/README.md?plain=1#L29
 [berra-2026]: https://eprint.iacr.org/2026/1484
+[key exhaustion]: #short-lived-key-exhaustion
 [specification]: ./protocol.md
 [v0.3]: ./protocol.md#03
