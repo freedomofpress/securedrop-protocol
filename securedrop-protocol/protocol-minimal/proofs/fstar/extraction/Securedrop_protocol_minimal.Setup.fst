@@ -21,7 +21,7 @@ let _ =
 /// in its local data store.
 let impl__sign
       (self: Securedrop_protocol_minimal.Wire.Setup.t_NewsroomSetupRequest)
-      (fpf_keys: Securedrop_protocol_minimal.Keys.t_FPFKeyPair)
+      (fpf_keys: Securedrop_protocol_minimal.Keys.Fpf.t_FPFKeyPair)
     : Core_models.Result.t_Result Securedrop_protocol_minimal.Wire.Setup.t_NewsroomSetupResponse
       Anyhow.t_Error =
   let newsroom_pk_bytes:t_Array u8 (mk_usize 32) =
@@ -33,7 +33,7 @@ let impl__sign
     Securedrop_protocol_minimal.Schemes.Sign.t_Signature
     Securedrop_protocol_minimal.Schemes.Sign.t_FpfOnNewsroom):Securedrop_protocol_minimal.Schemes.Sign.t_Signature
   Securedrop_protocol_minimal.Schemes.Sign.t_FpfOnNewsroom =
-    Securedrop_protocol_minimal.Keys.impl_FPFKeyPair__sign #Securedrop_protocol_minimal.Schemes.Sign.t_FpfOnNewsroom
+    Securedrop_protocol_minimal.Keys.Fpf.impl_FPFKeyPair__sign #Securedrop_protocol_minimal.Schemes.Sign.t_FpfOnNewsroom
       fpf_keys
       (newsroom_pk_bytes <: t_Slice u8)
   in
