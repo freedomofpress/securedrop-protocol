@@ -287,3 +287,62 @@ pub mod constants {
     pub(crate) const LEN_KMID: usize =
         crate::primitives::provider::chacha20poly1305::TAG_LEN + LEN_MESSAGE_ID;
 }
+
+// A panic on use Rng used for decryption contexts
+pub struct NoRng;
+
+#[derive(Debug)]
+pub struct NoRngError;
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl core::fmt::Display for NoRngError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "randomness requested from a NoRng")
+    }
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl core::error::Error for NoRngError {}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl rand_core::TryRng for NoRng {
+    type Error = NoRngError;
+    fn try_next_u32(&mut self) -> Result<u32, NoRngError> {
+        Err(NoRngError)
+    }
+    fn try_next_u64(&mut self) -> Result<u64, NoRngError> {
+        Err(NoRngError)
+    }
+    fn try_fill_bytes(&mut self, _: &mut [u8]) -> Result<(), NoRngError> {
+        Err(NoRngError)
+    }
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl rand_core::TryCryptoRng for NoRng {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ::hpke_rs::hpke_types::{AeadAlgorithm, KdfAlgorithm, KemAlgorithm};
+    use ::hpke_rs::libcrux::HpkeLibcrux;
+    use ::hpke_rs::{Hpke, HpkeError, Mode};
+
+    #[test]
+    fn test_norng_panic_on_seal() {
+        let mut hpke = Hpke::<HpkeLibcrux<NoRng>>::new_with_rng(
+            ::hpke_rs::Mode::Base,
+            KemAlgorithm::DhKem25519,
+            KdfAlgorithm::HkdfSha256,
+            AeadAlgorithm::ChaCha20Poly1305,
+            NoRng,
+        );
+        let (_sk_r, pk_r) = hpke.derive_key_pair(&[0x42; 32]).unwrap().into_keys();
+
+        let result = hpke.seal(&pk_r, b"info", b"aad", b"plaintext", None, None, None);
+        assert!(
+            matches!(result, Err(HpkeError::InsufficientRandomness)),
+            "expected InsufficientRandomness, got {result:?}"
+        );
+    }
+}

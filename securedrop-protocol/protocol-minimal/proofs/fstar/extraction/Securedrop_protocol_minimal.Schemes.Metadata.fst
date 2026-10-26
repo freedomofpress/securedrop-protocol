@@ -11,6 +11,7 @@ let _ =
   let open Hpke_rs_crypto.Error in
   let open Hpke_rs_libcrux in
   let open Rand_core in
+  let open Securedrop_protocol_minimal.Primitives.Provider in
   let open Securedrop_protocol_minimal.Primitives.Xwing in
   ()
 
@@ -551,105 +552,69 @@ let encrypt
 /// Returns an error if HPKE decryption fails.
 let decrypt (sk_r: t_MetadataPrivateKey) (ct: t_MetadataCiphertext)
     : Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error =
-  let seed:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
-  match
-    Core_models.Result.impl__map_err #Hpke_rs_libcrux.t_HpkeLibcruxPrng
-      #Hpke_rs_crypto.Error.t_Error
-      #Anyhow.t_Error
-      #(Hpke_rs_crypto.Error.t_Error -> Anyhow.t_Error)
-      (Hpke_rs_libcrux.impl_HpkeLibcruxPrng__try_from_seed seed
+  let hpke:Hpke_rs.t_Hpke
+  (Hpke_rs_libcrux.t_HpkeLibcrux Securedrop_protocol_minimal.Primitives.Provider.t_NoRng) =
+    Hpke_rs.impl_8__new_with_rng #(Hpke_rs_libcrux.t_HpkeLibcrux
+        Securedrop_protocol_minimal.Primitives.Provider.t_NoRng)
+      (Hpke_rs.Mode_Base <: Hpke_rs.t_Mode)
+      (Hpke_rs_crypto.Types.KemAlgorithm_XWingDraft06 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
+      (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
+      (Hpke_rs_crypto.Types.AeadAlgorithm_ChaCha20Poly1305 <: Hpke_rs_crypto.Types.t_AeadAlgorithm)
+      (Securedrop_protocol_minimal.Primitives.Provider.NoRng
         <:
-        Core_models.Result.t_Result Hpke_rs_libcrux.t_HpkeLibcruxPrng Hpke_rs_crypto.Error.t_Error)
-      (fun e ->
-          let e:Hpke_rs_crypto.Error.t_Error = e in
-          let args:Hpke_rs_crypto.Error.t_Error = e <: Hpke_rs_crypto.Error.t_Error in
-          let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
-            let list = [Core_models.Fmt.Rt.impl__new_debug #Hpke_rs_crypto.Error.t_Error args] in
-            FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-            Rust_primitives.Hax.array_of_list 1 list
-          in
-          Anyhow.Error.impl__msg #Alloc.String.t_String
-            (Core_models.Hint.must_use #Alloc.String.t_String
-                (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
-                        (mk_usize 1)
-                        (let list = ["hpke prng instantiation failed: "] in
-                          FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-                          Rust_primitives.Hax.array_of_list 1 list)
-                        args
-                      <:
-                      Core_models.Fmt.t_Arguments)
-                  <:
-                  Alloc.String.t_String)
-              <:
-              Alloc.String.t_String))
-    <:
-    Core_models.Result.t_Result Hpke_rs_libcrux.t_HpkeLibcruxPrng Anyhow.t_Error
-  with
-  | Core_models.Result.Result_Ok prng ->
-    let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
-      Hpke_rs.impl_8__new_with_rng #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng
-        )
-        (Hpke_rs.Mode_Base <: Hpke_rs.t_Mode)
-        (Hpke_rs_crypto.Types.KemAlgorithm_XWingDraft06 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
-        (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
-        (Hpke_rs_crypto.Types.AeadAlgorithm_ChaCha20Poly1305 <: Hpke_rs_crypto.Types.t_AeadAlgorithm
-        )
-        prng
-    in
-    let sk_r_hpke:Hpke_rs.t_HpkePrivateKey =
-      Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPrivateKey
-        #Hpke_rs.t_HpkePrivateKey
-        #FStar.Tactics.Typeclasses.solve
-        (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPrivateKey
-            #FStar.Tactics.Typeclasses.solve
-            sk_r._0
+        Securedrop_protocol_minimal.Primitives.Provider.t_NoRng)
+  in
+  let sk_r_hpke:Hpke_rs.t_HpkePrivateKey =
+    Core_models.Convert.f_into #Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPrivateKey
+      #Hpke_rs.t_HpkePrivateKey
+      #FStar.Tactics.Typeclasses.solve
+      (Core_models.Clone.f_clone #Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPrivateKey
+          #FStar.Tactics.Typeclasses.solve
+          sk_r._0
+        <:
+        Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPrivateKey)
+  in
+  Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+    #Hpke_rs.t_HpkeError
+    #Anyhow.t_Error
+    #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
+    (Hpke_rs.impl_8__open #(Hpke_rs_libcrux.t_HpkeLibcrux
+          Securedrop_protocol_minimal.Primitives.Provider.t_NoRng) hpke (ct.f_c <: t_Slice u8)
+        sk_r_hpke
+        ((let list:Prims.list u8 = [] in
+            FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
+            Rust_primitives.Hax.array_of_list 0 list)
           <:
-          Securedrop_protocol_minimal.Primitives.Xwing.t_XWingPrivateKey)
-    in
-    Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-      #Hpke_rs.t_HpkeError
-      #Anyhow.t_Error
-      #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
-      (Hpke_rs.impl_8__open #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) hpke
-          (ct.f_c <: t_Slice u8) sk_r_hpke
-          ((let list:Prims.list u8 = [] in
-              FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
-              Rust_primitives.Hax.array_of_list 0 list)
+          t_Slice u8)
+        ((let list:Prims.list u8 = [] in
+            FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
+            Rust_primitives.Hax.array_of_list 0 list)
+          <:
+          t_Slice u8) (ct.f_cp <: t_Slice u8)
+        (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
+        (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
+        (Core_models.Option.Option_None <: Core_models.Option.t_Option Hpke_rs.t_HpkePublicKey)
+      <:
+      Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Hpke_rs.t_HpkeError)
+    (fun e ->
+        let e:Hpke_rs.t_HpkeError = e in
+        let args:Hpke_rs.t_HpkeError = e <: Hpke_rs.t_HpkeError in
+        let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
+          let list = [Core_models.Fmt.Rt.impl__new_debug #Hpke_rs.t_HpkeError args] in
+          FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+          Rust_primitives.Hax.array_of_list 1 list
+        in
+        Anyhow.Error.impl__msg #Alloc.String.t_String
+          (Core_models.Hint.must_use #Alloc.String.t_String
+              (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
+                      (mk_usize 1)
+                      (let list = ["SD-PKE decryption failed: "] in
+                        FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                        Rust_primitives.Hax.array_of_list 1 list)
+                      args
+                    <:
+                    Core_models.Fmt.t_Arguments)
+                <:
+                Alloc.String.t_String)
             <:
-            t_Slice u8)
-          ((let list:Prims.list u8 = [] in
-              FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
-              Rust_primitives.Hax.array_of_list 0 list)
-            <:
-            t_Slice u8) (ct.f_cp <: t_Slice u8)
-          (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
-          (Core_models.Option.Option_None <: Core_models.Option.t_Option (t_Slice u8))
-          (Core_models.Option.Option_None <: Core_models.Option.t_Option Hpke_rs.t_HpkePublicKey)
-        <:
-        Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Hpke_rs.t_HpkeError)
-      (fun e ->
-          let e:Hpke_rs.t_HpkeError = e in
-          let args:Hpke_rs.t_HpkeError = e <: Hpke_rs.t_HpkeError in
-          let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 1) =
-            let list = [Core_models.Fmt.Rt.impl__new_debug #Hpke_rs.t_HpkeError args] in
-            FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-            Rust_primitives.Hax.array_of_list 1 list
-          in
-          Anyhow.Error.impl__msg #Alloc.String.t_String
-            (Core_models.Hint.must_use #Alloc.String.t_String
-                (Alloc.Fmt.format (Core_models.Fmt.Rt.impl_1__new_v1 (mk_usize 1)
-                        (mk_usize 1)
-                        (let list = ["SD-PKE decryption failed: "] in
-                          FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-                          Rust_primitives.Hax.array_of_list 1 list)
-                        args
-                      <:
-                      Core_models.Fmt.t_Arguments)
-                  <:
-                  Alloc.String.t_String)
-              <:
-              Alloc.String.t_String))
-  | Core_models.Result.Result_Err err ->
-    Core_models.Result.Result_Err err
-    <:
-    Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
+            Alloc.String.t_String))

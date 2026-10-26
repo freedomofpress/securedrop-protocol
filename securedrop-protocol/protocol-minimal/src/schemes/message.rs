@@ -20,6 +20,7 @@
 //!     return m
 //! ```
 
+use crate::primitives::provider::NoRng;
 use crate::primitives::provider::hpke_rs::{
     ChaCha20Poly1305, DhKem25519, HkdfSha256, Hpke, HpkeLibcrux, HpkePrivateKey, HpkePublicKey,
     Mode,
@@ -342,16 +343,12 @@ pub fn auth_dec(
     ad: &[u8],
     info_incl: &DHPublicKey,
 ) -> Result<Vec<u8>, Error> {
-    // Decryption doesn't use the PRNG, but we still need to instantiate the HPKE context with a PRNG for the API.
-    let seed = [0u8; 32];
-    let prng = HpkeLibcruxPrng::try_from_seed(seed)
-        .map_err(|e| anyhow::anyhow!("hpke prng instantiation failed: {:?}", e))?;
-    let mut hpke = Hpke::<HpkeLibcrux>::new_with_rng(
+    let mut hpke = Hpke::<HpkeLibcrux<NoRng>>::new_with_rng(
         Mode::AuthPsk,
         DhKem25519,
         HkdfSha256,
         ChaCha20Poly1305,
-        prng,
+        NoRng, // decryption must not sample randomness
     );
 
     // K2 = KEM_PQ.Decap(skR=skR2, enc=c2)

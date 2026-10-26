@@ -15,6 +15,7 @@
 //!     return m
 //! ```
 
+use crate::primitives::provider::NoRng;
 use crate::{
     message::MessagePublicKey,
     primitives::provider::hpke_rs::{
@@ -280,15 +281,12 @@ pub fn decrypt(
     sk_r: &MetadataPrivateKey,
     ct: &MetadataCiphertext,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    let mut seed = [0u8; 32];
-    let prng = HpkeLibcruxPrng::try_from_seed(seed)
-        .map_err(|e| anyhow::anyhow!("hpke prng instantiation failed: {:?}", e))?;
-    let mut hpke = Hpke::<HpkeLibcrux>::new_with_rng(
+    let mut hpke = Hpke::<HpkeLibcrux<NoRng>>::new_with_rng(
         Mode::Base,
         XWingDraft06,
         HkdfSha256,
         ChaCha20Poly1305,
-        prng,
+        NoRng, // decryption must not sample randomness
     );
 
     let sk_r_hpke = sk_r.0.clone().into();
