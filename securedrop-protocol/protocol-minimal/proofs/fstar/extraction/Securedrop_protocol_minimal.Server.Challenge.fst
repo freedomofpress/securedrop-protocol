@@ -24,50 +24,50 @@ let compute_fetch_challenges
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
       (rng: v_R)
       (entries:
-          t_Slice (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Ciphertext.t_Envelope))
+          t_Slice (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Wire.Core.t_Envelope))
       (total_responses: usize)
     : (v_R &
-      Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse Alloc.Alloc.t_Global) =
-  let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+      Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global) =
+  let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
     Alloc.Alloc.t_Global =
-    Alloc.Vec.impl__with_capacity #Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+    Alloc.Vec.impl__with_capacity #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
       total_responses
   in
   let
   (responses:
-    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse Alloc.Alloc.t_Global),
+    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global),
   (rng: v_R) =
     Core_models.Iter.Traits.Iterator.f_fold (Core_models.Iter.Traits.Collect.f_into_iter #(Core_models.Slice.Iter.t_Iter
-            (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Ciphertext.t_Envelope))
+            (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Wire.Core.t_Envelope))
           #FStar.Tactics.Typeclasses.solve
           (Core_models.Slice.impl__iter #(t_Array u8 (mk_usize 16) &
-                Securedrop_protocol_minimal.Ciphertext.t_Envelope)
+                Securedrop_protocol_minimal.Wire.Core.t_Envelope)
               entries
             <:
             Core_models.Slice.Iter.t_Iter
-            (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Ciphertext.t_Envelope))
+            (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Wire.Core.t_Envelope))
         <:
         Core_models.Slice.Iter.t_Iter
-        (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Ciphertext.t_Envelope))
+        (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Wire.Core.t_Envelope))
       (responses, rng
         <:
-        (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse Alloc.Alloc.t_Global &
+        (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global &
           v_R))
       (fun temp_0_ temp_1_ ->
           let
           (responses:
-            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               Alloc.Alloc.t_Global),
           (rng: v_R) =
             temp_0_
           in
           let
           (message_id: t_Array u8 (mk_usize 16)),
-          (envelope: Securedrop_protocol_minimal.Ciphertext.t_Envelope) =
+          (envelope: Securedrop_protocol_minimal.Wire.Core.t_Envelope) =
             temp_1_
           in
           if
-            (Alloc.Vec.impl_1__len #Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+            (Alloc.Vec.impl_1__len #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
                 #Alloc.Alloc.t_Global
                 responses
               <:
@@ -84,7 +84,7 @@ let compute_fetch_challenges
             let eph_sk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey = out in
             let shared_secret:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
               Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret envelope
-                  .Securedrop_protocol_minimal.Ciphertext.f_mgdh
+                  .Securedrop_protocol_minimal.Wire.Core.f_mgdh
                 eph_sk
             in
             let key:t_Array u8 (mk_usize 32) =
@@ -114,41 +114,41 @@ let compute_fetch_challenges
             in
             let pmgdh:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
               Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret envelope
-                  .Securedrop_protocol_minimal.Ciphertext.f_mgdh_pubkey
+                  .Securedrop_protocol_minimal.Wire.Core.f_mgdh_pubkey
                 eph_sk
             in
-            let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+            let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               Alloc.Alloc.t_Global =
-              Alloc.Vec.impl_1__push #Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+              Alloc.Vec.impl_1__push #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
                 #Alloc.Alloc.t_Global
                 responses
                 ({
-                    Securedrop_protocol_minimal.Ciphertext.f_enc_id = kmid;
-                    Securedrop_protocol_minimal.Ciphertext.f_pmgdh = pmgdh
+                    Securedrop_protocol_minimal.Wire.Core.f_enc_id = kmid;
+                    Securedrop_protocol_minimal.Wire.Core.f_pmgdh = pmgdh
                   }
                   <:
-                  Securedrop_protocol_minimal.Ciphertext.t_FetchResponse)
+                  Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
             in
             responses, rng
             <:
-            (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+            (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
                 Alloc.Alloc.t_Global &
               v_R)
           else
             responses, rng
             <:
-            (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+            (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
                 Alloc.Alloc.t_Global &
               v_R))
   in
   let
   (responses:
-    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse Alloc.Alloc.t_Global),
+    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global),
   (rng: v_R) =
     Rust_primitives.Hax.while_loop (fun temp_0_ ->
           let
           (responses:
-            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               Alloc.Alloc.t_Global),
           (rng: v_R) =
             temp_0_
@@ -157,12 +157,12 @@ let compute_fetch_challenges
       (fun temp_0_ ->
           let
           (responses:
-            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               Alloc.Alloc.t_Global),
           (rng: v_R) =
             temp_0_
           in
-          (Alloc.Vec.impl_1__len #Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+          (Alloc.Vec.impl_1__len #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               #Alloc.Alloc.t_Global
               responses
             <:
@@ -173,7 +173,7 @@ let compute_fetch_challenges
       (fun temp_0_ ->
           let
           (responses:
-            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               Alloc.Alloc.t_Global),
           (rng: v_R) =
             temp_0_
@@ -181,12 +181,12 @@ let compute_fetch_challenges
           Rust_primitives.Hax.Int.from_machine (mk_u32 0) <: Hax_lib.Int.t_Int)
       (responses, rng
         <:
-        (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse Alloc.Alloc.t_Global &
+        (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global &
           v_R))
       (fun temp_0_ ->
           let
           (responses:
-            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               Alloc.Alloc.t_Global),
           (rng: v_R) =
             temp_0_
@@ -205,31 +205,30 @@ let compute_fetch_challenges
             Securedrop_protocol_minimal.Primitives.Ristretto255.random_dh_public_key #v_R rng
           in
           let rng:v_R = tmp0 in
-          let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+          let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
             Alloc.Alloc.t_Global =
-            Alloc.Vec.impl_1__push #Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+            Alloc.Vec.impl_1__push #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               #Alloc.Alloc.t_Global
               responses
               ({
-                  Securedrop_protocol_minimal.Ciphertext.f_enc_id = pad_kmid;
-                  Securedrop_protocol_minimal.Ciphertext.f_pmgdh = out
+                  Securedrop_protocol_minimal.Wire.Core.f_enc_id = pad_kmid;
+                  Securedrop_protocol_minimal.Wire.Core.f_pmgdh = out
                 }
                 <:
-                Securedrop_protocol_minimal.Ciphertext.t_FetchResponse)
+                Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
           in
           responses, rng
           <:
-          (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+          (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               Alloc.Alloc.t_Global &
             v_R))
   in
-  let hax_temp_output:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+  let hax_temp_output:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
     Alloc.Alloc.t_Global =
     responses
   in
   rng, hax_temp_output
   <:
-  (v_R & Alloc.Vec.t_Vec Securedrop_protocol_minimal.Ciphertext.t_FetchResponse Alloc.Alloc.t_Global
-  )
+  (v_R & Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global)
 
 #pop-options

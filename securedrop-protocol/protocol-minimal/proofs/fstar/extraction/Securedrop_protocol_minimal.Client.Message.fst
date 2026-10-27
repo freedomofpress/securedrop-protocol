@@ -30,9 +30,9 @@ let encrypt
           Securedrop_protocol_minimal.Traits.t_UserPublic v_Recipient)
       (rng: v_R)
       (sender: v_Sender)
-      (plaintext: Securedrop_protocol_minimal.Ciphertext.t_Plaintext)
+      (plaintext: Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext)
       (recipient: v_Recipient)
-    : (v_R & Securedrop_protocol_minimal.Ciphertext.t_Envelope) =
+    : (v_R & Securedrop_protocol_minimal.Wire.Core.t_Envelope) =
   let keypair_s:Securedrop_protocol_minimal.Schemes.Message.t_MessageKeyPair =
     Securedrop_protocol_minimal.Traits.f_message_auth_keypair #v_Sender
       #FStar.Tactics.Typeclasses.solve
@@ -57,8 +57,8 @@ let encrypt
       rng
       keypair_s
       pk_r
-      (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Ciphertext.impl_Plaintext__to_bytes plaintext
-
+      (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Client.Plaintext.impl_Plaintext__to_bytes
+              plaintext
             <:
             Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
         <:
@@ -113,17 +113,17 @@ let encrypt
           Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext Anyhow.t_Error)
       "Valid Keybundle should allow metadata seal"
   in
-  let hax_temp_output:Securedrop_protocol_minimal.Ciphertext.t_Envelope =
+  let hax_temp_output:Securedrop_protocol_minimal.Wire.Core.t_Envelope =
     {
-      Securedrop_protocol_minimal.Ciphertext.f_ct_apke = ct_apke;
-      Securedrop_protocol_minimal.Ciphertext.f_ct_pke = ct_pke;
-      Securedrop_protocol_minimal.Ciphertext.f_mgdh_pubkey = hint_epk;
-      Securedrop_protocol_minimal.Ciphertext.f_mgdh = hint_sharedsecret
+      Securedrop_protocol_minimal.Wire.Core.f_ct_apke = ct_apke;
+      Securedrop_protocol_minimal.Wire.Core.f_ct_pke = ct_pke;
+      Securedrop_protocol_minimal.Wire.Core.f_mgdh_pubkey = hint_epk;
+      Securedrop_protocol_minimal.Wire.Core.f_mgdh = hint_sharedsecret
     }
     <:
-    Securedrop_protocol_minimal.Ciphertext.t_Envelope
+    Securedrop_protocol_minimal.Wire.Core.t_Envelope
   in
-  rng, hax_temp_output <: (v_R & Securedrop_protocol_minimal.Ciphertext.t_Envelope)
+  rng, hax_temp_output <: (v_R & Securedrop_protocol_minimal.Wire.Core.t_Envelope)
 
 #pop-options
 
@@ -137,8 +137,8 @@ let decrypt_with_sender
           i0:
           Securedrop_protocol_minimal.Traits.t_UserSecret v_U)
       (receiver: v_U)
-      (envelope: Securedrop_protocol_minimal.Ciphertext.t_Envelope)
-    : (Securedrop_protocol_minimal.Ciphertext.t_Plaintext &
+      (envelope: Securedrop_protocol_minimal.Wire.Core.t_Envelope)
+    : (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
       Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) =
   let
   (found:
@@ -186,7 +186,7 @@ let decrypt_with_sender
                   bundle.Securedrop_protocol_minimal.Keys.Bundle.f_metadata_kp
                 <:
                 Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPrivateKey)
-              envelope.Securedrop_protocol_minimal.Ciphertext.f_ct_pke
+              envelope.Securedrop_protocol_minimal.Wire.Core.f_ct_pke
             <:
             Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
           with
@@ -241,24 +241,25 @@ let decrypt_with_sender
             <:
             Securedrop_protocol_minimal.Schemes.Message.t_MessagePrivateKey)
           sender_pk
-          envelope.Securedrop_protocol_minimal.Ciphertext.f_ct_apke
+          envelope.Securedrop_protocol_minimal.Wire.Core.f_ct_apke
           Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
           pk_r_fetch
         <:
         Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
       "SD-APKE AuthDec failed"
   in
-  Core_models.Result.impl__unwrap #Securedrop_protocol_minimal.Ciphertext.t_Plaintext
+  Core_models.Result.impl__unwrap #Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
     #Anyhow.t_Error
-    (Securedrop_protocol_minimal.Ciphertext.impl_Plaintext__from_bytes (Alloc.Vec.impl_1__as_slice pt
-
+    (Securedrop_protocol_minimal.Client.Plaintext.impl_Plaintext__from_bytes (Alloc.Vec.impl_1__as_slice
+            pt
           <:
           t_Slice u8)
       <:
-      Core_models.Result.t_Result Securedrop_protocol_minimal.Ciphertext.t_Plaintext Anyhow.t_Error),
+      Core_models.Result.t_Result Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+        Anyhow.t_Error),
   sender_pk
   <:
-  (Securedrop_protocol_minimal.Ciphertext.t_Plaintext &
+  (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
     Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
 
 #pop-options
@@ -271,8 +272,8 @@ let decrypt
           i0:
           Securedrop_protocol_minimal.Traits.t_UserSecret v_U)
       (receiver: v_U)
-      (envelope: Securedrop_protocol_minimal.Ciphertext.t_Envelope)
-    : Securedrop_protocol_minimal.Ciphertext.t_Plaintext =
+      (envelope: Securedrop_protocol_minimal.Wire.Core.t_Envelope)
+    : Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext =
   (decrypt_with_sender #v_U receiver envelope)._1
 
 #pop-options
@@ -289,7 +290,7 @@ let build_message
           Securedrop_protocol_minimal.Traits.t_UserPublic iimpl_822573411_)
       (sender: iimpl_822573411_)
       (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-    : Securedrop_protocol_minimal.Ciphertext.t_Plaintext =
+    : Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext =
   let reply_key_pq_hybrid:t_Array u8 (mk_usize 1216) =
     Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216)
   in
@@ -306,15 +307,15 @@ let build_message
         t_Slice u8)
   in
   {
-    Securedrop_protocol_minimal.Ciphertext.f_sender_fetch_key
+    Securedrop_protocol_minimal.Client.Plaintext.f_sender_fetch_key
     =
     Securedrop_protocol_minimal.Traits.f_fetch_pk #iimpl_822573411_
       #FStar.Tactics.Typeclasses.solve
       sender;
-    Securedrop_protocol_minimal.Ciphertext.f_sender_reply_pubkey_hybrid = reply_key_pq_hybrid;
-    Securedrop_protocol_minimal.Ciphertext.f_msg = message
+    Securedrop_protocol_minimal.Client.Plaintext.f_sender_reply_pubkey_hybrid = reply_key_pq_hybrid;
+    Securedrop_protocol_minimal.Client.Plaintext.f_msg = message
   }
   <:
-  Securedrop_protocol_minimal.Ciphertext.t_Plaintext
+  Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
 
 #pop-options

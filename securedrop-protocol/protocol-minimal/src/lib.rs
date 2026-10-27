@@ -8,7 +8,6 @@
 extern crate alloc;
 
 pub mod api;
-mod ciphertext;
 pub mod keys;
 pub(crate) mod primitives;
 pub mod schemes;
@@ -23,7 +22,8 @@ pub mod source;
 
 pub use schemes::{challenge, message, metadata, sign};
 
-pub use ciphertext::{Envelope, FetchResponse, Plaintext};
+pub use client::plaintext::Plaintext;
+pub use wire::core::{Envelope, FetchResponse};
 
 pub use keys::{DhFetchKeyPair, KeyBundlePublic, KeyPair, SessionStorage};
 pub use wire::bundle::{SignedKeyBundlePublic, SignedLongtermKeyBundle};

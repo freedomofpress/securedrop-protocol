@@ -3,7 +3,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::VerifyingKey;
 use crate::api::Client;
-use crate::ciphertext::Plaintext;
+use crate::client::plaintext::Plaintext;
 use crate::keys::*;
 use crate::message::{
     MessageKeyPair, MessagePrivateKey, MessagePublicKey, keygen as message_keygen,

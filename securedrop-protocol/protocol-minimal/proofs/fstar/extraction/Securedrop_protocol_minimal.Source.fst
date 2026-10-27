@@ -197,7 +197,7 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
     (fun
         (self: t_Source)
         (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-        (out: Securedrop_protocol_minimal.Ciphertext.t_Plaintext)
+        (out: Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext)
         ->
         true);
     f_build_message
@@ -217,14 +217,16 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
               t_Slice u8)
         in
         {
-          Securedrop_protocol_minimal.Ciphertext.f_sender_fetch_key
+          Securedrop_protocol_minimal.Client.Plaintext.f_sender_fetch_key
           =
           self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk;
-          Securedrop_protocol_minimal.Ciphertext.f_sender_reply_pubkey_hybrid = reply_key_pq_hybrid;
-          Securedrop_protocol_minimal.Ciphertext.f_msg = message
+          Securedrop_protocol_minimal.Client.Plaintext.f_sender_reply_pubkey_hybrid
+          =
+          reply_key_pq_hybrid;
+          Securedrop_protocol_minimal.Client.Plaintext.f_msg = message
         }
         <:
-        Securedrop_protocol_minimal.Ciphertext.t_Plaintext);
+        Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext);
     f_keybundles_pre = (fun (self: t_Source) -> true);
     f_keybundles_post
     =

@@ -20,7 +20,7 @@ let solve_fetch_challenges
           i0:
           Securedrop_protocol_minimal.Traits.t_UserSecret v_S)
       (recipient: v_S)
-      (challenges: t_Slice Securedrop_protocol_minimal.Ciphertext.t_FetchResponse)
+      (challenges: t_Slice Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
     : Alloc.Vec.t_Vec Uuid.t_Uuid Alloc.Alloc.t_Global =
   let (message_ids: Alloc.Vec.t_Vec Uuid.t_Uuid Alloc.Alloc.t_Global):Alloc.Vec.t_Vec Uuid.t_Uuid
     Alloc.Alloc.t_Global =
@@ -28,21 +28,21 @@ let solve_fetch_challenges
   in
   let message_ids:Alloc.Vec.t_Vec Uuid.t_Uuid Alloc.Alloc.t_Global =
     Core_models.Iter.Traits.Iterator.f_fold (Core_models.Iter.Traits.Collect.f_into_iter #(Core_models.Slice.Iter.t_Iter
-            Securedrop_protocol_minimal.Ciphertext.t_FetchResponse)
+            Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
           #FStar.Tactics.Typeclasses.solve
-          (Core_models.Slice.impl__iter #Securedrop_protocol_minimal.Ciphertext.t_FetchResponse
+          (Core_models.Slice.impl__iter #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               challenges
             <:
-            Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Ciphertext.t_FetchResponse)
+            Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
         <:
-        Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Ciphertext.t_FetchResponse)
+        Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
       message_ids
       (fun message_ids chall ->
           let message_ids:Alloc.Vec.t_Vec Uuid.t_Uuid Alloc.Alloc.t_Global = message_ids in
-          let chall:Securedrop_protocol_minimal.Ciphertext.t_FetchResponse = chall in
+          let chall:Securedrop_protocol_minimal.Wire.Core.t_FetchResponse = chall in
           let maybe_kmid_secret:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
             Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret chall
-                .Securedrop_protocol_minimal.Ciphertext.f_pmgdh
+                .Securedrop_protocol_minimal.Wire.Core.f_pmgdh
               (Securedrop_protocol_minimal.Traits.f_fetch_keypair #v_S
                   #FStar.Tactics.Typeclasses.solve
                   recipient
@@ -61,7 +61,7 @@ let solve_fetch_challenges
           in
           match
             Securedrop_protocol_minimal.Schemes.Challenge.decrypt_message_id challenge_key
-              (chall.Securedrop_protocol_minimal.Ciphertext.f_enc_id <: t_Slice u8)
+              (chall.Securedrop_protocol_minimal.Wire.Core.f_enc_id <: t_Slice u8)
             <:
             Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
           with

@@ -367,23 +367,23 @@ let impl_4: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
     (fun
         (self: t_Journalist)
         (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-        (out: Securedrop_protocol_minimal.Ciphertext.t_Plaintext)
+        (out: Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext)
         ->
         true);
     f_build_message
     =
     (fun (self: t_Journalist) (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) ->
         {
-          Securedrop_protocol_minimal.Ciphertext.f_sender_fetch_key
+          Securedrop_protocol_minimal.Client.Plaintext.f_sender_fetch_key
           =
           Securedrop_protocol_minimal.Primitives.Ristretto255.placeholder_public_key ();
-          Securedrop_protocol_minimal.Ciphertext.f_sender_reply_pubkey_hybrid
+          Securedrop_protocol_minimal.Client.Plaintext.f_sender_reply_pubkey_hybrid
           =
           Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216);
-          Securedrop_protocol_minimal.Ciphertext.f_msg = message
+          Securedrop_protocol_minimal.Client.Plaintext.f_msg = message
         }
         <:
-        Securedrop_protocol_minimal.Ciphertext.t_Plaintext);
+        Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext);
     f_keybundles_pre = (fun (self: t_Journalist) -> true);
     f_keybundles_post
     =
