@@ -23,7 +23,7 @@ pub(crate) fn read_passphrase() -> Result<String> {
 }
 
 pub(crate) fn parse_fpf_vk(fpf_vk_hex: &str) -> Result<VerifyingKey> {
-    let mut fpf_vk_bytes = [0u8; 32];
+    let mut fpf_vk_bytes = [0u8; VerifyingKey::LEN];
     hex::decode_to_slice(fpf_vk_hex.trim(), &mut fpf_vk_bytes)
         .context("parsing FPF verifying key")?;
     Ok(VerifyingKey::from_bytes(fpf_vk_bytes))

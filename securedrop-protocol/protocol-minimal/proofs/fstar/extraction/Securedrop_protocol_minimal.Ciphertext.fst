@@ -9,8 +9,8 @@ open Core_models
 /// - `Z = (pk_R^fetch)^x`: DH share for fetching (hint)
 /// The server stores `(id, C_S, X, Z)` per message.
 type t_Envelope = {
-  f_ct_apke:Securedrop_protocol_minimal.Message.t_MessageCiphertext;
-  f_ct_pke:Securedrop_protocol_minimal.Metadata.t_MetadataCiphertext;
+  f_ct_apke:Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext;
+  f_ct_pke:Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext;
   f_mgdh_pubkey:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
   f_mgdh:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
 }
@@ -26,14 +26,14 @@ let impl_4: Core_models.Clone.t_Clone t_Envelope =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
 let impl_Envelope__size_hint (self: t_Envelope) : usize =
-  (Securedrop_protocol_minimal.Message.impl_MessageCiphertext__len self.f_ct_apke <: usize) +!
-  (Securedrop_protocol_minimal.Metadata.impl_MetadataCiphertext__len self.f_ct_pke <: usize)
+  (Securedrop_protocol_minimal.Schemes.Message.impl_MessageCiphertext__len self.f_ct_apke <: usize) +!
+  (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataCiphertext__len self.f_ct_pke <: usize)
 
 let impl_Envelope__cmessage_len (self: t_Envelope) : usize =
-  Securedrop_protocol_minimal.Message.impl_MessageCiphertext__len self.f_ct_apke
+  Securedrop_protocol_minimal.Schemes.Message.impl_MessageCiphertext__len self.f_ct_apke
 
 let impl_Envelope__cmetadata_len (self: t_Envelope) : usize =
-  Securedrop_protocol_minimal.Metadata.impl_MetadataCiphertext__len self.f_ct_pke
+  Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataCiphertext__len self.f_ct_pke
 
 /// Toy pt structure
 type t_Plaintext = {
@@ -78,8 +78,8 @@ let impl_Plaintext__to_bytes (self: t_Plaintext) : Alloc.Vec.t_Vec u8 Alloc.Allo
   buf
 
 let impl_Plaintext__len (self: t_Plaintext) : usize =
-  (Securedrop_protocol_minimal.Primitives.Ristretto255.v_DH_PUBLIC_KEY_LEN +!
-    Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PUBLIC_KEY_LEN
+  (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__LEN +!
+    Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
     <:
     usize) +!
   (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global self.f_msg <: usize)
@@ -97,7 +97,7 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
             Core_models.Ops.Range.f_start = offset;
             Core_models.Ops.Range.f_end
             =
-            offset +! Securedrop_protocol_minimal.Primitives.Ristretto255.v_DH_PUBLIC_KEY_LEN
+            offset +! Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__LEN
             <:
             usize
           }
@@ -114,7 +114,7 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
   with
   | Core_models.Result.Result_Ok sender_fetch_key ->
     let offset:usize =
-      offset +! Securedrop_protocol_minimal.Primitives.Ristretto255.v_DH_PUBLIC_KEY_LEN
+      offset +! Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__LEN
     in
     let sender_reply_pubkey_hybrid:t_Array u8 (mk_usize 1216) =
       Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216)
@@ -126,7 +126,9 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
               Core_models.Ops.Range.f_start = offset;
               Core_models.Ops.Range.f_end
               =
-              offset +! Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PUBLIC_KEY_LEN <: usize
+              offset +! Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
+              <:
+              usize
             }
             <:
             Core_models.Ops.Range.t_Range usize ]
@@ -134,7 +136,7 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
           t_Slice u8)
     in
     let offset:usize =
-      offset +! Securedrop_protocol_minimal.Primitives.Xwing.v_XWING_PUBLIC_KEY_LEN
+      offset +! Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
     in
     let msg:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
       Alloc.Slice.impl__to_vec #u8
@@ -158,7 +160,7 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
     Core_models.Result.Result_Err err <: Core_models.Result.t_Result t_Plaintext Anyhow.t_Error
 
 type t_FetchResponse = {
-  f_enc_id:t_Array u8 (mk_usize 44);
+  f_enc_id:t_Array u8 (mk_usize 32);
   f_pmgdh:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
 }
 
@@ -173,6 +175,6 @@ unfold
 let impl_8 = impl_8'
 
 let impl_FetchResponse__new
-      (enc_id: t_Array u8 (mk_usize 44))
+      (enc_id: t_Array u8 (mk_usize 32))
       (pmgdh: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : t_FetchResponse = { f_enc_id = enc_id; f_pmgdh = pmgdh } <: t_FetchResponse

@@ -13,8 +13,11 @@ use crate::primitives::dh_akem::{DhAkemPrivateKey, DhAkemPublicKey};
 use crate::primitives::mlkem::{MLKEM768PrivateKey, MLKEM768PublicKey};
 use crate::primitives::provider;
 use crate::primitives::ristretto255::{DHPrivateKey, DHPublicKey, generate_dh_keypair};
+use crate::primitives::xwing::{XWingPrivateKey, XWingPublicKey};
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey};
 use crate::traits::{Enrollable, JournalistPublic, RestrictedApi, UserPublic, UserSecret};
+use crate::wire::bundle::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
+use crate::wire::enrollment::Enrollment;
 
 // caution: do not re-export!
 use crate::sealed;
@@ -29,13 +32,11 @@ impl RestrictedApi for Journalist {}
 /// Journalists have a signing/verifying key, a reply key,
 /// a fetch key, and a collection of one-time signed key bundles
 pub struct Journalist {
-    signing_key: SigningKeyPair,
+    signing_key: SigningKey,
     fetch_key: DhFetchKeyPair,
     message_keys: Vec<SignedMessageKeyBundle>,
     /// Long-term SD-APKE key tuple `(sk_J^APKE, pk_J^APKE)`
     reply_apke: MessageKeyPair,
-    self_signature: Signature<JournalistLongTermKey>,
-    signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
     session_storage: SessionStorage,
 }
 
@@ -44,28 +45,19 @@ pub struct Journalist {
 #[cfg_attr(not(hax), derive(serde::Serialize, serde::Deserialize))]
 pub struct JournalistPublicView {
     vk: VerifyingKey,
-    fetch_pk: DHPublicKey,
-    reply_apke_pk: MessagePublicKey,
-    signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
-    selfsig: Signature<JournalistLongTermKey>,
+    signed_longterm_key_bundle: SignedLongtermKeyBundle,
     kb: SignedKeyBundlePublic,
 }
 
 impl JournalistPublicView {
     pub fn new(
         vk: VerifyingKey,
-        fetch: DHPublicKey,
-        reply_apke: MessagePublicKey,
-        selfsig: Signature<JournalistLongTermKey>,
-        signed_longterm_key_bytes: SignedLongtermPubKeyBytes,
+        signed_longterm_key_bundle: SignedLongtermKeyBundle,
         kb: SignedKeyBundlePublic,
     ) -> Self {
         Self {
             vk,
-            fetch_pk: fetch,
-            reply_apke_pk: reply_apke,
-            selfsig,
-            signed_longterm_key_bytes,
+            signed_longterm_key_bundle,
             kb,
         }
     }
@@ -73,11 +65,11 @@ impl JournalistPublicView {
 
 impl UserPublic for JournalistPublicView {
     fn fetch_pk(&self) -> &DHPublicKey {
-        &self.fetch_pk
+        &self.signed_longterm_key_bundle.bundle.fetch_pk
     }
 
     fn message_auth_pk(&self) -> &MessagePublicKey {
-        &self.reply_apke_pk
+        &self.signed_longterm_key_bundle.bundle.apke
     }
 
     fn message_metadata_pk(&self) -> &MetadataPublicKey {
@@ -95,11 +87,11 @@ impl JournalistPublic for JournalistPublicView {
     }
 
     fn self_signature(&self) -> &Signature<JournalistLongTermKey> {
-        &self.selfsig
+        &self.signed_longterm_key_bundle.selfsig
     }
 
-    fn signed_keybytes(&self) -> &SignedLongtermPubKeyBytes {
-        &self.signed_longterm_key_bytes
+    fn signed_keybytes(&self) -> &SignedLongtermKeyBundle {
+        &self.signed_longterm_key_bundle
     }
 
     fn ephemeral_bundle(&self) -> &KeyBundlePublic {
@@ -160,7 +152,7 @@ impl UserSecret for Journalist {
         // another scheme (fixme)
         Plaintext {
             sender_fetch_key: crate::primitives::ristretto255::placeholder_public_key(),
-            sender_reply_pubkey_hybrid: [0u8; crate::primitives::xwing::XWING_PUBLIC_KEY_LEN],
+            sender_reply_pubkey_hybrid: [0u8; XWingPublicKey::LEN],
             msg: message,
         }
     }
@@ -173,13 +165,8 @@ impl UserSecret for Journalist {
 impl Enrollable for Journalist {
     fn enroll(&self) -> Enrollment {
         Enrollment {
-            bundle: self.signed_longterm_key_bytes.clone(),
-            selfsig: self.self_signature,
-            keys: (
-                self.signing_key.pk,
-                self.fetch_key.pk.clone(),
-                self.reply_apke.public_key().clone(),
-            ),
+            bundle: self.signed_longterm_key_bundle(),
+            verification_key: self.signing_key.vk,
         }
     }
 
@@ -188,7 +175,7 @@ impl Enrollable for Journalist {
     }
 
     fn signing_key(&self) -> &VerifyingKey {
-        &self.signing_key.pk
+        &self.signing_key.vk
     }
 }
 
@@ -215,18 +202,10 @@ impl Journalist {
         let mut key_bundles: Vec<SignedMessageKeyBundle> = Vec::with_capacity(num_keybundles);
 
         let signing_key = SigningKey::new(rng).expect("Signing keygen failed");
-        let verifying_key = signing_key.vk;
 
         let (sk_fetch, pk_fetch) = generate_dh_keypair(rng);
 
         let reply_apke = message_keygen(rng).expect("SD-APKE Keygen (Reply) failed");
-
-        // Self-sign long-term pubkeys (for enrollment).
-        // Covers pk_J^APKE = (pk_J^AKEM, pk_J^PQ) and pk_J^fetch
-        let selfsigned_pubkeys =
-            SignedLongtermPubKeyBytes::from_keys(reply_apke.public_key(), &pk_fetch);
-        let self_signature: Signature<JournalistLongTermKey> =
-            signing_key.sign(selfsigned_pubkeys.as_bytes());
 
         // Generate one-time/short-lived keybundles.
         for _ in 0..num_keybundles {
@@ -241,18 +220,13 @@ impl Journalist {
         };
 
         Self {
-            signing_key: KeyPair {
-                sk: signing_key,
-                pk: verifying_key,
-            },
+            signing_key,
             fetch_key: KeyPair {
                 sk: sk_fetch,
                 pk: pk_fetch,
             },
             reply_apke,
             message_keys: key_bundles,
-            self_signature,
-            signed_longterm_key_bytes: selfsigned_pubkeys,
             session_storage,
         }
     }
@@ -261,13 +235,19 @@ impl Journalist {
     pub fn public(&self, idx: usize) -> JournalistPublicView {
         let kb = self.message_keys.get(idx).expect("Bad index");
         JournalistPublicView::new(
-            self.signing_key.pk,
-            self.fetch_key.pk.clone(),
-            self.reply_apke.public_key().clone(),
-            self.self_signature,
-            self.signed_longterm_key_bytes.clone(),
+            self.signing_key.vk,
+            self.signed_longterm_key_bundle(),
             (kb.bundle.public(), kb.selfsig),
         )
+    }
+
+    /// Self-sign the long-term public keys
+    fn signed_longterm_key_bundle(&self) -> SignedLongtermKeyBundle {
+        let longterm_bundle =
+            LongtermKeyBundle::new(self.reply_apke.public_key().clone(), self.fetch_key.pk);
+        let self_signature: Signature<JournalistLongTermKey> =
+            self.signing_key.sign(&longterm_bundle.as_bytes());
+        SignedLongtermKeyBundle::new(longterm_bundle, self_signature)
     }
 
     /// Extract the long-term keypairs as raw bytes, sufficient to
@@ -275,7 +255,7 @@ impl Journalist {
     /// [`Journalist::from_long_term_bytes`].
     pub fn long_term_bytes(&self) -> JournalistLongTermBytes {
         JournalistLongTermBytes {
-            sig_seed: self.signing_key.sk.as_bytes(),
+            sig_seed: self.signing_key.as_bytes(),
             fetch_sk: self.fetch_key.sk.to_bytes(),
             apke_dhakem_sk: *self.reply_apke.private_key().dhakem.as_bytes(),
             apke_mlkem_sk: *self.reply_apke.private_key().mlkem.as_bytes(),
@@ -292,11 +272,10 @@ impl Journalist {
         use crate::primitives::provider;
 
         let signing_key = SigningKey::from_seed(parts.sig_seed);
-        let verifying_key = signing_key.vk;
         let sk_fetch = DHPrivateKey::decode(parts.fetch_sk)?;
         let pk_fetch = sk_fetch.public_key();
 
-        let mut apke_dhakem_pk_bytes = [0u8; 32];
+        let mut apke_dhakem_pk_bytes = [0u8; DhAkemPublicKey::LEN];
         provider::curve25519::secret_to_public(&mut apke_dhakem_pk_bytes, &parts.apke_dhakem_sk);
         let apke_dhakem_sk = DhAkemPrivateKey::from_bytes(parts.apke_dhakem_sk);
         let apke_dhakem_pk = DhAkemPublicKey::from_bytes(apke_dhakem_pk_bytes);
@@ -314,24 +293,14 @@ impl Journalist {
             },
         );
 
-        let signed_longterm_key_bytes =
-            SignedLongtermPubKeyBytes::from_keys(reply_apke.public_key(), &pk_fetch);
-        let self_signature: Signature<JournalistLongTermKey> =
-            signing_key.sign(signed_longterm_key_bytes.as_bytes());
-
         Ok(Self {
-            signing_key: KeyPair {
-                sk: signing_key,
-                pk: verifying_key,
-            },
+            signing_key,
             fetch_key: KeyPair {
                 sk: sk_fetch,
                 pk: pk_fetch,
             },
             reply_apke,
             message_keys: Vec::new(),
-            self_signature,
-            signed_longterm_key_bytes,
             session_storage: SessionStorage {
                 fpf_key: None,
                 nr_key: None,
@@ -349,7 +318,7 @@ impl Journalist {
     #[cfg_attr(hax, hax_lib::opaque)]
     pub fn generate_ephemeral_bundles<R: RngCore + CryptoRng>(&mut self, rng: &mut R, n: usize) {
         for _ in 0..n {
-            let signed = make_signed_bundle(rng, &self.signing_key.sk);
+            let signed = make_signed_bundle(rng, &self.signing_key);
             self.message_keys.push(signed);
         }
     }
@@ -376,8 +345,7 @@ impl Journalist {
             let pubkey_bytes = bundle.public().as_bytes();
             // Temp: doing this just because we are generating SignedMessageKeyBundle here
             // and we didnt persist the signature
-            let selfsig: Signature<JournalistEphemeralKey> =
-                self.signing_key.sk.sign(&pubkey_bytes);
+            let selfsig: Signature<JournalistEphemeralKey> = self.signing_key.sign(&pubkey_bytes);
             self.message_keys
                 .push(SignedMessageKeyBundle { bundle, selfsig });
         }
@@ -388,20 +356,20 @@ impl Journalist {
 /// to reconstruct the long-term state via
 /// [`Journalist::from_long_term_bytes`].
 pub struct JournalistLongTermBytes {
-    pub sig_seed: [u8; 32],
-    pub fetch_sk: [u8; 32],
-    pub apke_dhakem_sk: [u8; 32],
-    pub apke_mlkem_sk: [u8; crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN],
-    pub apke_mlkem_pk: [u8; crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN],
+    pub sig_seed: [u8; SigningKey::SEED_LEN],
+    pub fetch_sk: [u8; DHPrivateKey::LEN],
+    pub apke_dhakem_sk: [u8; DhAkemPrivateKey::LEN],
+    pub apke_mlkem_sk: [u8; MLKEM768PrivateKey::LEN],
+    pub apke_mlkem_pk: [u8; MLKEM768PublicKey::LEN],
 }
 
 impl JournalistLongTermBytes {
     /// Serialized length of `sig_seed || fetch_sk || apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk`.
-    pub const LEN: usize = 32
-        + 32
-        + 32
-        + crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN
-        + crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
+    pub const LEN: usize = SigningKey::SEED_LEN
+        + DHPrivateKey::LEN
+        + DhAkemPrivateKey::LEN
+        + MLKEM768PrivateKey::LEN
+        + MLKEM768PublicKey::LEN;
 
     /// Serialize as `sig_seed || fetch_sk || apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk`.
     pub fn as_bytes(&self) -> Vec<u8> {
@@ -428,11 +396,10 @@ impl JournalistLongTermBytes {
             ));
         }
 
-        let (sig_seed, rest) = bytes.split_at(32);
-        let (fetch_sk, rest) = rest.split_at(32);
-        let (apke_dhakem_sk, rest) = rest.split_at(32);
-        let (apke_mlkem_sk, apke_mlkem_pk) =
-            rest.split_at(crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN);
+        let (sig_seed, rest) = bytes.split_at(SigningKey::SEED_LEN);
+        let (fetch_sk, rest) = rest.split_at(DHPrivateKey::LEN);
+        let (apke_dhakem_sk, rest) = rest.split_at(DhAkemPrivateKey::LEN);
+        let (apke_mlkem_sk, apke_mlkem_pk) = rest.split_at(MLKEM768PrivateKey::LEN);
 
         // the expects here are fine because the length check above ensures we have the correct length
         Ok(Self {
@@ -447,21 +414,21 @@ impl JournalistLongTermBytes {
 
 /// Byte representation of one ephemeral key bundle's secret halves
 pub struct EphemeralBundleBytes {
-    pub apke_dhakem_sk: [u8; 32],
-    pub apke_mlkem_sk: [u8; crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN],
-    pub apke_mlkem_pk: [u8; crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN],
-    pub metadata_sk: [u8; crate::primitives::xwing::XWING_PRIVATE_KEY_LEN],
-    pub metadata_pk: [u8; crate::primitives::xwing::XWING_PUBLIC_KEY_LEN],
+    pub apke_dhakem_sk: [u8; DhAkemPrivateKey::LEN],
+    pub apke_mlkem_sk: [u8; MLKEM768PrivateKey::LEN],
+    pub apke_mlkem_pk: [u8; MLKEM768PublicKey::LEN],
+    pub metadata_sk: [u8; XWingPrivateKey::LEN],
+    pub metadata_pk: [u8; XWingPublicKey::LEN],
 }
 
 impl EphemeralBundleBytes {
     /// Serialized length of
     /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk`.
-    pub const LEN: usize = 32
-        + crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN
-        + crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN
-        + crate::primitives::xwing::XWING_PRIVATE_KEY_LEN
-        + crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
+    pub const LEN: usize = DhAkemPrivateKey::LEN
+        + MLKEM768PrivateKey::LEN
+        + MLKEM768PublicKey::LEN
+        + XWingPrivateKey::LEN
+        + XWingPublicKey::LEN;
 
     fn from_bundle(bundle: &MessageKeyBundle) -> Self {
         Self {
@@ -475,7 +442,7 @@ impl EphemeralBundleBytes {
 
     #[cfg_attr(hax, hax_lib::opaque)]
     fn into_bundle(self) -> MessageKeyBundle {
-        let mut apke_dhakem_pk_bytes = [0u8; 32];
+        let mut apke_dhakem_pk_bytes = [0u8; DhAkemPublicKey::LEN];
         provider::curve25519::secret_to_public(&mut apke_dhakem_pk_bytes, &self.apke_dhakem_sk);
 
         let apke = MessageKeyPair::new(
@@ -511,31 +478,37 @@ impl EphemeralBundleBytes {
     /// # Errors
     ///
     /// Returns an error if the byte slice has the incorrect length.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
-        if bytes.len() != Self::LEN {
-            return Err(anyhow::anyhow!(
-                "Invalid EphemeralBundleBytes length: expected {}, got {}",
-                Self::LEN,
-                bytes.len()
-            ));
-        }
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
+        let bytes: [u8; Self::LEN] = match bytes.try_into() {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                return Err(anyhow::anyhow!(
+                    "Invalid EphemeralBundleBytes length: expected {}, got {}",
+                    Self::LEN,
+                    bytes.len()
+                ));
+            }
+        };
 
-        let (apke_dhakem_sk, rest) = bytes.split_at(32);
-        let (apke_mlkem_sk, rest) =
-            rest.split_at(crate::primitives::mlkem::MLKEM768_PRIVATE_KEY_LEN);
-        let (apke_mlkem_pk, rest) =
-            rest.split_at(crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN);
-        let (metadata_sk, metadata_pk) =
-            rest.split_at(crate::primitives::xwing::XWING_PRIVATE_KEY_LEN);
+        Ok(Self::from_bytes(&bytes))
+    }
 
-        // the expects here are fine bc the length check above ensures we have the correct length
-        Ok(Self {
+    /// Deserialize from
+    /// `apke_dhakem_sk || apke_mlkem_sk || apke_mlkem_pk || metadata_sk || metadata_pk` bytes.
+    pub fn from_bytes(bytes: &[u8; Self::LEN]) -> Self {
+        let (apke_dhakem_sk, rest) = bytes.split_at(DhAkemPrivateKey::LEN);
+        let (apke_mlkem_sk, rest) = rest.split_at(MLKEM768PrivateKey::LEN);
+        let (apke_mlkem_pk, rest) = rest.split_at(MLKEM768PublicKey::LEN);
+        let (metadata_sk, metadata_pk) = rest.split_at(XWingPrivateKey::LEN);
+
+        // the expects here are fine because we know we have the correct length
+        Self {
             apke_dhakem_sk: apke_dhakem_sk.try_into().expect("wrong checked length"),
             apke_mlkem_sk: apke_mlkem_sk.try_into().expect("wrong checked length"),
             apke_mlkem_pk: apke_mlkem_pk.try_into().expect("wrong checked length"),
             metadata_sk: metadata_sk.try_into().expect("wrong checked length"),
             metadata_pk: metadata_pk.try_into().expect("wrong checked length"),
-        })
+        }
     }
 }
 
@@ -562,20 +535,12 @@ mod tests {
             restored.enrollment.bundle.as_bytes()
         );
         assert_eq!(
-            req.enrollment.selfsig.as_bytes(),
-            restored.enrollment.selfsig.as_bytes()
+            req.enrollment.bundle.selfsig.as_bytes(),
+            restored.enrollment.bundle.selfsig.as_bytes()
         );
         assert_eq!(
-            req.enrollment.keys.0.into_bytes(),
-            restored.enrollment.keys.0.into_bytes()
-        );
-        assert_eq!(
-            req.enrollment.keys.1.into_bytes(),
-            restored.enrollment.keys.1.into_bytes()
-        );
-        assert_eq!(
-            req.enrollment.keys.2.as_bytes(),
-            restored.enrollment.keys.2.as_bytes()
+            req.enrollment.verification_key.into_bytes(),
+            restored.enrollment.verification_key.into_bytes()
         );
     }
 
@@ -628,7 +593,7 @@ mod tests {
 
         journalist
             .signing_key()
-            .verify(e.bundle.as_bytes(), &e.selfsig)
+            .verify(&e.bundle.bundle_bytes(), &e.bundle.selfsig)
             .expect("Need correct enrollment sig");
     }
 
@@ -645,16 +610,12 @@ mod tests {
 
             // Long-term verifying key and self-signature must match.
             prop_assert_eq!(
-                original.signing_key.pk.into_bytes(),
-                restored.signing_key.pk.into_bytes()
+                original.signing_key.vk.into_bytes(),
+                restored.signing_key.vk.into_bytes()
             );
             prop_assert_eq!(
-                original.signed_longterm_key_bytes.as_bytes(),
-                restored.signed_longterm_key_bytes.as_bytes()
-            );
-            prop_assert_eq!(
-                original.self_signature.as_bytes(),
-                restored.self_signature.as_bytes()
+                original.signed_longterm_key_bundle().as_bytes(),
+                restored.signed_longterm_key_bundle().as_bytes()
             );
             prop_assert!(restored.message_keys.is_empty());
         }
@@ -687,7 +648,7 @@ mod tests {
                 .map(|b| {
                     let bytes = b.as_bytes();
                     prop_assert_eq!(bytes.len(), EphemeralBundleBytes::LEN);
-                    Ok(EphemeralBundleBytes::from_bytes(&bytes).expect("valid length"))
+                    Ok(EphemeralBundleBytes::try_from_bytes(&bytes).expect("valid length"))
                 })
                 .collect::<Result<_, TestCaseError>>()?;
 

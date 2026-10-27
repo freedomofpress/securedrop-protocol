@@ -18,12 +18,12 @@ use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublicView, UserPublic, UserSecret,
     VerifyingKey,
     encrypt_decrypt::{encrypt, solve_fetch_challenges},
-    keys::SignedKeyBundlePublic,
     traits::RestrictedApi,
+    wire::bundle::SignedKeyBundlePublic,
     wire::{
         core::{
-            JournalistLongTermView, MessageChallengeFetchRequest, MessageFetchRequest,
-            WelcomeBundle,
+            JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchRequest,
+            MessageFetchRequest, WelcomeBundle,
         },
         setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest},
     },
@@ -129,17 +129,16 @@ pub trait Api: Client {
         newsroom_verifying_key: &VerifyingKey,
     ) -> Result<(), Error>;
 
-    /// Verifies a journalist's one-time bundle against their already verified
-    /// long-term view and assembles a `JournalistPublicView` for encryption.
+    /// Verifies a list of journalists' one-time bundles against their already verified long-term view and assembles a list of `JournalistPublicView` for encryption. Discards any bundles that do not match a verification key in the roster.
     ///
     /// # Errors
     ///
-    /// Returns an error if the signature on the one-time bundle is invalid.
-    fn verify_ephemeral(
+    /// Returns an error if the signature on the one-time bundle is invalid, or if the same journalist appears multiple times in the list.
+    fn verify_ephemeral_keys(
         &self,
-        long_term: &JournalistLongTermView,
-        ephemeral: &SignedKeyBundlePublic,
-    ) -> Result<JournalistPublicView, Error>;
+        roster: &[JournalistLongTermView],
+        ephemeral: &[JournalistEphemeralKeys],
+    ) -> Result<Vec<JournalistPublicView>, Error>;
 }
 
 impl<T> Api for T
@@ -203,7 +202,7 @@ where
         P: UserPublic,
     {
         // TODO: review padding
-        let padded_message = crate::primitives::pad::pad_message(message);
+        let padded_message = crate::schemes::pad::pad_message(message);
         let plaintext = sender.build_message(padded_message);
         let envelope = encrypt(rng, sender, &plaintext, recipient);
         Ok(envelope)
@@ -238,31 +237,49 @@ where
         journalist
             .vk
             .verify(
-                journalist.signed_longterm_key_bytes.as_bytes(),
-                &journalist.selfsig,
+                &journalist.signed_longterm_key_bundle.bundle_bytes(),
+                &journalist.signed_longterm_key_bundle.selfsig,
             )
             .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on long-term keys"))?;
         Ok(())
     }
 
-    fn verify_ephemeral(
+    fn verify_ephemeral_keys(
         &self,
-        long_term: &JournalistLongTermView,
-        ephemeral: &SignedKeyBundlePublic,
-    ) -> Result<JournalistPublicView, Error> {
-        long_term
-            .vk
-            .verify(&ephemeral.0.as_bytes(), &ephemeral.1)
-            .map_err(|_| anyhow::anyhow!("invalid journalist self-signature on one-time keys"))?;
+        roster: &[JournalistLongTermView],
+        ephemeral: &[JournalistEphemeralKeys],
+    ) -> Result<Vec<JournalistPublicView>, Error> {
+        let mut views = Vec::new();
+        let mut seen: Vec<[u8; 32]> = Vec::new();
 
-        Ok(JournalistPublicView::new(
-            long_term.vk,
-            long_term.fetch_pk.clone(),
-            long_term.reply_apke_pk.clone(),
-            long_term.selfsig,
-            long_term.signed_longterm_key_bytes.clone(),
-            ephemeral.clone(),
-        ))
+        for eph in ephemeral {
+            let vk = eph.vk.into_bytes();
+            let Some(long_term) = roster.iter().find(|j| j.vk.into_bytes() == vk) else {
+                continue; // Discard if no match in roster
+            };
+            if seen.contains(&vk) {
+                return Err(anyhow::anyhow!(
+                    "detected multiple ephemeral key bundles for the same journalist signing key"
+                ));
+            }
+            seen.push(vk);
+
+            let signed_bundle = &eph.ephemeral;
+            long_term
+                .vk
+                .verify(&signed_bundle.0.as_bytes(), &signed_bundle.1)
+                .map_err(|_| {
+                    anyhow::anyhow!("invalid journalist self-signature on one-time keys")
+                })?;
+
+            views.push(JournalistPublicView::new(
+                long_term.vk,
+                long_term.signed_longterm_key_bundle.clone(),
+                signed_bundle.clone(),
+            ));
+        }
+
+        Ok(views)
     }
 }
 

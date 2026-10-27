@@ -4,19 +4,18 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use directories::ProjectDirs;
+use securedrop_protocol_minimal::DHPublicKey;
 use securedrop_protocol_minimal::message::MessagePublicKey;
 use securedrop_protocol_minimal::metadata::MetadataPublicKey;
-use securedrop_protocol_minimal::primitives::ristretto255::DHPublicKey;
 use securedrop_protocol_minimal::{
     EphemeralBundleBytes, Journalist, JournalistLongTermBytes, VerifyingKey,
 };
 use serde::{Deserialize, Serialize};
 
-/// A received message retained locally after `fetch` deletes it from the server.
+/// A received message retained locally by `fetch`.
 ///
 /// Stores the decrypted text and the source's recovered reply keys
-/// (so reply can encrypt back to them without DLing from the server,
-/// because the server no longer has the message).
+/// so reply can encrypt back to them without re-downloading from the server.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct InboxEntry {
     pub(crate) message_id: String,
@@ -39,9 +38,13 @@ pub(crate) fn load_newsroom_vk() -> Result<VerifyingKey> {
     let path = newsroom_vk_path()?;
     let bytes = fs::read(&path)
         .with_context(|| format!("reading {} (run `enroll` first)", path.display()))?;
-    let vk_bytes: [u8; 32] = bytes
-        .try_into()
-        .map_err(|v: Vec<u8>| anyhow::anyhow!("newsroom vk is {} bytes, expected 32", v.len()))?;
+    let vk_bytes: [u8; VerifyingKey::LEN] = bytes.try_into().map_err(|v: Vec<u8>| {
+        anyhow::anyhow!(
+            "newsroom vk is {} bytes, expected {}",
+            v.len(),
+            VerifyingKey::LEN
+        )
+    })?;
     Ok(VerifyingKey::from_bytes(vk_bytes))
 }
 
@@ -60,10 +63,12 @@ pub(crate) fn load_ephemeral_secrets() -> Result<Vec<EphemeralBundleBytes>> {
             EphemeralBundleBytes::LEN
         );
     }
-    bytes
-        .chunks_exact(EphemeralBundleBytes::LEN)
+    Ok(bytes
+        .as_chunks::<{ EphemeralBundleBytes::LEN }>()
+        .0
+        .iter()
         .map(EphemeralBundleBytes::from_bytes)
-        .collect()
+        .collect())
 }
 
 /// Save ephemeral secrets to disk for later use

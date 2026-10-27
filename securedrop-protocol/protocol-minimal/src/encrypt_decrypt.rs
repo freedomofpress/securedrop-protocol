@@ -1,3 +1,4 @@
+use crate::challenge::{decrypt_message_id, derive_challenge_key, encrypt_message_id};
 use crate::message::MessagePublicKey;
 use crate::metadata;
 use crate::primitives::provider::constants::{LEN_KMID, LEN_MESSAGE_ID};
@@ -5,8 +6,7 @@ use crate::primitives::ristretto255::{
     DHPublicKey, dh_shared_secret, generate_dh_keypair, generate_random_scalar,
     random_dh_public_key,
 };
-use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
-use crate::primitives::{decrypt_message_id, encrypt_message_id};
+use crate::primitives::xwing::XWingPublicKey;
 use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, UserSecret};
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
@@ -137,7 +137,8 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 
             // 3-party DH yields shared_secret used to encrypt message_id
             let shared_secret = dh_shared_secret(&envelope.mgdh, &eph_sk);
-            let enc_mid = encrypt_message_id(&shared_secret.into_bytes(), message_id, rng).unwrap();
+            let key = derive_challenge_key(&shared_secret, NR_ID).unwrap();
+            let enc_mid = encrypt_message_id(&key, message_id).unwrap();
 
             // `copy_from_slice` rather than `try_into()`: Core_models has no
             // `TryInto<Vec<u8>, [u8; N]>` instance, and this is the codebase's
@@ -181,10 +182,11 @@ pub fn solve_fetch_challenges<S: UserSecret>(
     for chall in challenges.iter() {
         // Compute 3-party DH on the pmgdh
         let maybe_kmid_secret = dh_shared_secret(&chall.pmgdh, recipient.fetch_keypair().0);
+        let challenge_key = derive_challenge_key(&maybe_kmid_secret, NR_ID).unwrap();
 
         // Try decrypting the encrypted message id
         // Convert to UUID (v4) format and add to message ID list on success
-        match decrypt_message_id(&maybe_kmid_secret.into_bytes(), &chall.enc_id) {
+        match decrypt_message_id(&challenge_key, &chall.enc_id) {
             Ok(message_id_bytes) => {
                 let uuid = crate::primitives::provider::uuid_parse::from_slice(&message_id_bytes);
 
@@ -204,7 +206,7 @@ pub fn solve_fetch_challenges<S: UserSecret>(
 /// but for toy purposes, everyone builds a Plaintext message the same way
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
-    let mut reply_key_pq_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
+    let mut reply_key_pq_hybrid = [0u8; XWingPublicKey::LEN];
     reply_key_pq_hybrid.copy_from_slice(sender.message_metadata_pk().as_bytes());
 
     Plaintext {
@@ -220,7 +222,6 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::primitives::ristretto255::DH_PUBLIC_KEY_LEN;
     use crate::{Journalist, Source, SourcePublicView, storage::ServerStorage};
 
     use super::*;
@@ -260,7 +261,7 @@ mod tests {
         );
         assert_eq!(
             pt.len(),
-            &pt_ref.msg.len() + DH_PUBLIC_KEY_LEN + XWING_PUBLIC_KEY_LEN
+            &pt_ref.msg.len() + DHPublicKey::LEN + XWingPublicKey::LEN
         );
     }
 

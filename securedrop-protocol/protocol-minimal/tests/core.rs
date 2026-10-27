@@ -1,13 +1,15 @@
 //! Tests for the core steps of the protocol.
 //! These correspond to steps 5-10 of the spec.
+use std::char::MAX;
+
 use getrandom;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 use securedrop_protocol_minimal::api::{Api, Client, JournalistApi};
+use securedrop_protocol_minimal::challenge::MAX_MESSAGES;
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 
-use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::server::Server;
 use securedrop_protocol_minimal::{Journalist, JournalistPublic, Source, UserPublic, UserSecret};
 
@@ -21,6 +23,7 @@ const TEST_MNEMONIC: &str =
 // Toy implementation purposes
 fn get_rng() -> ChaCha20Rng {
     let mut seed = [0u8; 32];
+    #[allow(clippy::disallowed_methods)]
     getrandom::fill(&mut seed).expect("OS random source failed");
     ChaCha20Rng::from_seed(seed)
 }
@@ -89,14 +92,11 @@ fn protocol_step_5_source_fetch_keys() {
     // assembles the journalist's public view.
     let ephemeral = server_session.handle_journalist_ephemeral_keys(&mut rng);
     assert_eq!(ephemeral.len(), 1);
-    let long_term = welcome
-        .journalists
-        .iter()
-        .find(|j| j.vk.into_bytes() == ephemeral[0].vk.into_bytes())
-        .expect("matching long-term view");
-    let journalist_view = source_session
-        .verify_ephemeral(long_term, &ephemeral[0].ephemeral)
+    let journalist_views = source_session
+        .verify_ephemeral_keys(&welcome.journalists, &ephemeral)
         .expect("Journalist ephemeral keys should be valid");
+    assert_eq!(journalist_views.len(), 1);
+    let journalist_view = &journalist_views[0];
 
     // Verify the journalist's signing key matches our expectation
     // (todo improve this)
@@ -154,7 +154,111 @@ fn protocol_step_5_source_fetch_keys() {
         NewsroomKeyPair::new(&mut rng).expect("Newsroom key generation failed");
     assert!(
         source_session
-            .verify_long_term(long_term, &wrong_newsroom_keypair.verifying_key())
+            .verify_long_term(
+                &welcome.journalists[0],
+                &wrong_newsroom_keypair.verifying_key()
+            )
+            .is_err()
+    );
+}
+
+/// Sets up a newsroom with `num_journalists` enrolled journalists, each of
+/// whom has uploaded their ephemeral key bundles.
+fn setup_newsroom_with_journalists(
+    rng: &mut ChaCha20Rng,
+    num_journalists: usize,
+) -> (Server, FPFKeyPair, Vec<Journalist>) {
+    let mut server_session = Server::new();
+
+    let newsroom_setup_request = server_session
+        .create_newsroom_setup_request(rng)
+        .expect("Can create newsroom setup request");
+    let fpf_keypair = FPFKeyPair::new(rng).expect("FPF key generation failed");
+    let newsroom_setup_response = newsroom_setup_request
+        .sign(&fpf_keypair)
+        .expect("Can sign newsroom setup request");
+    server_session.set_fpf_signature(newsroom_setup_response.sig);
+
+    let mut journalists = Vec::with_capacity(num_journalists);
+    for _ in 0..num_journalists {
+        let journalist = Journalist::new(rng, DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST);
+        server_session
+            .setup_journalist(
+                journalist
+                    .create_setup_request()
+                    .expect("Can create journalist setup request"),
+            )
+            .expect("Can setup journalist");
+        server_session
+            .handle_ephemeral_key_request(journalist.create_ephemeral_key_request())
+            .expect("Can handle ephemeral key request");
+        journalists.push(journalist);
+    }
+
+    (server_session, fpf_keypair, journalists)
+}
+
+/// Step 5 with multiple journalists: the source gets one public view per
+/// enrolled journalist.
+#[test]
+fn protocol_step_5_source_fetch_keys_multiple_journalists() {
+    let mut rng = get_rng();
+    let (mut server_session, fpf_keypair, journalists) =
+        setup_newsroom_with_journalists(&mut rng, 3);
+
+    let mut source_session = Source::from_passphrase(TEST_MNEMONIC).expect("valid test mnemonic");
+    let welcome = server_session.handle_welcome();
+    source_session
+        .handle_welcome(&welcome, &fpf_keypair.verifying_key())
+        .expect("Welcome bundle should be valid");
+    assert_eq!(welcome.journalists.len(), 3);
+
+    let ephemeral = server_session.handle_journalist_ephemeral_keys(&mut rng);
+    assert_eq!(ephemeral.len(), 3);
+    let views = source_session
+        .verify_ephemeral_keys(&welcome.journalists, &ephemeral)
+        .expect("Journalist ephemeral keys should be valid");
+    assert_eq!(views.len(), 3);
+
+    // Every enrolled journalist appears exactly once
+    for journalist in &journalists {
+        let jvk = journalist.public(0).verifying_key().into_bytes();
+        assert_eq!(
+            views
+                .iter()
+                .filter(|v| v.verifying_key().into_bytes() == jvk)
+                .count(),
+            1
+        );
+    }
+}
+
+/// Regression test for #166: serve two valid bundles for the same journalist, so that the source would send them the same message twice. Source MUST reject.
+#[test]
+fn protocol_step_5_source_rejects_duplicate_journalist_bundles() {
+    let mut rng = get_rng();
+    let (mut server_session, fpf_keypair, _journalists) =
+        setup_newsroom_with_journalists(&mut rng, 1);
+
+    let mut source_session = Source::from_passphrase(TEST_MNEMONIC).expect("valid test mnemonic");
+    let welcome = server_session.handle_welcome();
+    source_session
+        .handle_welcome(&welcome, &fpf_keypair.verifying_key())
+        .expect("Welcome bundle should be valid");
+
+    // Get two different bundles for the same journalist
+    let mut ephemeral = server_session.handle_journalist_ephemeral_keys(&mut rng);
+    ephemeral.extend(server_session.handle_journalist_ephemeral_keys(&mut rng));
+    assert_eq!(ephemeral.len(), 2);
+    assert_eq!(ephemeral[0].vk.into_bytes(), ephemeral[1].vk.into_bytes());
+    assert_ne!(
+        ephemeral[0].ephemeral.0.as_bytes(),
+        ephemeral[1].ephemeral.0.as_bytes()
+    );
+
+    assert!(
+        source_session
+            .verify_ephemeral_keys(&welcome.journalists, &ephemeral)
             .is_err()
     );
 }
@@ -217,19 +321,15 @@ fn protocol_step_6_source_submits_message() {
         .expect("Welcome bundle should be valid");
 
     let ephemeral = server_session.handle_journalist_ephemeral_keys(&mut rng);
-    let long_term = welcome
-        .journalists
-        .iter()
-        .find(|j| j.vk.into_bytes() == ephemeral[0].vk.into_bytes())
-        .expect("matching long-term view");
-    let journalist_public = source
-        .verify_ephemeral(long_term, &ephemeral[0].ephemeral)
+    let journalist_publics = source
+        .verify_ephemeral_keys(&welcome.journalists, &ephemeral)
         .expect("Journalist ephemeral keys should be valid");
+    assert_eq!(journalist_publics.len(), 1);
 
     // Step 6: Source submits a message
     let message_content = b"Hello, this is a test message!";
     let message = source
-        .submit_message(&mut rng, message_content, &source, &journalist_public)
+        .submit_message(&mut rng, message_content, &source, &journalist_publics[0])
         .expect("Can submit message");
 
     // Submit the message to the server
@@ -298,19 +398,15 @@ fn protocol_step_7_message_id_fetch() {
         .expect("Welcome bundle should be valid");
 
     let ephemeral = server_session.handle_journalist_ephemeral_keys(&mut rng);
-    let long_term = welcome
-        .journalists
-        .iter()
-        .find(|j| j.vk.into_bytes() == ephemeral[0].vk.into_bytes())
-        .expect("matching long-term view");
-    let journalist_public = source
-        .verify_ephemeral(long_term, &ephemeral[0].ephemeral)
+    let journalist_publics = source
+        .verify_ephemeral_keys(&welcome.journalists, &ephemeral)
         .expect("Journalist ephemeral keys should be valid");
+    assert_eq!(journalist_publics.len(), 1);
 
     // Submit a message (Step 6)
     let message_content = b"Hello, this is a test message!";
     let message = source
-        .submit_message(&mut rng, message_content, &source, &journalist_public)
+        .submit_message(&mut rng, message_content, &source, &journalist_publics[0])
         .expect("Can submit message");
 
     let message_id = server_session
@@ -324,11 +420,8 @@ fn protocol_step_7_message_id_fetch() {
         .expect("should be able to fetch message IDs");
 
     // Verify response structure
-    assert_eq!(journalist_fetch_response.count, MESSAGE_ID_FETCH_SIZE);
-    assert_eq!(
-        journalist_fetch_response.messages.len(),
-        MESSAGE_ID_FETCH_SIZE
-    );
+    assert_eq!(journalist_fetch_response.count, MAX_MESSAGES);
+    assert_eq!(journalist_fetch_response.messages.len(), MAX_MESSAGES);
 
     // Process the response to extract message IDs
     let journalist_message_ids = journalist
@@ -346,6 +439,6 @@ fn protocol_step_7_message_id_fetch() {
     let empty_fetch_response = server_session
         .handle_request_challenges(empty_fetch_request, &mut rng)
         .expect("we should be able to handle message ID fetch");
-    assert_eq!(empty_fetch_response.count, MESSAGE_ID_FETCH_SIZE);
-    assert_eq!(empty_fetch_response.messages.len(), MESSAGE_ID_FETCH_SIZE);
+    assert_eq!(empty_fetch_response.count, MAX_MESSAGES);
+    assert_eq!(empty_fetch_response.messages.len(), MAX_MESSAGES);
 }

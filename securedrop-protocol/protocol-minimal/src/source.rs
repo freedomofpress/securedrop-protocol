@@ -11,9 +11,10 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::ciphertext::Plaintext;
 use crate::keys::*;
+use crate::primitives::dh_akem::DhAkemPrivateKey;
+use crate::primitives::mlkem::MLKEM768PrivateKey;
 use crate::primitives::provider::hkdf;
-use crate::primitives::ristretto255::DH_SEED_LEN;
-use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
+use crate::primitives::xwing::{XWingPrivateKey, XWingPublicKey};
 use crate::traits::{UserPublic, UserSecret};
 
 // do not re-export!
@@ -53,7 +54,6 @@ impl core::fmt::Debug for Source {
 #[derive(Debug, Clone)]
 pub struct SourcePublicView {
     fetch_pk: DHPublicKey,
-    apke_pk: MessagePublicKey,
     message_pks: KeyBundlePublic,
 }
 
@@ -63,7 +63,7 @@ impl UserPublic for SourcePublicView {
     }
 
     fn message_auth_pk(&self) -> &MessagePublicKey {
-        &self.apke_pk
+        &self.message_pks.apke_pk
     }
 
     fn message_metadata_pk(&self) -> &MetadataPublicKey {
@@ -100,7 +100,7 @@ impl UserSecret for Source {
     }
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
-        let mut reply_key_pq_hybrid = [0u8; XWING_PUBLIC_KEY_LEN];
+        let mut reply_key_pq_hybrid = [0u8; XWingPublicKey::LEN];
         reply_key_pq_hybrid.copy_from_slice(self.message_keys.metadata_kp.public_key().as_bytes());
 
         Plaintext {
@@ -168,22 +168,22 @@ impl Source {
     #[cfg_attr(hax, hax_lib::opaque)]
     fn from_master_key(mk: &[u8; 16], passphrase: String) -> Self {
         // we need a 64 byte string for the ristretto255 scalar (see RFC 9496 section 4.4).
-        let mut fetch_seed = [0u8; DH_SEED_LEN];
+        let mut fetch_seed = [0u8; DHPrivateKey::SEED_LEN];
         hkdf::sha256(&mut fetch_seed, SOURCE_KDF_SALT, mk, b"sourcefetchkey")
             .expect("HKDF fetch key derivation failed");
 
         // sk_S^APKE is a hybrid key requiring two sub-derivations:
         // the DH-AKEM and ML-KEM components are each derived with their own
         // label under the "sourceAPKEkey" namespace.
-        let mut dh_seed = [0u8; 32];
+        let mut dh_seed = [0u8; DhAkemPrivateKey::SEED_LEN];
         hkdf::sha256(&mut dh_seed, SOURCE_KDF_SALT, mk, b"sourceAPKEkey-dh")
             .expect("HKDF APKE DH key derivation failed");
 
-        let mut mlkem_seed = [0u8; 64];
+        let mut mlkem_seed = [0u8; MLKEM768PrivateKey::SEED_LEN];
         hkdf::sha256(&mut mlkem_seed, SOURCE_KDF_SALT, mk, b"sourceAPKEkey-mlkem")
             .expect("HKDF APKE ML-KEM key derivation failed");
 
-        let mut pke_seed = [0u8; 32];
+        let mut pke_seed = [0u8; XWingPrivateKey::SEED_LEN];
         hkdf::sha256(&mut pke_seed, SOURCE_KDF_SALT, mk, b"sourcePKEkey")
             .expect("HKDF PKE key derivation failed");
 
@@ -216,7 +216,6 @@ impl Source {
     pub fn public(&self) -> SourcePublicView {
         SourcePublicView {
             fetch_pk: self.fetch_key.pk,
-            apke_pk: self.message_keys.apke.public_key().clone(),
             message_pks: self.message_keys.public(),
         }
     }
@@ -232,7 +231,6 @@ impl SourcePublicView {
     ) -> Self {
         SourcePublicView {
             fetch_pk,
-            apke_pk: apke.clone(),
             message_pks: KeyBundlePublic {
                 apke_pk: apke,
                 metadata_pk,
@@ -244,7 +242,6 @@ impl SourcePublicView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::primitives::xwing::XWING_PRIVATE_KEY_LEN;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{Rng, SeedableRng};
@@ -282,7 +279,7 @@ mod tests {
         );
         assert_ne!(
             source1.message_keys.metadata_kp.private_key().as_bytes(),
-            &[0u8; XWING_PRIVATE_KEY_LEN]
+            &[0u8; XWingPrivateKey::LEN]
         );
     }
 

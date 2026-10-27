@@ -3,8 +3,8 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use rand::{Rng, RngExt};
 use securedrop_protocol_minimal::Envelope;
+use securedrop_protocol_minimal::challenge::MAX_MESSAGES;
 use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
-use securedrop_protocol_minimal::primitives::MESSAGE_ID_FETCH_SIZE;
 use securedrop_protocol_minimal::wire::core::{
     JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchResponse, WelcomeBundle,
 };
@@ -22,18 +22,26 @@ pub(crate) struct MessageSubmitResponse {
     message_id: String,
 }
 
+/// Journalist enrollment.
+///
+/// DEMO ONLY! This endpoint is unauthenticated.
+///
+/// In production, enrollment is an offline, admin-authorized operation.
 pub(crate) async fn post_enroll(
     State(state): State<AppState>,
     Json(req): Json<JournalistSetupRequest>,
 ) -> Result<Json<JournalistSetupResponse>, (StatusCode, String)> {
-    let vk_j = req.enrollment.keys.0;
-    vk_j.verify(req.enrollment.bundle.as_bytes(), &req.enrollment.selfsig)
-        .map_err(|_| {
-            (
-                StatusCode::BAD_REQUEST,
-                "journalist self-signature does not verify".to_string(),
-            )
-        })?;
+    let vk_j = req.enrollment.verification_key;
+    vk_j.verify(
+        &req.enrollment.bundle.bundle_bytes(),
+        &req.enrollment.bundle.selfsig,
+    )
+    .map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            "journalist self-signature does not verify".to_string(),
+        )
+    })?;
 
     let sig = state.newsroom_kp.sign(&vk_j.into_bytes());
 
@@ -114,11 +122,8 @@ pub(crate) async fn get_welcome(
         .map(|enrolled| {
             let e = &enrolled.enrollment;
             JournalistLongTermView {
-                vk: e.keys.0,
-                fetch_pk: e.keys.1.clone(),
-                reply_apke_pk: e.keys.2.clone(),
-                signed_longterm_key_bytes: e.bundle.clone(),
-                selfsig: e.selfsig,
+                vk: e.verification_key,
+                signed_longterm_key_bundle: e.bundle.clone(),
                 nr_signature: enrolled.nr_sig,
             }
         })
@@ -153,7 +158,7 @@ pub(crate) async fn get_journalist_ephemeral_keys(
         let bundle = bundles.swap_remove(idx);
 
         responses.push(JournalistEphemeralKeys {
-            vk: enrolled.enrollment.keys.0,
+            vk: enrolled.enrollment.verification_key,
             ephemeral: bundle,
         });
     }
@@ -188,10 +193,10 @@ pub(crate) async fn get_challenges(
     let store = state.messages.lock().expect("messages mutex poisoned");
     let entries: Vec<_> = store
         .iter()
-        .take(MESSAGE_ID_FETCH_SIZE)
+        .take(MAX_MESSAGES)
         .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
         .collect();
-    let messages = compute_fetch_challenges(&mut rng, &entries, MESSAGE_ID_FETCH_SIZE);
+    let messages = compute_fetch_challenges(&mut rng, &entries, MAX_MESSAGES);
 
     Json(MessageChallengeFetchResponse {
         count: messages.len(),
@@ -216,26 +221,4 @@ pub(crate) async fn get_message(
         .cloned()
         .map(Json)
         .ok_or((StatusCode::NOT_FOUND, "no such message".to_string()))
-}
-
-/// A recipient deletes a message once it has been received.
-pub(crate) async fn delete_message(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let message_id = Uuid::parse_str(id.trim())
-        .map_err(|_| (StatusCode::BAD_REQUEST, "invalid message ID".to_string()))?;
-
-    let removed = state
-        .messages
-        .lock()
-        .expect("messages mutex poisoned")
-        .remove(&message_id)
-        .is_some();
-
-    if removed {
-        Ok(StatusCode::NO_CONTENT)
-    } else {
-        Err((StatusCode::NOT_FOUND, "no such message".to_string()))
-    }
 }

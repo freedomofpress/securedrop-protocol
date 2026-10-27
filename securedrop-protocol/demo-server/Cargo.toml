@@ -22,3 +22,6 @@ rand.workspace = true
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "signal"] }
 uuid = { workspace = true, default-features = true, features = ["v4"] }
+
+[lints]
+workspace = true

@@ -3,7 +3,9 @@
 # https://github.com/freedomofpress/securedrop-protocol/wiki/Verification#how-are-f-interfaces-extracted-from-our-dependencies
 
 HAX_LIB_VERSION=$(shell $(MAKE) --no-print-directory -C ../../.. -s hax-lib-version)
-LIBCRUX_REF=libcrux-traits-v$(shell $(MAKE) --no-print-directory -C ../../.. -s libcrux-version)
+LIBCRUX_VERSION=$(shell $(MAKE) --no-print-directory -C ../../.. -s libcrux-version)
+# A release tag maps to libcrux-traits-v${TAG}, and a git rev is as is
+LIBCRUX_REF=$(if $(findstring .,$(LIBCRUX_VERSION)),libcrux-traits-v$(LIBCRUX_VERSION),$(LIBCRUX_VERSION))
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 HAX_IMAGE = hax:$(HAX_LIB_VERSION)
@@ -160,13 +162,13 @@ libcrux-force-hax-lib-version:
 	  { echo "Error: could not determine the hax-lib version; is Cargo working?"; exit 1; }
 	@echo "Forcing libcrux crates to use hax-lib@$(HAX_LIB_VERSION)"
 	@find libcrux -name Cargo.toml -exec \
-		perl -i -pe 's/^(hax-lib\s*=.*?"=?)\d[^"]*"/$${1}$(HAX_LIB_VERSION)"/' {} +
+		perl -i -pe 's/^(hax-lib\s*=.*?")=?\d[^"]*"/$${1}=$(HAX_LIB_VERSION)"/' {} +
 
 libcrux-module:
 	@echo "extract $(MODULE) ..."
 
 	@cd $(MODULE) && \
-		cargo add --target 'cfg(hax)' hax-lib@$(HAX_LIB_VERSION)
+		cargo add --target 'cfg(hax)' hax-lib@=$(HAX_LIB_VERSION)
 
 	@set -e; \
 	EXTRACT_STATUS=0; \

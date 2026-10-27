@@ -7,10 +7,11 @@ use crate::primitives::ristretto255::DHPublicKey;
 use crate::sign::{JournalistEphemeralKey, JournalistLongTermKey, Signature};
 use alloc::vec::Vec;
 
+use crate::wire::bundle::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
+use crate::wire::enrollment::Enrollment;
+
 use crate::ciphertext::Plaintext;
-use crate::keys::{
-    Enrollment, KeyBundlePublic, MessageKeyBundle, SignedKeyBundlePublic, SignedLongtermPubKeyBytes,
-};
+use crate::keys::{KeyBundlePublic, MessageKeyBundle};
 
 // Sealed traits that downstream crates should not implement.
 // Do not re-export!
@@ -39,7 +40,7 @@ pub trait UserPublic {
 pub trait JournalistPublic: UserPublic {
     fn verifying_key(&self) -> &VerifyingKey;
     fn self_signature(&self) -> &Signature<JournalistLongTermKey>;
-    fn signed_keybytes(&self) -> &SignedLongtermPubKeyBytes;
+    fn signed_keybytes(&self) -> &SignedLongtermKeyBundle;
     fn ephemeral_bundle(&self) -> &KeyBundlePublic;
     fn ephemeral_signature(&self) -> &Signature<JournalistEphemeralKey>;
 }

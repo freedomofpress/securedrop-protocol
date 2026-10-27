@@ -62,6 +62,8 @@ let impl_5 = impl_5'
 let impl_6: Core_models.Clone.t_Clone t_DHPrivateKey =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
+let impl_DHPublicKey__LEN: usize = v_DH_PUBLIC_KEY_LEN
+
 /// Decode a group element from its 32 byte encoding, validating that it is a
 /// real ristretto255 element.
 /// This must be used for any untrusted bytes (wire or storage) such that an
@@ -96,6 +98,10 @@ let impl_DHPublicKey__decode (bytes: t_Array u8 (mk_usize 32))
 /// The canonical 32-byte encoding of this element.
 let impl_DHPublicKey__into_bytes (self: t_DHPublicKey) : t_Array u8 (mk_usize 32) =
   Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.encode self._0
+
+let impl_DHPrivateKey__LEN: usize = v_DH_PRIVATE_KEY_LEN
+
+let impl_DHPrivateKey__SEED_LEN: usize = v_DH_SEED_LEN
 
 /// Decode a scalar from bytes, validating it is a canonical element of
 /// $\mathbb{Z}_\ell$.

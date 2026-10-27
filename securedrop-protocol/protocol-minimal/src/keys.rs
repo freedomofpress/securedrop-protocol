@@ -1,22 +1,14 @@
 mod newsroom;
 
-use rand_core::{CryptoRng, RngCore};
+use crate::primitives::ristretto255::{DHPrivateKey, DHPublicKey};
+use crate::sign::{FpfOnNewsroom, Signature, VerifyingKey};
 
-use crate::sign::{
-    DomainTag, FpfOnNewsroom, JournalistEphemeralKey, JournalistLongTermKey, Signature, SigningKey,
-    VerifyingKey,
-};
+pub mod bundle;
+pub mod fpf;
 
-use crate::message::{MessageKeyPair, MessagePublicKey};
-use crate::metadata::{MetadataKeyPair, MetadataPublicKey};
-use crate::primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
-use crate::primitives::mlkem::MLKEM768_PUBLIC_KEY_LEN;
-use crate::primitives::ristretto255::{DH_PUBLIC_KEY_LEN, DHPrivateKey, DHPublicKey};
-use crate::primitives::xwing::XWING_PUBLIC_KEY_LEN;
-use alloc::string::String;
-use alloc::vec::Vec;
-use serde::de::Error as _;
-use serde::{Deserialize, Serialize};
+pub use bundle::KeyBundlePublic;
+pub(crate) use bundle::{LongtermKeyBundle, MessageKeyBundle, SignedMessageKeyBundle};
+pub use fpf::FPFKeyPair;
 
 /// Generic KeyPair
 pub struct KeyPair<SK, PK> {
@@ -27,186 +19,12 @@ pub struct KeyPair<SK, PK> {
 // silly name but include "fetch" for disambiguation with dh-akem.
 // eventually: ristretto255
 pub type DhFetchKeyPair = KeyPair<DHPrivateKey, DHPublicKey>;
-pub type SigningKeyPair = KeyPair<SigningKey, VerifyingKey>;
-
-/// The public half of an ephemeral key bundle together with the journalist's
-/// self-signature over it.
-pub type SignedKeyBundlePublic = (KeyBundlePublic, Signature<JournalistEphemeralKey>);
-
-/// The public keys that make up one ephemeral key bundle
-#[derive(Debug, Clone)]
-#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
-pub struct KeyBundlePublic {
-    /// SD-APKE ephemeral key `pk_{J,i}^{APKE_E} = (pk1, pk2)`.
-    pub apke_pk: MessagePublicKey,
-    /// SD-PKE ephemeral key, used for metadata protection.
-    pub metadata_pk: MetadataPublicKey,
-}
-
-impl KeyBundlePublic {
-    /// Serialize the bundle public keys in canonical byte order for signing.
-    ///
-    /// Layout: `pk_{J,i}^{APKE_E}(DHKEM) || pk_{J,i}^{APKE_E}(ML-KEM) || pk_{J,i}^{PKE_E}(X-Wing)`
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::new();
-        out.extend_from_slice(&self.apke_pk.as_bytes());
-        out.extend_from_slice(&self.metadata_pk.as_bytes());
-        out
-    }
-}
-
-pub(crate) struct MessageKeyBundle {
-    pub(crate) apke: MessageKeyPair,
-    pub(crate) metadata_kp: MetadataKeyPair,
-}
-
-impl MessageKeyBundle {
-    pub fn new(apke: MessageKeyPair, metadata_kp: MetadataKeyPair) -> Self {
-        Self { apke, metadata_kp }
-    }
-
-    pub(crate) fn public(&self) -> KeyBundlePublic {
-        KeyBundlePublic {
-            apke_pk: self.apke.public_key().clone(),
-            metadata_pk: self.metadata_kp.public_key().clone(),
-        }
-    }
-}
-
-pub(crate) struct SignedMessageKeyBundle {
-    pub(crate) bundle: MessageKeyBundle,
-    pub(crate) selfsig: Signature<JournalistEphemeralKey>,
-}
-
-#[derive(Debug, Clone)]
-pub struct SignedLongtermPubKeyBytes(
-    pub [u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN],
-);
-
-impl SignedLongtermPubKeyBytes {
-    /// Serialize long-term public keys into the canonical byte encoding.
-    ///
-    /// Byte layout (per spec §3.1): `pk_J^APKE || pk_J^fetch`
-    /// where `pk_J^APKE = pk_J^AKEM (DH-AKEM) || pk_J^PQ (ML-KEM)`
-    pub(crate) fn from_keys(reply_apke: &MessagePublicKey, fetch_pk: &DHPublicKey) -> Self {
-        let apke_bytes = reply_apke.as_bytes();
-        let fetch_bytes = fetch_pk.into_bytes();
-
-        let mut pubkey_bytes =
-            [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN];
-        pubkey_bytes[..apke_bytes.len()].copy_from_slice(&apke_bytes);
-        pubkey_bytes[apke_bytes.len()..].copy_from_slice(&fetch_bytes);
-
-        Self(pubkey_bytes)
-    }
-
-    /// Return the canonical byte encoding of the long-term public keys.
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-#[cfg_attr(hax, hax_lib::exclude)]
-impl Serialize for SignedLongtermPubKeyBytes {
-    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-        ser.serialize_str(&hex::encode(self.0))
-    }
-}
-
-#[cfg_attr(hax, hax_lib::exclude)]
-impl<'de> Deserialize<'de> for SignedLongtermPubKeyBytes {
-    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(de)?;
-        let mut bytes = [0u8; DH_AKEM_PUBLIC_KEY_LEN + MLKEM768_PUBLIC_KEY_LEN + DH_PUBLIC_KEY_LEN];
-        hex::decode_to_slice(s.trim(), &mut bytes).map_err(D::Error::custom)?;
-        Ok(Self(bytes))
-    }
-}
-
-#[derive(Clone, Debug)]
-#[cfg_attr(not(hax), derive(Serialize, Deserialize))]
-pub struct Enrollment {
-    pub bundle: SignedLongtermPubKeyBytes,
-    pub selfsig: Signature<JournalistLongTermKey>,
-    pub keys: (VerifyingKey, DHPublicKey, MessagePublicKey),
-}
 
 // in memory session storage
 pub struct SessionStorage {
     pub fpf_key: Option<VerifyingKey>,
     pub nr_key: Option<VerifyingKey>,
     pub fpf_signature: Option<Signature<FpfOnNewsroom>>,
-}
-
-/// A key pair for FPF (Freedom of the Press Foundation).
-pub struct FPFKeyPair {
-    sk: SigningKey,
-    vk: VerifyingKey,
-}
-
-// hax struggles with the debug format function signature, but it is
-// debug only, so we can exclude it from extraction
-#[cfg_attr(hax, hax_lib::exclude)]
-impl core::fmt::Debug for FPFKeyPair {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("FPFKeyPair")
-            .field("vk", &self.vk)
-            .finish_non_exhaustive()
-    }
-}
-
-impl FPFKeyPair {
-    /// Generate a new FPF key pair.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the key generation fails.
-    pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, anyhow::Error> {
-        let sk = SigningKey::new(rng)?;
-        let vk = sk.vk;
-        Ok(Self { sk, vk })
-    }
-
-    /// Returns the verification key.
-    pub fn verifying_key(&self) -> VerifyingKey {
-        self.vk
-    }
-
-    /// Sign `msg` in domain `D` using the FPF signing key.
-    pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
-        self.sk.sign(msg)
-    }
-
-    /// The FPF signing key used as a secret.
-    pub fn as_bytes(&self) -> [u8; 32] {
-        self.sk.as_bytes()
-    }
-
-    /// Reconstruct an [`FPFKeyPair`] from its secret.
-    pub fn from_bytes(seed: [u8; 32]) -> Self {
-        let sk = SigningKey::from_seed(seed);
-        let vk = sk.vk;
-        Self { sk, vk }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    proptest! {
-        #[test]
-        fn fpf_keypair_seed_roundtrip(seed: [u8; 32]) {
-            let kp = FPFKeyPair::from_bytes(seed);
-            prop_assert_eq!(kp.as_bytes(), seed);
-            let kp2 = FPFKeyPair::from_bytes(kp.as_bytes());
-            prop_assert_eq!(
-                kp.verifying_key().into_bytes(),
-                kp2.verifying_key().into_bytes()
-            );
-        }
-    }
 }
 
 pub use newsroom::NewsroomKeyPair;

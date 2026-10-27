@@ -1,4 +1,4 @@
-module Securedrop_protocol_minimal.Message
+module Securedrop_protocol_minimal.Schemes.Message
 #set-options "--fuel 0 --ifuel 1 --z3rlimit 15"
 open FStar.Mul
 open Core_models
@@ -71,6 +71,10 @@ let impl_MessageKeyPair__public_key (self: t_MessageKeyPair) : t_MessagePublicKe
 /// Returns the private key.
 let impl_MessageKeyPair__private_key (self: t_MessageKeyPair) : t_MessagePrivateKey = self.f_sk
 
+let impl_MessagePublicKey__LEN: usize =
+  Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPublicKey__LEN +!
+  Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
+
 /// Serialize the key tuple in canonical byte order: `pk1 || pk2`.
 let impl_MessagePublicKey__as_bytes (self: t_MessagePublicKey)
     : Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
@@ -98,19 +102,10 @@ let impl_MessagePublicKey__as_bytes (self: t_MessagePublicKey)
 /// Returns an error if the byte slice has incorrect length.
 let impl_MessagePublicKey__from_bytes (bytes: t_Slice u8)
     : Core_models.Result.t_Result t_MessagePublicKey Anyhow.t_Error =
-  if
-    (Core_models.Slice.impl__len #u8 bytes <: usize) <>.
-    (Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_PUBLIC_KEY_LEN +!
-      Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PUBLIC_KEY_LEN
-      <:
-      usize)
+  if (Core_models.Slice.impl__len #u8 bytes <: usize) <>. impl_MessagePublicKey__LEN
   then
     let args:(usize & usize) =
-      Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_PUBLIC_KEY_LEN +!
-      Securedrop_protocol_minimal.Primitives.Mlkem.v_MLKEM768_PUBLIC_KEY_LEN,
-      Core_models.Slice.impl__len #u8 bytes
-      <:
-      (usize & usize)
+      impl_MessagePublicKey__LEN, Core_models.Slice.impl__len #u8 bytes <: (usize & usize)
     in
     let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 2) =
       let list =
@@ -149,7 +144,7 @@ let impl_MessagePublicKey__from_bytes (bytes: t_Slice u8)
             (bytes.[ {
                   Core_models.Ops.Range.f_end
                   =
-                  Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_PUBLIC_KEY_LEN
+                  Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPublicKey__LEN
                 }
                 <:
                 Core_models.Ops.Range.t_RangeTo usize ]
@@ -169,7 +164,7 @@ let impl_MessagePublicKey__from_bytes (bytes: t_Slice u8)
             (bytes.[ {
                   Core_models.Ops.Range.f_start
                   =
-                  Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_PUBLIC_KEY_LEN
+                  Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPublicKey__LEN
                 }
                 <:
                 Core_models.Ops.Range.t_RangeFrom usize ]
@@ -449,8 +444,8 @@ let auth_enc
       (m ad: t_Slice u8)
       (info_incl: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : (v_R & Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error) =
-  let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
-    Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
+  let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+    Hpke_rs.impl_7__new #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
       (Hpke_rs.Mode_AuthPsk <: Hpke_rs.t_Mode)
       (Hpke_rs_crypto.Types.KemAlgorithm_DhKem25519 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
@@ -551,12 +546,12 @@ let auth_enc
           t_Slice u8)
     in
     let
-    (tmp0: Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux),
+    (tmp0: Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)),
     (out:
       Core_models.Result.t_Result
         (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
         Hpke_rs.t_HpkeError) =
-      Hpke_rs.impl_7__seal #Hpke_rs_libcrux.t_HpkeLibcrux
+      Hpke_rs.impl_8__seal #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
         hpke
         pkr1
         (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8)
@@ -569,7 +564,9 @@ let auth_enc
         (Core_models.Option.Option_Some sks1 <: Core_models.Option.t_Option Hpke_rs.t_HpkePrivateKey
         )
     in
-    let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux = tmp0 in
+    let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+      tmp0
+    in
     (match
         Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global &
             Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
@@ -654,8 +651,8 @@ let auth_dec
       (ad: t_Slice u8)
       (info_incl: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
     : Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error =
-  let hpke:Hpke_rs.t_Hpke Hpke_rs_libcrux.t_HpkeLibcrux =
-    Hpke_rs.impl_7__new #Hpke_rs_libcrux.t_HpkeLibcrux
+  let hpke:Hpke_rs.t_Hpke (Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) =
+    Hpke_rs.impl_7__new #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng)
       (Hpke_rs.Mode_AuthPsk <: Hpke_rs.t_Mode)
       (Hpke_rs_crypto.Types.KemAlgorithm_DhKem25519 <: Hpke_rs_crypto.Types.t_KemAlgorithm)
       (Hpke_rs_crypto.Types.KdfAlgorithm_HkdfSha256 <: Hpke_rs_crypto.Types.t_KdfAlgorithm)
@@ -754,8 +751,8 @@ let auth_dec
       #Hpke_rs.t_HpkeError
       #Anyhow.t_Error
       #(Hpke_rs.t_HpkeError -> Anyhow.t_Error)
-      (Hpke_rs.impl_7__open #Hpke_rs_libcrux.t_HpkeLibcrux hpke (ct.f_c1 <: t_Slice u8) skr1
-          (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8) ad
+      (Hpke_rs.impl_8__open #(Hpke_rs_libcrux.t_HpkeLibcrux Hpke_rs_libcrux.t_HpkeLibcruxPrng) hpke
+          (ct.f_c1 <: t_Slice u8) skr1 (Alloc.Vec.impl_1__as_slice full_info <: t_Slice u8) ad
           (Alloc.Vec.impl_1__as_slice ct.f_cp <: t_Slice u8)
           (Core_models.Option.Option_Some (k2 <: t_Slice u8)
             <:

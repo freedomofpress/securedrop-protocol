@@ -45,12 +45,12 @@ let encrypt
       (plaintext: Securedrop_protocol_minimal.Ciphertext.t_Plaintext)
       (recipient: v_Recipient)
     : (v_R & Securedrop_protocol_minimal.Ciphertext.t_Envelope) =
-  let keypair_s:Securedrop_protocol_minimal.Message.t_MessageKeyPair =
+  let keypair_s:Securedrop_protocol_minimal.Schemes.Message.t_MessageKeyPair =
     Securedrop_protocol_minimal.Traits.f_message_auth_keypair #v_Sender
       #FStar.Tactics.Typeclasses.solve
       sender
   in
-  let pk_r:Securedrop_protocol_minimal.Message.t_MessagePublicKey =
+  let pk_r:Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey =
     Securedrop_protocol_minimal.Traits.f_message_enc_pk #v_Recipient
       #FStar.Tactics.Typeclasses.solve
       recipient
@@ -63,9 +63,9 @@ let encrypt
   let
   (tmp0: v_R),
   (out:
-    Core_models.Result.t_Result Securedrop_protocol_minimal.Message.t_MessageCiphertext
+    Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext
       Anyhow.t_Error) =
-    Securedrop_protocol_minimal.Message.auth_enc #v_R
+    Securedrop_protocol_minimal.Schemes.Message.auth_enc #v_R
       rng
       keypair_s
       pk_r
@@ -79,8 +79,8 @@ let encrypt
       pk_r_fetch
   in
   let rng:v_R = tmp0 in
-  let ct_apke:Securedrop_protocol_minimal.Message.t_MessageCiphertext =
-    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Message.t_MessageCiphertext
+  let ct_apke:Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext =
+    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext
       #Anyhow.t_Error
       out
       "SD-APKE AuthEnc failed"
@@ -108,21 +108,21 @@ let encrypt
         Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
       hint_esk
   in
-  let ct_pke:Securedrop_protocol_minimal.Metadata.t_MetadataCiphertext =
-    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Metadata.t_MetadataCiphertext
+  let ct_pke:Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext =
+    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext
       #Anyhow.t_Error
-      (Securedrop_protocol_minimal.Metadata.encrypt (Securedrop_protocol_minimal.Traits.f_message_metadata_pk
+      (Securedrop_protocol_minimal.Schemes.Metadata.encrypt (Securedrop_protocol_minimal.Traits.f_message_metadata_pk
               #v_Recipient
               #FStar.Tactics.Typeclasses.solve
               recipient
             <:
-            Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
-          (Securedrop_protocol_minimal.Message.impl_MessageKeyPair__public_key keypair_s
+            Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
+          (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__public_key keypair_s
             <:
-            Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+            Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
         <:
-        Core_models.Result.t_Result Securedrop_protocol_minimal.Metadata.t_MetadataCiphertext
-          Anyhow.t_Error)
+        Core_models.Result.t_Result
+          Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext Anyhow.t_Error)
       "Valid Keybundle should allow metadata seal"
   in
   let hax_temp_output:Securedrop_protocol_minimal.Ciphertext.t_Envelope =
@@ -151,86 +151,91 @@ let decrypt_with_sender
       (receiver: v_U)
       (envelope: Securedrop_protocol_minimal.Ciphertext.t_Envelope)
     : (Securedrop_protocol_minimal.Ciphertext.t_Plaintext &
-      Securedrop_protocol_minimal.Message.t_MessagePublicKey) =
+      Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) =
   let
   (found:
     Core_models.Option.t_Option
-    (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)):Core_models.Option.t_Option
-  (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
+    (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+      Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)):Core_models.Option.t_Option
+  (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+    Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
     Core_models.Option.Option_None
     <:
     Core_models.Option.t_Option
-    (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+    (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+      Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
   in
   let found:Core_models.Option.t_Option
-  (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle & Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
+  (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+    Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
     Core_models.Iter.Traits.Iterator.f_fold (Core_models.Iter.Traits.Collect.f_into_iter #(Core_models.Slice.Iter.t_Iter
-            Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
+            Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
           #FStar.Tactics.Typeclasses.solve
-          (Core_models.Slice.impl__iter #Securedrop_protocol_minimal.Keys.t_MessageKeyBundle
+          (Core_models.Slice.impl__iter #Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
               (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Traits.f_keybundles #v_U
                       #FStar.Tactics.Typeclasses.solve
                       receiver
                     <:
-                    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.t_MessageKeyBundle
+                    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
                       Alloc.Alloc.t_Global)
                 <:
-                t_Slice Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
+                t_Slice Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
             <:
-            Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
+            Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+          )
         <:
-        Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.t_MessageKeyBundle)
+        Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
       found
       (fun found bundle ->
           let found:Core_models.Option.t_Option
-          (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle &
+          (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
             Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
             found
           in
-          let bundle:Securedrop_protocol_minimal.Keys.t_MessageKeyBundle = bundle in
+          let bundle:Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle = bundle in
           match
-            Securedrop_protocol_minimal.Metadata.decrypt (Securedrop_protocol_minimal.Metadata.impl_MetadataKeyPair__private_key
-                  bundle.Securedrop_protocol_minimal.Keys.f_metadata_kp
+            Securedrop_protocol_minimal.Schemes.Metadata.decrypt (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataKeyPair__private_key
+                  bundle.Securedrop_protocol_minimal.Keys.Bundle.f_metadata_kp
                 <:
-                Securedrop_protocol_minimal.Metadata.t_MetadataPrivateKey)
+                Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPrivateKey)
               envelope.Securedrop_protocol_minimal.Ciphertext.f_ct_pke
             <:
             Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
           with
           | Core_models.Result.Result_Ok m ->
             let found:Core_models.Option.t_Option
-            (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle &
+            (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
               Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
               Core_models.Option.Option_Some
               (bundle, m
                 <:
-                (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle &
+                (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
                   Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
               <:
               Core_models.Option.t_Option
-              (Securedrop_protocol_minimal.Keys.t_MessageKeyBundle &
+              (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
                 Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
             in
             found
           | _ -> found)
   in
   let
-  (bundle: Securedrop_protocol_minimal.Keys.t_MessageKeyBundle),
+  (bundle: Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle),
   (raw_metadata: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
-    Core_models.Option.impl__expect #(Securedrop_protocol_minimal.Keys.t_MessageKeyBundle &
+    Core_models.Option.impl__expect #(Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
         Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
       found
       "we should find exactly 1 result"
   in
-  let sender_pk:Securedrop_protocol_minimal.Message.t_MessagePublicKey =
-    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Message.t_MessagePublicKey
+  let sender_pk:Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey =
+    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
       #Anyhow.t_Error
-      (Securedrop_protocol_minimal.Message.impl_MessagePublicKey__from_bytes (Alloc.Vec.impl_1__as_slice
+      (Securedrop_protocol_minimal.Schemes.Message.impl_MessagePublicKey__from_bytes (Alloc.Vec.impl_1__as_slice
               raw_metadata
             <:
             t_Slice u8)
         <:
-        Core_models.Result.t_Result Securedrop_protocol_minimal.Message.t_MessagePublicKey
+        Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
           Anyhow.t_Error)
       "Metadata must contain valid sender APKE key tuple"
   in
@@ -243,10 +248,10 @@ let decrypt_with_sender
   let pt:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Core_models.Result.impl__expect #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
       #Anyhow.t_Error
-      (Securedrop_protocol_minimal.Message.auth_dec (Securedrop_protocol_minimal.Message.impl_MessageKeyPair__private_key
-              bundle.Securedrop_protocol_minimal.Keys.f_apke
+      (Securedrop_protocol_minimal.Schemes.Message.auth_dec (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__private_key
+              bundle.Securedrop_protocol_minimal.Keys.Bundle.f_apke
             <:
-            Securedrop_protocol_minimal.Message.t_MessagePrivateKey)
+            Securedrop_protocol_minimal.Schemes.Message.t_MessagePrivateKey)
           sender_pk
           envelope.Securedrop_protocol_minimal.Ciphertext.f_ct_apke
           v_NR_ID
@@ -266,7 +271,7 @@ let decrypt_with_sender
   sender_pk
   <:
   (Securedrop_protocol_minimal.Ciphertext.t_Plaintext &
-    Securedrop_protocol_minimal.Message.t_MessagePublicKey)
+    Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
 
 #pop-options
 
@@ -361,29 +366,27 @@ let compute_fetch_challenges
                   .Securedrop_protocol_minimal.Ciphertext.f_mgdh
                 eph_sk
             in
-            let
-            (tmp0: v_R),
-            (out:
-              Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
-            =
-              Securedrop_protocol_minimal.Primitives.encrypt_message_id #v_R
-                (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes shared_secret
-
+            let key:t_Array u8 (mk_usize 32) =
+              Core_models.Result.impl__unwrap #(t_Array u8 (mk_usize 32))
+                #Anyhow.t_Error
+                (Securedrop_protocol_minimal.Schemes.Challenge.derive_challenge_key shared_secret
+                    v_NR_ID
                   <:
-                  t_Slice u8)
-                (message_id <: t_Slice u8)
-                rng
+                  Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error)
             in
-            let rng:v_R = tmp0 in
             let enc_mid:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
               Core_models.Result.impl__unwrap #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
                 #Anyhow.t_Error
-                out
+                (Securedrop_protocol_minimal.Schemes.Challenge.encrypt_message_id key
+                    (message_id <: t_Slice u8)
+                  <:
+                  Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+                    Anyhow.t_Error)
             in
-            let kmid:t_Array u8 (mk_usize 44) =
-              Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 44)
+            let kmid:t_Array u8 (mk_usize 32) =
+              Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
             in
-            let kmid:t_Array u8 (mk_usize 44) =
+            let kmid:t_Array u8 (mk_usize 32) =
               Core_models.Slice.impl__copy_from_slice #u8
                 kmid
                 (Alloc.Vec.impl_1__as_slice enc_mid <: t_Slice u8)
@@ -467,14 +470,14 @@ let compute_fetch_challenges
           (rng: v_R) =
             temp_0_
           in
-          let (pad_kmid: t_Array u8 (mk_usize 44)):t_Array u8 (mk_usize 44) =
-            Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 44)
+          let (pad_kmid: t_Array u8 (mk_usize 32)):t_Array u8 (mk_usize 32) =
+            Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
           in
-          let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 44)) =
+          let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 32)) =
             Rand_core.f_fill_bytes #v_R #FStar.Tactics.Typeclasses.solve rng pad_kmid
           in
           let rng:v_R = tmp0 in
-          let pad_kmid:t_Array u8 (mk_usize 44) = tmp1 in
+          let pad_kmid:t_Array u8 (mk_usize 32) = tmp1 in
           let _:Prims.unit = () in
           let (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
           =
@@ -551,11 +554,16 @@ let solve_fetch_challenges
                   Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey))
                 ._1
           in
-          match
-            Securedrop_protocol_minimal.Primitives.decrypt_message_id (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__into_bytes
-                  maybe_kmid_secret
+          let challenge_key:t_Array u8 (mk_usize 32) =
+            Core_models.Result.impl__unwrap #(t_Array u8 (mk_usize 32))
+              #Anyhow.t_Error
+              (Securedrop_protocol_minimal.Schemes.Challenge.derive_challenge_key maybe_kmid_secret
+                  v_NR_ID
                 <:
-                t_Slice u8)
+                Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error)
+          in
+          match
+            Securedrop_protocol_minimal.Schemes.Challenge.decrypt_message_id challenge_key
               (chall.Securedrop_protocol_minimal.Ciphertext.f_enc_id <: t_Slice u8)
             <:
             Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
@@ -596,12 +604,12 @@ let build_message
   let reply_key_pq_hybrid:t_Array u8 (mk_usize 1216) =
     Core_models.Slice.impl__copy_from_slice #u8
       reply_key_pq_hybrid
-      (Securedrop_protocol_minimal.Metadata.impl_MetadataPublicKey__as_bytes (Securedrop_protocol_minimal.Traits.f_message_metadata_pk
+      (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__as_bytes (Securedrop_protocol_minimal.Traits.f_message_metadata_pk
               #iimpl_822573411_
               #FStar.Tactics.Typeclasses.solve
               sender
             <:
-            Securedrop_protocol_minimal.Metadata.t_MetadataPublicKey)
+            Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
         <:
         t_Slice u8)
   in

@@ -10,7 +10,8 @@ extern crate alloc;
 pub mod api;
 mod ciphertext;
 pub mod keys;
-pub mod primitives;
+pub(crate) mod primitives;
+pub mod schemes;
 pub mod server;
 pub mod setup;
 mod traits;
@@ -19,16 +20,15 @@ pub mod wire;
 pub mod journalist;
 pub mod source;
 
+pub use schemes::{challenge, message, metadata, sign};
+
 pub use ciphertext::{Envelope, FetchResponse, Plaintext};
 
-pub use keys::{
-    DhFetchKeyPair, Enrollment, KeyBundlePublic, KeyPair, SessionStorage, SignedKeyBundlePublic,
-    SignedLongtermPubKeyBytes, SigningKeyPair,
-};
-pub use primitives::dh_akem::DH_AKEM_PUBLIC_KEY_LEN;
-pub use primitives::mlkem::{MLKEM768_PRIVATE_KEY_LEN, MLKEM768_PUBLIC_KEY_LEN};
-pub use primitives::ristretto255::DH_PUBLIC_KEY_LEN;
-pub use primitives::xwing::XWING_PUBLIC_KEY_LEN;
+pub use keys::{DhFetchKeyPair, KeyBundlePublic, KeyPair, SessionStorage};
+pub use wire::bundle::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
+pub use wire::enrollment::Enrollment;
+
+pub use primitives::ristretto255::DHPublicKey;
 
 pub use traits::{Enrollable, JournalistPublic, UserPublic, UserSecret};
 
@@ -40,7 +40,6 @@ pub use source::{Source, SourcePublicView};
 pub(crate) use keys::MessageKeyBundle;
 
 // Primitives for signing
-pub mod sign;
 pub use sign::{
     DomainTag, FpfOnNewsroom, JournalistEphemeralKey, JournalistLongTermKey, NewsroomOnJournalist,
     Signature, SigningKey, VerifyingKey,
@@ -49,8 +48,6 @@ pub use sign::{
 pub mod storage;
 
 pub mod encrypt_decrypt;
-pub mod message;
-pub mod metadata;
 
 // Do not make this module public or re-export it anywhere!
 /// It uses the [sealed trait pattern](https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed)

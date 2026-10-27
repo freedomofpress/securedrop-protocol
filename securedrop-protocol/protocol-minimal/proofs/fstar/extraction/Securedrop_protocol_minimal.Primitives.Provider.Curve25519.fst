@@ -3,20 +3,8 @@ module Securedrop_protocol_minimal.Primitives.Provider.Curve25519
 open FStar.Mul
 open Core_models
 
-assume
-val v_SK_LEN': usize
+let v_SK_LEN: usize = Libcrux_curve25519.v_DK_LEN
 
-unfold
-let v_SK_LEN = v_SK_LEN'
+let v_PK_LEN: usize = Libcrux_curve25519.v_EK_LEN
 
-assume
-val v_PK_LEN': usize
-
-unfold
-let v_PK_LEN = v_PK_LEN'
-
-assume
-val v_LEN_DH_SHARE': usize
-
-unfold
-let v_LEN_DH_SHARE = v_LEN_DH_SHARE'
+let v_LEN_DH_SHARE: usize = Libcrux_curve25519.v_SS_LEN

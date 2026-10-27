@@ -7,14 +7,11 @@ let _ =
   (* This module has implicit dependencies, here we make them explicit. *)
   (* The implicit dependencies arise from typeclasses instances. *)
   let open Rand_core in
-  let open Securedrop_protocol_minimal.Sign in
+  let open Securedrop_protocol_minimal.Schemes.Sign in
   ()
 
 /// Newsroom keypair used for signing.
-type t_NewsroomKeyPair = {
-  f_vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey;
-  f_sk:Securedrop_protocol_minimal.Sign.t_SigningKey
-}
+type t_NewsroomKeyPair = { f_sk:Securedrop_protocol_minimal.Schemes.Sign.t_SigningKey }
 
 let impl_NewsroomKeyPair__new
       (#v_R: Type0)
@@ -24,19 +21,20 @@ let impl_NewsroomKeyPair__new
     : (v_R & Core_models.Result.t_Result t_NewsroomKeyPair Anyhow.t_Error) =
   let
   (tmp0: v_R),
-  (out: Core_models.Result.t_Result Securedrop_protocol_minimal.Sign.t_SigningKey Anyhow.t_Error) =
-    Securedrop_protocol_minimal.Sign.impl_SigningKey__new #v_R rng
+  (out:
+    Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Sign.t_SigningKey Anyhow.t_Error
+  ) =
+    Securedrop_protocol_minimal.Schemes.Sign.impl_SigningKey__new #v_R rng
   in
   let rng:v_R = tmp0 in
   match
-    out <: Core_models.Result.t_Result Securedrop_protocol_minimal.Sign.t_SigningKey Anyhow.t_Error
+    out
+    <:
+    Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Sign.t_SigningKey Anyhow.t_Error
   with
   | Core_models.Result.Result_Ok sk ->
-    let vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey =
-      sk.Securedrop_protocol_minimal.Sign.f_vk
-    in
     let hax_temp_output:Core_models.Result.t_Result t_NewsroomKeyPair Anyhow.t_Error =
-      Core_models.Result.Result_Ok ({ f_sk = sk; f_vk = vk } <: t_NewsroomKeyPair)
+      Core_models.Result.Result_Ok ({ f_sk = sk } <: t_NewsroomKeyPair)
       <:
       Core_models.Result.t_Result t_NewsroomKeyPair Anyhow.t_Error
     in
@@ -51,29 +49,26 @@ let impl_NewsroomKeyPair__new
 
 /// Returns the verification key.
 let impl_NewsroomKeyPair__verifying_key (self: t_NewsroomKeyPair)
-    : Securedrop_protocol_minimal.Sign.t_VerifyingKey = self.f_vk
+    : Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey =
+  self.f_sk.Securedrop_protocol_minimal.Schemes.Sign.f_vk
 
 /// Sign `msg` in domain `D` using the newsroom signing key.
 let impl_NewsroomKeyPair__sign
       (#v_D: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()]
           i0:
-          Securedrop_protocol_minimal.Sign.t_DomainTag v_D)
+          Securedrop_protocol_minimal.Schemes.Sign.t_DomainTag v_D)
       (self: t_NewsroomKeyPair)
       (msg: t_Slice u8)
-    : Securedrop_protocol_minimal.Sign.t_Signature v_D =
-  Securedrop_protocol_minimal.Sign.impl_SigningKey__sign #v_D self.f_sk msg
+    : Securedrop_protocol_minimal.Schemes.Sign.t_Signature v_D =
+  Securedrop_protocol_minimal.Schemes.Sign.impl_SigningKey__sign #v_D self.f_sk msg
 
 /// The newsroom signing key used as a secret.
 let impl_NewsroomKeyPair__as_bytes (self: t_NewsroomKeyPair) : t_Array u8 (mk_usize 32) =
-  Securedrop_protocol_minimal.Sign.impl_SigningKey__as_bytes self.f_sk
+  Securedrop_protocol_minimal.Schemes.Sign.impl_SigningKey__as_bytes self.f_sk
 
 /// Reconstruct a [`NewsroomKeyPair`] from its secret.
 let impl_NewsroomKeyPair__from_bytes (seed: t_Array u8 (mk_usize 32)) : t_NewsroomKeyPair =
-  let sk:Securedrop_protocol_minimal.Sign.t_SigningKey =
-    Securedrop_protocol_minimal.Sign.impl_SigningKey__from_seed seed
-  in
-  let vk:Securedrop_protocol_minimal.Sign.t_VerifyingKey =
-    sk.Securedrop_protocol_minimal.Sign.f_vk
-  in
-  { f_vk = vk; f_sk = sk } <: t_NewsroomKeyPair
+  { f_sk = Securedrop_protocol_minimal.Schemes.Sign.impl_SigningKey__from_seed seed }
+  <:
+  t_NewsroomKeyPair

@@ -11,7 +11,12 @@ HAX_IMAGE = hax:$(HAX_VERSION)
 # NB. We don't use the high-level libcrux crate directly.  Since libcrux's
 # sub-crates have various version numbers that all point to the same Git ref,
 # here we query for libcrux-traits, which we do use, as a proxy.
-LIBCRUX_VERSION = $(shell cargo pkgid libcrux-traits 2>/dev/null | sed 's/.*@//')
+# If libcrux-traits is patched to a git rev with a`[patch.crates-io]` entry,
+# then this is that rev instead of the tag.
+LIBCRUX_VERSION = $(shell cargo tree -p securedrop-protocol-minimal --target all --depth 1 --prefix none 2>/dev/null | \
+  sed -n -e '/^libcrux-traits v/!d' \
+    -e 's/.*[?&]rev=\([0-9a-f]*\).*/\1/p' -e t \
+    -e 's/^libcrux-traits v\([^ ]*\).*/\1/p' | head -1)
 
 HAX_TARGETS := +**
 HAX_TARGETS += -securedrop_protocol_minimal::storage::**
@@ -22,7 +27,7 @@ HAX_TARGETS += -securedrop_protocol_minimal::api::**
 HAX_TARGETS += +securedrop_protocol_minimal::api::Client
 
 # Admit modules we extract but that fail panic freedom:
-HAX_ADMITS := Securedrop_protocol_minimal.Message.fst
+HAX_ADMITS := Securedrop_protocol_minimal.Schemes.Message.fst
 HAX_ADMITS += Securedrop_protocol_minimal.Ciphertext.fst
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
@@ -94,8 +99,8 @@ verify:  # Internal/CI: Type-check and verify extracted proofs.
 hax-lib-version:  # Internal: Query Cargo for the hax-lib version.
 	@echo $(HAX_VERSION)
 
-.PHONY: hax-lib-version
-libcrux-version:  # Internal: Query Cargo for the libcrux version.
+.PHONY: libcrux-version
+libcrux-version:  # Internal: Query Cargo for the libcrux version (or patched Git rev).
 	@echo $(LIBCRUX_VERSION)
 
 .PHONY: help

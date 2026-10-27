@@ -3,13 +3,10 @@
 ///
 pub mod curve25519 {
 
-    #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const SK_LEN: usize = libcrux_curve25519::DK_LEN;
 
-    #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const PK_LEN: usize = libcrux_curve25519::EK_LEN;
 
-    #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const LEN_DH_SHARE: usize = libcrux_curve25519::SS_LEN;
 
     #[cfg_attr(hax, hax_lib::opaque)]
@@ -259,6 +256,7 @@ pub mod hkdf {
 
     /// HKDF-SHA256
     #[cfg_attr(hax, hax_lib::opaque)]
+    #[cfg_attr(hax, hax_lib::ensures(|_| future(okm).len() == okm.len()))]
     pub(crate) fn sha256(
         okm: &mut [u8],
         salt: &[u8],
@@ -284,10 +282,8 @@ pub mod constants {
     // Message ID (uuid) and KMID
     #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const LEN_MESSAGE_ID: usize = 16;
-    // TODO: current implementation prepends the nonce to the encrypted message.
-    // Recheck this when switching implementations.
+    // Encryption uses fixed nonce (not transported over the wire)
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) const LEN_KMID: usize = crate::primitives::provider::chacha20poly1305::TAG_LEN
-        + crate::primitives::provider::chacha20poly1305::NONCE_LEN
-        + LEN_MESSAGE_ID;
+    pub(crate) const LEN_KMID: usize =
+        crate::primitives::provider::chacha20poly1305::TAG_LEN + LEN_MESSAGE_ID;
 }

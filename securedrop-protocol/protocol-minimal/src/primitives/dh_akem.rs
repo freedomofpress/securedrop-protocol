@@ -2,11 +2,12 @@ use crate::primitives::provider::hpke_rs::{HpkePrivateKey, HpkePublicKey};
 use crate::primitives::provider::kem::{PrivateKey, PublicKey};
 use rand_core::{CryptoRng, RngCore};
 
-pub const DH_AKEM_PUBLIC_KEY_LEN: usize = crate::primitives::provider::curve25519::PK_LEN;
-pub(crate) const DH_AKEM_PRIVATE_KEY_LEN: usize = crate::primitives::provider::curve25519::SK_LEN;
+const DH_AKEM_PUBLIC_KEY_LEN: usize = crate::primitives::provider::curve25519::PK_LEN;
+const DH_AKEM_PRIVATE_KEY_LEN: usize = crate::primitives::provider::curve25519::SK_LEN;
 pub(crate) const DH_AKEM_SECRET_LEN: usize = crate::primitives::provider::curve25519::LEN_DH_SHARE;
 pub(crate) const DH_AKEM_ENCAPS_SECRET_LEN: usize =
     crate::primitives::provider::curve25519::LEN_DH_SHARE;
+const DH_AKEM_SEED_LEN: usize = DH_AKEM_PRIVATE_KEY_LEN;
 
 /// An DH-AKEM public key.
 #[derive(Debug, Clone)]
@@ -21,6 +22,8 @@ pub(crate) struct DhAkemPrivateKey([u8; DH_AKEM_PRIVATE_KEY_LEN]);
 pub(crate) struct DhAkemSecret([u8; DH_AKEM_SECRET_LEN]);
 
 impl DhAkemPublicKey {
+    pub(crate) const LEN: usize = DH_AKEM_PUBLIC_KEY_LEN;
+
     pub(crate) fn as_bytes(&self) -> &[u8; DH_AKEM_PUBLIC_KEY_LEN] {
         &self.0
     }
@@ -31,6 +34,9 @@ impl DhAkemPublicKey {
 }
 
 impl DhAkemPrivateKey {
+    pub(crate) const LEN: usize = DH_AKEM_PRIVATE_KEY_LEN;
+    pub(crate) const SEED_LEN: usize = DH_AKEM_SEED_LEN;
+
     pub(crate) fn as_bytes(&self) -> &[u8; DH_AKEM_PRIVATE_KEY_LEN] {
         &self.0
     }
@@ -63,7 +69,7 @@ fn clamp(scalar: &mut [u8; 32]) {
 /// Generate DH-AKEM keypair from external randomness
 /// FOR TEST PURPOSES ONLY
 pub(crate) fn deterministic_keygen(
-    randomness: [u8; 32],
+    randomness: [u8; DH_AKEM_SEED_LEN],
 ) -> Result<(DhAkemPrivateKey, DhAkemPublicKey), anyhow::Error> {
     use crate::primitives::provider::kem::{Algorithm, key_gen_derand};
 

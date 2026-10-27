@@ -15,8 +15,8 @@ use securedrop_protocol_minimal::{
     Envelope, FetchResponse, Journalist, Plaintext, Source, UserPublic, UserSecret,
 };
 
-use securedrop_protocol_minimal::DH_PUBLIC_KEY_LEN;
-use securedrop_protocol_minimal::XWING_PUBLIC_KEY_LEN;
+use securedrop_protocol_minimal::DHPublicKey;
+use securedrop_protocol_minimal::metadata::MetadataPublicKey;
 
 #[inline]
 fn rng_from_seed(seed32: [u8; 32]) -> ChaCha20Rng {
@@ -154,7 +154,7 @@ pub fn decrypt_once(recipient: &WJournalist, envelope: &WEnvelope) -> Vec<u8> {
     // todo: remove when return WPlaintext object
     assert_eq!(
         pt.msg.len(),
-        pt.len() - (DH_PUBLIC_KEY_LEN + XWING_PUBLIC_KEY_LEN)
+        pt.len() - (DHPublicKey::LEN + MetadataPublicKey::LEN)
     );
 
     // this was just a string, now it's a plaintext struct.
