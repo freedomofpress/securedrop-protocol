@@ -8,10 +8,9 @@ use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
 use crate::Envelope;
-use crate::encrypt_decrypt::compute_fetch_challenges;
 use crate::keys::NewsroomKeyPair;
-use crate::primitives;
 use crate::schemes::challenge::MAX_MESSAGES;
+use crate::server::challenge::compute_fetch_challenges;
 use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::storage::ServerStorage;
 use crate::wire::core::{
@@ -22,6 +21,8 @@ use crate::wire::setup::{
     JournalistEphemeralKeyRequest, JournalistSetupRequest, JournalistSetupResponse,
     NewsroomSetupRequest,
 };
+
+pub mod challenge;
 
 /// Server session for handling source requests
 #[derive(Default)]

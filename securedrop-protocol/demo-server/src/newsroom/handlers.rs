@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use rand::{Rng, RngExt};
 use securedrop_protocol_minimal::Envelope;
 use securedrop_protocol_minimal::challenge::MAX_MESSAGES;
-use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
+use securedrop_protocol_minimal::server::challenge::compute_fetch_challenges;
 use securedrop_protocol_minimal::wire::core::{
     JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchResponse, WelcomeBundle,
 };

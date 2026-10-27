@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use anyhow::{Context, Result};
 use securedrop_protocol_minimal::api::Api;
-use securedrop_protocol_minimal::encrypt_decrypt::decrypt_with_sender;
+use securedrop_protocol_minimal::client::message::decrypt_with_sender;
 use securedrop_protocol_minimal::wire::core::{MessageChallengeFetchResponse, WelcomeBundle};
 use securedrop_protocol_minimal::{Envelope, Source, UserPublic};
 
