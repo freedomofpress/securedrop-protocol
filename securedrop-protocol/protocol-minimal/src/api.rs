@@ -17,7 +17,8 @@
 use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublicView, UserPublic, UserSecret,
     VerifyingKey,
-    encrypt_decrypt::{encrypt, solve_fetch_challenges},
+    client::challenge::solve_fetch_challenges,
+    client::message::encrypt,
     traits::RestrictedApi,
     wire::bundle::SignedKeyBundlePublic,
     wire::{

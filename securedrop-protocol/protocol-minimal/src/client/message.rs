@@ -1,4 +1,4 @@
-use crate::challenge::{decrypt_message_id, derive_challenge_key, encrypt_message_id};
+use crate::keys::NR_ID;
 use crate::message::MessagePublicKey;
 use crate::metadata;
 use crate::primitives::provider::constants::{LEN_KMID, LEN_MESSAGE_ID};
@@ -10,10 +10,6 @@ use crate::primitives::xwing::XWingPublicKey;
 use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, UserSecret};
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
-use uuid::Uuid;
-
-// Mock Newsroom ID
-const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
 
 /// Encrypt a message from a sender to a recipient (step 6).
 ///
@@ -115,92 +111,6 @@ pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
     (Plaintext::from_bytes(&pt).unwrap(), sender_pk)
 }
 
-/// Given a set of ciphertext bundles (C, X, Z) and their associated uuid,
-/// compute a fixed-length set of "challenges" >= the number of SeverMessageStore entries.
-/// A challenge is returned as a tuple of DH agreement outputs (or random data tuples of the same length).
-/// For benchmarking purposes, supply the rng as a separable parameter, and allow the total number of expected responses to be specified as a paremeter (worst case performance
-/// when the number of items in the server store approaches num total_responses.)
-///
-/// Note this is marked lax temporaily due to the `.expect()`/`push` panic freedom requirement
-#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
-pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
-    rng: &mut R,
-    entries: &[([u8; LEN_MESSAGE_ID], Envelope)],
-    total_responses: usize,
-) -> Vec<FetchResponse> {
-    let mut responses = Vec::with_capacity(total_responses);
-
-    for (message_id, envelope) in entries.iter() {
-        if responses.len() < total_responses {
-            // Generate ephemeral scalar r, fresh per message
-            let eph_sk = generate_random_scalar(&mut *rng);
-
-            // 3-party DH yields shared_secret used to encrypt message_id
-            let shared_secret = dh_shared_secret(&envelope.mgdh, &eph_sk);
-            let key = derive_challenge_key(&shared_secret, NR_ID).unwrap();
-            let enc_mid = encrypt_message_id(&key, message_id).unwrap();
-
-            // `copy_from_slice` rather than `try_into()`: Core_models has no
-            // `TryInto<Vec<u8>, [u8; N]>` instance, and this is the codebase's
-            // Vec->array idiom. (Lengths must match; covered by `lax`.)
-            let mut kmid = [0u8; LEN_KMID];
-            kmid.copy_from_slice(&enc_mid);
-
-            // 2-party DH yields per-request clue (pmgdh) used by intended recipient
-            // to compute shared_secret
-            let pmgdh = dh_shared_secret(&envelope.mgdh_pubkey, &eph_sk);
-
-            responses.push(FetchResponse {
-                enc_id: kmid,
-                pmgdh,
-            });
-        }
-    }
-
-    // Pad if needed to return fixed length of responses
-    while responses.len() < total_responses {
-        let mut pad_kmid: [u8; LEN_KMID] = [0u8; LEN_KMID];
-        rng.fill_bytes(&mut pad_kmid);
-
-        responses.push(FetchResponse {
-            enc_id: pad_kmid,
-            pmgdh: random_dh_public_key(rng),
-        });
-    }
-    responses
-}
-
-/// Solve fetch challenges (encrypted message IDs) and return array of valid message_ids.
-/// TODO: For simplicity, serialize/deserialize is skipped
-#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
-pub fn solve_fetch_challenges<S: UserSecret>(
-    recipient: &S,
-    challenges: &[FetchResponse],
-) -> Vec<Uuid> {
-    let mut message_ids: Vec<Uuid> = Vec::new();
-
-    for chall in challenges.iter() {
-        // Compute 3-party DH on the pmgdh
-        let maybe_kmid_secret = dh_shared_secret(&chall.pmgdh, recipient.fetch_keypair().0);
-        let challenge_key = derive_challenge_key(&maybe_kmid_secret, NR_ID).unwrap();
-
-        // Try decrypting the encrypted message id
-        // Convert to UUID (v4) format and add to message ID list on success
-        match decrypt_message_id(&challenge_key, &chall.enc_id) {
-            Ok(message_id_bytes) => {
-                let uuid = crate::primitives::provider::uuid_parse::from_slice(&message_id_bytes);
-
-                message_ids.push(uuid);
-            }
-            Err(_) => {
-                // An error in decryption is fine (may not be a valid message_id), but
-                // an error in uuid parsing isn't.
-            }
-        }
-    }
-    message_ids
-}
-
 /// Build plaintext message, including pubkeys (for replies).
 /// TODO: only sources need to attach their pubkeys (for replies),
 /// but for toy purposes, everyone builds a Plaintext message the same way
@@ -299,75 +209,6 @@ mod tests {
             &recipient,
             b"Encrypt-decrypt-test".to_vec(),
         );
-    }
-
-    #[test]
-    fn test_fetch_challenges_roundtrip() {
-        let mut rng = setup_rng();
-
-        let source = Source::new(&mut rng);
-        let journalist = Journalist::new(&mut rng, 2);
-
-        // pubkey-only capabilities (for receiver)
-        let journalist_public = journalist.public(0);
-
-        let msg = b"Fetch this message";
-        let plaintext = build_message(&source.public(), msg.to_vec());
-        let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
-
-        let mut store: ServerStorage = ServerStorage::new();
-        let message_id = store.deterministic_uuid(&mut rng);
-
-        store.add_message(message_id, envelope);
-
-        let entries: Vec<_> = store
-            .get_messages()
-            .iter()
-            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
-            .collect();
-        let challenges = compute_fetch_challenges(&mut rng, &entries, 2);
-
-        let solved_ids = solve_fetch_challenges(&journalist, &challenges);
-
-        assert_eq!(solved_ids.len(), 1);
-        assert_eq!(solved_ids[0], message_id);
-    }
-
-    #[test]
-    fn test_wrong_recipient_cannot_decrypt_challenge() {
-        let mut rng = setup_rng();
-
-        let source = Source::new(&mut rng);
-        let journalist = Journalist::new(&mut rng, 2);
-
-        let wrong_journalist = Journalist::new(&mut rng, 2);
-
-        // pubkey-only capabilities (for receiver)
-        let journalist_public = journalist.public(0);
-
-        let msg = b"Fetch this message";
-        let plaintext = build_message(&source.public(), msg.to_vec());
-        let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
-
-        let mut store: ServerStorage = ServerStorage::new();
-        let message_id = store.deterministic_uuid(&mut rng);
-
-        store.add_message(message_id, envelope);
-
-        let entries: Vec<_> = store
-            .get_messages()
-            .iter()
-            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
-            .collect();
-        let challenges = compute_fetch_challenges(&mut rng, &entries, 2);
-
-        let solved_ids = solve_fetch_challenges(&journalist, &challenges);
-
-        let solved_ids_miss = solve_fetch_challenges(&wrong_journalist, &challenges);
-
-        assert_eq!(solved_ids.len(), 1);
-        assert_eq!(solved_ids[0], message_id);
-        assert_eq!(solved_ids_miss.len(), 0);
     }
 
     #[test]

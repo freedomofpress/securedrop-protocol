@@ -2,6 +2,10 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::sign::{DomainTag, Signature, SigningKey, VerifyingKey};
 
+// Mock Newsroom ID
+// TODO(#409): Parametrize the NR_ID
+pub const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
+
 /// Newsroom keypair used for signing.
 pub struct NewsroomKeyPair {
     sk: SigningKey,

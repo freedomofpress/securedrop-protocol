@@ -17,6 +17,7 @@ pub mod setup;
 mod traits;
 pub mod wire;
 
+pub mod client;
 pub mod journalist;
 pub mod source;
 
@@ -46,8 +47,6 @@ pub use sign::{
 };
 
 pub mod storage;
-
-pub mod encrypt_decrypt;
 
 // Do not make this module public or re-export it anywhere!
 /// It uses the [sealed trait pattern](https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed)

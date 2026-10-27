@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use securedrop_protocol_minimal::DHPublicKey;
 use securedrop_protocol_minimal::Envelope;
 use securedrop_protocol_minimal::api::Api;
-use securedrop_protocol_minimal::encrypt_decrypt::decrypt_with_sender;
+use securedrop_protocol_minimal::client::message::decrypt_with_sender;
 use securedrop_protocol_minimal::metadata::MetadataPublicKey;
 use securedrop_protocol_minimal::wire::core::MessageChallengeFetchResponse;
 

@@ -27,4 +27,5 @@ pub struct SessionStorage {
     pub fpf_signature: Option<Signature<FpfOnNewsroom>>,
 }
 
+pub use newsroom::NR_ID;
 pub use newsroom::NewsroomKeyPair;

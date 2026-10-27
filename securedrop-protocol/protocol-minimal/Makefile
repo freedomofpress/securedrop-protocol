@@ -21,6 +21,7 @@ LIBCRUX_VERSION = $(shell cargo tree -p securedrop-protocol-minimal --target all
 HAX_TARGETS := +**
 HAX_TARGETS += -securedrop_protocol_minimal::storage::**
 HAX_TARGETS += -securedrop_protocol_minimal::server::**
+HAX_TARGETS += +securedrop_protocol_minimal::server::challenge::**
 # We keep in the `Client` trait which is used by the source and journalist modules
 # but keep out the other traits which don't extract
 HAX_TARGETS += -securedrop_protocol_minimal::api::**
