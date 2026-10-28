@@ -12,7 +12,6 @@ pub mod keys;
 pub(crate) mod primitives;
 pub mod schemes;
 pub mod server;
-pub mod setup;
 mod traits;
 pub mod wire;
 
@@ -45,8 +44,6 @@ pub use sign::{
     DomainTag, FpfOnNewsroom, JournalistEphemeralKey, JournalistLongTermKey, NewsroomOnJournalist,
     Signature, SigningKey, VerifyingKey,
 };
-
-pub mod storage;
 
 // Do not make this module public or re-export it anywhere!
 /// It uses the [sealed trait pattern](https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed)

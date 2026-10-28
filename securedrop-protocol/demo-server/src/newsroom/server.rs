@@ -8,7 +8,7 @@ use axum::{
     routing::{get, post},
 };
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
-use securedrop_protocol_minimal::storage::ServerMessageStore;
+use securedrop_protocol_minimal::server::storage::ServerMessageStore;
 use securedrop_protocol_minimal::{
     Enrollment, FpfOnNewsroom, NewsroomOnJournalist, Signature, SignedKeyBundlePublic,
 };

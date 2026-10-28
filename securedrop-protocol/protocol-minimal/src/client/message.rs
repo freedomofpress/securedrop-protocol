@@ -132,7 +132,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::{Journalist, Source, SourcePublicView, storage::ServerStorage};
+    use crate::{Journalist, Source, SourcePublicView};
 
     use super::*;
 

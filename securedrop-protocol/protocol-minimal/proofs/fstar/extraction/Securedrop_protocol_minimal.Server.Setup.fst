@@ -1,4 +1,4 @@
-module Securedrop_protocol_minimal.Setup
+module Securedrop_protocol_minimal.Server.Setup
 #set-options "--fuel 0 --ifuel 1 --z3rlimit 15"
 open FStar.Mul
 open Core_models
