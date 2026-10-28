@@ -291,6 +291,17 @@ mod tests {
 
     proptest! {
         #[test]
+        fn test_metadata_ciphertext_byte_roundtrip(
+            c in prop::collection::vec(any::<u8>(), LEN_XWING_SHAREDSECRET_ENCAPS),
+            cp in prop::collection::vec(any::<u8>(), LEN_METADATA_CIPHERTEXT)
+            .prop_map(|v| v.try_into().unwrap()),
+        ) {
+            let ct = MetadataCiphertext { c: c.try_into().expect("c length"), cp };
+            let restored = MetadataCiphertext::from_bytes(&ct.as_bytes()).expect("valid bytes");
+            prop_assert_eq!(ct.as_bytes(), restored.as_bytes());
+        }
+
+        #[test]
         fn test_metadata_encrypt_decrypt_roundtrip(m in proptest::collection::vec(any::<u8>(), 0..200)) {
             let mut rng = get_rng();
             let kp = keygen(&mut rng).expect("KGen failed");

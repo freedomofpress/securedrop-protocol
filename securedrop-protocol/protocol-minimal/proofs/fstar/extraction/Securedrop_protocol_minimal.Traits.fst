@@ -156,10 +156,10 @@ class t_UserSecret (v_Self: Type0) = {
   f_build_message_post:
       v_Self ->
       Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global ->
-      Securedrop_protocol_minimal.Ciphertext.t_Plaintext
+      Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
     -> Type0;
   f_build_message:x0: v_Self -> x1: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global
-    -> Prims.Pure Securedrop_protocol_minimal.Ciphertext.t_Plaintext
+    -> Prims.Pure Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
         (f_build_message_pre x0 x1)
         (fun result -> f_build_message_post x0 x1 result);
   f_keybundles_pre:v_Self -> Type0;

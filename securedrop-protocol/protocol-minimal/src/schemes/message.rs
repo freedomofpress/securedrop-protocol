@@ -365,9 +365,33 @@ mod tests {
     use crate::primitives::ristretto255::generate_dh_keypair;
 
     use super::*;
+    use crate::metadata::LEN_METADATA_CIPHERTEXT;
+    use crate::primitives::xwing::LEN_XWING_SHAREDSECRET_ENCAPS;
+
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    fn message_ct(c1: Vec<u8>, cp: Vec<u8>, c2: Vec<u8>) -> MessageCiphertext {
+        MessageCiphertext {
+            c1: c1.try_into().expect("c1 length"),
+            cp,
+            c2: c2.try_into().expect("c2 length"),
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_message_ciphertext_byte_roundtrip(
+            c1 in prop::collection::vec(any::<u8>(), DH_AKEM_ENCAPS_SECRET_LEN),
+            cp in prop::collection::vec(any::<u8>(), 0..128),
+            c2 in prop::collection::vec(any::<u8>(), LEN_MLKEM_SHAREDSECRET_ENCAPS),
+        ) {
+            let ct = message_ct(c1, cp, c2);
+            let restored = MessageCiphertext::from_bytes(&ct.as_bytes()).expect("valid bytes");
+            prop_assert_eq!(ct.as_bytes(), restored.as_bytes());
+        }
+    }
 
     fn get_rng() -> ChaCha20Rng {
         let mut seed = [0u8; 32];

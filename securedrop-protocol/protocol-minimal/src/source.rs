@@ -9,7 +9,7 @@ use anyhow::Error;
 use bip39::{Language, Mnemonic};
 use rand_core::{CryptoRng, RngCore};
 
-use crate::ciphertext::Plaintext;
+use crate::client::plaintext::Plaintext;
 use crate::keys::*;
 use crate::primitives::dh_akem::DhAkemPrivateKey;
 use crate::primitives::mlkem::MLKEM768PrivateKey;

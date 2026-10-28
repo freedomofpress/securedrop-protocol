@@ -3,3 +3,5 @@ pub mod bundle;
 pub mod core;
 pub mod enrollment;
 pub mod setup;
+
+use crate::wire::core::FetchResponse;

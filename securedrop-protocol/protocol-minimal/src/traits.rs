@@ -10,7 +10,7 @@ use alloc::vec::Vec;
 use crate::wire::bundle::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
 use crate::wire::enrollment::Enrollment;
 
-use crate::ciphertext::Plaintext;
+use crate::client::plaintext::Plaintext;
 use crate::keys::{KeyBundlePublic, MessageKeyBundle};
 
 // Sealed traits that downstream crates should not implement.
