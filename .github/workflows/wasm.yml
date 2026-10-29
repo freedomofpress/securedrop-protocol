@@ -52,11 +52,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
-      - uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
-        with:
-          toolchain: stable
-          targets: wasm32-unknown-unknown
+      - name: Install rust toolchain
+        working-directory: securedrop-protocol
+        run: |
+          rustup toolchain install
+          rustup target add wasm32-unknown-unknown
       # Swatinem/rust-cache@v2.8.0
       - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
         with:
@@ -66,7 +66,6 @@ jobs:
           add-job-id-key: false
           # Don't race to create the cache
           save-if: false
-      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
       - name: Cache node and selenium dependencies
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -106,9 +105,7 @@ jobs:
         with:
           node-version-file: securedrop-protocol/bench/.nvmrc
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
-        with:
-          toolchain: stable
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
         with:
           prefix-key: wasm
