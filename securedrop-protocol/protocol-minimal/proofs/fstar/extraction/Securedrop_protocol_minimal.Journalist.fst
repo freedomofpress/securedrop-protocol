@@ -379,7 +379,17 @@ let impl_4: Securedrop_protocol_minimal.Traits.t_UserSecret t_Journalist =
           Securedrop_protocol_minimal.Primitives.Ristretto255.placeholder_public_key ();
           Securedrop_protocol_minimal.Client.Plaintext.f_sender_reply_pubkey_hybrid
           =
-          Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216);
+          Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey
+            #Anyhow.t_Error
+            (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__from_bytes (Rust_primitives.Hax.repeat
+                    (mk_u8 0)
+                    (mk_usize 1216)
+                  <:
+                  t_Slice u8)
+              <:
+              Core_models.Result.t_Result
+                Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey Anyhow.t_Error)
+            "zero placeholder has the right length";
           Securedrop_protocol_minimal.Client.Plaintext.f_msg = message
         }
         <:
