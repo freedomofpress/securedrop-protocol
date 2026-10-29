@@ -7,6 +7,7 @@ let _ =
   (* This module has implicit dependencies, here we make them explicit. *)
   (* The implicit dependencies arise from typeclasses instances. *)
   let open Rand_core in
+  let open Securedrop_protocol_minimal.Schemes.Metadata in
   ()
 
 /// Fixed, public, application-specific salt for source key derivation.
@@ -203,26 +204,19 @@ let impl_2: Securedrop_protocol_minimal.Traits.t_UserSecret t_Source =
     f_build_message
     =
     (fun (self: t_Source) (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) ->
-        let reply_key_pq_hybrid:t_Array u8 (mk_usize 1216) =
-          Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216)
-        in
-        let reply_key_pq_hybrid:t_Array u8 (mk_usize 1216) =
-          Core_models.Slice.impl__copy_from_slice #u8
-            reply_key_pq_hybrid
-            (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__as_bytes (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataKeyPair__public_key
-                    self.f_message_keys.Securedrop_protocol_minimal.Keys.Bundle.f_metadata_kp
-                  <:
-                  Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
-              <:
-              t_Slice u8)
-        in
         {
           Securedrop_protocol_minimal.Client.Plaintext.f_sender_fetch_key
           =
           self.f_fetch_key.Securedrop_protocol_minimal.Keys.f_pk;
           Securedrop_protocol_minimal.Client.Plaintext.f_sender_reply_pubkey_hybrid
           =
-          reply_key_pq_hybrid;
+          Core_models.Clone.f_clone #Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey
+            #FStar.Tactics.Typeclasses.solve
+            (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataKeyPair__public_key self
+                  .f_message_keys
+                  .Securedrop_protocol_minimal.Keys.Bundle.f_metadata_kp
+              <:
+              Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey);
           Securedrop_protocol_minimal.Client.Plaintext.f_msg = message
         }
         <:

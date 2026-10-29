@@ -6,7 +6,6 @@ use crate::primitives::ristretto255::{
     DHPublicKey, dh_shared_secret, generate_dh_keypair, generate_random_scalar,
     random_dh_public_key,
 };
-use crate::primitives::xwing::XWingPublicKey;
 use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, UserSecret};
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
@@ -116,12 +115,9 @@ pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
 /// but for toy purposes, everyone builds a Plaintext message the same way
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
-    let mut reply_key_pq_hybrid = [0u8; XWingPublicKey::LEN];
-    reply_key_pq_hybrid.copy_from_slice(sender.message_metadata_pk().as_bytes());
-
     Plaintext {
         sender_fetch_key: *sender.fetch_pk(),
-        sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
+        sender_reply_pubkey_hybrid: sender.message_metadata_pk().clone(),
         msg: message,
     }
 }
@@ -132,6 +128,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
+    use crate::metadata::MetadataPublicKey;
     use crate::{Journalist, Source, SourcePublicView};
 
     use super::*;
@@ -166,12 +163,12 @@ mod tests {
             sender_secret.fetch_keypair().1.clone().into_bytes()
         );
         assert_eq!(
-            &pt_ref.sender_reply_pubkey_hybrid,
+            pt_ref.sender_reply_pubkey_hybrid.as_bytes(),
             sender_public.message_metadata_pk().as_bytes()
         );
         assert_eq!(
             pt.len(),
-            &pt_ref.msg.len() + DHPublicKey::LEN + XWingPublicKey::LEN
+            &pt_ref.msg.len() + DHPublicKey::LEN + MetadataPublicKey::LEN
         );
     }
 
@@ -228,8 +225,7 @@ mod tests {
         let reply_recipient = SourcePublicView::from_reply_keys(
             pt.sender_fetch_key,
             sender_apke,
-            crate::metadata::MetadataPublicKey::from_bytes(&pt.sender_reply_pubkey_hybrid)
-                .expect("recovered metadata key is valid"),
+            pt.sender_reply_pubkey_hybrid,
         );
 
         // Journalist encrypts a reply back to the source.

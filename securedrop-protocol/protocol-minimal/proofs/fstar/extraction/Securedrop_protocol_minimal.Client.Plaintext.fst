@@ -6,7 +6,7 @@ open Core_models
 /// Toy pt structure
 type t_Plaintext = {
   f_sender_fetch_key:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
-  f_sender_reply_pubkey_hybrid:t_Array u8 (mk_usize 1216);
+  f_sender_reply_pubkey_hybrid:Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey;
   f_msg:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global
 }
 
@@ -35,7 +35,10 @@ let impl_Plaintext__to_bytes (self: t_Plaintext) : Alloc.Vec.t_Vec u8 Alloc.Allo
     Alloc.Vec.impl_2__extend_from_slice #u8
       #Alloc.Alloc.t_Global
       buf
-      (self.f_sender_reply_pubkey_hybrid <: t_Slice u8)
+      (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__as_bytes self
+            .f_sender_reply_pubkey_hybrid
+        <:
+        t_Slice u8)
   in
   let buf:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Alloc.Vec.impl_2__extend_from_slice #u8
@@ -47,7 +50,7 @@ let impl_Plaintext__to_bytes (self: t_Plaintext) : Alloc.Vec.t_Vec u8 Alloc.Allo
 
 let impl_Plaintext__len (self: t_Plaintext) : usize =
   (Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__LEN +!
-    Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
+    Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__LEN
     <:
     usize) +!
   (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global self.f_msg <: usize)
@@ -84,45 +87,46 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
     let offset:usize =
       offset +! Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__LEN
     in
-    let sender_reply_pubkey_hybrid:t_Array u8 (mk_usize 1216) =
-      Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216)
-    in
-    let sender_reply_pubkey_hybrid:t_Array u8 (mk_usize 1216) =
-      Core_models.Slice.impl__copy_from_slice #u8
-        sender_reply_pubkey_hybrid
-        (pt_bytes.[ {
-              Core_models.Ops.Range.f_start = offset;
-              Core_models.Ops.Range.f_end
-              =
-              offset +! Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
+    (match
+        Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__from_bytes (pt_bytes.[ {
+                Core_models.Ops.Range.f_start = offset;
+                Core_models.Ops.Range.f_end
+                =
+                offset +! Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__LEN
+                <:
+                usize
+              }
               <:
-              usize
-            }
+              Core_models.Ops.Range.t_Range usize ]
             <:
-            Core_models.Ops.Range.t_Range usize ]
+            t_Slice u8)
+        <:
+        Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey
+          Anyhow.t_Error
+      with
+      | Core_models.Result.Result_Ok sender_reply_pubkey_hybrid ->
+        let offset:usize =
+          offset +! Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__LEN
+        in
+        let msg:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+          Alloc.Slice.impl__to_vec #u8
+            (pt_bytes.[ { Core_models.Ops.Range.f_start = offset }
+                <:
+                Core_models.Ops.Range.t_RangeFrom usize ]
+              <:
+              t_Slice u8)
+        in
+        Core_models.Result.Result_Ok
+        ({
+            f_sender_fetch_key = sender_fetch_key;
+            f_sender_reply_pubkey_hybrid = sender_reply_pubkey_hybrid;
+            f_msg = msg
+          }
           <:
-          t_Slice u8)
-    in
-    let offset:usize =
-      offset +! Securedrop_protocol_minimal.Primitives.Xwing.impl_XWingPublicKey__LEN
-    in
-    let msg:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-      Alloc.Slice.impl__to_vec #u8
-        (pt_bytes.[ { Core_models.Ops.Range.f_start = offset }
-            <:
-            Core_models.Ops.Range.t_RangeFrom usize ]
-          <:
-          t_Slice u8)
-    in
-    Core_models.Result.Result_Ok
-    ({
-        f_sender_fetch_key = sender_fetch_key;
-        f_sender_reply_pubkey_hybrid = sender_reply_pubkey_hybrid;
-        f_msg = msg
-      }
-      <:
-      t_Plaintext)
-    <:
-    Core_models.Result.t_Result t_Plaintext Anyhow.t_Error
+          t_Plaintext)
+        <:
+        Core_models.Result.t_Result t_Plaintext Anyhow.t_Error
+      | Core_models.Result.Result_Err err ->
+        Core_models.Result.Result_Err err <: Core_models.Result.t_Result t_Plaintext Anyhow.t_Error)
   | Core_models.Result.Result_Err err ->
     Core_models.Result.Result_Err err <: Core_models.Result.t_Result t_Plaintext Anyhow.t_Error

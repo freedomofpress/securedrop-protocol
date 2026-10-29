@@ -8,6 +8,7 @@ let _ =
   (* The implicit dependencies arise from typeclasses instances. *)
   let open Anyhow.Error in
   let open Rand_core in
+  let open Securedrop_protocol_minimal.Schemes.Metadata in
   let open Securedrop_protocol_minimal.Traits in
   ()
 
@@ -291,28 +292,21 @@ let build_message
       (sender: iimpl_822573411_)
       (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
     : Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext =
-  let reply_key_pq_hybrid:t_Array u8 (mk_usize 1216) =
-    Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 1216)
-  in
-  let reply_key_pq_hybrid:t_Array u8 (mk_usize 1216) =
-    Core_models.Slice.impl__copy_from_slice #u8
-      reply_key_pq_hybrid
-      (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__as_bytes (Securedrop_protocol_minimal.Traits.f_message_metadata_pk
-              #iimpl_822573411_
-              #FStar.Tactics.Typeclasses.solve
-              sender
-            <:
-            Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
-        <:
-        t_Slice u8)
-  in
   {
     Securedrop_protocol_minimal.Client.Plaintext.f_sender_fetch_key
     =
     Securedrop_protocol_minimal.Traits.f_fetch_pk #iimpl_822573411_
       #FStar.Tactics.Typeclasses.solve
       sender;
-    Securedrop_protocol_minimal.Client.Plaintext.f_sender_reply_pubkey_hybrid = reply_key_pq_hybrid;
+    Securedrop_protocol_minimal.Client.Plaintext.f_sender_reply_pubkey_hybrid
+    =
+    Core_models.Clone.f_clone #Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey
+      #FStar.Tactics.Typeclasses.solve
+      (Securedrop_protocol_minimal.Traits.f_message_metadata_pk #iimpl_822573411_
+          #FStar.Tactics.Typeclasses.solve
+          sender
+        <:
+        Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey);
     Securedrop_protocol_minimal.Client.Plaintext.f_msg = message
   }
   <:

@@ -1,5 +1,5 @@
+use crate::metadata::MetadataPublicKey;
 use crate::primitives::ristretto255::DHPublicKey;
-use crate::primitives::xwing::XWingPublicKey;
 use alloc::vec::Vec;
 use anyhow::Error;
 
@@ -9,7 +9,7 @@ pub struct Plaintext {
     /// Fetching key: $pk_S^{fetch}$ in the spec
     pub sender_fetch_key: DHPublicKey,
     /// Metadata key: $pk_S^{PKE}$ in the spec
-    pub sender_reply_pubkey_hybrid: [u8; XWingPublicKey::LEN],
+    pub sender_reply_pubkey_hybrid: MetadataPublicKey,
     /// Message
     pub msg: Vec<u8>,
 }
@@ -19,14 +19,14 @@ impl Plaintext {
         let mut buf = Vec::new();
 
         buf.extend_from_slice(&self.sender_fetch_key.into_bytes());
-        buf.extend_from_slice(&self.sender_reply_pubkey_hybrid);
+        buf.extend_from_slice(self.sender_reply_pubkey_hybrid.as_bytes());
         buf.extend_from_slice(&self.msg);
 
         buf
     }
 
     pub fn len(&self) -> usize {
-        DHPublicKey::LEN + XWingPublicKey::LEN + self.msg.len()
+        DHPublicKey::LEN + MetadataPublicKey::LEN + self.msg.len()
     }
 
     // Toy parsing only
@@ -39,9 +39,9 @@ impl Plaintext {
         let sender_fetch_key = DHPublicKey::decode(fetch_key_bytes)?;
         offset += DHPublicKey::LEN;
 
-        let mut sender_reply_pubkey_hybrid = [0u8; XWingPublicKey::LEN];
-        sender_reply_pubkey_hybrid.copy_from_slice(&pt_bytes[offset..offset + XWingPublicKey::LEN]);
-        offset += XWingPublicKey::LEN;
+        let sender_reply_pubkey_hybrid =
+            MetadataPublicKey::from_bytes(&pt_bytes[offset..offset + MetadataPublicKey::LEN])?;
+        offset += MetadataPublicKey::LEN;
 
         let msg = pt_bytes[offset..].to_vec();
 

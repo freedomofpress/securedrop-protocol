@@ -152,7 +152,10 @@ impl UserSecret for Journalist {
         // another scheme (fixme)
         Plaintext {
             sender_fetch_key: crate::primitives::ristretto255::placeholder_public_key(),
-            sender_reply_pubkey_hybrid: [0u8; XWingPublicKey::LEN],
+            sender_reply_pubkey_hybrid: MetadataPublicKey::from_bytes(
+                &[0u8; MetadataPublicKey::LEN],
+            )
+            .expect("zero placeholder has the right length"),
             msg: message,
         }
     }

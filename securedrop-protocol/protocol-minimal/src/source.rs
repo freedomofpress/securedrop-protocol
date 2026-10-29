@@ -14,7 +14,7 @@ use crate::keys::*;
 use crate::primitives::dh_akem::DhAkemPrivateKey;
 use crate::primitives::mlkem::MLKEM768PrivateKey;
 use crate::primitives::provider::hkdf;
-use crate::primitives::xwing::{XWingPrivateKey, XWingPublicKey};
+use crate::primitives::xwing::XWingPrivateKey;
 use crate::traits::{UserPublic, UserSecret};
 
 // do not re-export!
@@ -100,12 +100,9 @@ impl UserSecret for Source {
     }
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
-        let mut reply_key_pq_hybrid = [0u8; XWingPublicKey::LEN];
-        reply_key_pq_hybrid.copy_from_slice(self.message_keys.metadata_kp.public_key().as_bytes());
-
         Plaintext {
             sender_fetch_key: self.fetch_key.pk,
-            sender_reply_pubkey_hybrid: reply_key_pq_hybrid,
+            sender_reply_pubkey_hybrid: self.message_keys.metadata_kp.public_key().clone(),
             msg: message,
         }
     }
