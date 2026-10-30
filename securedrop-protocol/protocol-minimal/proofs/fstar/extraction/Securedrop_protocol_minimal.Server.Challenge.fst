@@ -12,12 +12,68 @@ let _ =
 
 #push-options "--admit_smt_queries true"
 
+/// Note this is marked lax temporaily due to the `.expect()` panic freedom requirement
+let make_response
+      (#v_R: Type0)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
+      (rng: v_R)
+      (message_id: t_Array u8 (mk_usize 16))
+      (mgdh mgdh_pubkey: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
+      (nr_id: t_Slice u8)
+    : (v_R & Securedrop_protocol_minimal.Wire.Core.t_FetchResponse) =
+  let (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey) =
+    Securedrop_protocol_minimal.Primitives.Ristretto255.generate_random_scalar #v_R rng
+  in
+  let rng:v_R = tmp0 in
+  let eph_sk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey = out in
+  let shared_secret:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
+    Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret mgdh eph_sk
+  in
+  let key:t_Array u8 (mk_usize 32) =
+    Core_models.Result.impl__unwrap #(t_Array u8 (mk_usize 32))
+      #Anyhow.t_Error
+      (Securedrop_protocol_minimal.Schemes.Challenge.derive_challenge_key shared_secret nr_id
+        <:
+        Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error)
+  in
+  let enc_mid:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Core_models.Result.impl__unwrap #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+      #Anyhow.t_Error
+      (Securedrop_protocol_minimal.Schemes.Challenge.encrypt_message_id key
+          (message_id <: t_Slice u8)
+        <:
+        Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
+  in
+  let kmid:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
+  let kmid:t_Array u8 (mk_usize 32) =
+    Core_models.Slice.impl__copy_from_slice #u8
+      kmid
+      (Alloc.Vec.impl_1__as_slice enc_mid <: t_Slice u8)
+  in
+  let pmgdh:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
+    Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret mgdh_pubkey eph_sk
+  in
+  let hax_temp_output:Securedrop_protocol_minimal.Wire.Core.t_FetchResponse =
+    {
+      Securedrop_protocol_minimal.Wire.Core.f_enc_id = kmid;
+      Securedrop_protocol_minimal.Wire.Core.f_pmgdh = pmgdh
+    }
+    <:
+    Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
+  in
+  rng, hax_temp_output <: (v_R & Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
+
+#pop-options
+
+#push-options "--admit_smt_queries true"
+
 /// Given a set of ciphertext bundles (C, X, Z) and their associated uuid,
 /// compute a fixed-length set of "challenges" >= the number of SeverMessageStore entries.
 /// A challenge is returned as a tuple of DH agreement outputs (or random data tuples of the same length).
 /// For benchmarking purposes, supply the rng as a separable parameter, and allow the total number of expected responses to be specified as a paremeter (worst case performance
 /// when the number of items in the server store approaches num total_responses.)
-/// Note this is marked lax temporaily due to the `.expect()`/`push` panic freedom requirement
+/// Note this is marked lax temporaily due to the `push` panic freedom requirement
 let compute_fetch_challenges
       (#v_R: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
@@ -33,6 +89,16 @@ let compute_fetch_challenges
     Alloc.Vec.impl__with_capacity #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
       total_responses
   in
+  let (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey) =
+    Securedrop_protocol_minimal.Primitives.Ristretto255.random_dh_public_key #v_R rng
+  in
+  let rng:v_R = tmp0 in
+  let decoy_mgdh:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey = out in
+  let (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey) =
+    Securedrop_protocol_minimal.Primitives.Ristretto255.random_dh_public_key #v_R rng
+  in
+  let rng:v_R = tmp0 in
+  let decoy_mgdh_pubkey:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey = out in
   let
   (responses:
     Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global),
@@ -76,58 +142,21 @@ let compute_fetch_challenges
             <:
             bool
           then
-            let
-            (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey) =
-              Securedrop_protocol_minimal.Primitives.Ristretto255.generate_random_scalar #v_R rng
+            let (tmp0: v_R), (out: Securedrop_protocol_minimal.Wire.Core.t_FetchResponse) =
+              make_response #v_R
+                rng
+                message_id
+                envelope.Securedrop_protocol_minimal.Wire.Core.f_mgdh
+                envelope.Securedrop_protocol_minimal.Wire.Core.f_mgdh_pubkey
+                Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
             in
             let rng:v_R = tmp0 in
-            let eph_sk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey = out in
-            let shared_secret:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
-              Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret envelope
-                  .Securedrop_protocol_minimal.Wire.Core.f_mgdh
-                eph_sk
-            in
-            let key:t_Array u8 (mk_usize 32) =
-              Core_models.Result.impl__unwrap #(t_Array u8 (mk_usize 32))
-                #Anyhow.t_Error
-                (Securedrop_protocol_minimal.Schemes.Challenge.derive_challenge_key shared_secret
-                    Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
-                  <:
-                  Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error)
-            in
-            let enc_mid:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-              Core_models.Result.impl__unwrap #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-                #Anyhow.t_Error
-                (Securedrop_protocol_minimal.Schemes.Challenge.encrypt_message_id key
-                    (message_id <: t_Slice u8)
-                  <:
-                  Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-                    Anyhow.t_Error)
-            in
-            let kmid:t_Array u8 (mk_usize 32) =
-              Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
-            in
-            let kmid:t_Array u8 (mk_usize 32) =
-              Core_models.Slice.impl__copy_from_slice #u8
-                kmid
-                (Alloc.Vec.impl_1__as_slice enc_mid <: t_Slice u8)
-            in
-            let pmgdh:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
-              Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret envelope
-                  .Securedrop_protocol_minimal.Wire.Core.f_mgdh_pubkey
-                eph_sk
-            in
             let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               Alloc.Alloc.t_Global =
               Alloc.Vec.impl_1__push #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
                 #Alloc.Alloc.t_Global
                 responses
-                ({
-                    Securedrop_protocol_minimal.Wire.Core.f_enc_id = kmid;
-                    Securedrop_protocol_minimal.Wire.Core.f_pmgdh = pmgdh
-                  }
-                  <:
-                  Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
+                out
             in
             responses, rng
             <:
@@ -191,18 +220,13 @@ let compute_fetch_challenges
           (rng: v_R) =
             temp_0_
           in
-          let (pad_kmid: t_Array u8 (mk_usize 32)):t_Array u8 (mk_usize 32) =
-            Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32)
-          in
-          let (tmp0: v_R), (tmp1: t_Array u8 (mk_usize 32)) =
-            Rand_core.f_fill_bytes #v_R #FStar.Tactics.Typeclasses.solve rng pad_kmid
-          in
-          let rng:v_R = tmp0 in
-          let pad_kmid:t_Array u8 (mk_usize 32) = tmp1 in
-          let _:Prims.unit = () in
-          let (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
-          =
-            Securedrop_protocol_minimal.Primitives.Ristretto255.random_dh_public_key #v_R rng
+          let (tmp0: v_R), (out: Securedrop_protocol_minimal.Wire.Core.t_FetchResponse) =
+            make_response #v_R
+              rng
+              (Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 16) <: t_Array u8 (mk_usize 16))
+              decoy_mgdh
+              decoy_mgdh_pubkey
+              Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
           in
           let rng:v_R = tmp0 in
           let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
@@ -210,12 +234,7 @@ let compute_fetch_challenges
             Alloc.Vec.impl_1__push #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               #Alloc.Alloc.t_Global
               responses
-              ({
-                  Securedrop_protocol_minimal.Wire.Core.f_enc_id = pad_kmid;
-                  Securedrop_protocol_minimal.Wire.Core.f_pmgdh = out
-                }
-                <:
-                Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
+              out
           in
           responses, rng
           <:
