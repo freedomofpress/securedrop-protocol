@@ -84,12 +84,6 @@ let impl_MessageKeyBundle__public (self: t_MessageKeyBundle) : t_KeyBundlePublic
   <:
   t_KeyBundlePublic
 
-type t_SignedMessageKeyBundle = {
-  f_bundle:t_MessageKeyBundle;
-  f_selfsig:Securedrop_protocol_minimal.Schemes.Sign.t_Signature
-  Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey
-}
-
 type t_LongtermKeyBundle = {
   f_apke:Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey;
   f_fetch_pk:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
