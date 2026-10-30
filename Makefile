@@ -44,10 +44,11 @@ deps-lint: deps-rust  ## Install project-level linters
 	@cargo install --locked dprint --version $(DPRINT_VER) --root $(TOOLS_DIR)
 	@cargo install --locked zizmor --version $(ZIZMOR_VER) --root $(TOOLS_DIR)
 
+# 'rustup toolchain install' is no longer required, invoking a cargo command is sufficient
 .PHONY: deps-rust
-deps-rust:  ## Install clippy and rustfmt.
-	@which cargo >> /dev/null || { echo "Please install the Rust toolchain"; exit 1; }
-	@rustup component add clippy rustfmt
+deps-rust: ## Install pinned Rust toolchain version
+	@which rustup >> /dev/null || { echo "rustup not found, is it installed?"; exit 1; }
+	@cargo check --quiet --manifest-path=securedrop-protocol/Cargo.toml
 
 .PHONY: clippy
 clippy: deps-rust  ## Check Rust code with clippy
@@ -62,10 +63,10 @@ build-wasm:  ## Compile protocol-minimal and benchmark crates for wasm32-unknown
 
 .PHONY: core-wasm
 core-wasm: ## Compile just the protocol-minimal crate in release mode for wasm32-unknown-unknown
-	@which cargo >> /dev/null || { echo "Please install the Rust toolchain"; exit 1; }
-	@rustup target list --installed | grep wasm32-unknown-unknown || { echo "Install wasm32 target using \`rustup target add wasm32-unknown-unknown\`"; exit 1; }
+	@which rustup >> /dev/null || { echo "rustup not found, is it installed?"; exit 1; }
+	@rustup target list --installed | grep wasm32-unknown-unknown || { echo "Installing wasm32-unknown-unknown target"; rustup target add wasm32-unknown-unknown; }
 	@echo "Compile protocol-minimal crate for wasm32-unknown-unknown."
-	cargo build --quiet --manifest-path=securedrop-protocol/Cargo.toml --package=securedrop-protocol-minimal --target wasm32-unknown-unknown --release
+	@cargo build --quiet --manifest-path=securedrop-protocol/Cargo.toml --package=securedrop-protocol-minimal --target wasm32-unknown-unknown --release
 	@echo "Build complete, artifacts in securedrop-protocol/target/wasm32-unknown-unknown/release/."
 
 .PHONY: help

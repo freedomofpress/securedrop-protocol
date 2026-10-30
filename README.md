@@ -63,6 +63,7 @@ Lint tools are installed in the `lint-tools` directory to avoid interfering with
 The `make hax` and auxiliary workflows in `securedrop-protocol/protocol-minimal`
 require:
 
+- the Rust nightly toolchain
 - an [installation][hax-install] of the hax toolchain of the version returned by
   `make hax-lib-version`; and
 - an `fstar.exe` binary on your `$PATH` of the version defined in
@@ -112,7 +113,7 @@ Operations should be benchmarked in the environment in which they are expected t
 
 **Dependencies** (install via Homebrew unless noted):
 
-- `rustc` 1.92.0 (via rustup)
+- the Rust stable toolchain (via rustup)
 - Node ≥ 22
 - GCC (required for Rust compilation)
 - Firefox
