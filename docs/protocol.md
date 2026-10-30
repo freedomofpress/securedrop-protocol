@@ -692,7 +692,7 @@ Challenge encryption protects each message ID using a symmetric key derived from
 
 The server uses the KDF derived key to encrypt the message ID with AEAD, and sets the resulting ciphertext data as `eid_k`.
 
-The server returns a fixed number of challenge pairs with the encryption ID and DH share `(eid_k, Q_k)`. If fewer messages are available, the server generates random challenge pairs up to `MAX_MESSAGES` to ensure that the response size does not reveal how many messages are stored on the server.
+The server returns a fixed number of challenge pairs with the encryption ID and DH share `(eid_k, Q_k)`. If fewer messages are available, the server generates random challenge pairs up to `MAX_MESSAGES` to ensure that the response size does not reveal how many messages are stored on the server. The challenge pairs are sorted lexicographically by their encrypted ID on each request to prevent linkability or detection of the decoy challenges; encrypted IDs are indistinguishable from a uniform distribution since keys are generated with ephemeral shares.
 
 A receiver knows their own keys, the newsroom's verification key $vk_{NR}^{sig}$, and
 the $pks$ and $sigs$ they previously [fetched].
@@ -731,6 +731,7 @@ For some newsroom $NR$:
 | &nbsp;&nbsp;&nbsp;&nbsp;$`idk_k \gets \text{KDF}(Z_k^{r_k}, NR)`$                                    |                                                |                                                                                                       |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`eid_k \gets \text{AEAD.Enc}(idk_k, 0^{nl}, -, id_k)`$ for length $nl$[^14] |                                                |                                                                                                       |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`challs \gets challs \cup \{(eid_k, Q_k)\}`$                                |                                                |                                                                                                       |
+| $`challs \gets sort_{eid_k}(challs)`$                                                                |                                                |                                                                                                       |
 |                                                                                                      | $`\longrightarrow challs`$                     |                                                                                                       |
 |                                                                                                      |                                                | $`cids \gets \emptyset`$                                                                              |
 |                                                                                                      |                                                | $`\forall k \in [0, \|challs\| - 1]:`$                                                                |

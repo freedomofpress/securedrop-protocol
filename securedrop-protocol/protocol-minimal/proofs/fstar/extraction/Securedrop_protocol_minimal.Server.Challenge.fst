@@ -10,6 +10,13 @@ let _ =
   let open Rand_core in
   ()
 
+assume
+val sort_by_id': entries: t_Slice Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
+  -> t_Slice Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
+
+unfold
+let sort_by_id = sort_by_id'
+
 #push-options "--admit_smt_queries true"
 
 /// Given a set of ciphertext bundles (C, X, Z) and their associated uuid,
@@ -222,6 +229,14 @@ let compute_fetch_challenges
           (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               Alloc.Alloc.t_Global &
             v_R))
+  in
+  let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
+    Alloc.Alloc.t_Global =
+    Alloc.Slice.impl__to_vec (sort_by_id (Alloc.Vec.impl_1__as_slice responses
+            <:
+            t_Slice Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
+        <:
+        t_Slice Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
   in
   let hax_temp_output:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
     Alloc.Alloc.t_Global =
