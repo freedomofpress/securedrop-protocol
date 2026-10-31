@@ -15,6 +15,7 @@
 //!     return m
 //! ```
 
+use crate::primitives::provider::NoRng;
 use crate::{
     message::MessagePublicKey,
     primitives::provider::hpke_rs::{
@@ -23,6 +24,7 @@ use crate::{
 };
 use alloc::string::String;
 use alloc::vec::Vec;
+use hpke_rs::libcrux::HpkeLibcruxPrng;
 use rand_core::{CryptoRng, RngCore};
 use serde::de::Error as _;
 
@@ -229,11 +231,23 @@ impl MetadataPrivateKey {
 /// SD-PKE.Enc: encrypt message `m` to recipient key `pk_r`, returning `(c, c')`.
 ///
 /// `m` is the sender's long-term APKE public key, which must be serializable.
-pub(crate) fn encrypt(
+pub(crate) fn encrypt<R: RngCore + CryptoRng>(
+    rng: &mut R,
     pk_r: &MetadataPublicKey,
     m: &MessagePublicKey,
 ) -> Result<MetadataCiphertext, anyhow::Error> {
-    let mut hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
+    let mut seed = [0u8; 32];
+    rng.fill_bytes(&mut seed);
+    let prng = HpkeLibcruxPrng::try_from_seed(seed)
+        .map_err(|e| anyhow::anyhow!("hpke prng instantiation failed: {:?}", e))?;
+    let mut hpke = Hpke::<HpkeLibcrux>::new_with_rng(
+        Mode::Base,
+        XWingDraft06,
+        HkdfSha256,
+        ChaCha20Poly1305,
+        prng,
+    );
+
     let pk_r_hpke = pk_r.0.clone().into();
 
     // MetadataPublicKey always holds a valid XWing key, so seal should not fail.
@@ -267,7 +281,14 @@ pub fn decrypt(
     sk_r: &MetadataPrivateKey,
     ct: &MetadataCiphertext,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    let hpke = Hpke::<HpkeLibcrux>::new(Mode::Base, XWingDraft06, HkdfSha256, ChaCha20Poly1305);
+    let mut hpke = Hpke::<HpkeLibcrux<NoRng>>::new_with_rng(
+        Mode::Base,
+        XWingDraft06,
+        HkdfSha256,
+        ChaCha20Poly1305,
+        NoRng, // decryption must not sample randomness
+    );
+
     let sk_r_hpke = sk_r.0.clone().into();
 
     hpke.open(&ct.c, &sk_r_hpke, b"", b"", &ct.cp, None, None, None)
@@ -291,6 +312,17 @@ mod tests {
 
     proptest! {
         #[test]
+        fn test_metadata_ciphertext_byte_roundtrip(
+            c in prop::collection::vec(any::<u8>(), LEN_XWING_SHAREDSECRET_ENCAPS),
+            cp in prop::collection::vec(any::<u8>(), LEN_METADATA_CIPHERTEXT)
+            .prop_map(|v| v.try_into().unwrap()),
+        ) {
+            let ct = MetadataCiphertext { c: c.try_into().expect("c length"), cp };
+            let restored = MetadataCiphertext::from_bytes(&ct.as_bytes()).expect("valid bytes");
+            prop_assert_eq!(ct.as_bytes(), restored.as_bytes());
+        }
+
+        #[test]
         fn test_metadata_encrypt_decrypt_roundtrip(m in proptest::collection::vec(any::<u8>(), 0..200)) {
             let mut rng = get_rng();
             let kp = keygen(&mut rng).expect("KGen failed");
@@ -300,7 +332,7 @@ mod tests {
 
             let m = MessagePublicKey::from_bytes(&fake_key_bytes).unwrap();
 
-            let ct = encrypt(kp.public_key(), &m);
+            let ct = encrypt(&mut rng, kp.public_key(), &m);
             let decrypted = decrypt(kp.private_key(), &ct.unwrap()).expect("Decryption failed");
 
             prop_assert_eq!(m.as_bytes(), decrypted);
@@ -318,7 +350,7 @@ mod tests {
 
         let m = MessagePublicKey::from_bytes(&fake_key_bytes).unwrap();
 
-        let ct = encrypt(kp.public_key(), &m);
+        let ct = encrypt(&mut rng, kp.public_key(), &m);
         assert!(decrypt(wrong_kp.private_key(), &ct.unwrap()).is_err());
     }
 }

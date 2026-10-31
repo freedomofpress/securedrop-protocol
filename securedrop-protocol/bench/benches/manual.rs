@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use securedrop_protocol_minimal::{Envelope, FetchResponse, Journalist, Source, UserSecret};
 
-use securedrop_protocol_minimal::encrypt_decrypt::compute_fetch_challenges;
+use securedrop_protocol_minimal::server::challenge::compute_fetch_challenges;
 
 use securedrop_protocol_bench::{bench_decrypt, bench_encrypt, bench_fetch};
 

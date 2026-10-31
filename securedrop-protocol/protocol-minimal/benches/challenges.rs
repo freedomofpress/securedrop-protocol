@@ -5,7 +5,9 @@
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
-use securedrop_protocol_minimal::encrypt_decrypt::{compute_fetch_challenges, encrypt};
+use securedrop_protocol_minimal::client::message::encrypt;
+use securedrop_protocol_minimal::server::challenge::compute_fetch_challenges;
+
 use securedrop_protocol_minimal::{Envelope, Journalist, Source, UserSecret};
 
 const STORE_SIZES: &[usize] = &[100, 500, 1000, 2000, 5000, 10000];

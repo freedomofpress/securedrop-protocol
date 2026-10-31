@@ -149,7 +149,7 @@ ${HACL_HOME}:
 
 # If no any F* file is detected, we run hax
 ifeq "$(wildcard *.fst *fsti)" ""
-$(shell cargo hax into fstar)
+$(shell cargo +nightly hax into fstar)
 endif
 
 # By default, we process all the files in the current directory

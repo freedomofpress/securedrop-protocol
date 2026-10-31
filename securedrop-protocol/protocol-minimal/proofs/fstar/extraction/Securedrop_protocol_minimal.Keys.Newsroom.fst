@@ -10,6 +10,18 @@ let _ =
   let open Securedrop_protocol_minimal.Schemes.Sign in
   ()
 
+let v_NR_ID: t_Slice u8 =
+  (let list =
+      [
+        mk_u8 77; mk_u8 79; mk_u8 67; mk_u8 75; mk_u8 95; mk_u8 78; mk_u8 69; mk_u8 87; mk_u8 83;
+        mk_u8 82; mk_u8 79; mk_u8 79; mk_u8 77; mk_u8 95; mk_u8 73; mk_u8 68
+      ]
+    in
+    FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 16);
+    Rust_primitives.Hax.array_of_list 16 list)
+  <:
+  t_Slice u8
+
 /// Newsroom keypair used for signing.
 type t_NewsroomKeyPair = { f_sk:Securedrop_protocol_minimal.Schemes.Sign.t_SigningKey }
 

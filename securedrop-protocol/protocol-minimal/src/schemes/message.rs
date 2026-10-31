@@ -20,6 +20,7 @@
 //!     return m
 //! ```
 
+use crate::primitives::provider::NoRng;
 use crate::primitives::provider::hpke_rs::{
     ChaCha20Poly1305, DhKem25519, HkdfSha256, Hpke, HpkeLibcrux, HpkePrivateKey, HpkePublicKey,
     Mode,
@@ -30,6 +31,7 @@ use crate::primitives::ristretto255::DHPublicKey;
 use alloc::string::String;
 use alloc::vec::Vec;
 use anyhow::Error;
+use hpke_rs::libcrux::HpkeLibcruxPrng;
 use rand_core::{CryptoRng, RngCore};
 use serde::de::Error as _;
 
@@ -273,8 +275,18 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
     ad: &[u8], // Todo: should always be empty
     info_incl: &DHPublicKey,
 ) -> Result<MessageCiphertext, Error> {
-    let mut hpke =
-        Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+    let mut seed = [0u8; 32];
+    rng.fill_bytes(&mut seed);
+
+    let prng = HpkeLibcruxPrng::try_from_seed(seed)
+        .map_err(|e| anyhow::anyhow!("hpke prng instantiation failed: {:?}", e))?;
+    let mut hpke = Hpke::<HpkeLibcrux>::new_with_rng(
+        Mode::AuthPsk,
+        DhKem25519,
+        HkdfSha256,
+        ChaCha20Poly1305,
+        prng,
+    );
 
     let mut randomness = [0u8; LEN_MLKEM_ENCAPS_RAND];
     rng.fill_bytes(&mut randomness);
@@ -331,7 +343,13 @@ pub fn auth_dec(
     ad: &[u8],
     info_incl: &DHPublicKey,
 ) -> Result<Vec<u8>, Error> {
-    let hpke = Hpke::<HpkeLibcrux>::new(Mode::AuthPsk, DhKem25519, HkdfSha256, ChaCha20Poly1305);
+    let mut hpke = Hpke::<HpkeLibcrux<NoRng>>::new_with_rng(
+        Mode::AuthPsk,
+        DhKem25519,
+        HkdfSha256,
+        ChaCha20Poly1305,
+        NoRng, // decryption must not sample randomness
+    );
 
     // K2 = KEM_PQ.Decap(skR=skR2, enc=c2)
     let k2 = MlKem768::decaps(&ct.c2, sk.mlkem.as_bytes())
@@ -365,9 +383,33 @@ mod tests {
     use crate::primitives::ristretto255::generate_dh_keypair;
 
     use super::*;
+    use crate::metadata::LEN_METADATA_CIPHERTEXT;
+    use crate::primitives::xwing::LEN_XWING_SHAREDSECRET_ENCAPS;
+
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    fn message_ct(c1: Vec<u8>, cp: Vec<u8>, c2: Vec<u8>) -> MessageCiphertext {
+        MessageCiphertext {
+            c1: c1.try_into().expect("c1 length"),
+            cp,
+            c2: c2.try_into().expect("c2 length"),
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_message_ciphertext_byte_roundtrip(
+            c1 in prop::collection::vec(any::<u8>(), DH_AKEM_ENCAPS_SECRET_LEN),
+            cp in prop::collection::vec(any::<u8>(), 0..128),
+            c2 in prop::collection::vec(any::<u8>(), LEN_MLKEM_SHAREDSECRET_ENCAPS),
+        ) {
+            let ct = message_ct(c1, cp, c2);
+            let restored = MessageCiphertext::from_bytes(&ct.as_bytes()).expect("valid bytes");
+            prop_assert_eq!(ct.as_bytes(), restored.as_bytes());
+        }
+    }
 
     fn get_rng() -> ChaCha20Rng {
         let mut seed = [0u8; 32];

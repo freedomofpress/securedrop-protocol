@@ -1,0 +1,321 @@
+module Securedrop_protocol_minimal.Client.Message
+#set-options "--fuel 0 --ifuel 1 --z3rlimit 15"
+open FStar.Mul
+open Core_models
+
+let _ =
+  (* This module has implicit dependencies, here we make them explicit. *)
+  (* The implicit dependencies arise from typeclasses instances. *)
+  let open Anyhow.Error in
+  let open Rand_core in
+  let open Securedrop_protocol_minimal.Schemes.Metadata in
+  let open Securedrop_protocol_minimal.Traits in
+  ()
+
+#push-options "--admit_smt_queries true"
+
+/// Encrypt a message from a sender to a recipient (step 6).
+/// Produces an [`Envelope`] containing:
+/// - `ct^APKE`: SD-APKE ciphertext (encrypted message)
+/// - `ct^PKE`: SD-PKE ciphertext (encrypted sender APKE public key)
+/// - `(X, Z)`: hint for privacy-preserving message fetching
+let encrypt
+      (#v_R #v_Sender #v_Recipient: Type0)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()]
+          i2:
+          Securedrop_protocol_minimal.Traits.t_UserSecret v_Sender)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()]
+          i3:
+          Securedrop_protocol_minimal.Traits.t_UserPublic v_Recipient)
+      (rng: v_R)
+      (sender: v_Sender)
+      (plaintext: Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext)
+      (recipient: v_Recipient)
+    : (v_R & Securedrop_protocol_minimal.Wire.Core.t_Envelope) =
+  let keypair_s:Securedrop_protocol_minimal.Schemes.Message.t_MessageKeyPair =
+    Securedrop_protocol_minimal.Traits.f_message_auth_keypair #v_Sender
+      #FStar.Tactics.Typeclasses.solve
+      sender
+  in
+  let pk_r:Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey =
+    Securedrop_protocol_minimal.Traits.f_message_enc_pk #v_Recipient
+      #FStar.Tactics.Typeclasses.solve
+      recipient
+  in
+  let pk_r_fetch:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
+    Securedrop_protocol_minimal.Traits.f_fetch_pk #v_Recipient
+      #FStar.Tactics.Typeclasses.solve
+      recipient
+  in
+  let
+  (tmp0: v_R),
+  (out:
+    Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext
+      Anyhow.t_Error) =
+    Securedrop_protocol_minimal.Schemes.Message.auth_enc #v_R
+      rng
+      keypair_s
+      pk_r
+      (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Client.Plaintext.impl_Plaintext__to_bytes
+              plaintext
+            <:
+            Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+        <:
+        t_Slice u8)
+      Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+      pk_r_fetch
+  in
+  let rng:v_R = tmp0 in
+  let ct_apke:Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext =
+    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext
+      #Anyhow.t_Error
+      out
+      "SD-APKE AuthEnc failed"
+  in
+  let
+  (tmp0: v_R),
+  (out:
+    (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+      Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)) =
+    Securedrop_protocol_minimal.Primitives.Ristretto255.generate_dh_keypair #v_R rng
+  in
+  let rng:v_R = tmp0 in
+  let
+  (hint_esk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey),
+  (hint_epk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey) =
+    out
+  in
+  let (hint_sharedsecret: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey):Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
+  =
+    Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret (Securedrop_protocol_minimal.Traits.f_fetch_pk
+          #v_Recipient
+          #FStar.Tactics.Typeclasses.solve
+          recipient
+        <:
+        Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
+      hint_esk
+  in
+  let
+  (tmp0: v_R),
+  (out:
+    Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext
+      Anyhow.t_Error) =
+    Securedrop_protocol_minimal.Schemes.Metadata.encrypt #v_R
+      rng
+      (Securedrop_protocol_minimal.Traits.f_message_metadata_pk #v_Recipient
+          #FStar.Tactics.Typeclasses.solve
+          recipient
+        <:
+        Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
+      (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__public_key keypair_s
+        <:
+        Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
+  in
+  let rng:v_R = tmp0 in
+  let ct_pke:Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext =
+    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext
+      #Anyhow.t_Error
+      out
+      "Valid Keybundle should allow metadata seal"
+  in
+  let hax_temp_output:Securedrop_protocol_minimal.Wire.Core.t_Envelope =
+    {
+      Securedrop_protocol_minimal.Wire.Core.f_ct_apke = ct_apke;
+      Securedrop_protocol_minimal.Wire.Core.f_ct_pke = ct_pke;
+      Securedrop_protocol_minimal.Wire.Core.f_mgdh_pubkey = hint_epk;
+      Securedrop_protocol_minimal.Wire.Core.f_mgdh = hint_sharedsecret
+    }
+    <:
+    Securedrop_protocol_minimal.Wire.Core.t_Envelope
+  in
+  rng, hax_temp_output <: (v_R & Securedrop_protocol_minimal.Wire.Core.t_Envelope)
+
+#pop-options
+
+#push-options "--admit_smt_queries true"
+
+/// Decrypt like [`decrypt`], additionally returning the sender's long-term
+/// SD-APKE public key `pk_S^APKE` recovered from `ct^PKE`.
+let decrypt_with_sender
+      (#v_U: Type0)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()]
+          i0:
+          Securedrop_protocol_minimal.Traits.t_UserSecret v_U)
+      (receiver: v_U)
+      (envelope: Securedrop_protocol_minimal.Wire.Core.t_Envelope)
+    : (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+      Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) =
+  let
+  (found:
+    Core_models.Option.t_Option
+    (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+      Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)):Core_models.Option.t_Option
+  (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+    Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
+    Core_models.Option.Option_None
+    <:
+    Core_models.Option.t_Option
+    (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+      Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+  in
+  let found:Core_models.Option.t_Option
+  (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+    Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
+    Core_models.Iter.Traits.Iterator.f_fold (Core_models.Iter.Traits.Collect.f_into_iter #(Core_models.Slice.Iter.t_Iter
+            Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
+          #FStar.Tactics.Typeclasses.solve
+          (Core_models.Slice.impl__iter #Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+              (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Traits.f_keybundles #v_U
+                      #FStar.Tactics.Typeclasses.solve
+                      receiver
+                    <:
+                    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+                      Alloc.Alloc.t_Global)
+                <:
+                t_Slice Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
+            <:
+            Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+          )
+        <:
+        Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
+      found
+      (fun found bundle ->
+          let found:Core_models.Option.t_Option
+          (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+            Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
+            found
+          in
+          let bundle:Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle = bundle in
+          match
+            Securedrop_protocol_minimal.Schemes.Metadata.decrypt (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataKeyPair__private_key
+                  bundle.Securedrop_protocol_minimal.Keys.Bundle.f_metadata_kp
+                <:
+                Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPrivateKey)
+              envelope.Securedrop_protocol_minimal.Wire.Core.f_ct_pke
+            <:
+            Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
+          with
+          | Core_models.Result.Result_Ok m ->
+            let found:Core_models.Option.t_Option
+            (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+              Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
+              Core_models.Option.Option_Some
+              (bundle, m
+                <:
+                (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+                  Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
+              <:
+              Core_models.Option.t_Option
+              (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+                Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+            in
+            found
+          | _ -> found)
+  in
+  let
+  (bundle: Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle),
+  (raw_metadata: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
+    Core_models.Option.impl__expect #(Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+        Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+      found
+      "we should find exactly 1 result"
+  in
+  let sender_pk:Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey =
+    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
+      #Anyhow.t_Error
+      (Securedrop_protocol_minimal.Schemes.Message.impl_MessagePublicKey__from_bytes (Alloc.Vec.impl_1__as_slice
+              raw_metadata
+            <:
+            t_Slice u8)
+        <:
+        Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
+          Anyhow.t_Error)
+      "Metadata must contain valid sender APKE key tuple"
+  in
+  let pk_r_fetch:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
+    (Securedrop_protocol_minimal.Traits.f_fetch_keypair #v_U
+        #FStar.Tactics.Typeclasses.solve
+        receiver)
+      ._2
+  in
+  let pt:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
+    Core_models.Result.impl__expect #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+      #Anyhow.t_Error
+      (Securedrop_protocol_minimal.Schemes.Message.auth_dec (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__private_key
+              bundle.Securedrop_protocol_minimal.Keys.Bundle.f_apke
+            <:
+            Securedrop_protocol_minimal.Schemes.Message.t_MessagePrivateKey)
+          sender_pk
+          envelope.Securedrop_protocol_minimal.Wire.Core.f_ct_apke
+          Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+          pk_r_fetch
+        <:
+        Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
+      "SD-APKE AuthDec failed"
+  in
+  Core_models.Result.impl__unwrap #Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+    #Anyhow.t_Error
+    (Securedrop_protocol_minimal.Client.Plaintext.impl_Plaintext__from_bytes (Alloc.Vec.impl_1__as_slice
+            pt
+          <:
+          t_Slice u8)
+      <:
+      Core_models.Result.t_Result Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+        Anyhow.t_Error),
+  sender_pk
+  <:
+  (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+    Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
+
+#pop-options
+
+#push-options "--admit_smt_queries true"
+
+let decrypt
+      (#v_U: Type0)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()]
+          i0:
+          Securedrop_protocol_minimal.Traits.t_UserSecret v_U)
+      (receiver: v_U)
+      (envelope: Securedrop_protocol_minimal.Wire.Core.t_Envelope)
+    : Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext =
+  (decrypt_with_sender #v_U receiver envelope)._1
+
+#pop-options
+
+#push-options "--admit_smt_queries true"
+
+/// Build plaintext message, including pubkeys (for replies).
+/// TODO: only sources need to attach their pubkeys (for replies),
+/// but for toy purposes, everyone builds a Plaintext message the same way
+let build_message
+      (#iimpl_822573411_: Type0)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()]
+          i0:
+          Securedrop_protocol_minimal.Traits.t_UserPublic iimpl_822573411_)
+      (sender: iimpl_822573411_)
+      (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+    : Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext =
+  {
+    Securedrop_protocol_minimal.Client.Plaintext.f_sender_fetch_key
+    =
+    Securedrop_protocol_minimal.Traits.f_fetch_pk #iimpl_822573411_
+      #FStar.Tactics.Typeclasses.solve
+      sender;
+    Securedrop_protocol_minimal.Client.Plaintext.f_sender_reply_pubkey_hybrid
+    =
+    Core_models.Clone.f_clone #Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey
+      #FStar.Tactics.Typeclasses.solve
+      (Securedrop_protocol_minimal.Traits.f_message_metadata_pk #iimpl_822573411_
+          #FStar.Tactics.Typeclasses.solve
+          sender
+        <:
+        Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey);
+    Securedrop_protocol_minimal.Client.Plaintext.f_msg = message
+  }
+  <:
+  Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+
+#pop-options

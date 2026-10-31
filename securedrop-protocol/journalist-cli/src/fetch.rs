@@ -2,8 +2,7 @@ use anyhow::{Context, Result};
 use securedrop_protocol_minimal::DHPublicKey;
 use securedrop_protocol_minimal::Envelope;
 use securedrop_protocol_minimal::api::Api;
-use securedrop_protocol_minimal::encrypt_decrypt::decrypt_with_sender;
-use securedrop_protocol_minimal::metadata::MetadataPublicKey;
+use securedrop_protocol_minimal::client::message::decrypt_with_sender;
 use securedrop_protocol_minimal::wire::core::MessageChallengeFetchResponse;
 
 use crate::storage::{InboxEntry, load_ephemeral_secrets, load_inbox, load_journalist, save_inbox};
@@ -57,16 +56,13 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
         // https://github.com/freedomofpress/securedrop-protocol/issues/408
         let (plaintext, sender_apke) = decrypt_with_sender(&journalist, &envelope);
         let text = String::from_utf8_lossy(strip_padding(&plaintext.msg)).into_owned();
-        let sender_metadata_pk =
-            MetadataPublicKey::from_bytes(&plaintext.sender_reply_pubkey_hybrid)
-                .context("recovered source metadata key is malformed")?;
 
         inbox.push(InboxEntry {
             message_id: id_str,
             text,
             sender_fetch_pk: plaintext.sender_fetch_key,
             sender_apke_pk: sender_apke,
-            sender_metadata_pk,
+            sender_metadata_pk: plaintext.sender_reply_pubkey_hybrid,
         });
         new_count += 1;
     }
