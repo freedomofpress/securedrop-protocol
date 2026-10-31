@@ -650,7 +650,7 @@ The final message payload to the server includes: each ciphertext; the encapsula
 |                                                        |                     | $pk_R^{PKE}$   |
 |                                                        |                     | $pk_R^{fetch}$ |
 
-Then, for some message $m$:
+Then, for some message $m$, and $\mu = \text{MESSAGE\_EXPIRY\_MEAN}, w = \text{MESSAGE\_EXPIRY\_HALF\_WIDTH}$:
 
 | Sender                                                                                                                                                               |                                 | Server                                         |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------- |
@@ -666,10 +666,21 @@ Then, for some message $m$:
 | &nbsp;&nbsp;&nbsp;&nbsp;$`Z \gets \text{Ristretto255.DH}(x, pk_{R,i}^{fetch})`$                                                                                      |                                 |                                                |
 |                                                                                                                                                                      | $`\longrightarrow (C_S, X, Z)`$ |                                                |
 |                                                                                                                                                                      |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
-|                                                                                                                                                                      |                                 | Store $(id, C_S, X, Z)$ in $database$          |
+|                                                                                                                                                                      |                                 | $`r \gets^{\$} \{\mu - w, \dots, \mu + w\}`$   |
+|                                                                                                                                                                      |                                 | $`e_{exp} \gets \operatorname{Epoch}(t) + r`$  |
+|                                                                                                                                                                      |                                 | Store $(id, C_S, X, Z, e_{exp})$ in $database$ |
 
 > [!NOTE]
 > $\text{SD-APKE.AuthEnc}()$ passes an `info` parameter to the underlying AEAD comprised of an encapsulated PQ secret, $`pk_{R,i}^{fetch}`$, and $`pk_S^{APKE}`$. See [HPKE info parameter].
+
+#### Server receipt
+
+Upon receipt of the message ciphertext, metadata ciphertext, and message delivery hint, the server MUST generate:
+
+- A message ID uniformly at random
+- An expiry epoch for fuzzy deletion
+
+The server computes the expiry epoch $e_{exp} = \text{Epoch}(t) + r$ by taking the epoch of the current time $t$ plus a random offset epoch $r$. The value $r$ is sampled from the discrete uniform distribution centered at `MESSAGE_EXPIRY_MEAN` with half width `MESSAGE_EXPIRY_HALF_WIDTH` (see [config]). Quantizing to `EPOCH`s limits precision of the stored value and allows the server to run a scheduled job at that granularity. The server MUST delete a message once the current epoch passes the expiration epoch. The server MUST NOT store the submission time $t$.
 
 #### Protocol Step 7: Receiver fetches and decrypts messages
 
@@ -826,9 +837,9 @@ Len: 32 + 32 + (fixed message size + 1136) + 2352
 
 Message tuples:
 
-`(id_k, encrypted_envelope, X, Z, timestamp)` (`server_generated_uuid, encrypted_envelope, ephemeral_pk, dh_share, server_generated_fuzzy_expiry_time`)
+`(id_k, encrypted_envelope, X, Z, e_{exp})` (`server_generated_uuid, encrypted_envelope, ephemeral_pk, dh_share, server_generated_fuzzy_expiry_epoch`)
 
-Len: [16, len(`encrypted_envelope`), 32, 32, 12 ] per row; server pads to fixed number of messages (rows)
+Len: [16, len(`encrypted_envelope`), 32, 32, 4 ] per row; server pads to fixed number of messages (rows)
 
 #### Challenge format
 
@@ -845,13 +856,15 @@ Len: 16 + 16 + 32 = 64 bytes * n challenges; server pads to fixed number of chal
 
 The following values are part of the protocol configuration:
 
-| Variable        | Value                 | Components                 | Description                                                                                                                                                                                                                               |
-| --------------- | --------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EPOCH`         | `86400 sec` (1 day)   | server, source, journalist | The length, in seconds, of an epoch for which a bundle is valid.                                                                                                                                                                          |
-| `REPLENISHMENT` | `14 epochs` (2 weeks) | server, journalist         | The number of future epochs for which a journalist can upload a bundle.                                                                                                                                                                   |
-| $`SKEW_{NR}`$   | `300 sec` (5 minutes) | server                     | The length, in seconds, of allowable clock skew between server and journalist when accepting uploaded bundles.                                                                                                                            |
-| `SKEW_c`        | `3600 sec` (1 hour)   | source, journalist         | The length, in seconds, of allowable clock skew between a sender and server when checking bundle validity.                                                                                                                                |
-| `MAX_MESSAGES`  | `500`                 | server                     | How many potential messages the server sends to each party when they try to fetch messages. This must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
+| Variable                    | Value                 | Components                 | Description                                                                                                                                                                                                                               |
+| --------------------------- | --------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EPOCH`                     | `86400 sec` (1 day)   | server, source, journalist | The length, in seconds, of an epoch for which a bundle is valid.                                                                                                                                                                          |
+| `REPLENISHMENT`             | `14 epochs` (2 weeks) | server, journalist         | The number of future epochs for which a journalist can upload a bundle.                                                                                                                                                                   |
+| $`SKEW_{NR}`$               | `300 sec` (5 minutes) | server                     | The length, in seconds, of allowable clock skew between server and journalist when accepting uploaded bundles.                                                                                                                            |
+| `SKEW_c`                    | `3600 sec` (1 hour)   | source, journalist         | The length, in seconds, of allowable clock skew between a sender and server when checking bundle validity.                                                                                                                                |
+| `MAX_MESSAGES`              | `500`                 | server                     | How many potential messages the server sends to each party when they try to fetch messages. This must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
+| `MESSAGE_EXPIRY_MEAN`       | `37 epochs`           | server                     | The mean time after submission before the server deletes a message.                                                                                                                                                                       |
+| `MESSAGE_EXPIRY_HALF_WIDTH` | `7 epochs`            | server                     | The half-width of the uniform distribution around `MESSAGE_EXPIRY_MEAN` used to sample a message's expiration epoch. Must be strictly less than `MESSAGE_EXPIRY_MEAN`.                                                                    |
 
 The value for `SKEW_c` is larger than the server's $`SKEW_{NR}`$ to handle source connections via Tor.
 
