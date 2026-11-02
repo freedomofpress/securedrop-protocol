@@ -58,6 +58,14 @@ Install the Rust toolchain. Use `make help` from the project root to see availab
 
 Lint tools are installed in the `lint-tools` directory to avoid interfering with the user's system dependencies; cargo will suggest adding the directory to your $PATH, but that's not required.
 
+### Dependencies/Supply Chain
+
+The project uses [`cargo vet`](https://mozilla.github.io/cargo-vet/) and [`cargo deny`](https://embarkstudios.github.io/cargo-deny/) for different forms of dependency auditing.
+
+See [Auditing Rust Dependencies](https://developers.securedrop.org/en/latest/dependency_updates.html#auditing-rust-dependencies) in the SecureDrop Developer Documentation for more information about how SecureDrop uses `cargo vet`.
+
+See [`deny.toml`](./securedrop-protocol/deny.toml) for the `cargo deny` policy configuration.
+
 ### Verification via hax and F\*
 
 The `make hax` and auxiliary workflows in `securedrop-protocol/protocol-minimal`
