@@ -213,8 +213,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
       <:
       Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
     with
-    | Core_models.Result.Result_Ok hoist4 ->
-      let private_key:t_DhAkemPrivateKey = impl_DhAkemPrivateKey__from_bytes hoist4 in
+    | Core_models.Result.Result_Ok hoist5 ->
+      let private_key:t_DhAkemPrivateKey = impl_DhAkemPrivateKey__from_bytes hoist5 in
       (match
           Core_models.Result.impl__map_err #(t_Array u8 (mk_usize 32))
             #Core_models.Array.t_TryFromSliceError
@@ -242,8 +242,8 @@ let typed (sk: Libcrux_kem.t_PrivateKey) (pk: Libcrux_kem.t_PublicKey)
           <:
           Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error
         with
-        | Core_models.Result.Result_Ok hoist5 ->
-          let public_key:t_DhAkemPublicKey = impl_DhAkemPublicKey__from_bytes hoist5 in
+        | Core_models.Result.Result_Ok hoist6 ->
+          let public_key:t_DhAkemPublicKey = impl_DhAkemPublicKey__from_bytes hoist6 in
           Core_models.Result.Result_Ok
           (private_key, public_key <: (t_DhAkemPrivateKey & t_DhAkemPublicKey))
           <:
