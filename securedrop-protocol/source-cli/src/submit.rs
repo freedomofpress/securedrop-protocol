@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
 use securedrop_protocol_minimal::Source;
-use securedrop_protocol_minimal::api::Api;
+use securedrop_protocol_minimal::application::Api;
 use securedrop_protocol_minimal::wire::core::{JournalistEphemeralKeys, WelcomeBundle};
 use serde::Deserialize;
 

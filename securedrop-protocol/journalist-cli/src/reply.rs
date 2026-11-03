@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use rand_core::{CryptoRng, RngCore};
-use securedrop_protocol_minimal::api::Api;
+use securedrop_protocol_minimal::application::Api;
 use securedrop_protocol_minimal::wire::core::{
     JournalistEphemeralKeys, JournalistLongTermView, WelcomeBundle,
 };

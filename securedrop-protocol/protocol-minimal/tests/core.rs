@@ -6,7 +6,7 @@ use getrandom;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-use securedrop_protocol_minimal::api::{Api, Client, JournalistApi};
+use securedrop_protocol_minimal::application::{Api, HasInstanceVerifyingKey, JournalistApi};
 use securedrop_protocol_minimal::challenge::MAX_MESSAGES;
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 

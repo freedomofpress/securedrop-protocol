@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::VerifyingKey;
-use crate::api::Client;
+use crate::application::HasInstanceVerifyingKey;
 use crate::client::plaintext::Plaintext;
 use crate::keys::*;
 use crate::message::{
@@ -103,7 +103,7 @@ impl JournalistPublic for JournalistPublicView {
     }
 }
 
-impl Client for Journalist {
+impl HasInstanceVerifyingKey for Journalist {
     fn newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
         self.session_storage.nr_key.as_ref()
     }
@@ -506,7 +506,7 @@ impl EphemeralBundleBytes {
 mod tests {
     use super::*;
     use crate::Enrollable;
-    use crate::api::JournalistApi;
+    use crate::application::JournalistApi;
     use crate::wire::setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;

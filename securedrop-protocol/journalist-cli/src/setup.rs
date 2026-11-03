@@ -1,7 +1,7 @@
 use std::fs;
 
 use anyhow::{Context, Result, bail};
-use securedrop_protocol_minimal::api::JournalistApi;
+use securedrop_protocol_minimal::application::JournalistApi;
 use securedrop_protocol_minimal::wire::core::WelcomeBundle;
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyResponse, JournalistSetupRequest, JournalistSetupResponse,

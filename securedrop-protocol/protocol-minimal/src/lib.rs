@@ -7,7 +7,7 @@
 #![cfg_attr(all(not(hax), test), allow(clippy::disallowed_methods))]
 extern crate alloc;
 
-pub mod api;
+pub mod application;
 pub mod keys;
 pub(crate) mod primitives;
 pub mod schemes;
