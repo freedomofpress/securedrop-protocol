@@ -206,7 +206,7 @@ impl Server {
         let journalist_ephemeral_keys = self.storage.get_all_ephemeral_keys(rng);
 
         for (journalist_id, ephemeral_bundle) in journalist_ephemeral_keys.iter() {
-            // TODO: Do something better than expect here
+            // TODO(#402): Do something better than expect here
             let entry = self
                 .storage
                 .get_journalists()

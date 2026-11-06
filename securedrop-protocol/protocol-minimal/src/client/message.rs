@@ -54,7 +54,7 @@ where
 
     // spec: pk_S^APKE - sender's long-term APKE public key
     // spec: ct^PKE = SD-PKE.Enc(pk_R^PKE, pk_S^APKE)
-    // TODO: Refactor to return Result<T, E> instead of panicking at failed metadata seal
+    // TODO(#402): Refactor to return Result<T, E> instead of panicking at failed metadata seal
     let ct_pke = metadata::encrypt(
         rng,
         recipient.message_metadata_pk(),
@@ -91,7 +91,7 @@ pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
         }
     }
 
-    // TODO: only true for test purposes!
+    // TODO(#402): only true for test purposes!
     let (bundle, raw_metadata) = found.expect("we should find exactly 1 result");
 
     // spec: pk_S^APKE - reconstruct sender's APKE public key from decrypted metadata
