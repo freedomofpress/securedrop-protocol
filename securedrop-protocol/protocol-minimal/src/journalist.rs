@@ -140,10 +140,7 @@ impl UserSecret for Journalist {
     }
 
     fn build_message(&self, message: Vec<u8>) -> Plaintext {
-        // TODO: the journalist doesn't attach their own keys,
-        // because the source pulls a fresh set of keys and verifies them
-        // in order to reply. either fill with random bytes or use
-        // another scheme (fixme)
+        // The journalist doesn't attach their own keys, because the source pulls a fresh set of keys and verifies them in order to reply. Keys are fixed placeholders used to create a uniform Plaintext message but are not read by the receiver.
         Plaintext {
             sender_fetch_key: crate::primitives::ristretto255::placeholder_public_key(),
             sender_reply_pubkey_hybrid: MetadataPublicKey::from_bytes(

@@ -288,9 +288,8 @@ let decrypt
 #push-options "--admit_smt_queries true"
 
 /// Build plaintext message, including pubkeys (for replies).
-/// TODO: only sources need to attach their pubkeys (for replies),
-/// but for toy purposes, everyone builds a Plaintext message the same way
-let build_message
+/// For test purposes, everyone builds a Plaintext message the same way, but in practice only Sources need to attach their pubkeys (for replies).
+let build_message_for_test
       (#iimpl_822573411_: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()]
           i0:

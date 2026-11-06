@@ -432,7 +432,7 @@ let deterministic_keygen (dh_seed: t_Array u8 (mk_usize 32)) (mlkem_seed: t_Arra
 /// SD-APKE.AuthEnc: encrypt message `m` from sender to recipient.
 /// - `kp = ((skS1, skS2), (pkS1, pkS2))`: sender's SD-APKE keypair
 /// - `pk = (pkR1, pkR2)`: recipient's SD-APKE public key
-/// - `ad`: associated data
+/// - `ad`: associated data, currently newsroom ID
 /// - `info_incl`: additional opaque bytes to include in info param, currently receiver's fetch key.
 /// # Errors
 /// Returns an error if ML-KEM encapsulation or HPKE sealing fails.

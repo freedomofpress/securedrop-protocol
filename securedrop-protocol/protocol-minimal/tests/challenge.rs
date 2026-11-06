@@ -4,7 +4,7 @@ use securedrop_protocol_minimal::{
     Envelope, Journalist, Source,
     client::{
         challenge::solve_fetch_challenges,
-        message::{build_message, encrypt},
+        message::{build_message_for_test, encrypt},
     },
     server::challenge::compute_fetch_challenges,
 };
@@ -36,7 +36,7 @@ fn test_fetch_challenges_roundtrip() {
     let journalist_public = journalist.public(0);
 
     let msg = b"Fetch this message";
-    let plaintext = build_message(&source.public(), msg.to_vec());
+    let plaintext = build_message_for_test(&source.public(), msg.to_vec());
     let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
     let mut entries: Vec<([u8; 16], Envelope)> = Vec::new();
@@ -65,7 +65,7 @@ fn test_wrong_recipient_cannot_decrypt_challenge() {
     let journalist_public = journalist.public(0);
 
     let msg = b"Fetch this message";
-    let plaintext = build_message(&source.public(), msg.to_vec());
+    let plaintext = build_message_for_test(&source.public(), msg.to_vec());
     let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
     let mut entries: Vec<([u8; 16], Envelope)> = Vec::new();

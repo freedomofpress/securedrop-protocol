@@ -49,11 +49,10 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
             .context("newsroom rejected message download")?
             .json()?;
 
-        // TODO: once decrypted, the ephemeral key bundle this message was
-        // encrypted to should be deleted. currently protocol-minimal
+        // TODO(#408): once decrypted, the ephemeral key bundle this message
+        // was encrypted to should be deleted. currently protocol-minimal
         // doesn't yet expose which bundle decrypted the message or a way to
-        // remove it, so consumed keys are currently retained. See
-        // https://github.com/freedomofpress/securedrop-protocol/issues/408
+        // remove it, so consumed keys are currently retained.
         let (plaintext, sender_apke) = decrypt_with_sender(&journalist, &envelope);
         let text = String::from_utf8_lossy(strip_padding(&plaintext.msg)).into_owned();
 
@@ -83,8 +82,8 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
 
 /// Strip the trailing zero padding applied at submission time.
 ///
-/// TODO: Fix the padding scheme so if a message actually ends in NUL bytes
-/// we don't lose data. We should length prefix it instead?
+/// TODO(#229): Fix the padding scheme so if a message actually ends in NUL
+/// bytes we don't lose data. We should length prefix it instead?
 fn strip_padding(msg: &[u8]) -> &[u8] {
     let end = msg.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1);
     &msg[..end]
