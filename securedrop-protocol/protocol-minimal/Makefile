@@ -5,8 +5,29 @@
 include versions.env
 
 # Nightly toolchain is not strictly needed here, but use one toolchain consistently for hax ops to avoid needing multiple
-# Rust toolchains to run hax commands
-HAX_VERSION = $(shell cargo +nightly tree -p securedrop-protocol-minimal --target all --depth 1 --prefix none 2>/dev/null | \
+# Rust toolchains to run hax commands.
+CARGO_RUN = cargo +nightly
+
+# Targets below MAY prefix their commands with `$(CONTAINER_RUN)` to run inside
+# the $HAX_IMAGE when $CONTAINER is set.  Targets that do so SHOULD be redefined
+# here to establish a dependency on `compat-hax`.
+ifdef CONTAINER
+
+# Fall back to the host's Rust toolchain: In container mode, we use it just to
+# resolve versions, so it doesn't need to match the nightly toolchain actually
+# used inside the container.
+CARGO_RUN = cargo
+
+CONTAINER_RUN = $(DOCKER) run --rm \
+	--volume $(REPO_ROOT):/work \
+	--workdir /work/$(CURDIR:$(REPO_ROOT)/%=%) \
+	--env CARGO_TARGET_DIR=/work/securedrop-protocol/target/container \
+	$(HAX_IMAGE)
+
+extract: compat-hax
+endif
+
+HAX_VERSION = $(shell $(CARGO_RUN) tree -p securedrop-protocol-minimal --target all --depth 1 --prefix none 2>/dev/null | \
   sed -n 's/^hax-lib v\([^ ]*\).*/\1/p' | head -1)
 HAX_IMAGE = hax:$(HAX_VERSION)
 
@@ -15,7 +36,7 @@ HAX_IMAGE = hax:$(HAX_VERSION)
 # here we query for libcrux-traits, which we do use, as a proxy.
 # If libcrux-traits is patched to a git rev with a`[patch.crates-io]` entry,
 # then this is that rev instead of the tag.
-LIBCRUX_VERSION = $(shell cargo +nightly tree -p securedrop-protocol-minimal --target all --depth 1 --prefix none 2>/dev/null | \
+LIBCRUX_VERSION = $(shell $(CARGO_RUN) tree -p securedrop-protocol-minimal --target all --depth 1 --prefix none 2>/dev/null | \
   sed -n -e '/^libcrux-traits v/!d' \
     -e 's/.*[?&]rev=\([0-9a-f]*\).*/\1/p' -e t \
     -e 's/^libcrux-traits v\([^ ]*\).*/\1/p' | head -1)
@@ -35,19 +56,6 @@ HAX_ADMITS += Securedrop_protocol_minimal.Client.Plaintext.fst
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 PROOF_DIR = proofs/fstar/extraction
-
-# Targets below MAY prefix their commands with `$(CONTAINER_RUN)` to run inside
-# the $HAX_IMAGE when $CONTAINER is set.  Targets that do so SHOULD be redefined
-# here to establish a dependency on `compat-hax`.
-ifdef CONTAINER
-CONTAINER_RUN = $(DOCKER) run --rm \
-	--volume $(REPO_ROOT):/work \
-	--workdir /work/$(CURDIR:$(REPO_ROOT)/%=%) \
-	--env CARGO_TARGET_DIR=/work/securedrop-protocol/target/container \
-	$(HAX_IMAGE)
-
-extract: compat-hax
-endif
 
 DOCKER ?= docker
 
