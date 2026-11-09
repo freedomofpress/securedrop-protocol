@@ -57,7 +57,7 @@ fn setup_server<R: CryptoRng + RngCore>(
     (server_session, *newsroom_vk, setup_response.sig)
 }
 
-// todo: easy to mix up fpf pubkey and nr pubkey here, enforce with types
+// TODO(#393): easy to mix up fpf pubkey and nr pubkey here, enforce with types
 fn setup_journalist<R: RngCore + CryptoRng>(
     mut rng: R,
     num_keybundles: usize,

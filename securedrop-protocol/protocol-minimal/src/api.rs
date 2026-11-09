@@ -202,7 +202,7 @@ where
         S: UserSecret,
         P: UserPublic,
     {
-        // TODO: review padding
+        // TODO(#229): review padding
         let padded_message = crate::schemes::pad::pad_message(message);
         let plaintext = sender.build_message(padded_message);
         let envelope = encrypt(rng, sender, &plaintext, recipient);

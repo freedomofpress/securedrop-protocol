@@ -261,7 +261,7 @@ pub(crate) fn deterministic_keygen(
 ///
 /// - `kp = ((skS1, skS2), (pkS1, pkS2))`: sender's SD-APKE keypair
 /// - `pk = (pkR1, pkR2)`: recipient's SD-APKE public key
-/// - `ad`: associated data
+/// - `ad`: associated data, currently newsroom ID
 /// - `info_incl`: additional opaque bytes to include in info param, currently receiver's fetch key.
 ///
 /// # Errors
@@ -272,7 +272,7 @@ pub fn auth_enc<R: RngCore + CryptoRng>(
     kp: &MessageKeyPair,   // ((skS1, skS2), (pkS1, pkS2))
     pk: &MessagePublicKey, // (pkR1, pkR2)
     m: &[u8],
-    ad: &[u8], // Todo: should always be empty
+    ad: &[u8],
     info_incl: &DHPublicKey,
 ) -> Result<MessageCiphertext, Error> {
     let mut seed = [0u8; 32];

@@ -1,11 +1,8 @@
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use securedrop_protocol_minimal::{
-    Envelope, Journalist, Source,
-    client::{
-        challenge::solve_fetch_challenges,
-        message::{build_message, encrypt},
-    },
+    Envelope, Journalist, Plaintext, Source, UserPublic,
+    client::{challenge::solve_fetch_challenges, message::encrypt},
     server::challenge::compute_fetch_challenges,
 };
 use uuid::Uuid;
@@ -23,6 +20,15 @@ fn random_message_id<R: rand_core::RngCore>(rng: &mut R) -> Uuid {
     let mut bytes = [0u8; 16];
     rng.fill_bytes(&mut bytes);
     uuid::Builder::from_random_bytes(bytes).into_uuid()
+}
+
+/// Build plaintext message, including pubkeys (for replies).
+fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
+    Plaintext {
+        sender_fetch_key: *sender.fetch_pk(),
+        sender_reply_pubkey_hybrid: sender.message_metadata_pk().clone(),
+        msg: message,
+    }
 }
 
 #[test]
