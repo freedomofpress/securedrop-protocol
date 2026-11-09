@@ -8,7 +8,6 @@ let _ =
   (* The implicit dependencies arise from typeclasses instances. *)
   let open Anyhow.Error in
   let open Rand_core in
-  let open Securedrop_protocol_minimal.Schemes.Metadata in
   let open Securedrop_protocol_minimal.Traits in
   ()
 
@@ -282,39 +281,5 @@ let decrypt
       (envelope: Securedrop_protocol_minimal.Wire.Core.t_Envelope)
     : Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext =
   (decrypt_with_sender #v_U receiver envelope)._1
-
-#pop-options
-
-#push-options "--admit_smt_queries true"
-
-/// Build plaintext message, including pubkeys (for replies).
-/// For test purposes, everyone builds a Plaintext message the same way, but in practice only Sources need to attach their pubkeys (for replies).
-let build_message_for_test
-      (#iimpl_822573411_: Type0)
-      (#[FStar.Tactics.Typeclasses.tcresolve ()]
-          i0:
-          Securedrop_protocol_minimal.Traits.t_UserPublic iimpl_822573411_)
-      (sender: iimpl_822573411_)
-      (message: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-    : Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext =
-  {
-    Securedrop_protocol_minimal.Client.Plaintext.f_sender_fetch_key
-    =
-    Securedrop_protocol_minimal.Traits.f_fetch_pk #iimpl_822573411_
-      #FStar.Tactics.Typeclasses.solve
-      sender;
-    Securedrop_protocol_minimal.Client.Plaintext.f_sender_reply_pubkey_hybrid
-    =
-    Core_models.Clone.f_clone #Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey
-      #FStar.Tactics.Typeclasses.solve
-      (Securedrop_protocol_minimal.Traits.f_message_metadata_pk #iimpl_822573411_
-          #FStar.Tactics.Typeclasses.solve
-          sender
-        <:
-        Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey);
-    Securedrop_protocol_minimal.Client.Plaintext.f_msg = message
-  }
-  <:
-  Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
 
 #pop-options

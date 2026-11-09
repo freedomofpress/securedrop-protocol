@@ -115,9 +115,11 @@ pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
 }
 
 /// Build plaintext message, including pubkeys (for replies).
-/// For test purposes, everyone builds a Plaintext message the same way, but in practice only Sources need to attach their pubkeys (for replies).
+/// Only sources need to attach their pubkeys (for replies),
+/// but for toy purposes, everyone builds a Plaintext message the same way
+#[cfg(test)]
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
-pub fn build_message_for_test(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
+pub(crate) fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
     Plaintext {
         sender_fetch_key: *sender.fetch_pk(),
         sender_reply_pubkey_hybrid: sender.message_metadata_pk().clone(),
@@ -151,7 +153,7 @@ mod tests {
         rcvr_secret: &impl UserSecret,
         msg: Vec<u8>,
     ) {
-        let pt = build_message_for_test(sender_public, msg);
+        let pt = build_message(sender_public, msg);
 
         let envelope = encrypt(rng, sender_secret, &pt, rcvr_public);
         let decrypted = decrypt(rcvr_secret, &envelope);
@@ -220,7 +222,7 @@ mod tests {
         let journalist = Journalist::new(&mut rng, 2);
         let journalist_public = journalist.public(0);
 
-        let submission = build_message_for_test(&source.public(), b"howdy".to_vec());
+        let submission = build_message(&source.public(), b"howdy".to_vec());
         let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
 
         // Journalist decrypts and recovers the source's reply keys.

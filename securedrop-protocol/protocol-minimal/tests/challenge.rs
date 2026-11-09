@@ -1,11 +1,8 @@
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use securedrop_protocol_minimal::{
-    Envelope, Journalist, Source,
-    client::{
-        challenge::solve_fetch_challenges,
-        message::{build_message_for_test, encrypt},
-    },
+    Envelope, Journalist, Plaintext, Source, UserPublic,
+    client::{challenge::solve_fetch_challenges, message::encrypt},
     server::challenge::compute_fetch_challenges,
 };
 use uuid::Uuid;
@@ -25,6 +22,15 @@ fn random_message_id<R: rand_core::RngCore>(rng: &mut R) -> Uuid {
     uuid::Builder::from_random_bytes(bytes).into_uuid()
 }
 
+/// Build plaintext message, including pubkeys (for replies).
+fn build_message(sender: &impl UserPublic, message: Vec<u8>) -> Plaintext {
+    Plaintext {
+        sender_fetch_key: *sender.fetch_pk(),
+        sender_reply_pubkey_hybrid: sender.message_metadata_pk().clone(),
+        msg: message,
+    }
+}
+
 #[test]
 fn test_fetch_challenges_roundtrip() {
     let mut rng = setup_rng();
@@ -36,7 +42,7 @@ fn test_fetch_challenges_roundtrip() {
     let journalist_public = journalist.public(0);
 
     let msg = b"Fetch this message";
-    let plaintext = build_message_for_test(&source.public(), msg.to_vec());
+    let plaintext = build_message(&source.public(), msg.to_vec());
     let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
     let mut entries: Vec<([u8; 16], Envelope)> = Vec::new();
@@ -65,7 +71,7 @@ fn test_wrong_recipient_cannot_decrypt_challenge() {
     let journalist_public = journalist.public(0);
 
     let msg = b"Fetch this message";
-    let plaintext = build_message_for_test(&source.public(), msg.to_vec());
+    let plaintext = build_message(&source.public(), msg.to_vec());
     let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
     let mut entries: Vec<([u8; 16], Envelope)> = Vec::new();
