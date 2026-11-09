@@ -12,7 +12,7 @@
 //! 1. The FPF signing key is a trust anchor (pre-distributed out of band).
 //! 2. The newsroom's verifying key is signed by FPF.
 //! 3. Each journalist's signing key is signed by the newsroom.
-//! 4. Each journalist's long-term and one-time key bundles are self-signed.
+//! 4. Each journalist's long-term and short-term key bundles are self-signed.
 
 use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublicView, UserPublic, UserSecret,
