@@ -107,7 +107,8 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
         offset +! Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__LEN
       in
       (match
-          Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__from_bytes (pt_bytes.[ {
+          Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataPublicKey__from_bytes (pt_bytes.[
+                {
                   Core_models.Ops.Range.f_start = offset;
                   Core_models.Ops.Range.f_end
                   =
@@ -120,8 +121,8 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
               <:
               t_Slice u8)
           <:
-          Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey
-            Anyhow.t_Error
+          Core_models.Result.t_Result
+            Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey Anyhow.t_Error
         with
         | Core_models.Result.Result_Ok sender_reply_pubkey_hybrid ->
           let offset:usize =
@@ -146,6 +147,8 @@ let impl_Plaintext__from_bytes (pt_bytes: t_Slice u8)
           <:
           Core_models.Result.t_Result t_Plaintext Anyhow.t_Error
         | Core_models.Result.Result_Err err ->
-          Core_models.Result.Result_Err err <: Core_models.Result.t_Result t_Plaintext Anyhow.t_Error)
+          Core_models.Result.Result_Err err
+          <:
+          Core_models.Result.t_Result t_Plaintext Anyhow.t_Error)
     | Core_models.Result.Result_Err err ->
       Core_models.Result.Result_Err err <: Core_models.Result.t_Result t_Plaintext Anyhow.t_Error
