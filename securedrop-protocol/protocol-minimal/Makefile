@@ -90,7 +90,7 @@ extract:  ## Run hax extraction, without verifying. (Prefix with "CONTAINER=1" t
 	$(CONTAINER_RUN) cargo-hax into -i '$(HAX_TARGETS)' fstar
 
 .PHONY: hax
-hax: compat extract verify  ## Run hax extraction, then type-check and verify extracted proofs.
+hax: compat extract verify  ## Run hax extraction, then type-check and verify extracted proofs. (Prefix with "CONTAINER=1" to run the extraction phase containerized.)
 
 .PHONY: verify
 verify:  # Internal/CI: Type-check and verify extracted proofs.
