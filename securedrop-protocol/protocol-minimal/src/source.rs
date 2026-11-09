@@ -1,5 +1,4 @@
 use crate::VerifyingKey;
-use crate::api::Client;
 use crate::message::{MessagePublicKey, deterministic_keygen as kgen_deterministic_message};
 use crate::metadata::{MetadataPublicKey, deterministic_keygen as kgen_deterministic_metadata};
 use crate::primitives::ristretto255::{DHPrivateKey, DHPublicKey, deterministic_dh_keygen};
@@ -72,16 +71,6 @@ impl UserPublic for SourcePublicView {
 
     fn message_enc_pk(&self) -> &MessagePublicKey {
         &self.message_pks.apke_pk
-    }
-}
-
-impl Client for Source {
-    fn newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
-        self.session.nr_key.as_ref()
-    }
-
-    fn set_newsroom_verifying_key(&mut self, key: VerifyingKey) {
-        self.session.nr_key = Some(key);
     }
 }
 

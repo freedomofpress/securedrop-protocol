@@ -111,7 +111,7 @@ fn send_reply<R: RngCore + CryptoRng, P: UserPublic>(
     rng: &mut R,
 ) -> Result<String> {
     let envelope = journalist
-        .submit_message(rng, message.as_bytes(), journalist, recipient)
+        .encrypt_message(rng, message.as_bytes(), journalist, recipient)
         .context("encrypting reply")?;
 
     let submitted: MessageSubmitResponse = client

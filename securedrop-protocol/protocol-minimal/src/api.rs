@@ -27,22 +27,22 @@
 //! 4. Each journalist's long-term and short-term key bundles are self-signed.
 
 use crate::{
-    Enrollable, Envelope, FetchResponse, JournalistPublicView, UserPublic, UserSecret,
+    Enrollable, Envelope, FetchResponse, Journalist, JournalistPublicView, UserPublic, UserSecret,
     VerifyingKey,
-    client::challenge::solve_fetch_challenges,
-    client::message::encrypt,
+    client::{challenge::solve_fetch_challenges, message::encrypt},
+    sealed,
     traits::RestrictedApi,
-    wire::bundle::SignedKeyBundlePublic,
     wire::{
+        bundle::SignedKeyBundlePublic,
         core::{
             JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchRequest,
-            MessageFetchRequest, WelcomeBundle,
+            MessageFetchRequest, WelcomeBundle, WelcomeBundleRequest,
         },
         setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest},
     },
 };
 use alloc::vec::Vec;
-use anyhow::Error;
+use anyhow::{Error, Ok};
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 

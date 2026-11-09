@@ -24,6 +24,9 @@ pub struct JournalistLongTermView {
     pub nr_signature: Signature<NewsroomOnJournalist>,
 }
 
+// Request initial keys
+pub struct WelcomeBundleRequest {}
+
 /// The newsroom "welcome bundle" (step 5): this is everything a sender needs to
 /// begin - the newsroom verifying key, FPF's signature over it, and the roster
 /// of journalists' long-term keys/signatures.

@@ -2,7 +2,6 @@ use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::VerifyingKey;
-use crate::api::Client;
 use crate::client::plaintext::Plaintext;
 use crate::keys::*;
 use crate::message::{
@@ -100,16 +99,6 @@ impl JournalistPublic for JournalistPublicView {
 
     fn ephemeral_signature(&self) -> &Signature<JournalistEphemeralKey> {
         &self.kb.1
-    }
-}
-
-impl Client for Journalist {
-    fn newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
-        self.session_storage.nr_key.as_ref()
-    }
-
-    fn set_newsroom_verifying_key(&mut self, key: VerifyingKey) {
-        self.session_storage.nr_key = Some(key);
     }
 }
 
@@ -656,7 +645,11 @@ mod tests {
             let mut journalist = Journalist::new(&mut rng, 0);
             journalist.generate_ephemeral_bundles(&mut rng, n);
 
-            let req = journalist.create_ephemeral_key_request();
+            let req = JournalistEphemeralKeyRequest {
+                bundles: journalist.signed_keybundles(),
+                verifying_key: journalist.signing_key().clone()
+            };
+
             let json = serde_json::to_string(&req).expect("serialize");
             let restored: JournalistEphemeralKeyRequest =
                 serde_json::from_str(&json).expect("deserialize");

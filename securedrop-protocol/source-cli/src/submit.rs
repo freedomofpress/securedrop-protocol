@@ -55,7 +55,7 @@ pub(crate) fn submit(server: &str, fpf_vk_hex: &str, message: &str) -> Result<()
 
     for journalist in journalists {
         let envelope = source
-            .submit_message(&mut rng, message.as_bytes(), &source, &journalist)
+            .encrypt_message(&mut rng, message.as_bytes(), &source, &journalist)
             .context("encrypting message")?;
 
         let submitted: MessageSubmitResponse = client

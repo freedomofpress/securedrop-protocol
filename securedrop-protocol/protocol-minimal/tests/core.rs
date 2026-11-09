@@ -6,7 +6,7 @@ use getrandom;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
-use securedrop_protocol_minimal::api::{Api, Client, JournalistApi};
+use securedrop_protocol_minimal::api::{Api, JournalistApi};
 use securedrop_protocol_minimal::challenge::MAX_MESSAGES;
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 
@@ -329,7 +329,7 @@ fn protocol_step_6_source_submits_message() {
     // Step 6: Source submits a message
     let message_content = b"Hello, this is a test message!";
     let message = source
-        .submit_message(&mut rng, message_content, &source, &journalist_publics[0])
+        .encrypt_message(&mut rng, message_content, &source, &journalist_publics[0])
         .expect("Can submit message");
 
     // Submit the message to the server
@@ -406,7 +406,7 @@ fn protocol_step_7_message_id_fetch() {
     // Submit a message (Step 6)
     let message_content = b"Hello, this is a test message!";
     let message = source
-        .submit_message(&mut rng, message_content, &source, &journalist_publics[0])
+        .encrypt_message(&mut rng, message_content, &source, &journalist_publics[0])
         .expect("Can submit message");
 
     let message_id = server_session
