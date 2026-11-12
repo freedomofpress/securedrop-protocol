@@ -97,7 +97,7 @@ impl Server {
         // Insert journalist keys into storage
         let _journalist_id = self
             .storage
-            .add_journalist(request.enrollment, newsroom_signature.clone());
+            .add_journalist(request.enrollment, newsroom_signature);
 
         Ok(JournalistSetupResponse {
             sig: newsroom_signature,
@@ -174,11 +174,7 @@ impl Server {
             .as_ref()
             .expect("Newsroom keys not found")
             .verifying_key();
-        let fpf_sig = self
-            .signature
-            .as_ref()
-            .expect("FPF signature not found")
-            .clone();
+        let fpf_sig = *self.signature.as_ref().expect("FPF signature not found");
 
         let mut journalists = Vec::new();
         for (_id, entry) in self.storage.get_journalists().iter() {

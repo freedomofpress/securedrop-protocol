@@ -27,7 +27,7 @@ pub(crate) fn reply(server: &str, message_id: &str, message: &str) -> Result<()>
         .with_context(|| format!("message {message_id} not found in inbox: run `fetch`"))?;
 
     let source = SourcePublicView::from_reply_keys(
-        entry.sender_fetch_pk.clone(),
+        entry.sender_fetch_pk,
         entry.sender_apke_pk.clone(),
         entry.sender_metadata_pk.clone(),
     );

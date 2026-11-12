@@ -294,7 +294,7 @@ fn output(
             let report = JsonReport {
                 bench: which,
                 iterations,
-                keybundles: keybundles,
+                keybundles,
                 challenges,
                 total_ms,
                 avg_ms,

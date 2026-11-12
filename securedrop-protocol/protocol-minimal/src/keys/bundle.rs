@@ -23,7 +23,7 @@ impl KeyBundlePublic {
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(&self.apke_pk.as_bytes());
-        out.extend_from_slice(&self.metadata_pk.as_bytes());
+        out.extend_from_slice(self.metadata_pk.as_bytes());
         out
     }
 }

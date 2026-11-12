@@ -302,7 +302,7 @@ where
 
     fn create_ephemeral_key_request(&self) -> JournalistEphemeralKeyRequest {
         JournalistEphemeralKeyRequest {
-            verifying_key: self.signing_key().clone(),
+            verifying_key: *self.signing_key(),
             bundles: self.signed_keybundles(),
         }
     }
