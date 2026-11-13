@@ -658,7 +658,7 @@ Then, for some message $m$:
 | &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \setminus \{(vk_J^{sig}, pk_{J,i}^{APKE_E}, pk_{J,i}^{PKE_E}, e_{J, i}, pk_J^{fetch}, \_)\}`$                                |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`pks \gets pks \cup \{(-, pk_R^{APKE}, pk_R^{PKE}, -, pk_R^{fetch}, -)\}`$                                                                  |                                 |                                                |
 | $`\forall (\_, pk_{R,i}^{APKE}, pk_{R,i}^{PKE}, \_, pk_{R,i}^{fetch}, \_) \in pks`$:                                                                                 |                                 |                                                |
-| &nbsp;&nbsp;&nbsp;&nbsp;$`pt \gets pk_S^{fetch} \Vert pk_S^{PKE} \Vert m`$                                                                                           |                                 |                                                |
+| &nbsp;&nbsp;&nbsp;&nbsp;$`pt \gets \text{Pad}(pk_S^{fetch} \Vert pk_S^{PKE} \Vert m)`$                                                                               |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{APKE} \gets \text{SD-APKE.AuthEnc}(sk_S^{APKE}, pk_{R,i}^{APKE}, pt, NR, pk_{R,i}^{fetch})`$ (see note)                                |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`ct^{PKE} \gets \text{SD-PKE.Enc}(pk_{R,i}^{PKE}, pk_S^{APKE}, -, -)`$                                                                      |                                 |                                                |
 | &nbsp;&nbsp;&nbsp;&nbsp;$`C_S \gets (ct^{APKE}, ct^{PKE})`$                                                                                                          |                                 |                                                |
@@ -747,7 +747,7 @@ For some newsroom $NR$:
 |                                                                                                                      |                                                | &nbsp;&nbsp;&nbsp;&nbsp;$`pk_S^{APKE} \gets \text{SD-PKE.Dec}(sk_R^{PKE}, ct^{PKE}, -, -)`$           |
 |                                                                                                                      |                                                | &nbsp;&nbsp;&nbsp;&nbsp;If $pk_S^{APKE} \neq \bot$: break                                             |
 |                                                                                                                      |                                                | $`pt \gets \text{SD-APKE.AuthDec}(sk_R^{APKE}, pk_S^{APKE}, ct^{APKE}, NR, pk_R^{fetch})`$ (see note) |
-|                                                                                                                      |                                                | $`pk_S^{fetch} \Vert pk_S^{PKE} \Vert m \gets pt`$                                                    |
+|                                                                                                                      |                                                | $`pk_S^{fetch} \Vert pk_S^{PKE} \Vert m \gets \text{Unpad}(pt)`$                                      |
 |                                                                                                                      |                                                | If source:                                                                                            |
 |                                                                                                                      |                                                | &nbsp;&nbsp;&nbsp;&nbsp;If $`(\_, pk_S^{APKE}, \_, \_, \_, \_) \notin pks`$: discard message          |
 |                                                                                                                      |                                                | $`fetched \gets fetched \cup \{cid\}`$                                                                |
@@ -778,13 +778,21 @@ Len: 64 + 32 + 1184 + 1216 + 4 = 2500 bytes
 
 ##### SD-APKE (message) plaintext
 
-<!-- FIXME: protocol versioning?; message padding? https://github.com/freedomofpress/securedrop-protocol/issues/228 -->
+<!-- FIXME: protocol versioning?; https://github.com/freedomofpress/securedrop-protocol/issues/228 -->
 
-`SENDER_FETCH_PUBKEY_BYTES || SENDER_PKE_PUBKEY_BYTES || structured_message_bytes || padding`
+`u32_le(len(content)) || content || 0x00...`
+
+where `content` is
+
+`SENDER_FETCH_PUBKEY_BYTES || SENDER_PKE_PUBKEY_BYTES || structured_message_bytes`
 
 Unpadded len: 32 bytes + 1216 bytes + len(structured_message)
 
-= structured message size + 1248; messages will then be padded to a fixed message size before encryption.
+= structured message size + 1248.
+
+Messages are prefixed with a 4 byte length prefix and zero-padded to a fixed message size before encryption.
+
+<!-- TODO(#229): Specify a padding length -->
 
 ##### SD-PKE (metadata) plaintext
 

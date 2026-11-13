@@ -17,11 +17,10 @@
 use crate::{
     Enrollable, Envelope, FetchResponse, JournalistPublicView, UserPublic, UserSecret,
     VerifyingKey,
-    client::challenge::solve_fetch_challenges,
-    client::message::encrypt,
+    client::{challenge::solve_fetch_challenges, message::encrypt, plaintext::PaddedPlaintext},
     traits::RestrictedApi,
-    wire::bundle::SignedKeyBundlePublic,
     wire::{
+        bundle::SignedKeyBundlePublic,
         core::{
             JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchRequest,
             MessageFetchRequest, WelcomeBundle,
@@ -202,10 +201,9 @@ where
         S: UserSecret,
         P: UserPublic,
     {
-        // TODO(#229): review padding
-        let padded_message = crate::schemes::pad::pad_message(message);
-        let plaintext = sender.build_message(padded_message);
-        let envelope = encrypt(rng, sender, &plaintext, recipient);
+        let plaintext = sender.build_message(message.to_vec());
+        let padded_plaintext = PaddedPlaintext::new(plaintext)?;
+        let envelope = encrypt(rng, sender, &padded_plaintext, recipient);
         Ok(envelope)
     }
 

@@ -1,3 +1,4 @@
+use crate::client::plaintext::PaddedPlaintext;
 use crate::keys::NR_ID;
 use crate::message::MessagePublicKey;
 use crate::metadata;
@@ -52,7 +53,7 @@ impl core::error::Error for DecryptError {}
 pub fn encrypt<R, Sender, Recipient>(
     rng: &mut R,
     sender: &Sender,
-    plaintext: &Plaintext,
+    plaintext: &PaddedPlaintext,
     recipient: &Recipient,
 ) -> Envelope
 where
@@ -142,9 +143,10 @@ pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
     )
     .map_err(|_| DecryptError::AuthDecFailed)?;
 
-    let plaintext = Plaintext::from_bytes(&pt).map_err(|_| DecryptError::MalformedPlaintext)?;
+    let plaintext =
+        PaddedPlaintext::from_bytes(pt).map_err(|_| DecryptError::MalformedPlaintext)?;
 
-    Ok((plaintext, sender_pk))
+    Ok((plaintext.into_inner(), sender_pk))
 }
 
 /// Build plaintext message, including pubkeys (for replies).
@@ -187,26 +189,24 @@ mod tests {
         msg: Vec<u8>,
     ) {
         let pt = build_message(sender_public, msg);
+        let padded = PaddedPlaintext::new(pt.clone()).unwrap();
 
-        let envelope = encrypt(rng, sender_secret, &pt, rcvr_public);
+        let envelope = encrypt(rng, sender_secret, &padded, rcvr_public);
         let decrypted = decrypt(rcvr_secret, &envelope).unwrap();
 
-        let pt_ref = &pt;
-
-        assert_eq!(pt_ref.msg, decrypted.msg);
-        assert_eq!(pt_ref.len(), decrypted.to_bytes().len());
+        assert_eq!(pt.msg, decrypted.msg);
 
         assert_eq!(
-            pt_ref.sender_fetch_key.into_bytes(),
+            pt.sender_fetch_key.into_bytes(),
             (*sender_secret.fetch_keypair().1).into_bytes()
         );
         assert_eq!(
-            pt_ref.sender_reply_pubkey_hybrid.as_bytes(),
+            pt.sender_reply_pubkey_hybrid.as_bytes(),
             sender_public.message_metadata_pk().as_bytes()
         );
         assert_eq!(
             pt.len(),
-            pt_ref.msg.len() + DHPublicKey::LEN + MetadataPublicKey::LEN
+            pt.msg.len() + DHPublicKey::LEN + MetadataPublicKey::LEN
         );
     }
 
@@ -256,7 +256,8 @@ mod tests {
         let journalist_public = journalist.public(0);
 
         let submission = build_message(&source.public(), b"howdy".to_vec());
-        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+        let padded = PaddedPlaintext::new(submission).unwrap();
+        let envelope = encrypt(&mut rng, &source, &padded, &journalist_public);
 
         // Journalist decrypts and recovers the source's reply keys.
         let (pt, sender_apke) = decrypt_with_sender(&journalist, &envelope).unwrap();
@@ -269,7 +270,8 @@ mod tests {
         // Journalist encrypts a reply back to the source.
         let reply_text = b"thanks dawg".to_vec();
         let reply_pt = journalist.build_message(reply_text.clone());
-        let reply_envelope = encrypt(&mut rng, &journalist, &reply_pt, &reply_recipient);
+        let reply_padded = PaddedPlaintext::new(reply_pt).unwrap();
+        let reply_envelope = encrypt(&mut rng, &journalist, &reply_padded, &reply_recipient);
 
         // Source decrypts the reply.
         let decrypted = decrypt(&source, &reply_envelope).unwrap();
@@ -305,7 +307,12 @@ mod tests {
         let journalist_public = journalist.public(0);
 
         let submission = build_message(&source.public(), b"howdy".to_vec());
-        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+        let envelope = encrypt(
+            &mut rng,
+            &source,
+            &PaddedPlaintext::new(submission).unwrap(),
+            &journalist_public,
+        );
 
         // Journalist 2 decrypts
         let j2 = Journalist::new(&mut rng, 2);
@@ -325,7 +332,12 @@ mod tests {
         let journalist_public = journalist.public(0);
 
         let submission = build_message(&source.public(), b"howdy".to_vec());
-        let mut envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+        let mut envelope = encrypt(
+            &mut rng,
+            &source,
+            &PaddedPlaintext::new(submission).unwrap(),
+            &journalist_public,
+        );
 
         envelope.ct_apke.c1[0] ^= 0x01; // Corrupt the ciphertext
         assert_eq!(
