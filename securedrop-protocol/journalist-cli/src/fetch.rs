@@ -62,7 +62,7 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
             // Decryption failed, discard
             continue;
         };
-        let text = String::from_utf8_lossy(strip_padding(&plaintext.msg)).into_owned();
+        let text = String::from_utf8_lossy(&plaintext.msg).into_owned();
 
         inbox.push(InboxEntry {
             message_id: id_str,
@@ -86,13 +86,4 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
         println!("{}\n", entry.text);
     }
     Ok(())
-}
-
-/// Strip the trailing zero padding applied at submission time.
-///
-/// TODO(#229): Fix the padding scheme so if a message actually ends in NUL
-/// bytes we don't lose data. We should length prefix it instead?
-fn strip_padding(msg: &[u8]) -> &[u8] {
-    let end = msg.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1);
-    &msg[..end]
 }

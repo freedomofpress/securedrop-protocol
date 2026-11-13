@@ -267,7 +267,7 @@ pub(crate) fn deterministic_keygen(
 /// # Errors
 ///
 /// Returns an error if ML-KEM encapsulation or HPKE sealing fails.
-pub fn auth_enc<R: RngCore + CryptoRng>(
+pub(crate) fn auth_enc<R: RngCore + CryptoRng>(
     rng: &mut R,
     kp: &MessageKeyPair,   // ((skS1, skS2), (pkS1, pkS2))
     pk: &MessagePublicKey, // (pkR1, pkR2)

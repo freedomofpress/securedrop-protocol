@@ -25,7 +25,7 @@ pub mod source;
 
 pub use schemes::{challenge, message, metadata, sign};
 
-pub use client::plaintext::Plaintext;
+pub use client::plaintext::{PaddedPlaintext, Plaintext};
 pub use wire::core::{Envelope, FetchResponse};
 
 pub use keys::{DhFetchKeyPair, KeyBundlePublic, KeyPair, SessionStorage};
