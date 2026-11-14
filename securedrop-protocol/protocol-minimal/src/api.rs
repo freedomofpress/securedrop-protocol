@@ -36,7 +36,8 @@ use crate::{
         bundle::SignedKeyBundlePublic,
         core::{
             JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchRequest,
-            MessageFetchRequest, WelcomeBundle, WelcomeBundleRequest,
+            MessageChallengeFetchResponse, MessageFetchRequest, WelcomeBundle,
+            WelcomeBundleRequest,
         },
         setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest},
     },
@@ -146,12 +147,13 @@ pub trait ApplicationContract: HasRng {
 
     fn fetch_challenges() -> Result<(), Error> {
         Self::NetworkApi::fetch_message_ids(MessageChallengeFetchRequest {})?;
+        Self::Callback::on_result(());
         Ok(())
     }
 
     fn send_message(
         &self,
-        untrustedinput: UntrustedInput<&[u8]>,
+        untrustedinput: Untrusted<&[u8]>,
         sender: &impl UserSecret,
         recipient: &impl UserPublic,
     ) -> Result<(), Error> {
@@ -167,7 +169,7 @@ pub trait ApplicationContract: HasRng {
 }
 
 // Stub, handle untrusted input, eg via `sanitize(in: Untrusted<T>) -> T` function
-pub struct UntrustedInput<T>(pub T);
+pub struct Untrusted<T>(pub T);
 
 // Data returned to the client application
 pub struct ClientApplicationData<T> {
@@ -182,6 +184,10 @@ pub trait ApplicationCallback {
 type ProtocolError = anyhow::Error;
 
 /// Protocol Definition. This is the boundary between the protocol and the enclosing application.
+/// The rest of the application should only be aware of: relevant high-level types and ProtocolErrors,
+/// these methods are invoked by the application.
+/// Eventually, visibility of all other protocol specific types and components should be restricted to
+/// within the protocol module.
 pub trait ClientProtocol {
     /// Encrypts and submits a message from `sender` to `recipient`.
     ///
@@ -215,8 +221,8 @@ pub trait ClientProtocol {
         sender: &S,
         recipient: &P,
     ) -> Result<(), ProtocolError> {
-        // this should return everything that's needed:
-        // Metadata, Message, SenderPublic, which keys were used, whatever is needed
+        // Todo: this should return everything that's needed (Metadata, Message, SenderPublic),
+        // and combine/replace the separate decrypt_with_sender and decrypt methods
         todo!("Unimplemented!")
     }
 
@@ -298,9 +304,9 @@ impl ClientProtocol for DefaultProtocol {}
 
 // Example for now
 type NetworkError = anyhow::Error;
-enum ResponseStatus {}
 
 /// Network [`Api`](Api) common to all users.
+/// TODO: the response types should be Untrusted<T>.
 pub trait Api {
     /// Initial request made to the server to retrive instance-specific roster
     fn request_keys(req: WelcomeBundleRequest) -> Result<WelcomeBundle, NetworkError>;
@@ -310,19 +316,18 @@ pub trait Api {
     /// Corresponds to step 7 in the protocol spec. The server returns a
     /// fixed-size set of challenges (encrypted message IDs) that the client
     /// must solve using [`solve_fetch_challenges`](Api::solve_fetch_challenges).
-    fn fetch_message_ids(req: MessageChallengeFetchRequest)
-    -> Result<ResponseStatus, NetworkError>;
+    fn fetch_message_ids(
+        req: MessageChallengeFetchRequest,
+    ) -> Result<MessageChallengeFetchResponse, NetworkError>;
 
     /// Creates a request to fetch a specific message by its ID.
     ///
     /// Corresponds to steps 8 and 10 in the protocol spec. Returns `None`
     /// if the request cannot be constructed (the default implementation
     /// always returns `Some`).
-    fn fetch_message(
-        req: MessageFetchRequest,
-    ) -> Result<Option<UntrustedInput<Envelope>>, NetworkError>;
+    fn fetch_message(req: MessageFetchRequest) -> Result<Option<Envelope>, NetworkError>;
 
-    fn submit_message(req: Envelope) -> Result<ResponseStatus, NetworkError>;
+    fn submit_message(req: Envelope) -> Result<(), NetworkError>;
 }
 
 /// Journalist-specific API operations.
@@ -335,9 +340,7 @@ pub trait Api {
 /// (`pub trait JournalistApi: Api + restricted::RestrictedApi`), but hax was unable
 /// to extract the trait.
 pub trait JournalistApi: Api + RestrictedApi {
-    fn create_setup_request(setup: JournalistSetupRequest) -> Result<ResponseStatus, Error>;
+    fn create_setup_request(setup: JournalistSetupRequest) -> Result<(), Error>;
 
-    fn create_ephemeral_key_request(
-        kr: JournalistEphemeralKeyRequest,
-    ) -> Result<ResponseStatus, Error>;
+    fn create_ephemeral_key_request(kr: JournalistEphemeralKeyRequest) -> Result<(), Error>;
 }
