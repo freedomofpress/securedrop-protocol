@@ -94,8 +94,15 @@ compat-hax: compat-hax-image  # Internal: Check that $HAX_IMAGE has the expected
 	  { echo "Error: expected cargo-hax version '$(HAX_VERSION)', got '$$actual'"; exit 1; }
 
 .PHONY: extract
-extract:  ## Run hax extraction, without verifying. (Prefix with "CONTAINER=1" to run containerized.)
+extract:  extract-fstar  ## Run hax extraction, without verifying. (Prefix with "CONTAINER=1" to run containerized.)
+
+.PHONY: extract-fstar
+extract-fstar:
 	$(CONTAINER_RUN) cargo-hax into -i '$(HAX_TARGETS)' fstar
+
+.PHONY: extract-lean
+extract-lean:  ## WIP
+	cargo-hax into -i '$(HAX_TARGETS)' lean
 
 .PHONY: hax
 hax: compat extract verify  ## Run hax extraction, then type-check and verify extracted proofs. (Prefix with "CONTAINER=1" to run the extraction phase containerized.)
