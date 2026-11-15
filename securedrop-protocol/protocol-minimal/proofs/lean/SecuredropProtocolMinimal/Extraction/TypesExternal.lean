@@ -1,0 +1,3 @@
+module
+
+public import SecuredropProtocolMinimal.Assumptions.TypesExternal
