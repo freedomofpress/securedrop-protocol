@@ -1,0 +1,15 @@
+[scenario.securedrop-protocol-minimal]
+backend = "lean"
+output-dir = "proofs/lean"
+
+# Exclusions should mirror "-" exclusions defined in HAX_TARGETS.  Everything
+# else is included.
+exclude = [
+    "securedrop_protocol_minimal::server::session",
+    "securedrop_protocol_minimal::server::storage",
+
+    "securedrop_protocol_minimal::api::Api",
+    "{impl securedrop_protocol_minimal::api::Api for _}",
+    "securedrop_protocol_minimal::api::JournalistApi",
+    "{impl securedrop_protocol_minimal::api::JournalistApi for _}",
+]

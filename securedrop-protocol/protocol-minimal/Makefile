@@ -41,6 +41,7 @@ LIBCRUX_VERSION = $(shell $(CARGO_RUN) tree -p securedrop-protocol-minimal --tar
     -e 's/.*[?&]rev=\([0-9a-f]*\).*/\1/p' -e t \
     -e 's/^libcrux-traits v\([^ ]*\).*/\1/p' | head -1)
 
+# Mirror changes here to "hax.toml".
 HAX_TARGETS := +**
 HAX_TARGETS += -securedrop_protocol_minimal::server::**
 HAX_TARGETS += +securedrop_protocol_minimal::server::challenge::**
@@ -102,7 +103,7 @@ extract-fstar:
 
 .PHONY: extract-lean
 extract-lean:  ## WIP
-	cargo-hax into -i '$(HAX_TARGETS)' lean
+	cargo-hax extract securedrop-protocol-minimal
 
 .PHONY: hax
 hax: compat extract verify  ## Run hax extraction, then type-check and verify extracted proofs. (Prefix with "CONTAINER=1" to run the extraction phase containerized.)
