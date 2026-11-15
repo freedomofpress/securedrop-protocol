@@ -39,7 +39,10 @@ use crate::{
             MessageChallengeFetchResponse, MessageFetchRequest, WelcomeBundle,
             WelcomeBundleRequest,
         },
-        setup::{JournalistEphemeralKeyRequest, JournalistSetupRequest},
+        setup::{
+            JournalistEphemeralKeyRequest, JournalistEphemeralKeyResponse, JournalistSetupRequest,
+            JournalistSetupResponse,
+        },
     },
 };
 use alloc::vec::Vec;
@@ -146,7 +149,7 @@ pub trait ApplicationContract: HasRng {
     }
 
     fn fetch_challenges() -> Result<(), Error> {
-        Self::NetworkApi::fetch_message_ids(MessageChallengeFetchRequest {})?;
+        Self::NetworkApi::fetch_challenges(MessageChallengeFetchRequest {})?;
         Self::Callback::on_result(());
         Ok(())
     }
@@ -303,7 +306,7 @@ pub struct DefaultProtocol;
 impl ClientProtocol for DefaultProtocol {}
 
 // Example for now
-type NetworkError = anyhow::Error;
+pub type NetworkError = anyhow::Error;
 
 /// Network [`Api`](Api) common to all users.
 /// TODO: the response types should be Untrusted<T>.
@@ -316,7 +319,7 @@ pub trait Api {
     /// Corresponds to step 7 in the protocol spec. The server returns a
     /// fixed-size set of challenges (encrypted message IDs) that the client
     /// must solve using [`solve_fetch_challenges`](Api::solve_fetch_challenges).
-    fn fetch_message_ids(
+    fn fetch_challenges(
         req: MessageChallengeFetchRequest,
     ) -> Result<MessageChallengeFetchResponse, NetworkError>;
 
@@ -343,4 +346,46 @@ pub trait JournalistApi: Api + RestrictedApi {
     fn create_setup_request(setup: JournalistSetupRequest) -> Result<(), Error>;
 
     fn create_ephemeral_key_request(kr: JournalistEphemeralKeyRequest) -> Result<(), Error>;
+}
+
+/// Server requirements
+
+// Mock error class
+pub type ServerApiError = anyhow::Error;
+
+pub trait ServerContract: HasRng {
+    // May not be exposed outside the Welcome bundle. May or may not be signed by FPF key.
+    // This is "Newsroom Verifying Key".
+    fn verifying_key(&self) -> Result<VerifyingKey, ServerApiError>;
+
+    /// (GET) "Welcome Bundle" (Roster information)
+    /// Handles client [`Api::request_keys`](Api::request_keys)
+    fn welcome(&self, req: WelcomeBundleRequest) -> Result<WelcomeBundle, ServerApiError>;
+
+    /// (GET) Challenges
+    /// Handles client [`Api::fetch_challenges`](Api::fetch_challenges)
+    fn challenges(
+        &self,
+        req: MessageChallengeFetchRequest,
+    ) -> Result<MessageChallengeFetchResponse, ServerApiError>;
+
+    /// (GET) Single encrypted message by UUID, if corresponding entry exists in server store
+    /// Handles client [`Api::fetch_message`](Api::fetch_message)
+    fn message_get(&self, req: MessageFetchRequest) -> Result<Option<Envelope>, ServerApiError>;
+
+    /// (PUT) Encrypted message (envelope)
+    /// Handles client [`Api::submit_message`](Api::submit_message)
+    fn message_submit(&mut self, ct: Envelope) -> Result<(), ServerApiError>;
+
+    /// (PUT) Journalist into roster (add new)
+    fn journalist_enroll(
+        &mut self,
+        req: JournalistSetupRequest,
+    ) -> Result<JournalistSetupResponse, ServerApiError>;
+
+    /// (PUT) Journalist short-lived keys (replenish)
+    fn journalist_short_lived_keys(
+        &mut self,
+        req: JournalistEphemeralKeyRequest,
+    ) -> Result<JournalistEphemeralKeyResponse, ServerApiError>;
 }
