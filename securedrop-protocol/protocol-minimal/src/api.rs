@@ -59,7 +59,7 @@ pub trait HasRng {
     // This approach allows downstream implementors to define their own application struct,
     // but exposes the fn rng().
     #[doc(hidden)]
-    fn rng(&self) -> &mut Self::Rng;
+    fn rng(&mut self) -> &mut Self::Rng;
 }
 
 /// The following defines the requirements for an application that runs SecureDrop Protocol.
@@ -94,10 +94,8 @@ pub trait ApplicationContract: HasRng {
     // over stateful/self-referential events with side-effects.
     // (ie &self.set_flag(something) is a smell!)
     type Callback: ApplicationCallback;
-
-    ////////////////////////////
+    
     // Begin core functionality
-    ////////////////////////////
 
     // We may change how the VerifyingKey is provided, but for now this is OK
     /// Returns the stored newsroom verifying key, if one has been verified.
@@ -155,7 +153,7 @@ pub trait ApplicationContract: HasRng {
     }
 
     fn send_message(
-        &self,
+        &mut self,
         untrustedinput: Untrusted<&[u8]>,
         sender: &impl UserSecret,
         recipient: &impl UserPublic,
@@ -163,8 +161,8 @@ pub trait ApplicationContract: HasRng {
         // Placeholder, actual unwrap/sanitize/normalize should do something
         let input = untrustedinput.0;
 
-        let env = Self::Protocol::encrypt_message(&mut self.rng(), input, sender, recipient)?;
-        let resp = Self::NetworkApi::submit_message(env)?;
+        let env = Self::Protocol::encrypt_message(self.rng(), input, sender, recipient)?;
+        let resp = Self::NetworkApi::submit_message( env)?;
 
         Self::Callback::on_result(());
         Ok(())
@@ -183,7 +181,7 @@ pub trait ApplicationCallback {
     fn on_result(data: ());
 }
 
-// todo
+// Protocol should have its own error type but for now we alias
 type ProtocolError = anyhow::Error;
 
 /// Protocol Definition. This is the boundary between the protocol and the enclosing application.
@@ -308,7 +306,7 @@ impl ClientProtocol for DefaultProtocol {}
 // Example for now
 pub type NetworkError = anyhow::Error;
 
-/// Network [`Api`](Api) common to all users.
+/// Network [`Api`](Api) common to all clients.
 /// TODO: the response types should be Untrusted<T>.
 pub trait Api {
     /// Initial request made to the server to retrive instance-specific roster
@@ -336,23 +334,13 @@ pub trait Api {
 /// Journalist-specific API operations.
 ///
 /// Extends [`Api`] with enrollment and ephemeral key management.
-/// Restricted to implementors RestrictedApi trait and
-/// the Enrollable trait. Implementors of both those will automatically be able to use
-/// this generic JournalistApi implementation, but downstream crates will be unable to
-/// implement RestrictedApi. Originally this was defined at the trait level
-/// (`pub trait JournalistApi: Api + restricted::RestrictedApi`), but hax was unable
-/// to extract the trait.
-pub trait JournalistApi: Api + RestrictedApi {
+pub trait JournalistApi: Api {
     fn create_setup_request(setup: JournalistSetupRequest) -> Result<(), Error>;
 
     fn create_ephemeral_key_request(kr: JournalistEphemeralKeyRequest) -> Result<(), Error>;
 }
 
 /// Server requirements
-
-// Mock error class
-pub type ServerApiError = anyhow::Error;
-
 pub trait ServerContract: HasRng {
     // May not be exposed outside the Welcome bundle. May or may not be signed by FPF key.
     // This is "Newsroom Verifying Key".
@@ -365,7 +353,7 @@ pub trait ServerContract: HasRng {
     /// (GET) Challenges
     /// Handles client [`Api::fetch_challenges`](Api::fetch_challenges)
     fn challenges(
-        &self,
+        &mut self,
         req: MessageChallengeFetchRequest,
     ) -> Result<MessageChallengeFetchResponse, ServerApiError>;
 
@@ -389,3 +377,6 @@ pub trait ServerContract: HasRng {
         req: JournalistEphemeralKeyRequest,
     ) -> Result<JournalistEphemeralKeyResponse, ServerApiError>;
 }
+
+// Server can/should return its own error type, this is a placeholder
+pub type ServerApiError = anyhow::Error;
