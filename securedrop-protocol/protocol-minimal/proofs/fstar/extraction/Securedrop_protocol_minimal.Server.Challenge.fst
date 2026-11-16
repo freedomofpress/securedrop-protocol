@@ -73,14 +73,11 @@ let make_response
 
 #pop-options
 
-#push-options "--admit_smt_queries true"
-
 /// Given a set of ciphertext bundles (C, X, Z) and their associated uuid,
 /// compute a fixed-length set of "challenges" >= the number of SeverMessageStore entries.
 /// A challenge is returned as a tuple of DH agreement outputs (or random data tuples of the same length).
 /// For benchmarking purposes, supply the rng as a separable parameter, and allow the total number of expected responses to be specified as a paremeter (worst case performance
 /// when the number of items in the server store approaches num total_responses.)
-/// Note this is marked lax temporaily due to the `push` panic freedom requirement
 let compute_fetch_challenges
       (#v_R: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
@@ -110,23 +107,9 @@ let compute_fetch_challenges
   (responses:
     Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global),
   (rng: v_R) =
-    Core_models.Iter.Traits.Iterator.f_fold (Core_models.Iter.Traits.Collect.f_into_iter #(Core_models.Slice.Iter.t_Iter
-            (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Wire.Core.t_Envelope))
-          #FStar.Tactics.Typeclasses.solve
-          (Core_models.Slice.impl__iter #(t_Array u8 (mk_usize 16) &
-                Securedrop_protocol_minimal.Wire.Core.t_Envelope)
-              entries
-            <:
-            Core_models.Slice.Iter.t_Iter
-            (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Wire.Core.t_Envelope))
-        <:
-        Core_models.Slice.Iter.t_Iter
-        (t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Wire.Core.t_Envelope))
-      (responses, rng
-        <:
-        (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global &
-          v_R))
-      (fun temp_0_ temp_1_ ->
+    Rust_primitives.Hax.Folds.fold_range (mk_usize 0)
+      total_responses
+      (fun temp_0_ i ->
           let
           (responses:
             Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
@@ -134,92 +117,20 @@ let compute_fetch_challenges
           (rng: v_R) =
             temp_0_
           in
-          let
-          (message_id: t_Array u8 (mk_usize 16)),
-          (envelope: Securedrop_protocol_minimal.Wire.Core.t_Envelope) =
-            temp_1_
-          in
-          if
-            (Alloc.Vec.impl_1__len #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
-                #Alloc.Alloc.t_Global
-                responses
-              <:
-              usize) <.
-            total_responses
-            <:
-            bool
-          then
-            let (tmp0: v_R), (out: Securedrop_protocol_minimal.Wire.Core.t_FetchResponse) =
-              make_response #v_R
-                rng
-                message_id
-                envelope.Securedrop_protocol_minimal.Wire.Core.f_mgdh
-                envelope.Securedrop_protocol_minimal.Wire.Core.f_mgdh_pubkey
-                Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
-            in
-            let rng:v_R = tmp0 in
-            let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
-              Alloc.Alloc.t_Global =
-              Alloc.Vec.impl_1__push #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
-                #Alloc.Alloc.t_Global
-                responses
-                out
-            in
-            responses, rng
-            <:
-            (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
-                Alloc.Alloc.t_Global &
-              v_R)
-          else
-            responses, rng
-            <:
-            (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
-                Alloc.Alloc.t_Global &
-              v_R))
-  in
-  let
-  (responses:
-    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global),
-  (rng: v_R) =
-    Rust_primitives.Hax.while_loop (fun temp_0_ ->
-          let
-          (responses:
-            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
-              Alloc.Alloc.t_Global),
-          (rng: v_R) =
-            temp_0_
-          in
-          true)
-      (fun temp_0_ ->
-          let
-          (responses:
-            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
-              Alloc.Alloc.t_Global),
-          (rng: v_R) =
-            temp_0_
-          in
+          let i:usize = i in
           (Alloc.Vec.impl_1__len #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               #Alloc.Alloc.t_Global
               responses
             <:
-            usize) <.
-          total_responses
+            usize) =.
+          i
           <:
           bool)
-      (fun temp_0_ ->
-          let
-          (responses:
-            Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
-              Alloc.Alloc.t_Global),
-          (rng: v_R) =
-            temp_0_
-          in
-          Rust_primitives.Hax.Int.from_machine (mk_u32 0) <: Hax_lib.Int.t_Int)
       (responses, rng
         <:
         (Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global &
           v_R))
-      (fun temp_0_ ->
+      (fun temp_0_ i ->
           let
           (responses:
             Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
@@ -227,21 +138,48 @@ let compute_fetch_challenges
           (rng: v_R) =
             temp_0_
           in
-          let (tmp0: v_R), (out: Securedrop_protocol_minimal.Wire.Core.t_FetchResponse) =
-            make_response #v_R
-              rng
-              (Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 16) <: t_Array u8 (mk_usize 16))
-              decoy_mgdh
-              decoy_mgdh_pubkey
-              Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+          let i:usize = i in
+          let (rng: v_R), (response: Securedrop_protocol_minimal.Wire.Core.t_FetchResponse) =
+            if
+              i <.
+              (Core_models.Slice.impl__len #(t_Array u8 (mk_usize 16) &
+                    Securedrop_protocol_minimal.Wire.Core.t_Envelope)
+                  entries
+                <:
+                usize)
+            then
+              let entry:(t_Array u8 (mk_usize 16) & Securedrop_protocol_minimal.Wire.Core.t_Envelope
+              ) =
+                entries.[ i ]
+              in
+              let (tmp0: v_R), (out: Securedrop_protocol_minimal.Wire.Core.t_FetchResponse) =
+                make_response #v_R
+                  rng
+                  entry._1
+                  entry._2.Securedrop_protocol_minimal.Wire.Core.f_mgdh
+                  entry._2.Securedrop_protocol_minimal.Wire.Core.f_mgdh_pubkey
+                  Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+              in
+              let rng:v_R = tmp0 in
+              rng, out <: (v_R & Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
+            else
+              let (tmp0: v_R), (out: Securedrop_protocol_minimal.Wire.Core.t_FetchResponse) =
+                make_response #v_R
+                  rng
+                  (Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 16) <: t_Array u8 (mk_usize 16))
+                  decoy_mgdh
+                  decoy_mgdh_pubkey
+                  Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+              in
+              let rng:v_R = tmp0 in
+              rng, out <: (v_R & Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
           in
-          let rng:v_R = tmp0 in
           let responses:Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
             Alloc.Alloc.t_Global =
             Alloc.Vec.impl_1__push #Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
               #Alloc.Alloc.t_Global
               responses
-              out
+              response
           in
           responses, rng
           <:
@@ -264,5 +202,3 @@ let compute_fetch_challenges
   rng, hax_temp_output
   <:
   (v_R & Alloc.Vec.t_Vec Securedrop_protocol_minimal.Wire.Core.t_FetchResponse Alloc.Alloc.t_Global)
-
-#pop-options

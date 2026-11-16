@@ -20,9 +20,6 @@ fn sort_by_id(entries: &mut [FetchResponse]) {
 /// A challenge is returned as a tuple of DH agreement outputs (or random data tuples of the same length).
 /// For benchmarking purposes, supply the rng as a separable parameter, and allow the total number of expected responses to be specified as a paremeter (worst case performance
 /// when the number of items in the server store approaches num total_responses.)
-///
-/// Note this is marked lax temporaily due to the `push` panic freedom requirement
-#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     rng: &mut R,
     entries: &[([u8; LEN_MESSAGE_ID], Envelope)],
@@ -34,28 +31,25 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     let decoy_mgdh = random_dh_public_key(rng);
     let decoy_mgdh_pubkey = random_dh_public_key(rng);
 
-    for (message_id, envelope) in entries.iter() {
-        // TODO(#423): Handle what should happen if there are more entries than total_responses
-        if responses.len() < total_responses {
-            responses.push(make_response(
+    // Real responses first, then we pad if needed to return a fixed length of responses
+    //
+    // TODO(#423): Handle what should happen if there are more entries than total_responses
+    for i in 0..total_responses {
+        #[cfg(hax)]
+        hax_lib::loop_invariant!(|i: usize| responses.len() == i);
+        let response = if i < entries.len() {
+            let entry = &entries[i];
+            make_response(rng, &entry.0, &entry.1.mgdh, &entry.1.mgdh_pubkey, NR_ID)
+        } else {
+            make_response(
                 rng,
-                message_id,
-                &envelope.mgdh,
-                &envelope.mgdh_pubkey,
+                &[0u8; LEN_MESSAGE_ID],
+                &decoy_mgdh,
+                &decoy_mgdh_pubkey,
                 NR_ID,
-            ));
-        }
-    }
-
-    // Pad if needed to return fixed length of responses
-    while responses.len() < total_responses {
-        responses.push(make_response(
-            rng,
-            &[0u8; LEN_MESSAGE_ID],
-            &decoy_mgdh,
-            &decoy_mgdh_pubkey,
-            NR_ID,
-        ));
+            )
+        };
+        responses.push(response);
     }
 
     // Sort responses lexicographically by enc_id to hide real vs decoy challenges
