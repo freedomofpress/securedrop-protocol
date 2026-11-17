@@ -64,17 +64,6 @@ let impl_NewsroomKeyPair__verifying_key (self: t_NewsroomKeyPair)
     : Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey =
   self.f_sk.Securedrop_protocol_minimal.Schemes.Sign.f_vk
 
-/// Sign `msg` in domain `D` using the newsroom signing key.
-let impl_NewsroomKeyPair__sign
-      (#v_D: Type0)
-      (#[FStar.Tactics.Typeclasses.tcresolve ()]
-          i0:
-          Securedrop_protocol_minimal.Schemes.Sign.t_DomainTag v_D)
-      (self: t_NewsroomKeyPair)
-      (msg: t_Slice u8)
-    : Securedrop_protocol_minimal.Schemes.Sign.t_Signature v_D =
-  Securedrop_protocol_minimal.Schemes.Sign.impl_SigningKey__sign #v_D self.f_sk msg
-
 /// The newsroom signing key used as a secret.
 let impl_NewsroomKeyPair__as_bytes (self: t_NewsroomKeyPair) : t_Array u8 (mk_usize 32) =
   Securedrop_protocol_minimal.Schemes.Sign.impl_SigningKey__as_bytes self.f_sk
@@ -84,3 +73,18 @@ let impl_NewsroomKeyPair__from_bytes (seed: t_Array u8 (mk_usize 32)) : t_Newsro
   { f_sk = Securedrop_protocol_minimal.Schemes.Sign.impl_SigningKey__from_seed seed }
   <:
   t_NewsroomKeyPair
+
+/// Sign `msg` in domain `D` using the newsroom signing key.
+let impl_NewsroomKeyPair__sign
+      (#v_D: Type0)
+      (#[FStar.Tactics.Typeclasses.tcresolve ()]
+          i0:
+          Securedrop_protocol_minimal.Schemes.Sign.t_DomainTag v_D)
+      (self: t_NewsroomKeyPair)
+      (msg: t_Slice u8)
+    : Prims.Pure (Securedrop_protocol_minimal.Schemes.Sign.t_Signature v_D)
+      (requires
+        (Core_models.Slice.impl__len #u8 msg <: usize) <=.
+        (Core_models.Num.impl_usize__MAX -! mk_usize 256 <: usize))
+      (fun _ -> Prims.l_True) =
+  Securedrop_protocol_minimal.Schemes.Sign.impl_SigningKey__sign #v_D self.f_sk msg

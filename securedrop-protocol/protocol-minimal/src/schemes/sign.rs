@@ -28,8 +28,17 @@ pub trait DomainTag: private::Sealed {
     fn tag() -> &'static [u8];
 }
 #[cfg(hax)]
+#[hax_lib::attributes]
 pub trait DomainTag {
     #[doc(hidden)]
+    // Currently we need to duplicate these checks in the impls
+    // See: https://github.com/pereq-dev/hax/issues/789
+    //
+    // We also have to specify there's no precondition explicitly (that's what the trivial
+    // `requires(true)` is doing) for this to verify the generic calls, otherwise hax extracts
+    // an abstract precondition that cannot be proven
+    #[requires(true)]
+    #[ensures(|result| result.len() <= 255)]
     fn tag() -> &'static [u8];
 }
 
@@ -59,22 +68,30 @@ mod sealed_impls {
     impl private::Sealed for FpfOnNewsroom {}
 }
 
+#[cfg_attr(hax, hax_lib::attributes)]
 impl DomainTag for JournalistLongTermKey {
+    #[cfg_attr(hax, ensures(|result| result.len() <= 255))]
     fn tag() -> &'static [u8] {
         b"j-sig-ltk"
     }
 }
+#[cfg_attr(hax, hax_lib::attributes)]
 impl DomainTag for JournalistEphemeralKey {
+    #[cfg_attr(hax, ensures(|result| result.len() <= 255))]
     fn tag() -> &'static [u8] {
         b"j-sig-eph"
     }
 }
+#[cfg_attr(hax, hax_lib::attributes)]
 impl DomainTag for NewsroomOnJournalist {
+    #[cfg_attr(hax, ensures(|result| result.len() <= 255))]
     fn tag() -> &'static [u8] {
         b"nr-sig"
     }
 }
+#[cfg_attr(hax, hax_lib::attributes)]
 impl DomainTag for FpfOnNewsroom {
+    #[cfg_attr(hax, ensures(|result| result.len() <= 255))]
     fn tag() -> &'static [u8] {
         b"fpf-sig-nr"
     }
@@ -153,7 +170,7 @@ impl<'de, D: DomainTag> serde::Deserialize<'de> for Signature<D> {
 }
 
 /// Construct the tagged signing preimage: `len(tag) || tag || msg`.
-#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
+#[cfg_attr(hax, hax_lib::requires(msg.len() <= usize::MAX - 256))]
 fn tagged_preimage<D: DomainTag>(msg: &[u8]) -> Vec<u8> {
     let tag = D::tag();
     #[cfg(not(hax))]
@@ -224,6 +241,7 @@ impl core::fmt::Debug for VerifyingKey {
     }
 }
 
+#[cfg_attr(hax, hax_lib::attributes)]
 impl SigningKey {
     pub const SEED_LEN: usize = KEY_LEN_ED25519;
 
@@ -239,6 +257,7 @@ impl SigningKey {
     /// Sign `msg` in domain `D`, returning a `Signature<D>`.
     ///
     /// The actual preimage is `len(tag) || tag || msg` where `tag = D::TAG`.
+    #[cfg_attr(hax, requires(msg.len() <= usize::MAX - 256))]
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         let preimage = tagged_preimage::<D>(msg);
         let bytes = provider::ed25519::sign(&preimage, self.sk.as_bytes());
@@ -259,6 +278,7 @@ impl SigningKey {
     }
 }
 
+#[cfg_attr(hax, hax_lib::attributes)]
 impl VerifyingKey {
     /// Get the raw bytes of this verification key.
     pub fn into_bytes(self) -> [u8; KEY_LEN_ED25519] {
@@ -268,6 +288,7 @@ impl VerifyingKey {
     /// Verify `sig` over `msg`. The domain is determined by the type of `sig`.
     ///
     /// Returns an error if the signature is invalid.
+    #[cfg_attr(hax, requires(msg.len() <= usize::MAX - 256))]
     pub fn verify<D: DomainTag>(&self, msg: &[u8], sig: &Signature<D>) -> Result<(), Error> {
         let preimage = tagged_preimage::<D>(msg);
         provider::ed25519::verify(&preimage, self.as_bytes(), &sig.bytes)
