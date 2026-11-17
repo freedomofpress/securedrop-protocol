@@ -10,6 +10,38 @@ use crate::{Envelope, FetchResponse, MessageKeyBundle, Plaintext, UserPublic, Us
 use alloc::vec::Vec;
 use rand_core::{CryptoRng, RngCore};
 
+/// Error types returned by decryption.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecryptError {
+    /// No key bundle decrypts ct^PKE
+    NoDecryptingKeyBundle,
+    /// ct^PKE decrypted, but not to a valid pk_S^APKE
+    InvalidSenderKey,
+    /// SD-APKE.AuthDec failed either authentication or decryption
+    AuthDecFailed,
+    /// SD-APKE.AuthDec succeeded, but the plaintext was malformed
+    MalformedPlaintext,
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl core::fmt::Display for DecryptError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DecryptError::NoDecryptingKeyBundle => {
+                write!(f, "no key bundle could decrypt the metadata")
+            }
+            DecryptError::InvalidSenderKey => {
+                write!(f, "metadata did not contain a valid sender APKE key tuple")
+            }
+            DecryptError::AuthDecFailed => write!(f, "message authentication or decryption failed"),
+            DecryptError::MalformedPlaintext => write!(f, "message plaintext was malformed"),
+        }
+    }
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl core::error::Error for DecryptError {}
+
 /// Encrypt a message from a sender to a recipient (step 6).
 ///
 /// Produces an [`Envelope`] containing:
@@ -67,8 +99,11 @@ where
 }
 
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
-pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Plaintext {
-    decrypt_with_sender(receiver, envelope).0
+pub fn decrypt<U: UserSecret + ?Sized>(
+    receiver: &U,
+    envelope: &Envelope,
+) -> Result<Plaintext, DecryptError> {
+    decrypt_with_sender(receiver, envelope).map(|(p, _)| p)
 }
 
 /// Decrypt like [`decrypt`], additionally returning the sender's long-term
@@ -77,22 +112,22 @@ pub fn decrypt<U: UserSecret + ?Sized>(receiver: &U, envelope: &Envelope) -> Pla
 pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
     receiver: &U,
     envelope: &Envelope,
-) -> (Plaintext, MessagePublicKey) {
+) -> Result<(Plaintext, MessagePublicKey), DecryptError> {
     // Trial-decrypt ct^PKE with each keybundle's metadata private key to find
-    // the intended recipient's bundle. There should be exactly 1 result.
-    let mut found: Option<(&MessageKeyBundle, Vec<u8>)> = None;
-    for &bundle in receiver.keybundles().iter() {
-        if let Ok(m) = metadata::decrypt(bundle.metadata_kp.private_key(), &envelope.ct_pke) {
-            found = Some((bundle, m));
-        }
-    }
-
-    // TODO(#402): only true for test purposes!
-    let (bundle, raw_metadata) = found.expect("we should find exactly 1 result");
+    // the intended recipient's bundle. Stop if one succeeds, returning the decrypted metadata and the bundle.
+    let (bundle, raw_metadata) = receiver
+        .keybundles()
+        .iter()
+        .find_map(|&bundle| {
+            metadata::decrypt(bundle.metadata_kp.private_key(), &envelope.ct_pke)
+                .ok()
+                .map(|m| (bundle, m))
+        })
+        .ok_or(DecryptError::NoDecryptingKeyBundle)?;
 
     // spec: pk_S^APKE - reconstruct sender's APKE public key from decrypted metadata
-    let sender_pk = MessagePublicKey::from_bytes(&raw_metadata)
-        .expect("Metadata must contain valid sender APKE key tuple");
+    let sender_pk =
+        MessagePublicKey::from_bytes(&raw_metadata).map_err(|_| DecryptError::InvalidSenderKey)?;
 
     // spec: pk_R^fetch
     let pk_r_fetch = receiver.fetch_keypair().1;
@@ -105,9 +140,11 @@ pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
         NR_ID,                     // spec: NR
         pk_r_fetch,                // spec: pk_R^fetch
     )
-    .expect("SD-APKE AuthDec failed");
+    .map_err(|_| DecryptError::AuthDecFailed)?;
 
-    (Plaintext::from_bytes(&pt).unwrap(), sender_pk)
+    let plaintext = Plaintext::from_bytes(&pt).map_err(|_| DecryptError::MalformedPlaintext)?;
+
+    Ok((plaintext, sender_pk))
 }
 
 /// Build plaintext message, including pubkeys (for replies).
@@ -152,7 +189,7 @@ mod tests {
         let pt = build_message(sender_public, msg);
 
         let envelope = encrypt(rng, sender_secret, &pt, rcvr_public);
-        let decrypted = decrypt(rcvr_secret, &envelope);
+        let decrypted = decrypt(rcvr_secret, &envelope).unwrap();
 
         let pt_ref = &pt;
 
@@ -222,7 +259,7 @@ mod tests {
         let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
 
         // Journalist decrypts and recovers the source's reply keys.
-        let (pt, sender_apke) = decrypt_with_sender(&journalist, &envelope);
+        let (pt, sender_apke) = decrypt_with_sender(&journalist, &envelope).unwrap();
         let reply_recipient = SourcePublicView::from_reply_keys(
             pt.sender_fetch_key,
             sender_apke,
@@ -235,7 +272,7 @@ mod tests {
         let reply_envelope = encrypt(&mut rng, &journalist, &reply_pt, &reply_recipient);
 
         // Source decrypts the reply.
-        let decrypted = decrypt(&source, &reply_envelope);
+        let decrypted = decrypt(&source, &reply_envelope).unwrap();
         assert_eq!(decrypted.msg, reply_text);
     }
 
@@ -255,6 +292,45 @@ mod tests {
             &j2.public(0),
             &j2,
             msg,
+        );
+    }
+
+    #[test]
+    fn test_no_decrypting_key_bundle() {
+        let mut rng = setup_rng();
+
+        // Source submits to journalist A.
+        let source = Source::new(&mut rng);
+        let journalist = Journalist::new(&mut rng, 2);
+        let journalist_public = journalist.public(0);
+
+        let submission = build_message(&source.public(), b"howdy".to_vec());
+        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+
+        // Journalist 2 decrypts
+        let j2 = Journalist::new(&mut rng, 2);
+        assert_eq!(
+            decrypt_with_sender(&j2, &envelope).unwrap_err(),
+            DecryptError::NoDecryptingKeyBundle
+        );
+    }
+
+    #[test]
+    fn test_auth_dec_failed() {
+        let mut rng = setup_rng();
+
+        // Source submits to journalist A.
+        let source = Source::new(&mut rng);
+        let journalist = Journalist::new(&mut rng, 2);
+        let journalist_public = journalist.public(0);
+
+        let submission = build_message(&source.public(), b"howdy".to_vec());
+        let mut envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+
+        envelope.ct_apke.c1[0] ^= 0x01; // Corrupt the ciphertext
+        assert_eq!(
+            decrypt_with_sender(&journalist, &envelope).unwrap_err(),
+            DecryptError::AuthDecFailed
         );
     }
 }

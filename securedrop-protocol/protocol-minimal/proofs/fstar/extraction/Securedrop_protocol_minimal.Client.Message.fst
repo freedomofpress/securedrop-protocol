@@ -11,6 +11,58 @@ let _ =
   let open Securedrop_protocol_minimal.Traits in
   ()
 
+/// Error types returned by decryption.
+type t_DecryptError =
+  | DecryptError_NoDecryptingKeyBundle : t_DecryptError
+  | DecryptError_InvalidSenderKey : t_DecryptError
+  | DecryptError_AuthDecFailed : t_DecryptError
+  | DecryptError_MalformedPlaintext : t_DecryptError
+
+let t_DecryptError_cast_to_repr (x: t_DecryptError) : isize =
+  match x <: t_DecryptError with
+  | DecryptError_NoDecryptingKeyBundle  -> mk_isize 0
+  | DecryptError_InvalidSenderKey  -> mk_isize 1
+  | DecryptError_AuthDecFailed  -> mk_isize 2
+  | DecryptError_MalformedPlaintext  -> mk_isize 3
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl': Core_models.Fmt.t_Debug t_DecryptError
+
+unfold
+let impl = impl'
+
+let impl_1: Core_models.Clone.t_Clone t_DecryptError =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_2': Core_models.Marker.t_Copy t_DecryptError
+
+unfold
+let impl_2 = impl_2'
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_3': Core_models.Marker.t_StructuralPartialEq t_DecryptError
+
+unfold
+let impl_3 = impl_3'
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_4': Core_models.Cmp.t_PartialEq t_DecryptError t_DecryptError
+
+unfold
+let impl_4 = impl_4'
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_5': Core_models.Cmp.t_Eq t_DecryptError
+
+unfold
+let impl_5 = impl_5'
+
 #push-options "--admit_smt_queries true"
 
 /// Encrypt a message from a sender to a recipient (step 6).
@@ -144,129 +196,180 @@ let decrypt_with_sender
           Securedrop_protocol_minimal.Traits.t_UserSecret v_U)
       (receiver: v_U)
       (envelope: Securedrop_protocol_minimal.Wire.Core.t_Envelope)
-    : (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
-      Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) =
+    : Core_models.Result.t_Result
+      (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+        Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) t_DecryptError =
   let
-  (found:
+  (_: Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle),
+  (out:
     Core_models.Option.t_Option
     (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
-      Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)):Core_models.Option.t_Option
-  (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
-    Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
-    Core_models.Option.Option_None
-    <:
-    Core_models.Option.t_Option
-    (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
-      Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-  in
-  let found:Core_models.Option.t_Option
-  (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
-    Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
-    Core_models.Iter.Traits.Iterator.f_fold (Core_models.Iter.Traits.Collect.f_into_iter #(Core_models.Slice.Iter.t_Iter
-            Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
-          #FStar.Tactics.Typeclasses.solve
-          (Core_models.Slice.impl__iter #Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
-              (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Traits.f_keybundles #v_U
-                      #FStar.Tactics.Typeclasses.solve
-                      receiver
-                    <:
-                    Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
-                      Alloc.Alloc.t_Global)
+      Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)) =
+    Core_models.Iter.Traits.Iterator.f_find_map #(Core_models.Slice.Iter.t_Iter
+        Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
+      #FStar.Tactics.Typeclasses.solve
+      #(Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+        Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+      #(Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+          -> Core_models.Option.t_Option
+            (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+              Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
+      (Core_models.Slice.impl__iter #Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+          (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Traits.f_keybundles #v_U
+                  #FStar.Tactics.Typeclasses.solve
+                  receiver
                 <:
-                t_Slice Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
+                Alloc.Vec.t_Vec Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
+                  Alloc.Alloc.t_Global)
             <:
-            Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle
-          )
+            t_Slice Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
         <:
         Core_models.Slice.Iter.t_Iter Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle)
-      found
-      (fun found bundle ->
-          let found:Core_models.Option.t_Option
-          (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
-            Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
-            found
-          in
+      (fun bundle ->
           let bundle:Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle = bundle in
-          match
-            Securedrop_protocol_minimal.Schemes.Metadata.decrypt (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataKeyPair__private_key
-                  bundle.Securedrop_protocol_minimal.Keys.Bundle.f_metadata_kp
-                <:
-                Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPrivateKey)
-              envelope.Securedrop_protocol_minimal.Wire.Core.f_ct_pke
-            <:
-            Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
-          with
-          | Core_models.Result.Result_Ok m ->
-            let found:Core_models.Option.t_Option
-            (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
-              Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
-              Core_models.Option.Option_Some
-              (bundle, m
+          Core_models.Option.impl__map #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+            #(Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+              Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+            #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global
+                -> (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+                    Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
+            (Core_models.Result.impl__ok #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+                #Anyhow.t_Error
+                (Securedrop_protocol_minimal.Schemes.Metadata.decrypt (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataKeyPair__private_key
+                        bundle.Securedrop_protocol_minimal.Keys.Bundle.f_metadata_kp
+                      <:
+                      Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPrivateKey)
+                    envelope.Securedrop_protocol_minimal.Wire.Core.f_ct_pke
+                  <:
+                  Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+                    Anyhow.t_Error)
+              <:
+              Core_models.Option.t_Option (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
+            (fun m ->
+                let m:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = m in
+                bundle, m
                 <:
                 (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
                   Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
-              <:
-              Core_models.Option.t_Option
-              (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
-                Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-            in
-            found
-          | _ -> found)
+          <:
+          Core_models.Option.t_Option
+          (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+            Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global))
   in
-  let
-  (bundle: Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle),
-  (raw_metadata: Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) =
-    Core_models.Option.impl__expect #(Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+  match
+    Core_models.Option.impl__ok_or #(Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
         Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-      found
-      "we should find exactly 1 result"
-  in
-  let sender_pk:Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey =
-    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
-      #Anyhow.t_Error
-      (Securedrop_protocol_minimal.Schemes.Message.impl_MessagePublicKey__from_bytes (Alloc.Vec.impl_1__as_slice
-              raw_metadata
+      #t_DecryptError
+      out
+      (DecryptError_NoDecryptingKeyBundle <: t_DecryptError)
+    <:
+    Core_models.Result.t_Result
+      (Securedrop_protocol_minimal.Keys.Bundle.t_MessageKeyBundle &
+        Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) t_DecryptError
+  with
+  | Core_models.Result.Result_Ok (bundle, raw_metadata) ->
+    (match
+        Core_models.Result.impl__map_err #Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
+          #Anyhow.t_Error
+          #t_DecryptError
+          #(Anyhow.t_Error -> t_DecryptError)
+          (Securedrop_protocol_minimal.Schemes.Message.impl_MessagePublicKey__from_bytes (Alloc.Vec.impl_1__as_slice
+                  raw_metadata
+                <:
+                t_Slice u8)
             <:
-            t_Slice u8)
+            Core_models.Result.t_Result
+              Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey Anyhow.t_Error)
+          (fun temp_0_ ->
+              let _:Anyhow.t_Error = temp_0_ in
+              DecryptError_InvalidSenderKey <: t_DecryptError)
         <:
         Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey
-          Anyhow.t_Error)
-      "Metadata must contain valid sender APKE key tuple"
-  in
-  let pk_r_fetch:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
-    (Securedrop_protocol_minimal.Traits.f_fetch_keypair #v_U
-        #FStar.Tactics.Typeclasses.solve
-        receiver)
-      ._2
-  in
-  let pt:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Core_models.Result.impl__expect #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-      #Anyhow.t_Error
-      (Securedrop_protocol_minimal.Schemes.Message.auth_dec (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__private_key
-              bundle.Securedrop_protocol_minimal.Keys.Bundle.f_apke
+          t_DecryptError
+      with
+      | Core_models.Result.Result_Ok sender_pk ->
+        let pk_r_fetch:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey =
+          (Securedrop_protocol_minimal.Traits.f_fetch_keypair #v_U
+              #FStar.Tactics.Typeclasses.solve
+              receiver)
+            ._2
+        in
+        (match
+            Core_models.Result.impl__map_err #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+              #Anyhow.t_Error
+              #t_DecryptError
+              #(Anyhow.t_Error -> t_DecryptError)
+              (Securedrop_protocol_minimal.Schemes.Message.auth_dec (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__private_key
+                      bundle.Securedrop_protocol_minimal.Keys.Bundle.f_apke
+                    <:
+                    Securedrop_protocol_minimal.Schemes.Message.t_MessagePrivateKey)
+                  sender_pk
+                  envelope.Securedrop_protocol_minimal.Wire.Core.f_ct_apke
+                  Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+                  pk_r_fetch
+                <:
+                Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error
+              )
+              (fun temp_0_ ->
+                  let _:Anyhow.t_Error = temp_0_ in
+                  DecryptError_AuthDecFailed <: t_DecryptError)
             <:
-            Securedrop_protocol_minimal.Schemes.Message.t_MessagePrivateKey)
-          sender_pk
-          envelope.Securedrop_protocol_minimal.Wire.Core.f_ct_apke
-          Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
-          pk_r_fetch
+            Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) t_DecryptError
+          with
+          | Core_models.Result.Result_Ok pt ->
+            (match
+                Core_models.Result.impl__map_err #Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+                  #Anyhow.t_Error
+                  #t_DecryptError
+                  #(Anyhow.t_Error -> t_DecryptError)
+                  (Securedrop_protocol_minimal.Client.Plaintext.impl_Plaintext__from_bytes (Alloc.Vec.impl_1__as_slice
+                          pt
+                        <:
+                        t_Slice u8)
+                    <:
+                    Core_models.Result.t_Result
+                      Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext Anyhow.t_Error)
+                  (fun temp_0_ ->
+                      let _:Anyhow.t_Error = temp_0_ in
+                      DecryptError_MalformedPlaintext <: t_DecryptError)
+                <:
+                Core_models.Result.t_Result Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+                  t_DecryptError
+              with
+              | Core_models.Result.Result_Ok plaintext ->
+                Core_models.Result.Result_Ok
+                (plaintext, sender_pk
+                  <:
+                  (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+                    Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey))
+                <:
+                Core_models.Result.t_Result
+                  (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+                    Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) t_DecryptError
+              | Core_models.Result.Result_Err err ->
+                Core_models.Result.Result_Err err
+                <:
+                Core_models.Result.t_Result
+                  (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+                    Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) t_DecryptError)
+          | Core_models.Result.Result_Err err ->
+            Core_models.Result.Result_Err err
+            <:
+            Core_models.Result.t_Result
+              (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+                Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) t_DecryptError)
+      | Core_models.Result.Result_Err err ->
+        Core_models.Result.Result_Err err
         <:
-        Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
-      "SD-APKE AuthDec failed"
-  in
-  Core_models.Result.impl__unwrap #Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
-    #Anyhow.t_Error
-    (Securedrop_protocol_minimal.Client.Plaintext.impl_Plaintext__from_bytes (Alloc.Vec.impl_1__as_slice
-            pt
-          <:
-          t_Slice u8)
-      <:
-      Core_models.Result.t_Result Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
-        Anyhow.t_Error),
-  sender_pk
-  <:
-  (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
-    Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
+        Core_models.Result.t_Result
+          (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+            Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) t_DecryptError)
+  | Core_models.Result.Result_Err err ->
+    Core_models.Result.Result_Err err
+    <:
+    Core_models.Result.t_Result
+      (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+        Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) t_DecryptError
 
 #pop-options
 
@@ -279,7 +382,27 @@ let decrypt
           Securedrop_protocol_minimal.Traits.t_UserSecret v_U)
       (receiver: v_U)
       (envelope: Securedrop_protocol_minimal.Wire.Core.t_Envelope)
-    : Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext =
-  (decrypt_with_sender #v_U receiver envelope)._1
+    : Core_models.Result.t_Result Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+      t_DecryptError =
+  Core_models.Result.impl__map #(Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+      Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
+    #t_DecryptError
+    #Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+    #(
+          (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+              Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
+        -> Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext)
+    (decrypt_with_sender #v_U receiver envelope
+      <:
+      Core_models.Result.t_Result
+        (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
+          Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) t_DecryptError)
+    (fun temp_0_ ->
+        let
+        (p: Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext),
+        (_: Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey) =
+          temp_0_
+        in
+        p)
 
 #pop-options

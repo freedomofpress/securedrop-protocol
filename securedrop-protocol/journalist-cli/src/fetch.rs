@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::{Context, Result};
 use securedrop_protocol_minimal::DHPublicKey;
 use securedrop_protocol_minimal::Envelope;
@@ -15,6 +17,8 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
 
     let client = reqwest::blocking::Client::new();
 
+    // This avoids fetching the same message multiple times in a single fetch (in case of decryption failures). The failed IDs may be better to store in the Inbox.
+    let mut fetched: HashSet<String> = HashSet::new();
     let mut inbox = load_inbox()?;
     let mut new_count = 0;
 
@@ -33,10 +37,10 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
             .solve_fetch_challenges(&challenges.messages)
             .context("solving fetch challenges")?;
 
-        let Some(id) = cids
-            .into_iter()
-            .find(|cid| !inbox.iter().any(|e| e.message_id == cid.to_string()))
-        else {
+        let Some(id) = cids.into_iter().find(|cid| {
+            !inbox.iter().any(|e| e.message_id == cid.to_string())
+                && !fetched.contains(&cid.to_string())
+        }) else {
             break;
         };
         let id_str = id.to_string();
@@ -48,12 +52,16 @@ pub(crate) fn fetch(server: &str) -> Result<()> {
             .error_for_status()
             .context("newsroom rejected message download")?
             .json()?;
+        fetched.insert(id.to_string());
 
         // TODO(#408): once decrypted, the ephemeral key bundle this message
         // was encrypted to should be deleted. currently protocol-minimal
         // doesn't yet expose which bundle decrypted the message or a way to
         // remove it, so consumed keys are currently retained.
-        let (plaintext, sender_apke) = decrypt_with_sender(&journalist, &envelope);
+        let Ok((plaintext, sender_apke)) = decrypt_with_sender(&journalist, &envelope) else {
+            // Decryption failed, discard
+            continue;
+        };
         let text = String::from_utf8_lossy(strip_padding(&plaintext.msg)).into_owned();
 
         inbox.push(InboxEntry {
