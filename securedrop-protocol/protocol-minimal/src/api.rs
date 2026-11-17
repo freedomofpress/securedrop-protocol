@@ -62,6 +62,7 @@ pub trait HasRng {
     fn rng(&mut self) -> &mut Self::Rng;
 }
 
+
 /// The following defines the requirements for an application that runs SecureDrop Protocol.
 ///
 /// An implementing application should implement this trait and the methods it requires,
@@ -80,6 +81,7 @@ pub trait ApplicationContract: HasRng {
     /// A client application interacts with the underlying protocol.
     /// All such interactions use methods specified by the ClientProtocol trait.
     /// Other than types, no other protocol internals should be exposed.
+    /// The DefaultProtocol implementation provided should generally be used.
     type Protocol: ClientProtocol;
 
     // If a Storage abstraction is useful, its core operations can be defined as a trait.
