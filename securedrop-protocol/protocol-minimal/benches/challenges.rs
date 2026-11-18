@@ -38,6 +38,7 @@ fn bench_compute_fetch_challenges(c: &mut Criterion) {
     for &size in STORE_SIZES {
         let store = build_store(size);
         group.throughput(Throughput::Elements(size as u64));
+        let store: Vec<([u8; 16], &Envelope)> = store.iter().map(|(id, env)| (*id, env)).collect();
         group.bench_with_input(BenchmarkId::from_parameter(size), &store, |b, store| {
             let mut rng = ChaCha20Rng::from_rng(&mut rand::rng());
             b.iter(|| compute_fetch_challenges(&mut rng, black_box(store), black_box(store.len())));
