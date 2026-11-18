@@ -255,7 +255,7 @@ fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> 
         let store_entries: Vec<_> = store
             .iter()
             .take(challenges)
-            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope))
             .collect();
         let challenges: Vec<FetchResponse> =
             compute_fetch_challenges(&mut prep_rng, &store_entries, challenges);

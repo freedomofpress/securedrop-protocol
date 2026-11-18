@@ -22,7 +22,7 @@ fn sort_by_id(entries: &mut [FetchResponse]) {
 /// when the number of items in the server store approaches num total_responses.)
 pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     rng: &mut R,
-    entries: &[([u8; LEN_MESSAGE_ID], Envelope)],
+    entries: &[([u8; LEN_MESSAGE_ID], &Envelope)],
     total_responses: usize,
 ) -> Vec<FetchResponse> {
     let mut responses = Vec::with_capacity(total_responses);
@@ -141,7 +141,7 @@ mod tests {
         for _ in 0..total_challenges {
             let mut message_id: [u8; LEN_MESSAGE_ID] = [0u8; LEN_MESSAGE_ID];
             rng.fill_bytes(&mut message_id);
-            entries.push((message_id, env.clone()));
+            entries.push((message_id, &env));
         }
 
         let responses = compute_fetch_challenges(&mut rng, &entries, total_responses);
@@ -161,7 +161,7 @@ mod tests {
         for _ in 0..total_challenges {
             let mut message_id: [u8; LEN_MESSAGE_ID] = [0u8; LEN_MESSAGE_ID];
             rng.fill_bytes(&mut message_id);
-            entries.push((message_id, env.clone()));
+            entries.push((message_id, &env));
         }
 
         let responses = compute_fetch_challenges(&mut rng, &entries, total_responses);
@@ -181,7 +181,7 @@ mod tests {
         for _ in 0..total_challenges {
             let mut message_id: [u8; LEN_MESSAGE_ID] = [0u8; LEN_MESSAGE_ID];
             rng.fill_bytes(&mut message_id);
-            entries.push((message_id, env.clone()));
+            entries.push((message_id, &env));
         }
 
         let responses = compute_fetch_challenges(&mut rng, &entries, total_responses);
