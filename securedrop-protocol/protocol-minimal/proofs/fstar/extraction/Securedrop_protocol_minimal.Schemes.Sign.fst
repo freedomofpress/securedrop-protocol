@@ -13,6 +13,12 @@ let v_KEY_LEN_ED25519: usize = mk_usize 32
 
 let v_SIG_LEN_ED25519: usize = mk_usize 64
 
+/// Longest allowed domain tag for signing (255).
+let v_MAX_TAG_LEN: usize = cast (Core_models.Num.impl_u8__MAX <: u8) <: usize
+
+/// The one byte length prefix plus the longest possible domain tag.
+let v_MAX_PREIMAGE_OVERHEAD: usize = mk_usize 1 +! v_MAX_TAG_LEN
+
 /// Journalist self-signature over long-term public keys (step 3.1).
 type t_JournalistLongTermKey = | JournalistLongTermKey : t_JournalistLongTermKey
 
@@ -277,7 +283,7 @@ class t_DomainTag (v_Self: Type0) = {
       Type0
         { pred ==>
           (let _:Prims.unit = x in
-            (Core_models.Slice.impl__len #u8 result <: usize) <=. mk_usize 255) };
+            (Core_models.Slice.impl__len #u8 result <: usize) <=. v_MAX_TAG_LEN) };
   f_tag:x0: Prims.unit
     -> Prims.Pure (t_Slice u8) (f_tag_pre x0) (fun result -> f_tag_post x0 result)
 }
@@ -289,7 +295,7 @@ let impl_DomainTag_for_JournalistLongTermKey: t_DomainTag t_JournalistLongTermKe
     f_tag_post
     =
     (fun (_: Prims.unit) (result: t_Slice u8) ->
-        (Core_models.Slice.impl__len #u8 result <: usize) <=. mk_usize 255);
+        (Core_models.Slice.impl__len #u8 result <: usize) <=. v_MAX_TAG_LEN);
     f_tag
     =
     fun (_: Prims.unit) ->
@@ -319,7 +325,7 @@ let impl_DomainTag_for_JournalistEphemeralKey: t_DomainTag t_JournalistEphemeral
     f_tag_post
     =
     (fun (_: Prims.unit) (result: t_Slice u8) ->
-        (Core_models.Slice.impl__len #u8 result <: usize) <=. mk_usize 255);
+        (Core_models.Slice.impl__len #u8 result <: usize) <=. v_MAX_TAG_LEN);
     f_tag
     =
     fun (_: Prims.unit) ->
@@ -349,7 +355,7 @@ let impl_DomainTag_for_NewsroomOnJournalist: t_DomainTag t_NewsroomOnJournalist 
     f_tag_post
     =
     (fun (_: Prims.unit) (result: t_Slice u8) ->
-        (Core_models.Slice.impl__len #u8 result <: usize) <=. mk_usize 255);
+        (Core_models.Slice.impl__len #u8 result <: usize) <=. v_MAX_TAG_LEN);
     f_tag
     =
     fun (_: Prims.unit) ->
@@ -367,7 +373,7 @@ let impl_DomainTag_for_FpfOnNewsroom: t_DomainTag t_FpfOnNewsroom =
     f_tag_post
     =
     (fun (_: Prims.unit) (result: t_Slice u8) ->
-        (Core_models.Slice.impl__len #u8 result <: usize) <=. mk_usize 255);
+        (Core_models.Slice.impl__len #u8 result <: usize) <=. v_MAX_TAG_LEN);
     f_tag
     =
     fun (_: Prims.unit) ->
@@ -445,7 +451,7 @@ let tagged_preimage
     : Prims.Pure (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
       (requires
         (Core_models.Slice.impl__len #u8 msg <: usize) <=.
-        (Core_models.Num.impl_usize__MAX -! mk_usize 256 <: usize))
+        (Core_models.Num.impl_usize__MAX -! v_MAX_PREIMAGE_OVERHEAD <: usize))
       (fun _ -> Prims.l_True) =
   let tag:t_Slice u8 = f_tag #v_D #FStar.Tactics.Typeclasses.solve () in
   let preimage:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
@@ -479,7 +485,7 @@ let impl_SigningKey__sign
     : Prims.Pure (t_Signature v_D)
       (requires
         (Core_models.Slice.impl__len #u8 msg <: usize) <=.
-        (Core_models.Num.impl_usize__MAX -! mk_usize 256 <: usize))
+        (Core_models.Num.impl_usize__MAX -! v_MAX_PREIMAGE_OVERHEAD <: usize))
       (fun _ -> Prims.l_True) =
   let preimage:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = tagged_preimage #v_D msg in
   let bytes:t_Array u8 (mk_usize 64) =
@@ -502,7 +508,7 @@ let impl_VerifyingKey__verify
     : Prims.Pure (Core_models.Result.t_Result Prims.unit Anyhow.t_Error)
       (requires
         (Core_models.Slice.impl__len #u8 msg <: usize) <=.
-        (Core_models.Num.impl_usize__MAX -! mk_usize 256 <: usize))
+        (Core_models.Num.impl_usize__MAX -! v_MAX_PREIMAGE_OVERHEAD <: usize))
       (fun _ -> Prims.l_True) =
   let preimage:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = tagged_preimage #v_D msg in
   Core_models.Result.impl__map_err #Prims.unit

@@ -12,6 +12,12 @@ const KEY_LEN_ED25519: usize = 32;
 
 const SIG_LEN_ED25519: usize = 64;
 
+/// Longest allowed domain tag for signing (255).
+const MAX_TAG_LEN: usize = u8::MAX as usize;
+
+/// The one byte length prefix plus the longest possible domain tag.
+pub(crate) const MAX_PREIMAGE_OVERHEAD: usize = 1 + MAX_TAG_LEN;
+
 // Sealing module: prevents external crates from implementing `DomainTag`.
 #[cfg(not(hax))]
 mod private {
@@ -38,7 +44,7 @@ pub trait DomainTag {
     // `requires(true)` is doing) for this to verify the generic calls, otherwise hax extracts
     // an abstract precondition that cannot be proven
     #[requires(true)]
-    #[ensures(|result| result.len() <= 255)]
+    #[ensures(|result| result.len() <= MAX_TAG_LEN)]
     fn tag() -> &'static [u8];
 }
 
@@ -70,28 +76,28 @@ mod sealed_impls {
 
 #[cfg_attr(hax, hax_lib::attributes)]
 impl DomainTag for JournalistLongTermKey {
-    #[cfg_attr(hax, ensures(|result| result.len() <= 255))]
+    #[cfg_attr(hax, ensures(|result| result.len() <= MAX_TAG_LEN))]
     fn tag() -> &'static [u8] {
         b"j-sig-ltk"
     }
 }
 #[cfg_attr(hax, hax_lib::attributes)]
 impl DomainTag for JournalistEphemeralKey {
-    #[cfg_attr(hax, ensures(|result| result.len() <= 255))]
+    #[cfg_attr(hax, ensures(|result| result.len() <= MAX_TAG_LEN))]
     fn tag() -> &'static [u8] {
         b"j-sig-eph"
     }
 }
 #[cfg_attr(hax, hax_lib::attributes)]
 impl DomainTag for NewsroomOnJournalist {
-    #[cfg_attr(hax, ensures(|result| result.len() <= 255))]
+    #[cfg_attr(hax, ensures(|result| result.len() <= MAX_TAG_LEN))]
     fn tag() -> &'static [u8] {
         b"nr-sig"
     }
 }
 #[cfg_attr(hax, hax_lib::attributes)]
 impl DomainTag for FpfOnNewsroom {
-    #[cfg_attr(hax, ensures(|result| result.len() <= 255))]
+    #[cfg_attr(hax, ensures(|result| result.len() <= MAX_TAG_LEN))]
     fn tag() -> &'static [u8] {
         b"fpf-sig-nr"
     }
@@ -170,12 +176,12 @@ impl<'de, D: DomainTag> serde::Deserialize<'de> for Signature<D> {
 }
 
 /// Construct the tagged signing preimage: `len(tag) || tag || msg`.
-#[cfg_attr(hax, hax_lib::requires(msg.len() <= usize::MAX - 256))]
+#[cfg_attr(hax, hax_lib::requires(msg.len() <= usize::MAX - MAX_PREIMAGE_OVERHEAD))]
 fn tagged_preimage<D: DomainTag>(msg: &[u8]) -> Vec<u8> {
     let tag = D::tag();
     #[cfg(not(hax))]
     {
-        debug_assert!(tag.len() <= 255, "tag length exceeds u8::MAX");
+        debug_assert!(tag.len() <= MAX_TAG_LEN, "tag length exceeds u8::MAX");
         debug_assert!(tag.is_ascii(), "tag contains non-ASCII bytes");
     }
     let mut preimage = Vec::with_capacity(1 + tag.len() + msg.len());
@@ -257,7 +263,7 @@ impl SigningKey {
     /// Sign `msg` in domain `D`, returning a `Signature<D>`.
     ///
     /// The actual preimage is `len(tag) || tag || msg` where `tag = D::TAG`.
-    #[cfg_attr(hax, requires(msg.len() <= usize::MAX - 256))]
+    #[cfg_attr(hax, requires(msg.len() <= usize::MAX - MAX_PREIMAGE_OVERHEAD))]
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         let preimage = tagged_preimage::<D>(msg);
         let bytes = provider::ed25519::sign(&preimage, self.sk.as_bytes());
@@ -288,7 +294,7 @@ impl VerifyingKey {
     /// Verify `sig` over `msg`. The domain is determined by the type of `sig`.
     ///
     /// Returns an error if the signature is invalid.
-    #[cfg_attr(hax, requires(msg.len() <= usize::MAX - 256))]
+    #[cfg_attr(hax, requires(msg.len() <= usize::MAX - MAX_PREIMAGE_OVERHEAD))]
     pub fn verify<D: DomainTag>(&self, msg: &[u8], sig: &Signature<D>) -> Result<(), Error> {
         let preimage = tagged_preimage::<D>(msg);
         provider::ed25519::verify(&preimage, self.as_bytes(), &sig.bytes)

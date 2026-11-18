@@ -74,6 +74,9 @@ let impl_FPFKeyPair__sign
     : Prims.Pure (Securedrop_protocol_minimal.Schemes.Sign.t_Signature v_D)
       (requires
         (Core_models.Slice.impl__len #u8 msg <: usize) <=.
-        (Core_models.Num.impl_usize__MAX -! mk_usize 256 <: usize))
+        (Core_models.Num.impl_usize__MAX -!
+          Securedrop_protocol_minimal.Schemes.Sign.v_MAX_PREIMAGE_OVERHEAD
+          <:
+          usize))
       (fun _ -> Prims.l_True) =
   Securedrop_protocol_minimal.Schemes.Sign.impl_SigningKey__sign #v_D self.f_sk msg

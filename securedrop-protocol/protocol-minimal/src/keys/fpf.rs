@@ -1,6 +1,6 @@
 use rand_core::{CryptoRng, RngCore};
 
-use crate::sign::{DomainTag, Signature, SigningKey, VerifyingKey};
+use crate::sign::{DomainTag, MAX_PREIMAGE_OVERHEAD, Signature, SigningKey, VerifyingKey};
 
 /// A key pair for FPF (Freedom of the Press Foundation).
 pub struct FPFKeyPair {
@@ -36,7 +36,7 @@ impl FPFKeyPair {
     }
 
     /// Sign `msg` in domain `D` using the FPF signing key.
-    #[cfg_attr(hax, requires(msg.len() <= usize::MAX - 256))]
+    #[cfg_attr(hax, requires(msg.len() <= usize::MAX - MAX_PREIMAGE_OVERHEAD))]
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         self.sk.sign(msg)
     }
