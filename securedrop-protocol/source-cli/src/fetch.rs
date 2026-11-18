@@ -67,8 +67,12 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
             .context("newsroom rejected message download")?
             .json()?;
 
-        let (plaintext, sender_apke) = decrypt_with_sender(&source, &envelope);
         fetched.insert(id.to_string());
+        let Ok((plaintext, sender_apke)) = decrypt_with_sender(&source, &envelope) else {
+            // Decryption failed, discard
+            discarded += 1;
+            continue;
+        };
         if !trusted_senders.contains(&sender_apke.as_bytes()) {
             // Reply from a sender that isn't an enrolled journalist, discard
             discarded += 1;

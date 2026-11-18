@@ -225,7 +225,7 @@ pub fn bench_encrypt<S: UserSecret, P: UserPublic>(
 }
 
 pub fn bench_decrypt<S: UserSecret>(recipient: &S, envelope: &Envelope) -> Plaintext {
-    decrypt(recipient, envelope)
+    decrypt(recipient, envelope).unwrap()
 }
 
 pub fn bench_fetch<S: UserSecret>(recipient: &S, challenges: &[FetchResponse]) -> Vec<Uuid> {
