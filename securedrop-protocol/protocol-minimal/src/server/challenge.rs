@@ -17,9 +17,17 @@ fn sort_by_id(entries: &mut [FetchResponse]) {
 
 /// Given a set of ciphertext bundles (C, X, Z) and their associated uuid,
 /// compute a fixed-length set of "challenges" >= the number of SeverMessageStore entries.
-/// A challenge is returned as a tuple of DH agreement outputs (or random data tuples of the same length).
+/// A challenge is returned as an encrypted message id and a DH agreement output.
+/// Slots without a real entry are filled with decoy challenges, computed the same way
+/// as real ones but over randomly sampled DH public keys and an all-zero message id.
 /// For benchmarking purposes, supply the rng as a separable parameter, and allow the total number of expected responses to be specified as a paremeter (worst case performance
 /// when the number of items in the server store approaches num total_responses.)
+///
+/// # Security
+///
+/// The number of real entries is secret, i.e. the timing must
+/// not leak the number of ciphertexts on the server. This function does the
+/// same work for each of the slots whether it has a real entry or a decoy.
 pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     rng: &mut R,
     entries: &[([u8; LEN_MESSAGE_ID], &Envelope)],
@@ -37,6 +45,9 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     for i in 0..total_responses {
         #[cfg(hax)]
         hax_lib::loop_invariant!(|i: usize| responses.len() == i);
+        // WARNING: This branches on the secret number of real entries i.
+        // Both arms must do identical work via `make_response`,
+        // so that the time taken does not depend on how many entries are real.
         let response = if i < entries.len() {
             let entry = &entries[i];
             make_response(rng, &entry.0, &entry.1.mgdh, &entry.1.mgdh_pubkey, NR_ID)
