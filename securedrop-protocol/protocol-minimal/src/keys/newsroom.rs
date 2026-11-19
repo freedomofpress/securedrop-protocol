@@ -1,6 +1,6 @@
 use rand_core::{CryptoRng, RngCore};
 
-use crate::sign::{DomainTag, Signature, SigningKey, VerifyingKey};
+use crate::sign::{DomainTag, MAX_PREIMAGE_OVERHEAD, Signature, SigningKey, VerifyingKey};
 
 // Mock Newsroom ID
 // TODO(#409): Parametrize the NR_ID
@@ -23,6 +23,7 @@ impl core::fmt::Debug for NewsroomKeyPair {
     }
 }
 
+#[cfg_attr(hax, hax_lib::attributes)]
 impl NewsroomKeyPair {
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> Result<Self, anyhow::Error> {
         let sk = SigningKey::new(rng)?;
@@ -35,6 +36,7 @@ impl NewsroomKeyPair {
     }
 
     /// Sign `msg` in domain `D` using the newsroom signing key.
+    #[cfg_attr(hax, requires(msg.len() <= usize::MAX - MAX_PREIMAGE_OVERHEAD))]
     pub fn sign<D: DomainTag>(&self, msg: &[u8]) -> Signature<D> {
         self.sk.sign(msg)
     }

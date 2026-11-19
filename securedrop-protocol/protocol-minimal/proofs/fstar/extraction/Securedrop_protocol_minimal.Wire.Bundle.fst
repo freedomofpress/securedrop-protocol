@@ -39,7 +39,7 @@ let impl_SignedLongtermKeyBundle__as_bytes (self: t_SignedLongtermKeyBundle)
     Securedrop_protocol_minimal.Keys.Bundle.impl_LongtermKeyBundle__as_bytes self.f_bundle
   in
   let sig_bytes:t_Array u8 (mk_usize 64) =
-    Securedrop_protocol_minimal.Schemes.Sign.impl_7__as_bytes #Securedrop_protocol_minimal.Schemes.Sign.t_JournalistLongTermKey
+    Securedrop_protocol_minimal.Schemes.Sign.impl_3__as_bytes #Securedrop_protocol_minimal.Schemes.Sign.t_JournalistLongTermKey
       self.f_selfsig
   in
   let pubkey_bytes:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
