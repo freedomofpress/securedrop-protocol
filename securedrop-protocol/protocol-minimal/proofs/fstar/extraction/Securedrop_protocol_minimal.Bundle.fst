@@ -10,7 +10,7 @@ let _ =
   let open Rand_core in
   ()
 
-type t_Challenges = {
+type t_ChallengeInput = {
   f_message_id:t_Array u8 (mk_usize 16);
   f_mgdh_pubkey:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey;
   f_mgdh:Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
@@ -75,7 +75,7 @@ let make_response
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
       (rng: v_R)
-      (challenge: t_Challenges)
+      (challenge: t_ChallengeInput)
       (nr_id: t_Slice u8)
     : (v_R & t_FetchResponse) =
   let (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey) =
@@ -126,7 +126,7 @@ let compute_fetch_challenges
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i1: Rand_core.t_CryptoRng v_R)
       (rng: v_R)
-      (entries: t_Slice t_Challenges)
+      (entries: t_Slice t_ChallengeInput)
       (total_responses: usize)
     : (v_R & Alloc.Vec.t_Vec t_FetchResponse Alloc.Alloc.t_Global) =
   let responses:Alloc.Vec.t_Vec t_FetchResponse Alloc.Alloc.t_Global =
@@ -140,14 +140,14 @@ let compute_fetch_challenges
     Securedrop_protocol_minimal.Primitives.Ristretto255.random_dh_public_key #v_R rng
   in
   let rng:v_R = tmp0 in
-  let decoy:t_Challenges =
+  let decoy:t_ChallengeInput =
     {
       f_message_id = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 16);
       f_mgdh = out;
       f_mgdh_pubkey = out
     }
     <:
-    t_Challenges
+    t_ChallengeInput
   in
   let (responses: Alloc.Vec.t_Vec t_FetchResponse Alloc.Alloc.t_Global), (rng: v_R) =
     Rust_primitives.Hax.Folds.fold_range (mk_usize 0)
@@ -167,11 +167,13 @@ let compute_fetch_challenges
           in
           let i:usize = i in
           let (rng: v_R), (response: t_FetchResponse) =
-            if i <. (Core_models.Slice.impl__len #t_Challenges entries <: usize)
+            if i <. (Core_models.Slice.impl__len #t_ChallengeInput entries <: usize)
             then
-              let entry:t_Challenges = entries.[ i ] in
               let (tmp0: v_R), (out: t_FetchResponse) =
-                make_response #v_R rng entry Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+                make_response #v_R
+                  rng
+                  (entries.[ i ] <: t_ChallengeInput)
+                  Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
               in
               let rng:v_R = tmp0 in
               rng, out <: (v_R & t_FetchResponse)
@@ -247,8 +249,10 @@ let impl_1__cmessage_len (self: t_Envelope) : usize =
 let impl_1__cmetadata_len (self: t_Envelope) : usize =
   Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataCiphertext__len self.f_ct_pke
 
-let impl_1__to_challenges (self: t_Envelope) (id: t_Array u8 (mk_usize 16)) : t_Challenges =
-  { f_message_id = id; f_mgdh_pubkey = self.f_mgdh_pubkey; f_mgdh = self.f_mgdh } <: t_Challenges
+let impl_1__to_challenges (self: t_Envelope) (id: t_Array u8 (mk_usize 16)) : t_ChallengeInput =
+  { f_message_id = id; f_mgdh_pubkey = self.f_mgdh_pubkey; f_mgdh = self.f_mgdh }
+  <:
+  t_ChallengeInput
 
 #push-options "--admit_smt_queries true"
 

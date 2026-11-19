@@ -46,8 +46,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
         #[cfg(hax)]
         hax_lib::loop_invariant!(|i: usize| responses.len() == i);
         let response = if i < entries.len() {
-            let entry = &entries[i];
-            make_response(rng, &entry, NR_ID)
+            make_response(rng, &entries[i], NR_ID)
         } else {
             make_response(rng, &decoy, NR_ID)
         };

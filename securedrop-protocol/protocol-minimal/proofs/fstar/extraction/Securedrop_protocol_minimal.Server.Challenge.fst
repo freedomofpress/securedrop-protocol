@@ -5,7 +5,7 @@ open Core_models
 
 include Securedrop_protocol_minimal.Bundle {sort_by_id as sort_by_id}
 
-include Securedrop_protocol_minimal.Bundle {t_Challenges as t_Challenges}
+include Securedrop_protocol_minimal.Bundle {t_ChallengeInput as t_ChallengeInput}
 
 include Securedrop_protocol_minimal.Bundle {compute_fetch_challenges as compute_fetch_challenges}
 
