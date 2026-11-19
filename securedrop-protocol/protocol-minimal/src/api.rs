@@ -2,10 +2,12 @@ mod client;
 mod common;
 mod server;
 
+pub use common::HasRng;
+
 // for client implementors
 pub use client::{
     Api, ApplicationCallback, ApplicationContract, ClientApplicationData, ClientProtocol,
-    JournalistApi, ProtocolError,
+    JournalistApi, ProtocolError, NetworkError
 };
 
 // For server implementors
