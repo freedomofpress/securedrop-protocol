@@ -62,7 +62,6 @@ pub trait HasRng {
     fn rng(&mut self) -> &mut Self::Rng;
 }
 
-
 /// The following defines the requirements for an application that runs SecureDrop Protocol.
 ///
 /// An implementing application should implement this trait and the methods it requires,
@@ -96,7 +95,7 @@ pub trait ApplicationContract: HasRng {
     // over stateful/self-referential events with side-effects.
     // (ie &self.set_flag(something) is a smell!)
     type Callback: ApplicationCallback;
-    
+
     // Begin core functionality
 
     // We may change how the VerifyingKey is provided, but for now this is OK
@@ -164,7 +163,7 @@ pub trait ApplicationContract: HasRng {
         let input = untrustedinput.0;
 
         let env = Self::Protocol::encrypt_message(self.rng(), input, sender, recipient)?;
-        let resp = Self::NetworkApi::submit_message( env)?;
+        let resp = Self::NetworkApi::submit_message(env)?;
 
         Self::Callback::on_result(());
         Ok(())
