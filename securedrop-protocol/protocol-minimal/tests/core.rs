@@ -1,5 +1,7 @@
 //! Tests for the core steps of the protocol.
 //! These correspond to steps 5-10 of the spec.
+mod mocks;
+use mocks::Server;
 use std::char::MAX;
 
 use getrandom;
@@ -10,7 +12,6 @@ use securedrop_protocol_minimal::api::{Api, JournalistApi};
 use securedrop_protocol_minimal::challenge::MAX_MESSAGES;
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 
-use securedrop_protocol_minimal::server::Server;
 use securedrop_protocol_minimal::{Journalist, JournalistPublic, Source, UserPublic, UserSecret};
 
 // TODO: better way (eg parameterize as in benchmarks)
