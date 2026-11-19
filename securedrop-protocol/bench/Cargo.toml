@@ -40,8 +40,8 @@ name = "manual"
 harness = false
 
 [[example]]
-name = "constant_time"
-path = "benches/constant_time.rs"
+name = "challenges"
+path = "timing/challenges.rs"
 
 [lints]
 workspace = true

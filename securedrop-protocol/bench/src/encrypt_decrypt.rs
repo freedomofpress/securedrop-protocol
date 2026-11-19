@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 
 use securedrop_protocol_minimal::client::challenge::solve_fetch_challenges;
 use securedrop_protocol_minimal::client::message::{decrypt, encrypt};
-use securedrop_protocol_minimal::server::challenge::compute_fetch_challenges;
+use securedrop_protocol_minimal::server::challenge::{ChallengeInput, compute_fetch_challenges};
 
 use securedrop_protocol_minimal::{
     Envelope, FetchResponse, Journalist, Plaintext, Source, UserPublic, UserSecret,
@@ -185,7 +185,7 @@ pub fn compute_fetch_challenges_once(
     let store_entries: Vec<_> = store
         .iter()
         .take(total_responses)
-        .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+        .map(|(uuid, envelope)| envelope.to_challenges(*uuid.as_bytes()))
         .collect();
 
     compute_fetch_challenges(&mut rng, &store_entries, total_responses)

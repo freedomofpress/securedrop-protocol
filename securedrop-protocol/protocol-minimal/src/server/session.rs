@@ -247,7 +247,7 @@ impl Server {
             .get_messages()
             .iter()
             .take(total_challenges)
-            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+            .map(|(uuid, envelope)| envelope.to_challenges(*uuid.as_bytes()))
             .collect();
         let chall = compute_fetch_challenges(rng, &entries, total_challenges);
 

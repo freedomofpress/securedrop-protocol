@@ -15,6 +15,12 @@ fn sort_by_id(entries: &mut [FetchResponse]) {
     entries.sort_by_key(|a| a.enc_id)
 }
 
+pub struct ChallengeInput {
+    pub message_id: [u8; LEN_MESSAGE_ID],
+    pub mgdh_pubkey: DHPublicKey,
+    pub mgdh: DHPublicKey,
+}
+
 /// Given a set of ciphertext bundles (C, X, Z) and their associated uuid,
 /// compute a fixed-length set of "challenges" >= the number of SeverMessageStore entries.
 /// A challenge is returned as a tuple of DH agreement outputs (or random data tuples of the same length).
@@ -22,32 +28,28 @@ fn sort_by_id(entries: &mut [FetchResponse]) {
 /// when the number of items in the server store approaches num total_responses.)
 pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     rng: &mut R,
-    entries: &[([u8; LEN_MESSAGE_ID], Envelope)],
+    entries: &[ChallengeInput],
     total_responses: usize,
 ) -> Vec<FetchResponse> {
     let mut responses = Vec::with_capacity(total_responses);
 
     // Generate two random DH public keys to use to generate the padded responses. Sampling two independently at random mimics the distribution of those sent by the client.
-    let decoy_mgdh = random_dh_public_key(rng);
-    let decoy_mgdh_pubkey = random_dh_public_key(rng);
+    let decoy = ChallengeInput {
+        message_id: [0u8; LEN_MESSAGE_ID],
+        mgdh: random_dh_public_key(rng),
+        mgdh_pubkey: random_dh_public_key(rng),
+    };
 
     // Real responses first, then we pad if needed to return a fixed length of responses
-    //
     // TODO(#423): Handle what should happen if there are more entries than total_responses
     for i in 0..total_responses {
         #[cfg(hax)]
         hax_lib::loop_invariant!(|i: usize| responses.len() == i);
         let response = if i < entries.len() {
             let entry = &entries[i];
-            make_response(rng, &entry.0, &entry.1.mgdh, &entry.1.mgdh_pubkey, NR_ID)
+            make_response(rng, &entry, NR_ID)
         } else {
-            make_response(
-                rng,
-                &[0u8; LEN_MESSAGE_ID],
-                &decoy_mgdh,
-                &decoy_mgdh_pubkey,
-                NR_ID,
-            )
+            make_response(rng, &decoy, NR_ID)
         };
         responses.push(response);
     }
@@ -61,18 +63,16 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
 fn make_response<R: RngCore + CryptoRng>(
     rng: &mut R,
-    message_id: &[u8; LEN_MESSAGE_ID],
-    mgdh: &DHPublicKey,
-    mgdh_pubkey: &DHPublicKey,
+    challenge: &ChallengeInput,
     nr_id: &[u8],
 ) -> FetchResponse {
     // Generate ephemeral scalar r, fresh per message
     let eph_sk = generate_random_scalar(&mut *rng);
 
     // 3-party DH yields shared_secret used to encrypt message_id
-    let shared_secret = dh_shared_secret(mgdh, &eph_sk);
+    let shared_secret = dh_shared_secret(&challenge.mgdh, &eph_sk);
     let key = derive_challenge_key(&shared_secret, nr_id).unwrap();
-    let enc_mid = encrypt_message_id(&key, message_id).unwrap();
+    let enc_mid = encrypt_message_id(&key, &challenge.message_id).unwrap();
 
     // `copy_from_slice` rather than `try_into()`: Core_models has no
     // `TryInto<Vec<u8>, [u8; N]>` instance, and this is the codebase's
@@ -82,7 +82,7 @@ fn make_response<R: RngCore + CryptoRng>(
 
     // 2-party DH yields per-request clue (pmgdh) used by intended recipient
     // to compute shared_secret
-    let pmgdh = dh_shared_secret(mgdh_pubkey, &eph_sk);
+    let pmgdh = dh_shared_secret(&challenge.mgdh_pubkey, &eph_sk);
 
     FetchResponse {
         enc_id: kmid,
@@ -141,7 +141,11 @@ mod tests {
         for _ in 0..total_challenges {
             let mut message_id: [u8; LEN_MESSAGE_ID] = [0u8; LEN_MESSAGE_ID];
             rng.fill_bytes(&mut message_id);
-            entries.push((message_id, env.clone()));
+            entries.push(ChallengeInput {
+                message_id: message_id,
+                mgdh_pubkey: env.mgdh_pubkey,
+                mgdh: env.mgdh,
+            });
         }
 
         let responses = compute_fetch_challenges(&mut rng, &entries, total_responses);
@@ -161,7 +165,11 @@ mod tests {
         for _ in 0..total_challenges {
             let mut message_id: [u8; LEN_MESSAGE_ID] = [0u8; LEN_MESSAGE_ID];
             rng.fill_bytes(&mut message_id);
-            entries.push((message_id, env.clone()));
+            entries.push(ChallengeInput {
+                message_id: message_id,
+                mgdh_pubkey: env.mgdh_pubkey,
+                mgdh: env.mgdh,
+            });
         }
 
         let responses = compute_fetch_challenges(&mut rng, &entries, total_responses);
@@ -181,7 +189,11 @@ mod tests {
         for _ in 0..total_challenges {
             let mut message_id: [u8; LEN_MESSAGE_ID] = [0u8; LEN_MESSAGE_ID];
             rng.fill_bytes(&mut message_id);
-            entries.push((message_id, env.clone()));
+            entries.push(ChallengeInput {
+                message_id: message_id,
+                mgdh_pubkey: env.mgdh_pubkey,
+                mgdh: env.mgdh,
+            });
         }
 
         let responses = compute_fetch_challenges(&mut rng, &entries, total_responses);

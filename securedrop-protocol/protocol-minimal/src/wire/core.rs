@@ -2,7 +2,9 @@ use crate::message::MessageCiphertext;
 use crate::message::MessagePublicKey;
 use crate::metadata::MetadataCiphertext;
 use crate::primitives::provider::constants::LEN_KMID;
+use crate::primitives::provider::constants::LEN_MESSAGE_ID;
 use crate::primitives::ristretto255::DHPublicKey;
+use crate::server::challenge::ChallengeInput;
 use crate::sign::{
     FpfOnNewsroom, JournalistLongTermKey, NewsroomOnJournalist, Signature, VerifyingKey,
 };
@@ -145,6 +147,14 @@ impl Envelope {
     // SD-PKE ciphertext byte length: encapsulation c + AEAD ciphertext c'
     pub fn cmetadata_len(&self) -> usize {
         self.ct_pke.len()
+    }
+
+    pub fn to_challenges(&self, id: [u8; LEN_MESSAGE_ID]) -> ChallengeInput {
+        ChallengeInput {
+            message_id: id,
+            mgdh_pubkey: self.mgdh_pubkey,
+            mgdh: self.mgdh,
+        }
     }
 }
 

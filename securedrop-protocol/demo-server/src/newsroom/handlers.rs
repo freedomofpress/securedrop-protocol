@@ -194,7 +194,7 @@ pub(crate) async fn get_challenges(
     let entries: Vec<_> = store
         .iter()
         .take(MAX_MESSAGES)
-        .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+        .map(|(uuid, envelope)| envelope.to_challenges(*uuid.as_bytes()))
         .collect();
     let messages = compute_fetch_challenges(&mut rng, &entries, MAX_MESSAGES);
 
