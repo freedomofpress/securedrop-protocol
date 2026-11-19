@@ -30,6 +30,7 @@ wasm-bindgen.workspace = true
 
 [dev-dependencies]
 wasm-bindgen-test.workspace = true
+dudect-bencher = "0.7"
 
 [features]
 default = []
@@ -37,6 +38,10 @@ default = []
 [[bench]]
 name = "manual"
 harness = false
+
+[[example]]
+name = "constant_time"
+path = "benches/constant_time.rs"
 
 [lints]
 workspace = true
