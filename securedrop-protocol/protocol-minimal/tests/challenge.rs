@@ -1,7 +1,7 @@
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use securedrop_protocol_minimal::{
-    Envelope, Journalist, Plaintext, Source, UserPublic,
+    Envelope, Journalist, PaddedPlaintext, Plaintext, Source, UserPublic,
     client::{challenge::solve_fetch_challenges, message::encrypt},
     server::challenge::compute_fetch_challenges,
 };
@@ -42,7 +42,7 @@ fn test_fetch_challenges_roundtrip() {
     let journalist_public = journalist.public(0);
 
     let msg = b"Fetch this message";
-    let plaintext = build_message(&source.public(), msg.to_vec());
+    let plaintext = PaddedPlaintext::new(build_message(&source.public(), msg.to_vec())).unwrap();
     let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
     let mut entries: Vec<([u8; 16], Envelope)> = Vec::new();
@@ -71,7 +71,7 @@ fn test_wrong_recipient_cannot_decrypt_challenge() {
     let journalist_public = journalist.public(0);
 
     let msg = b"Fetch this message";
-    let plaintext = build_message(&source.public(), msg.to_vec());
+    let plaintext = PaddedPlaintext::new(build_message(&source.public(), msg.to_vec())).unwrap();
     let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
 
     let mut entries: Vec<([u8; 16], Envelope)> = Vec::new();

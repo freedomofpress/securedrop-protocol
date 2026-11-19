@@ -13,7 +13,7 @@ use securedrop_protocol_minimal::client::message::{decrypt, encrypt};
 use securedrop_protocol_minimal::server::challenge::compute_fetch_challenges;
 
 use securedrop_protocol_minimal::{
-    Envelope, FetchResponse, Journalist, Plaintext, Source, UserPublic, UserSecret,
+    Envelope, FetchResponse, Journalist, PaddedPlaintext, Plaintext, Source, UserPublic, UserSecret,
 };
 
 use securedrop_protocol_minimal::DHPublicKey;
@@ -136,12 +136,13 @@ pub fn encrypt_once(
 
     // build plaintext object
     let plaintext = sender.inner.build_message(msg.to_vec());
+    let padded = PaddedPlaintext::new(plaintext).unwrap();
 
     let env = bench_encrypt(
         seed,
         &sender.inner,
         &recipient.inner.public(recipient_bundle_index),
-        &plaintext,
+        &padded,
     );
     env.into()
 }
@@ -218,7 +219,7 @@ pub fn bench_encrypt<S: UserSecret, P: UserPublic>(
     seed32: [u8; 32],
     sender: &S,
     recipient: &P,
-    plaintext: &Plaintext,
+    plaintext: &PaddedPlaintext,
 ) -> Envelope {
     let mut rng = ChaCha20Rng::from_seed(seed32);
     encrypt(&mut rng, sender, plaintext, recipient)

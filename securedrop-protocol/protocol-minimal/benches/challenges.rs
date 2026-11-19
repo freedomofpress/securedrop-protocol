@@ -8,7 +8,7 @@ use rand_core::SeedableRng;
 use securedrop_protocol_minimal::client::message::encrypt;
 use securedrop_protocol_minimal::server::challenge::compute_fetch_challenges;
 
-use securedrop_protocol_minimal::{Envelope, Journalist, Source, UserSecret};
+use securedrop_protocol_minimal::{Envelope, Journalist, PaddedPlaintext, Source, UserSecret};
 
 const STORE_SIZES: &[usize] = &[100, 500, 1000, 2000, 5000, 10000];
 
@@ -23,7 +23,13 @@ fn build_store(n: usize) -> Vec<([u8; 16], Envelope)> {
     let mut store = Vec::with_capacity(n);
     for j in 0..n {
         let pt = source.build_message(format!("benchmark message {j}").into_bytes());
-        let env = encrypt(&mut rng, &source, &pt, &journalist.public(j % KEYBUNDLES));
+        let padded = PaddedPlaintext::new(pt).expect("Plaintext too long for padding");
+        let env = encrypt(
+            &mut rng,
+            &source,
+            &padded,
+            &journalist.public(j % KEYBUNDLES),
+        );
 
         let mut message_id = [0u8; 16];
         message_id[..8].copy_from_slice(&(j as u64).to_le_bytes());

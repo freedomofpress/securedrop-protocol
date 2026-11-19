@@ -79,9 +79,8 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
             continue;
         }
 
-        let msg = strip_padding(&plaintext.msg);
         println!("[{id}]");
-        println!("{}\n", String::from_utf8_lossy(msg));
+        println!("{}\n", String::from_utf8_lossy(&plaintext.msg));
         shown += 1;
     }
 
@@ -92,10 +91,4 @@ pub(crate) fn fetch(server: &str, fpf_vk_hex: &str) -> Result<()> {
         println!("Discarded {discarded} message(s) from unrecognized senders.");
     }
     Ok(())
-}
-
-/// Strip the trailing zero padding applied at submission time
-fn strip_padding(msg: &[u8]) -> &[u8] {
-    let end = msg.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1);
-    &msg[..end]
 }
