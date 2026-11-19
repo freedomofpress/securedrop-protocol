@@ -20,12 +20,5 @@ pub struct KeyPair<SK, PK> {
 // eventually: ristretto255
 pub type DhFetchKeyPair = KeyPair<DHPrivateKey, DHPublicKey>;
 
-// in memory session storage
-pub struct SessionStorage {
-    pub fpf_key: Option<VerifyingKey>,
-    pub nr_key: Option<VerifyingKey>,
-    pub fpf_signature: Option<Signature<FpfOnNewsroom>>,
-}
-
 pub use newsroom::NR_ID;
 pub use newsroom::NewsroomKeyPair;

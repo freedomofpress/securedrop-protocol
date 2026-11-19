@@ -24,7 +24,7 @@ pub use schemes::{challenge, message, metadata, sign};
 pub use client::plaintext::Plaintext;
 pub use wire::core::{Envelope, FetchResponse};
 
-pub use keys::{DhFetchKeyPair, KeyBundlePublic, KeyPair, SessionStorage};
+pub use keys::{DhFetchKeyPair, KeyBundlePublic, KeyPair};
 pub use wire::bundle::{SignedKeyBundlePublic, SignedLongtermKeyBundle};
 pub use wire::enrollment::Enrollment;
 
