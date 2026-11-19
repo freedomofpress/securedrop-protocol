@@ -94,6 +94,8 @@ pub trait ApplicationContract: HasRng {
     /// Stores a verified newsroom verifying key.
     fn set_newsroom_verifying_key(&mut self, key: VerifyingKey);
 
+    fn api(&self) -> &Self::NetworkApi;
+
     /// Verifies a newsroom [`WelcomeBundle`] and stores the newsroom key (step 5).
     ///
     /// We check the FPF signature using the newsroom verifying key, then for every
@@ -129,15 +131,18 @@ pub trait ApplicationContract: HasRng {
     }
 
     fn fetch_message(&self, message_id: Uuid) -> Result<(), Error> {
-        let untrusted_msg = Self::NetworkApi::fetch_message(MessageFetchRequest { message_id })?;
+        let untrusted_msg = self
+            .api()
+            .fetch_message(MessageFetchRequest { message_id })?;
 
         // Example callback
         Self::Callback::on_result(());
         Ok(())
     }
 
-    fn fetch_challenges() -> Result<(), Error> {
-        Self::NetworkApi::fetch_challenges(MessageChallengeFetchRequest {})?;
+    fn fetch_challenges(&self) -> Result<(), Error> {
+        self.api()
+            .fetch_challenges(MessageChallengeFetchRequest {})?;
         Self::Callback::on_result(());
         Ok(())
     }
@@ -152,7 +157,7 @@ pub trait ApplicationContract: HasRng {
         let input = untrustedinput.0;
 
         let env = Self::Protocol::encrypt_message(self.rng(), input, sender, recipient)?;
-        let resp = Self::NetworkApi::submit_message(env)?;
+        let resp = self.api().submit_message(env)?;
 
         Self::Callback::on_result(());
         Ok(())
@@ -300,7 +305,7 @@ pub type NetworkError = anyhow::Error;
 /// TODO: the response types should be Untrusted<T>.
 pub trait Api {
     /// Initial request made to the server to retrive instance-specific roster
-    fn request_keys(req: WelcomeBundleRequest) -> Result<WelcomeBundle, NetworkError>;
+    fn request_keys(&self, req: WelcomeBundleRequest) -> Result<WelcomeBundle, NetworkError>;
 
     /// Creates a request to fetch encrypted message IDs from the server.
     ///
@@ -308,6 +313,7 @@ pub trait Api {
     /// fixed-size set of challenges (encrypted message IDs) that the client
     /// must solve using [`solve_fetch_challenges`](Api::solve_fetch_challenges).
     fn fetch_challenges(
+        &self,
         req: MessageChallengeFetchRequest,
     ) -> Result<MessageChallengeFetchResponse, NetworkError>;
 
@@ -316,16 +322,16 @@ pub trait Api {
     /// Corresponds to steps 8 and 10 in the protocol spec. Returns `None`
     /// if the request cannot be constructed (the default implementation
     /// always returns `Some`).
-    fn fetch_message(req: MessageFetchRequest) -> Result<Option<Envelope>, NetworkError>;
+    fn fetch_message(&self, req: MessageFetchRequest) -> Result<Option<Envelope>, NetworkError>;
 
-    fn submit_message(req: Envelope) -> Result<(), NetworkError>;
+    fn submit_message(&self, req: Envelope) -> Result<(), NetworkError>;
 }
 
 /// Journalist-specific API operations.
 ///
 /// Extends [`Api`] with enrollment and ephemeral key management.
 pub trait JournalistApi: Api {
-    fn create_setup_request(setup: JournalistSetupRequest) -> Result<(), Error>;
+    fn create_setup_request(&self, setup: JournalistSetupRequest) -> Result<(), Error>;
 
-    fn create_ephemeral_key_request(kr: JournalistEphemeralKeyRequest) -> Result<(), Error>;
+    fn create_ephemeral_key_request(&self, kr: JournalistEphemeralKeyRequest) -> Result<(), Error>;
 }

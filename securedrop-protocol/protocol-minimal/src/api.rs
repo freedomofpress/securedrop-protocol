@@ -7,7 +7,7 @@ pub use common::HasRng;
 // for client implementors
 pub use client::{
     Api, ApplicationCallback, ApplicationContract, ClientApplicationData, ClientProtocol,
-    JournalistApi, ProtocolError, NetworkError
+    DefaultProtocol, JournalistApi, NetworkError, ProtocolError,
 };
 
 // For server implementors
