@@ -8,13 +8,16 @@ use axum::{
     routing::{get, post},
 };
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
-use securedrop_protocol_minimal::server::storage::ServerMessageStore;
 use securedrop_protocol_minimal::{
-    Enrollment, FpfOnNewsroom, NewsroomOnJournalist, Signature, SignedKeyBundlePublic,
+    Enrollment, Envelope, FpfOnNewsroom, NewsroomOnJournalist, Signature, SignedKeyBundlePublic,
 };
+
+use uuid::Uuid;
 
 use super::handlers::*;
 use super::{load_fpf_sig, load_keypair};
+
+pub type ServerMessageStore = HashMap<Uuid, Envelope>;
 
 /// An enrolled journalist's long term enrollment together with the newsroom's
 /// signature over their verifying key - together so it can be served to sources.
