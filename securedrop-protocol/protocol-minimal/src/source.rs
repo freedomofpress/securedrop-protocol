@@ -36,7 +36,6 @@ pub struct Source {
     fetch_key: DhFetchKeyPair,
     message_keys: MessageKeyBundle,
     passphrase: String,
-    session: SessionStorage,
 }
 
 // hax struggles with the debug format function signature, but it is
@@ -181,12 +180,6 @@ impl Source {
 
         let metadata_kp = kgen_deterministic_metadata(pke_seed).expect("Need X-Wing keygen");
 
-        let session = SessionStorage {
-            fpf_key: None,
-            nr_key: None,
-            fpf_signature: None,
-        };
-
         Self {
             fetch_key: KeyPair {
                 sk: fetch_sk,
@@ -194,7 +187,6 @@ impl Source {
             },
             message_keys: MessageKeyBundle::new(message_kp, metadata_kp),
             passphrase,
-            session,
         }
     }
 

@@ -36,7 +36,6 @@ pub struct Journalist {
     message_keys: Vec<MessageKeyBundle>,
     /// Long-term SD-APKE key tuple `(sk_J^APKE, pk_J^APKE)`
     reply_apke: MessageKeyPair,
-    session_storage: SessionStorage,
 }
 
 // Public-facing representation of a journalist
@@ -198,12 +197,6 @@ impl Journalist {
         }
         assert_eq!(key_bundles.len(), num_keybundles);
 
-        let session_storage = SessionStorage {
-            fpf_key: None,
-            nr_key: None,
-            fpf_signature: None,
-        };
-
         Self {
             signing_key,
             fetch_key: KeyPair {
@@ -212,7 +205,6 @@ impl Journalist {
             },
             reply_apke,
             message_keys: key_bundles,
-            session_storage,
         }
     }
 
@@ -286,11 +278,6 @@ impl Journalist {
             },
             reply_apke,
             message_keys: Vec::new(),
-            session_storage: SessionStorage {
-                fpf_key: None,
-                nr_key: None,
-                fpf_signature: None,
-            },
         })
     }
 
