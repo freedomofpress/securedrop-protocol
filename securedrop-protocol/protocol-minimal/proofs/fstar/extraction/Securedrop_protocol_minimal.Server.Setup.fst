@@ -104,75 +104,101 @@ let impl_1__sign
 
 /// Handle a journalist's ephemeral key replenishment request. This
 /// corresponds to step 3.2 in the spec.
-/// Each ephemeral key bundle must be signed by the journalist's
-/// long-term signing key. The caller is responsible for checking that
-/// the journalist is enrolled, and for storing the bundles.
+/// `vk_j` is the verifying key of an enrolled journalist, which the
+/// caller must take from its own record of enrollments (step 3.1), not
+/// from this request. The request must be made under that key, and each
+/// ephemeral key bundle must be signed by it. The caller is responsible
+/// for storing the bundles.
 /// # Errors
-/// Returns an error if any bundle signature fails verification.
-let impl_2__verify (self: Securedrop_protocol_minimal.Wire.Setup.t_JournalistEphemeralKeyRequest)
+/// Returns an error if the request was not made under `vk_j`, or if any
+/// bundle signature fails verification.
+let impl_2__verify
+      (self: Securedrop_protocol_minimal.Wire.Setup.t_JournalistEphemeralKeyRequest)
+      (vk_j: Securedrop_protocol_minimal.Schemes.Sign.t_VerifyingKey)
     : Core_models.Result.t_Result Prims.unit Anyhow.t_Error =
-  match
-    Rust_primitives.Hax.Folds.fold_range_return (mk_usize 0)
-      (Alloc.Vec.impl_1__len #(Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic &
-            Securedrop_protocol_minimal.Schemes.Sign.t_Signature
-            Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey)
-          #Alloc.Alloc.t_Global
-          self.Securedrop_protocol_minimal.Wire.Setup.f_bundles
-        <:
-        usize)
-      (fun temp_0_ temp_1_ ->
-          let _:Prims.unit = temp_0_ in
-          let _:usize = temp_1_ in
-          true)
-      ()
-      (fun temp_0_ i ->
-          let _:Prims.unit = temp_0_ in
-          let i:usize = i in
-          let signed_bundle:(Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic &
-            Securedrop_protocol_minimal.Schemes.Sign.t_Signature
-            Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey) =
-            self.Securedrop_protocol_minimal.Wire.Setup.f_bundles.[ i ]
-          in
-          match
-            Securedrop_protocol_minimal.Schemes.Sign.impl_VerifyingKey__verify #Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey
-              self.Securedrop_protocol_minimal.Wire.Setup.f_verifying_key
-              (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Keys.Bundle.impl_KeyBundlePublic__as_bytes
-                      signed_bundle._1
-                    <:
-                    Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-                <:
-                t_Slice u8)
-              signed_bundle._2
-            <:
-            Core_models.Result.t_Result Prims.unit Anyhow.t_Error
-          with
-          | Core_models.Result.Result_Ok _ ->
-            Core_models.Ops.Control_flow.ControlFlow_Continue ()
-            <:
-            Core_models.Ops.Control_flow.t_ControlFlow
-              (Core_models.Ops.Control_flow.t_ControlFlow
-                  (Core_models.Result.t_Result Prims.unit Anyhow.t_Error) (Prims.unit & Prims.unit))
-              Prims.unit
-          | Core_models.Result.Result_Err err ->
-            Core_models.Ops.Control_flow.ControlFlow_Break
-            (Core_models.Ops.Control_flow.ControlFlow_Break
-              (Core_models.Result.Result_Err err
-                <:
-                Core_models.Result.t_Result Prims.unit Anyhow.t_Error)
-              <:
-              Core_models.Ops.Control_flow.t_ControlFlow
-                (Core_models.Result.t_Result Prims.unit Anyhow.t_Error) (Prims.unit & Prims.unit))
-            <:
-            Core_models.Ops.Control_flow.t_ControlFlow
-              (Core_models.Ops.Control_flow.t_ControlFlow
-                  (Core_models.Result.t_Result Prims.unit Anyhow.t_Error) (Prims.unit & Prims.unit))
-              Prims.unit)
-    <:
-    Core_models.Ops.Control_flow.t_ControlFlow
-      (Core_models.Result.t_Result Prims.unit Anyhow.t_Error) Prims.unit
-  with
-  | Core_models.Ops.Control_flow.ControlFlow_Break ret -> ret
-  | Core_models.Ops.Control_flow.ControlFlow_Continue _ ->
-    Core_models.Result.Result_Ok (() <: Prims.unit)
+  if
+    (Securedrop_protocol_minimal.Schemes.Sign.impl_VerifyingKey__into_bytes self
+          .Securedrop_protocol_minimal.Wire.Setup.f_verifying_key
+      <:
+      t_Array u8 (mk_usize 32)) <>.
+    (Securedrop_protocol_minimal.Schemes.Sign.impl_VerifyingKey__into_bytes vk_j
+      <:
+      t_Array u8 (mk_usize 32))
+  then
+    let error:Anyhow.t_Error =
+      Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
+            (let list = ["ephemeral key request is not from the enrolled journalist"] in
+              FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+              Rust_primitives.Hax.array_of_list 1 list)
+          <:
+          Core_models.Fmt.t_Arguments)
+    in
+    Core_models.Result.Result_Err (Anyhow.__private.must_use error)
     <:
     Core_models.Result.t_Result Prims.unit Anyhow.t_Error
+  else
+    match
+      Rust_primitives.Hax.Folds.fold_range_return (mk_usize 0)
+        (Alloc.Vec.impl_1__len #(Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic &
+              Securedrop_protocol_minimal.Schemes.Sign.t_Signature
+              Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey)
+            #Alloc.Alloc.t_Global
+            self.Securedrop_protocol_minimal.Wire.Setup.f_bundles
+          <:
+          usize)
+        (fun temp_0_ temp_1_ ->
+            let _:Prims.unit = temp_0_ in
+            let _:usize = temp_1_ in
+            true)
+        ()
+        (fun temp_0_ i ->
+            let _:Prims.unit = temp_0_ in
+            let i:usize = i in
+            let signed_bundle:(Securedrop_protocol_minimal.Keys.Bundle.t_KeyBundlePublic &
+              Securedrop_protocol_minimal.Schemes.Sign.t_Signature
+              Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey) =
+              self.Securedrop_protocol_minimal.Wire.Setup.f_bundles.[ i ]
+            in
+            match
+              Securedrop_protocol_minimal.Schemes.Sign.impl_VerifyingKey__verify #Securedrop_protocol_minimal.Schemes.Sign.t_JournalistEphemeralKey
+                vk_j
+                (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Keys.Bundle.impl_KeyBundlePublic__as_bytes
+                        signed_bundle._1
+                      <:
+                      Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+                  <:
+                  t_Slice u8)
+                signed_bundle._2
+              <:
+              Core_models.Result.t_Result Prims.unit Anyhow.t_Error
+            with
+            | Core_models.Result.Result_Ok _ ->
+              Core_models.Ops.Control_flow.ControlFlow_Continue ()
+              <:
+              Core_models.Ops.Control_flow.t_ControlFlow
+                (Core_models.Ops.Control_flow.t_ControlFlow
+                    (Core_models.Result.t_Result Prims.unit Anyhow.t_Error)
+                    (Prims.unit & Prims.unit)) Prims.unit
+            | Core_models.Result.Result_Err err ->
+              Core_models.Ops.Control_flow.ControlFlow_Break
+              (Core_models.Ops.Control_flow.ControlFlow_Break
+                (Core_models.Result.Result_Err err
+                  <:
+                  Core_models.Result.t_Result Prims.unit Anyhow.t_Error)
+                <:
+                Core_models.Ops.Control_flow.t_ControlFlow
+                  (Core_models.Result.t_Result Prims.unit Anyhow.t_Error) (Prims.unit & Prims.unit))
+              <:
+              Core_models.Ops.Control_flow.t_ControlFlow
+                (Core_models.Ops.Control_flow.t_ControlFlow
+                    (Core_models.Result.t_Result Prims.unit Anyhow.t_Error)
+                    (Prims.unit & Prims.unit)) Prims.unit)
+      <:
+      Core_models.Ops.Control_flow.t_ControlFlow
+        (Core_models.Result.t_Result Prims.unit Anyhow.t_Error) Prims.unit
+    with
+    | Core_models.Ops.Control_flow.ControlFlow_Break ret -> ret
+    | Core_models.Ops.Control_flow.ControlFlow_Continue _ ->
+      Core_models.Result.Result_Ok (() <: Prims.unit)
+      <:
+      Core_models.Result.t_Result Prims.unit Anyhow.t_Error

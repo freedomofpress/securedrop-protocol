@@ -2,7 +2,7 @@
 
 use crate::keys::NewsroomKeyPair;
 use crate::keys::fpf::FPFKeyPair;
-use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature};
+use crate::sign::{FpfOnNewsroom, NewsroomOnJournalist, Signature, VerifyingKey};
 use crate::wire::setup::{
     JournalistEphemeralKeyRequest, JournalistSetupRequest, JournalistSetupResponse,
     NewsroomSetupRequest, NewsroomSetupResponse,
@@ -70,19 +70,27 @@ impl JournalistEphemeralKeyRequest {
     /// Handle a journalist's ephemeral key replenishment request. This
     /// corresponds to step 3.2 in the spec.
     ///
-    /// Each ephemeral key bundle must be signed by the journalist's
-    /// long-term signing key. The caller is responsible for checking that
-    /// the journalist is enrolled, and for storing the bundles.
+    /// `vk_j` is the verifying key of an enrolled journalist, which the
+    /// caller must take from its own record of enrollments (step 3.1), not
+    /// from this request. The request must be made under that key, and each
+    /// ephemeral key bundle must be signed by it. The caller is responsible
+    /// for storing the bundles.
     ///
     /// # Errors
     ///
-    /// Returns an error if any bundle signature fails verification.
-    pub fn verify(&self) -> Result<(), Error> {
+    /// Returns an error if the request was not made under `vk_j`, or if any
+    /// bundle signature fails verification.
+    pub fn verify(&self, vk_j: &VerifyingKey) -> Result<(), Error> {
+        if self.verifying_key.into_bytes() != vk_j.into_bytes() {
+            return Err(anyhow::anyhow!(
+                "ephemeral key request is not from the enrolled journalist"
+            ));
+        }
+
         // TODO: more efficient way than verifying each signature!
         for i in 0..self.bundles.len() {
             let signed_bundle = &self.bundles[i];
-            self.verifying_key
-                .verify(&signed_bundle.0.as_bytes(), &signed_bundle.1)?;
+            vk_j.verify(&signed_bundle.0.as_bytes(), &signed_bundle.1)?;
         }
         Ok(())
     }
