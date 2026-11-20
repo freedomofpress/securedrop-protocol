@@ -333,4 +333,41 @@ mod tests {
             DecryptError::AuthDecFailed
         );
     }
+
+    #[test]
+    #[should_panic(expected = "Metadata encryption failed")]
+    fn test_encrypt_panic() {
+        let mut rng = setup_rng();
+
+        // Source submits to journalist.
+        let source = Source::new(&mut rng);
+        let journalist = Journalist::new(&mut rng, 2);
+        let journalist_public = journalist.public(0);
+
+        // Malicious source builds a message plaintext with a zero-d x25519 part of the MetadataPublicKey
+        let mut bytes = source.public().message_metadata_pk().as_bytes().to_vec();
+        let x25519_start = bytes.len() - 32; // x25519 point of the pk
+        bytes[x25519_start..].fill(0);
+        let zero_pk = MetadataPublicKey::from_bytes(&bytes).expect("correct length");
+
+        let submission = Plaintext {
+            sender_fetch_key: *source.public().fetch_pk(),
+            sender_reply_pubkey_hybrid: zero_pk,
+            msg: b"zero key msg".to_vec(),
+        };
+        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+
+        // Journalist decrypts and recovers the source's reply keys.
+        let (pt, sender_apke) = decrypt_with_sender(&journalist, &envelope).unwrap();
+        let reply_recipient = SourcePublicView::from_reply_keys(
+            pt.sender_fetch_key,
+            sender_apke,
+            pt.sender_reply_pubkey_hybrid,
+        );
+
+        // Journalist encrypts a reply back to the source.
+        let reply_text = b"thanks dawg".to_vec();
+        let reply_pt = journalist.build_message(reply_text.clone());
+        let reply_envelope = encrypt(&mut rng, &journalist, &reply_pt, &reply_recipient); // panic!!
+    }
 }
