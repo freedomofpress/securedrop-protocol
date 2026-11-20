@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use securedrop_protocol_minimal::{Envelope, FetchResponse, Journalist, Source, UserSecret};
 
-use securedrop_protocol_minimal::server::challenge::compute_fetch_challenges;
+use securedrop_protocol_minimal::server::challenge::{ChallengeInput, compute_fetch_challenges};
 
 use securedrop_protocol_bench::{bench_decrypt, bench_encrypt, bench_fetch};
 
@@ -255,7 +255,7 @@ fn bench_fetch_loop(iterations: usize, keybundles: usize, challenges: usize) -> 
         let store_entries: Vec<_> = store
             .iter()
             .take(challenges)
-            .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+            .map(|(uuid, envelope)| envelope.to_challenges(*uuid.as_bytes()))
             .collect();
         let challenges: Vec<FetchResponse> =
             compute_fetch_challenges(&mut prep_rng, &store_entries, challenges);
