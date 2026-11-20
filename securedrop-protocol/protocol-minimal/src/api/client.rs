@@ -27,10 +27,14 @@
 //! 4. Each journalist's long-term and short-term key bundles are self-signed.
 
 use crate::{
-    Enrollable, Envelope, FetchResponse, Journalist, JournalistPublicView, UserPublic, UserSecret,
-    VerifyingKey,
+    Enrollable, Enrollment, Envelope, FetchResponse, Journalist, JournalistPublicView, Plaintext,
+    UserPublic, UserSecret, VerifyingKey,
     api::common::HasRng,
-    client::{challenge::solve_fetch_challenges, message::encrypt},
+    client::{
+        challenge::solve_fetch_challenges,
+        message::{decrypt_with_sender, encrypt},
+    },
+    message::MessagePublicKey,
     sealed,
     traits::RestrictedApi,
     wire::{
@@ -46,8 +50,8 @@ use crate::{
         },
     },
 };
-use alloc::vec::Vec;
-use anyhow::{Error, Ok};
+use alloc::{borrow::ToOwned, vec::Vec};
+use anyhow::{Error, Ok, anyhow};
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
@@ -119,14 +123,45 @@ pub trait ApplicationContract: HasRng {
             .verify(&newsroom_vk.into_bytes(), &welcome.fpf_sig)
             .map_err(|_| anyhow::anyhow!("invalid FPF signature on newsroom verifying key"))?;
 
+        self.set_newsroom_verifying_key(newsroom_vk);
+
         for journalist in welcome.journalists.iter() {
             Self::Protocol::verify_long_term(journalist, &newsroom_vk)?;
         }
 
-        self.set_newsroom_verifying_key(newsroom_vk);
+        // Example callback passing results to the presentation layer.
+        // Here it's just the number of journalists, but it would be something like the
+        // clonable representation of their LongTermView
+        Self::Callback::on_result(ClientApplicationData {
+            data: Some(welcome.journalists.len()),
+        });
+        Ok(())
+    }
 
-        // Example callback
-        Self::Callback::on_result(());
+    fn verify_ephemeral(
+        roster: &[JournalistLongTermView],
+        ephemeral: &[JournalistEphemeralKeys],
+    ) -> Result<Vec<JournalistPublicView>, Error> {
+        let available_journalist_identities =
+            Self::Protocol::verify_ephemeral_keys(roster, ephemeral)?;
+
+        // Another example callback
+        Self::Callback::on_result(ClientApplicationData {
+            data: Some(available_journalist_identities.len()),
+        });
+        Ok(available_journalist_identities)
+    }
+
+    // note: this does not check the key against self.newsroom_verifying_key().
+    // should maybe have a separate type for CheckedKey/VerifiedKey and only accept that type
+    fn verify_long_term(
+        &self,
+        ltv: &[JournalistLongTermView],
+        nr_key: &VerifyingKey,
+    ) -> Result<(), Error> {
+        for journalist in ltv.iter() {
+            Self::Protocol::verify_long_term(journalist, nr_key);
+        }
         Ok(())
     }
 
@@ -135,15 +170,17 @@ pub trait ApplicationContract: HasRng {
             .api()
             .fetch_message(MessageFetchRequest { message_id })?;
 
-        // Example callback
-        Self::Callback::on_result(());
+        // placeholder
+        Self::Callback::on_result(ClientApplicationData { data: Some(()) });
         Ok(())
     }
 
     fn fetch_challenges(&self) -> Result<(), Error> {
         self.api()
             .fetch_challenges(MessageChallengeFetchRequest {})?;
-        Self::Callback::on_result(());
+
+        // placeholder
+        Self::Callback::on_result(ClientApplicationData { data: Some(()) });
         Ok(())
     }
 
@@ -159,8 +196,28 @@ pub trait ApplicationContract: HasRng {
         let env = Self::Protocol::encrypt_message(self.rng(), input, sender, recipient)?;
         let resp = self.api().submit_message(env)?;
 
-        Self::Callback::on_result(());
+        // placeholder
+        Self::Callback::on_result(ClientApplicationData { data: Some(()) });
         Ok(())
+    }
+}
+
+// Improvement: retain/manage reference to the JournalistApi to directly call enroll / replenish
+pub trait JournalistApplicationContract: ApplicationContract {
+    fn prepare_enrollment(&self, journalist: &Journalist) -> Result<JournalistSetupRequest, Error> {
+        Ok(JournalistSetupRequest {
+            enrollment: journalist.enroll(),
+        })
+    }
+
+    fn prepare_keybundles(
+        &self,
+        journalist: &Journalist,
+    ) -> Result<JournalistEphemeralKeyRequest, Error> {
+        Ok(JournalistEphemeralKeyRequest {
+            verifying_key: journalist.signing_key().to_owned(),
+            bundles: journalist.signed_keybundles(),
+        })
     }
 }
 
@@ -173,7 +230,7 @@ pub struct ClientApplicationData<T> {
 }
 pub trait ApplicationCallback {
     // Should contain eg ClientApplicationData
-    fn on_result(data: ());
+    fn on_result<T>(data: ClientApplicationData<T>);
 }
 
 // Protocol should have its own error type but for now we alias
@@ -184,7 +241,7 @@ pub type ProtocolError = anyhow::Error;
 /// these methods are invoked by the application.
 /// Eventually, visibility of all other protocol specific types and components should be restricted to
 /// within the protocol module.
-pub trait ClientProtocol {
+pub(crate) trait ClientProtocol {
     /// Encrypts and submits a message from `sender` to `recipient`.
     ///
     /// Handles padding, plaintext construction (including sender reply keys),
@@ -212,14 +269,16 @@ pub trait ClientProtocol {
         Ok(envelope)
     }
 
-    fn decrypt_message<P, S>(
+    fn decrypt_message<R>(
         message: Envelope,
-        sender: &S,
-        recipient: &P,
-    ) -> Result<(), ProtocolError> {
+        recipient: &R,
+    ) -> Result<(Plaintext, MessagePublicKey), ProtocolError>
+    where
+        R: UserSecret + Sized,
+    {
         // Todo: this should return everything that's needed (Metadata, Message, SenderPublic),
         // and combine/replace the separate decrypt_with_sender and decrypt methods
-        todo!("Unimplemented!")
+        Ok(decrypt_with_sender(recipient, &message))
     }
 
     fn verify_long_term(
@@ -331,7 +390,13 @@ pub trait Api {
 ///
 /// Extends [`Api`] with enrollment and ephemeral key management.
 pub trait JournalistApi: Api {
-    fn create_setup_request(&self, setup: JournalistSetupRequest) -> Result<(), Error>;
+    fn create_setup_request(
+        &self,
+        setup: JournalistSetupRequest,
+    ) -> Result<JournalistSetupResponse, Error>;
 
-    fn create_ephemeral_key_request(&self, kr: JournalistEphemeralKeyRequest) -> Result<(), Error>;
+    fn create_ephemeral_key_request(
+        &self,
+        kr: JournalistEphemeralKeyRequest,
+    ) -> Result<JournalistEphemeralKeyResponse, Error>;
 }
