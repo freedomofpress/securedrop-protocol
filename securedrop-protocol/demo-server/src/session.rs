@@ -141,12 +141,16 @@ impl Server {
         &mut self,
         request: JournalistEphemeralKeyRequest,
     ) -> Result<usize, Error> {
-        if !self.is_enrolled(&request.verifying_key) {
-            return Err(anyhow!("Journalist not found in storage"));
-        }
+        // Verify against the enrolled key from our own storage
+        let vk_j = self
+            .journalists
+            .get(&request.verifying_key.into_bytes())
+            .ok_or_else(|| anyhow!("Journalist not found in storage"))?
+            .enrollment
+            .verification_key;
 
         request
-            .verify()
+            .verify(&vk_j)
             .map_err(|_| anyhow!("Invalid signature on ephemeral keys"))?;
 
         let stored = self
