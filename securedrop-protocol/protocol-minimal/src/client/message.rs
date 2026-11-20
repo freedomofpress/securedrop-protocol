@@ -39,8 +39,30 @@ impl core::fmt::Display for DecryptError {
     }
 }
 
+/// Error types returned by encryption.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EncryptError {
+    /// SD-APKE.AuthEnc failed either authentication or encryption
+    AuthEncFailed,
+    /// SD-PKE.Enc failed
+    MetadataEncFailed,
+}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl core::fmt::Display for EncryptError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            EncryptError::AuthEncFailed => write!(f, "message authentication or encryption failed"),
+            EncryptError::MetadataEncFailed => write!(f, "metadata seal failed"),
+        }
+    }
+}
+
 #[cfg_attr(hax, hax_lib::exclude)]
 impl core::error::Error for DecryptError {}
+
+#[cfg_attr(hax, hax_lib::exclude)]
+impl core::error::Error for EncryptError {}
 
 /// Encrypt a message from a sender to a recipient (step 6).
 ///
@@ -54,7 +76,7 @@ pub fn encrypt<R, Sender, Recipient>(
     sender: &Sender,
     plaintext: &Plaintext,
     recipient: &Recipient,
-) -> Envelope
+) -> Result<Envelope, EncryptError>
 where
     R: RngCore + CryptoRng,
     Sender: UserSecret + ?Sized,
@@ -76,7 +98,7 @@ where
         NR_ID,
         pk_r_fetch,
     )
-    .expect("SD-APKE AuthEnc failed");
+    .map_err(|_| EncryptError::AuthEncFailed)?;
 
     // Hint (X, Z): X = g^x, Z = (pk_R^fetch)^x for a fresh ephemeral scalar x
     // spec: x (hint_esk), X (hint_epk)
@@ -86,16 +108,15 @@ where
 
     // spec: pk_S^APKE - sender's long-term APKE public key
     // spec: ct^PKE = SD-PKE.Enc(pk_R^PKE, pk_S^APKE)
-    // TODO(#402): Refactor to return Result<T, E> instead of panicking at failed metadata seal
     let ct_pke = metadata::encrypt(rng, recipient.message_metadata_pk(), keypair_s.public_key())
-        .expect("Valid Keybundle should allow metadata seal");
+        .map_err(|_| EncryptError::MetadataEncFailed)?;
 
-    Envelope {
+    Ok(Envelope {
         ct_apke,                 // spec: ct^APKE
         ct_pke,                  // spec: ct^PKE
         mgdh_pubkey: hint_epk,   // spec: X = g^x
         mgdh: hint_sharedsecret, // spec: Z = (pk_R^fetch)^x
-    }
+    })
 }
 
 #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
@@ -188,7 +209,7 @@ mod tests {
     ) {
         let pt = build_message(sender_public, msg);
 
-        let envelope = encrypt(rng, sender_secret, &pt, rcvr_public);
+        let envelope = encrypt(rng, sender_secret, &pt, rcvr_public).unwrap();
         let decrypted = decrypt(rcvr_secret, &envelope).unwrap();
 
         let pt_ref = &pt;
@@ -256,7 +277,7 @@ mod tests {
         let journalist_public = journalist.public(0);
 
         let submission = build_message(&source.public(), b"howdy".to_vec());
-        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public).unwrap();
 
         // Journalist decrypts and recovers the source's reply keys.
         let (pt, sender_apke) = decrypt_with_sender(&journalist, &envelope).unwrap();
@@ -269,7 +290,7 @@ mod tests {
         // Journalist encrypts a reply back to the source.
         let reply_text = b"thanks dawg".to_vec();
         let reply_pt = journalist.build_message(reply_text.clone());
-        let reply_envelope = encrypt(&mut rng, &journalist, &reply_pt, &reply_recipient);
+        let reply_envelope = encrypt(&mut rng, &journalist, &reply_pt, &reply_recipient).unwrap();
 
         // Source decrypts the reply.
         let decrypted = decrypt(&source, &reply_envelope).unwrap();
@@ -305,7 +326,7 @@ mod tests {
         let journalist_public = journalist.public(0);
 
         let submission = build_message(&source.public(), b"howdy".to_vec());
-        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public).unwrap();
 
         // Journalist 2 decrypts
         let j2 = Journalist::new(&mut rng, 2);
@@ -325,7 +346,7 @@ mod tests {
         let journalist_public = journalist.public(0);
 
         let submission = build_message(&source.public(), b"howdy".to_vec());
-        let mut envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+        let mut envelope = encrypt(&mut rng, &source, &submission, &journalist_public).unwrap();
 
         envelope.ct_apke.c1[0] ^= 0x01; // Corrupt the ciphertext
         assert_eq!(
@@ -335,8 +356,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Metadata encryption failed")]
-    fn test_encrypt_panic() {
+    fn test_encrypt_error() {
         let mut rng = setup_rng();
 
         // Source submits to journalist.
@@ -355,7 +375,7 @@ mod tests {
             sender_reply_pubkey_hybrid: zero_pk,
             msg: b"zero key msg".to_vec(),
         };
-        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public);
+        let envelope = encrypt(&mut rng, &source, &submission, &journalist_public).unwrap();
 
         // Journalist decrypts and recovers the source's reply keys.
         let (pt, sender_apke) = decrypt_with_sender(&journalist, &envelope).unwrap();
@@ -368,6 +388,9 @@ mod tests {
         // Journalist encrypts a reply back to the source.
         let reply_text = b"thanks dawg".to_vec();
         let reply_pt = journalist.build_message(reply_text.clone());
-        let reply_envelope = encrypt(&mut rng, &journalist, &reply_pt, &reply_recipient); // panic!!
+        assert_eq!(
+            encrypt(&mut rng, &journalist, &reply_pt, &reply_recipient).unwrap_err(),
+            EncryptError::MetadataEncFailed
+        );
     }
 }

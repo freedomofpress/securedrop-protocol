@@ -43,7 +43,7 @@ fn test_fetch_challenges_roundtrip() {
 
     let msg = b"Fetch this message";
     let plaintext = build_message(&source.public(), msg.to_vec());
-    let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
+    let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public).unwrap();
 
     let mut entries: Vec<([u8; 16], Envelope)> = Vec::new();
     let message_id = random_message_id(&mut rng);
@@ -72,7 +72,7 @@ fn test_wrong_recipient_cannot_decrypt_challenge() {
 
     let msg = b"Fetch this message";
     let plaintext = build_message(&source.public(), msg.to_vec());
-    let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public);
+    let envelope = encrypt(&mut rng, &source, &plaintext, &journalist_public).unwrap();
 
     let mut entries: Vec<([u8; 16], Envelope)> = Vec::new();
     let message_id = random_message_id(&mut rng);
