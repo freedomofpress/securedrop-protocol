@@ -9,7 +9,7 @@ use securedrop_protocol_minimal::api::{Api, Client, JournalistApi};
 use securedrop_protocol_minimal::challenge::MAX_MESSAGES;
 use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair};
 
-use securedrop_protocol_minimal::server::Server;
+use securedrop_demo_server::Server;
 use securedrop_protocol_minimal::{Journalist, JournalistPublic, Source, UserPublic, UserSecret};
 
 // TODO: better way (eg parameterize as in benchmarks)
@@ -79,7 +79,9 @@ fn protocol_step_5_source_fetch_keys() {
     let mut source_session = Source::from_passphrase(TEST_MNEMONIC).expect("valid test mnemonic");
 
     // Step 5: Source fetches the welcome bundle and verifies it.
-    let welcome = server_session.handle_welcome();
+    let welcome = server_session
+        .handle_welcome()
+        .expect("Welcome bundle should be available");
     source_session
         .handle_welcome(&welcome, &fpf_keypair.verifying_key())
         .expect("Welcome bundle should be valid");
@@ -122,11 +124,9 @@ fn protocol_step_5_source_fetch_keys() {
 
     // Verify that ephemeral keys were consumed (deleted from server storage)
     // After fetching, the journalist should have no ephemeral keys left
-    let journalist_id = server_session
-        .find_journalist_id(&jvk)
-        .expect("Journalist should be found");
+    assert!(server_session.is_enrolled(&jvk));
     assert_eq!(
-        server_session.ephemeral_keys_count(journalist_id),
+        server_session.ephemeral_keys_count(&jvk),
         DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST - 1
     );
 
@@ -134,7 +134,7 @@ fn protocol_step_5_source_fetch_keys() {
     for _i in 0..DEFAULT_NUM_EPHEMERAL_KEYBUNDLES_JOURNALIST - 1 {
         let _ = server_session.handle_journalist_ephemeral_keys(&mut rng);
     }
-    assert!(!server_session.has_ephemeral_keys(journalist_id));
+    assert!(!server_session.has_ephemeral_keys(&jvk));
 
     // Test that subsequent requests return no keys (since they were consumed)
     let empty_responses = server_session.handle_journalist_ephemeral_keys(&mut rng);
@@ -206,7 +206,9 @@ fn protocol_step_5_source_fetch_keys_multiple_journalists() {
         setup_newsroom_with_journalists(&mut rng, 3);
 
     let mut source_session = Source::from_passphrase(TEST_MNEMONIC).expect("valid test mnemonic");
-    let welcome = server_session.handle_welcome();
+    let welcome = server_session
+        .handle_welcome()
+        .expect("Welcome bundle should be available");
     source_session
         .handle_welcome(&welcome, &fpf_keypair.verifying_key())
         .expect("Welcome bundle should be valid");
@@ -240,7 +242,9 @@ fn protocol_step_5_source_rejects_duplicate_journalist_bundles() {
         setup_newsroom_with_journalists(&mut rng, 1);
 
     let mut source_session = Source::from_passphrase(TEST_MNEMONIC).expect("valid test mnemonic");
-    let welcome = server_session.handle_welcome();
+    let welcome = server_session
+        .handle_welcome()
+        .expect("Welcome bundle should be available");
     source_session
         .handle_welcome(&welcome, &fpf_keypair.verifying_key())
         .expect("Welcome bundle should be valid");
@@ -314,7 +318,9 @@ fn protocol_step_6_source_submits_message() {
     let mut source = Source::new(&mut rng);
 
     // Source fetches keys (Step 5)
-    let welcome = server_session.handle_welcome();
+    let welcome = server_session
+        .handle_welcome()
+        .expect("Welcome bundle should be available");
     source
         .handle_welcome(&welcome, &fpf_keypair.verifying_key())
         .expect("Welcome bundle should be valid");
@@ -332,9 +338,7 @@ fn protocol_step_6_source_submits_message() {
         .expect("Can submit message");
 
     // Submit the message to the server
-    let message_id = server_session
-        .handle_message_submit(message.clone(), &mut rng)
-        .expect("Can handle message submission");
+    let message_id = server_session.handle_message_submit(message.clone(), &mut rng);
 
     // Verify that the message was stored
     assert!(server_session.has_message(&message_id));
@@ -391,7 +395,9 @@ fn protocol_step_7_message_id_fetch() {
     let mut source = Source::from_passphrase(TEST_MNEMONIC).expect("valid test mnemonic");
 
     // Source fetches keys (Step 5)
-    let welcome = server_session.handle_welcome();
+    let welcome = server_session
+        .handle_welcome()
+        .expect("Welcome bundle should be available");
     source
         .handle_welcome(&welcome, &fpf_keypair.verifying_key())
         .expect("Welcome bundle should be valid");
@@ -408,15 +414,12 @@ fn protocol_step_7_message_id_fetch() {
         .submit_message(&mut rng, message_content, &source, &journalist_publics[0])
         .expect("Can submit message");
 
-    let message_id = server_session
-        .handle_message_submit(message.clone(), &mut rng)
-        .expect("Can handle message submission");
+    let message_id = server_session.handle_message_submit(message.clone(), &mut rng);
 
     // Step 7: Test message ID fetch from journalist perspective
     let journalist_fetch_request = journalist.fetch_message_ids(&mut rng);
-    let journalist_fetch_response = server_session
-        .handle_request_challenges(journalist_fetch_request, &mut rng)
-        .expect("should be able to fetch message IDs");
+    let journalist_fetch_response =
+        server_session.handle_request_challenges(journalist_fetch_request, &mut rng);
 
     // Verify response structure
     assert_eq!(journalist_fetch_response.count, MAX_MESSAGES);
@@ -435,9 +438,8 @@ fn protocol_step_7_message_id_fetch() {
 
     // Verify privacy properties: response size is always the same
     let empty_fetch_request = source.fetch_message_ids(&mut rng);
-    let empty_fetch_response = server_session
-        .handle_request_challenges(empty_fetch_request, &mut rng)
-        .expect("we should be able to handle message ID fetch");
+    let empty_fetch_response =
+        server_session.handle_request_challenges(empty_fetch_request, &mut rng);
     assert_eq!(empty_fetch_response.count, MAX_MESSAGES);
     assert_eq!(empty_fetch_response.messages.len(), MAX_MESSAGES);
 }
