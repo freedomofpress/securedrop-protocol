@@ -221,7 +221,7 @@ pub fn bench_encrypt<S: UserSecret, P: UserPublic>(
     plaintext: &Plaintext,
 ) -> Envelope {
     let mut rng = ChaCha20Rng::from_seed(seed32);
-    encrypt(&mut rng, sender, plaintext, recipient)
+    encrypt(&mut rng, sender, plaintext, recipient).unwrap()
 }
 
 pub fn bench_decrypt<S: UserSecret>(recipient: &S, envelope: &Envelope) -> Plaintext {

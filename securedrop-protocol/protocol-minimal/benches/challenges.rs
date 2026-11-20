@@ -23,7 +23,7 @@ fn build_store(n: usize) -> Vec<([u8; 16], Envelope)> {
     let mut store = Vec::with_capacity(n);
     for j in 0..n {
         let pt = source.build_message(format!("benchmark message {j}").into_bytes());
-        let env = encrypt(&mut rng, &source, &pt, &journalist.public(j % KEYBUNDLES));
+        let env = encrypt(&mut rng, &source, &pt, &journalist.public(j % KEYBUNDLES)).unwrap();
 
         let mut message_id = [0u8; 16];
         message_id[..8].copy_from_slice(&(j as u64).to_le_bytes());

@@ -205,8 +205,7 @@ where
         // TODO(#229): review padding
         let padded_message = crate::schemes::pad::pad_message(message);
         let plaintext = sender.build_message(padded_message);
-        let envelope = encrypt(rng, sender, &plaintext, recipient);
-        Ok(envelope)
+        encrypt(rng, sender, &plaintext, recipient).map_err(anyhow::Error::from)
     }
 
     fn handle_welcome(

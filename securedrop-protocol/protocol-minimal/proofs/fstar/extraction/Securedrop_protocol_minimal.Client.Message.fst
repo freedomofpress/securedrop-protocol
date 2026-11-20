@@ -6,7 +6,6 @@ open Core_models
 let _ =
   (* This module has implicit dependencies, here we make them explicit. *)
   (* The implicit dependencies arise from typeclasses instances. *)
-  let open Anyhow.Error in
   let open Rand_core in
   let open Securedrop_protocol_minimal.Traits in
   ()
@@ -63,6 +62,54 @@ val impl_5': Core_models.Cmp.t_Eq t_DecryptError
 unfold
 let impl_5 = impl_5'
 
+/// Error types returned by encryption.
+type t_EncryptError =
+  | EncryptError_AuthEncFailed : t_EncryptError
+  | EncryptError_MetadataEncFailed : t_EncryptError
+
+let t_EncryptError_cast_to_repr (x: t_EncryptError) : isize =
+  match x <: t_EncryptError with
+  | EncryptError_AuthEncFailed  -> mk_isize 0
+  | EncryptError_MetadataEncFailed  -> mk_isize 1
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_7': Core_models.Fmt.t_Debug t_EncryptError
+
+unfold
+let impl_7 = impl_7'
+
+let impl_8: Core_models.Clone.t_Clone t_EncryptError =
+  { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_9': Core_models.Marker.t_Copy t_EncryptError
+
+unfold
+let impl_9 = impl_9'
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_10': Core_models.Marker.t_StructuralPartialEq t_EncryptError
+
+unfold
+let impl_10 = impl_10'
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_11': Core_models.Cmp.t_PartialEq t_EncryptError t_EncryptError
+
+unfold
+let impl_11 = impl_11'
+
+[@@ FStar.Tactics.Typeclasses.tcinstance]
+assume
+val impl_12': Core_models.Cmp.t_Eq t_EncryptError
+
+unfold
+let impl_12 = impl_12'
+
 #push-options "--admit_smt_queries true"
 
 /// Encrypt a message from a sender to a recipient (step 6).
@@ -84,7 +131,8 @@ let encrypt
       (sender: v_Sender)
       (plaintext: Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext)
       (recipient: v_Recipient)
-    : (v_R & Securedrop_protocol_minimal.Wire.Core.t_Envelope) =
+    : (v_R &
+      Core_models.Result.t_Result Securedrop_protocol_minimal.Wire.Core.t_Envelope t_EncryptError) =
   let keypair_s:Securedrop_protocol_minimal.Schemes.Message.t_MessageKeyPair =
     Securedrop_protocol_minimal.Traits.f_message_auth_keypair #v_Sender
       #FStar.Tactics.Typeclasses.solve
@@ -119,69 +167,112 @@ let encrypt
       pk_r_fetch
   in
   let rng:v_R = tmp0 in
-  let ct_apke:Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext =
-    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext
+  match
+    Core_models.Result.impl__map_err #Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext
       #Anyhow.t_Error
+      #t_EncryptError
+      #(Anyhow.t_Error -> t_EncryptError)
       out
-      "SD-APKE AuthEnc failed"
-  in
-  let
-  (tmp0: v_R),
-  (out:
-    (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
-      Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)) =
-    Securedrop_protocol_minimal.Primitives.Ristretto255.generate_dh_keypair #v_R rng
-  in
-  let rng:v_R = tmp0 in
-  let
-  (hint_esk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey),
-  (hint_epk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey) =
-    out
-  in
-  let (hint_sharedsecret: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey):Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
-  =
-    Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret (Securedrop_protocol_minimal.Traits.f_fetch_pk
-          #v_Recipient
-          #FStar.Tactics.Typeclasses.solve
-          recipient
-        <:
-        Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
-      hint_esk
-  in
-  let
-  (tmp0: v_R),
-  (out:
-    Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext
-      Anyhow.t_Error) =
-    Securedrop_protocol_minimal.Schemes.Metadata.encrypt #v_R
-      rng
-      (Securedrop_protocol_minimal.Traits.f_message_metadata_pk #v_Recipient
-          #FStar.Tactics.Typeclasses.solve
-          recipient
-        <:
-        Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
-      (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__public_key keypair_s
-        <:
-        Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
-  in
-  let rng:v_R = tmp0 in
-  let ct_pke:Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext =
-    Core_models.Result.impl__expect #Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext
-      #Anyhow.t_Error
-      out
-      "Valid Keybundle should allow metadata seal"
-  in
-  let hax_temp_output:Securedrop_protocol_minimal.Wire.Core.t_Envelope =
-    {
-      Securedrop_protocol_minimal.Wire.Core.f_ct_apke = ct_apke;
-      Securedrop_protocol_minimal.Wire.Core.f_ct_pke = ct_pke;
-      Securedrop_protocol_minimal.Wire.Core.f_mgdh_pubkey = hint_epk;
-      Securedrop_protocol_minimal.Wire.Core.f_mgdh = hint_sharedsecret
-    }
+      (fun temp_0_ ->
+          let _:Anyhow.t_Error = temp_0_ in
+          EncryptError_AuthEncFailed <: t_EncryptError)
     <:
-    Securedrop_protocol_minimal.Wire.Core.t_Envelope
-  in
-  rng, hax_temp_output <: (v_R & Securedrop_protocol_minimal.Wire.Core.t_Envelope)
+    Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Message.t_MessageCiphertext
+      t_EncryptError
+  with
+  | Core_models.Result.Result_Ok ct_apke ->
+    let
+    (tmp0: v_R),
+    (out:
+      (Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey &
+        Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)) =
+      Securedrop_protocol_minimal.Primitives.Ristretto255.generate_dh_keypair #v_R rng
+    in
+    let rng:v_R = tmp0 in
+    let
+    (hint_esk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey),
+    (hint_epk: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey) =
+      out
+    in
+    let (hint_sharedsecret: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey):Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey
+    =
+      Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret (Securedrop_protocol_minimal.Traits.f_fetch_pk
+            #v_Recipient
+            #FStar.Tactics.Typeclasses.solve
+            recipient
+          <:
+          Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
+        hint_esk
+    in
+    let
+    (tmp0: v_R),
+    (out:
+      Core_models.Result.t_Result Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext
+        Anyhow.t_Error) =
+      Securedrop_protocol_minimal.Schemes.Metadata.encrypt #v_R
+        rng
+        (Securedrop_protocol_minimal.Traits.f_message_metadata_pk #v_Recipient
+            #FStar.Tactics.Typeclasses.solve
+            recipient
+          <:
+          Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataPublicKey)
+        (Securedrop_protocol_minimal.Schemes.Message.impl_MessageKeyPair__public_key keypair_s
+          <:
+          Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey)
+    in
+    let rng:v_R = tmp0 in
+    (match
+        Core_models.Result.impl__map_err #Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext
+          #Anyhow.t_Error
+          #t_EncryptError
+          #(Anyhow.t_Error -> t_EncryptError)
+          out
+          (fun temp_0_ ->
+              let _:Anyhow.t_Error = temp_0_ in
+              EncryptError_MetadataEncFailed <: t_EncryptError)
+        <:
+        Core_models.Result.t_Result
+          Securedrop_protocol_minimal.Schemes.Metadata.t_MetadataCiphertext t_EncryptError
+      with
+      | Core_models.Result.Result_Ok ct_pke ->
+        let hax_temp_output:Core_models.Result.t_Result
+          Securedrop_protocol_minimal.Wire.Core.t_Envelope t_EncryptError =
+          Core_models.Result.Result_Ok
+          ({
+              Securedrop_protocol_minimal.Wire.Core.f_ct_apke = ct_apke;
+              Securedrop_protocol_minimal.Wire.Core.f_ct_pke = ct_pke;
+              Securedrop_protocol_minimal.Wire.Core.f_mgdh_pubkey = hint_epk;
+              Securedrop_protocol_minimal.Wire.Core.f_mgdh = hint_sharedsecret
+            }
+            <:
+            Securedrop_protocol_minimal.Wire.Core.t_Envelope)
+          <:
+          Core_models.Result.t_Result Securedrop_protocol_minimal.Wire.Core.t_Envelope
+            t_EncryptError
+        in
+        rng, hax_temp_output
+        <:
+        (v_R &
+          Core_models.Result.t_Result Securedrop_protocol_minimal.Wire.Core.t_Envelope
+            t_EncryptError)
+      | Core_models.Result.Result_Err err ->
+        rng,
+        (Core_models.Result.Result_Err err
+          <:
+          Core_models.Result.t_Result Securedrop_protocol_minimal.Wire.Core.t_Envelope
+            t_EncryptError)
+        <:
+        (v_R &
+          Core_models.Result.t_Result Securedrop_protocol_minimal.Wire.Core.t_Envelope
+            t_EncryptError))
+  | Core_models.Result.Result_Err err ->
+    rng,
+    (Core_models.Result.Result_Err err
+      <:
+      Core_models.Result.t_Result Securedrop_protocol_minimal.Wire.Core.t_Envelope t_EncryptError)
+    <:
+    (v_R &
+      Core_models.Result.t_Result Securedrop_protocol_minimal.Wire.Core.t_Envelope t_EncryptError)
 
 #pop-options
 
