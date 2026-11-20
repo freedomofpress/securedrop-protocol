@@ -4,8 +4,10 @@
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
-use securedrop_protocol_minimal::api::{JournalistApi, ServerContract};
-use securedrop_protocol_minimal::keys::FPFKeyPair;
+use securedrop_protocol_minimal::api::{
+    JournalistApi, JournalistApplicationContract, ServerContract,
+};
+use securedrop_protocol_minimal::keys::{FPFKeyPair, NewsroomKeyPair, fpf};
 use securedrop_protocol_minimal::sign::{FpfOnNewsroom, Signature};
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyRequest, JournalistSetupRequest,
@@ -15,74 +17,11 @@ use securedrop_protocol_minimal::VerifyingKey;
 use securedrop_protocol_minimal::{DHPublicKey, Enrollable};
 use securedrop_protocol_minimal::{Journalist, Source, UserPublic, UserSecret};
 
-mod mocks;
-use crate::mocks::Server;
+mod common;
+use common::mocks::Server;
+use common::utils::{get_rng, setup_server};
 
-// Toy implementation purposes
-fn get_rng() -> ChaCha20Rng {
-    let mut seed = [0u8; 32];
-    #[allow(clippy::disallowed_methods)]
-    getrandom::fill(&mut seed).expect("OS random source failed");
-    ChaCha20Rng::from_seed(seed)
-}
-
-fn setup_fpf_key<R: CryptoRng + RngCore>(mut rng: R) -> FPFKeyPair {
-    FPFKeyPair::new(&mut rng).expect("FPF key generation failed")
-}
-
-// Helper - set up server, set up newsroom key, and return server session
-fn setup_server<R: CryptoRng + RngCore>(
-    mut rng: R,
-    fpf_keys: &FPFKeyPair,
-) -> (Server, VerifyingKey, Signature<FpfOnNewsroom>) {
-    // Newsroom: Create server session and generate setup request (pubkey)
-    let mut server_session = Server::new();
-    let newsroom_setup = server_session
-        .create_newsroom_setup_request(&mut rng)
-        .expect("Can create newsroom setup request");
-
-    // Store the newsroom verifying key for verification
-    let newsroom_vk = &newsroom_setup.newsroom_verifying_key.clone();
-
-    // Sign the newsroom's public key
-    let setup_response = newsroom_setup
-        .sign(&fpf_keys)
-        .expect("Signing should not fail");
-
-    assert!(
-        fpf_keys
-            .verifying_key()
-            .verify(&newsroom_vk.clone().into_bytes(), &setup_response.sig)
-            .is_ok()
-    );
-
-    (server_session, *newsroom_vk, setup_response.sig)
-}
-
-// todo: easy to mix up fpf pubkey and nr pubkey here, enforce with types
-fn setup_journalist<R: RngCore + CryptoRng>(
-    mut rng: R,
-    num_keybundles: usize,
-    newsroom_pubkey: &VerifyingKey,
-    fpf_pubkey: &VerifyingKey,
-    fpf_signature: &Signature<FpfOnNewsroom>,
-) -> (Journalist, JournalistSetupRequest) {
-    let mut journalist = Journalist::new(&mut rng, num_keybundles);
-
-    // Journalist: verify nr key correctly signed, then store it.
-    // Then request enrollment
-    assert!(
-        fpf_pubkey
-            .verify(&newsroom_pubkey.into_bytes(), fpf_signature)
-            .is_ok()
-    );
-
-    let enrollment = journalist.enroll();
-
-    let request = JournalistSetupRequest { enrollment };
-
-    (journalist, request)
-}
+use crate::common::mocks::{MockApp, MockJournalistApp};
 
 /// Step 1: Generate FPF keys
 #[test]
@@ -103,7 +42,7 @@ fn protocol_step_2_generate_newsroom_keys() {
     // Setup: FPF generates their keys (from previous step)
     let fpf_keys = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
 
-    let (_, newsroom_vk, fpf_sig) = setup_server(rng, &fpf_keys);
+    let (_, newsroom_vk, fpf_sig) = setup_server(get_rng(), &fpf_keys);
 
     let newsroom_pk_bytes = newsroom_vk.into_bytes();
     assert!(
@@ -122,7 +61,8 @@ fn protocol_step_3_1_journalist_enrollment() {
     // Setup: FPF generates their keys (from step 1)
     let fpf_keys = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
 
-    let (mut server_session, newsroom_vk, fpf_sig) = setup_server(&mut rng, &fpf_keys);
+    // set up mock server with new key signed by fpf key
+    let (mut server_session, newsroom_vk, fpf_sig) = setup_server(get_rng(), &fpf_keys);
 
     assert!(
         fpf_keys
@@ -131,52 +71,44 @@ fn protocol_step_3_1_journalist_enrollment() {
             .is_ok()
     );
 
-    let vk = newsroom_vk.clone();
+    let mut j_rng = get_rng();
+    let journalist_keys = Journalist::new(&mut j_rng, 10);
+    let journalist_client = MockJournalistApp(MockApp::new(
+        newsroom_vk.clone(),
+        j_rng,
+        &mut server_session,
+    ));
 
-    // store fpf signature over newsroom vk in session
-    server_session.set_fpf_signature(fpf_sig);
+    // Journalist create enrollment request
+    let enrollment_bundle = journalist_client
+        .prepare_enrollment(&journalist_keys)
+        .expect("Journalist can prepare enrollment bundle");
+    let enrollment_bundle_copy = enrollment_bundle.enrollment.clone(); // just for test purposes
 
-    // Journalist: Create journalist session and generate setup request
-    // todo keybundles
-    let (_, journalist_setup_request) =
-        setup_journalist(rng, 10, &vk, &fpf_keys.verifying_key(), &fpf_sig);
+    // Journalist enroll
+    let resp = journalist_client
+        .create_setup_request(enrollment_bundle)
+        .expect("Journalist can enroll at the server");
 
-    // Extract enrollment bundle for verification before moving the request
-    let enrollment_bundle = journalist_setup_request.enrollment.clone();
-
-    // Newsroom: Process journalist setup request and sign the enrollment bundle
-    let journalist_setup_response = server_session
-        .setup_journalist(journalist_setup_request)
-        .expect("Can setup journalist");
-
-    // Journalist: Verify newsroom signature on journalist signing pubkey.
-    let pubkey_bytes = enrollment_bundle.verification_key.into_bytes();
-    let newsroom_vk = server_session
-        .newsroom_verifying_key()
-        .expect("Newsroom keys should be available");
-    assert!(
-        newsroom_vk
-            .verify(&pubkey_bytes, &journalist_setup_response.sig)
-            .is_ok()
-    );
+    // Journalist check signature over long-term key after enrolled
+    // (Note, NR signature over long-term key would happen offline)
+    let pubkey_bytes = enrollment_bundle_copy.verification_key.into_bytes();
+    assert!(newsroom_vk.verify(&pubkey_bytes, &resp.sig).is_ok());
+    assert_eq!(pubkey_bytes, journalist_keys.signing_key().into_bytes());
 
     // Test that wrong bundle bytes fail verification.
     let wrong_bundle_bytes = [0u8; 96];
-    assert!(
-        newsroom_vk
-            .verify(&wrong_bundle_bytes, &journalist_setup_response.sig)
-            .is_err()
-    );
+    assert!(newsroom_vk.verify(&wrong_bundle_bytes, &resp.sig).is_err());
 
     // Journalist: Verify the journalist self-signature on pubkey enrollment bundle.
-    let enrollment_bundle_bytes = enrollment_bundle.bundle.bundle_bytes();
-    let self_signature = enrollment_bundle.bundle.selfsig;
+    let enrollment_bundle_bytes = enrollment_bundle_copy.bundle.bundle_bytes();
+    let self_signature = enrollment_bundle_copy.bundle.selfsig;
 
     let _ = server_session
-        .find_journalist_id(&enrollment_bundle.verification_key)
+        .find_journalist_id(&enrollment_bundle_copy.verification_key)
         .expect("Journalist id should be available for enrolled signing key");
     assert!(
-        enrollment_bundle
+        enrollment_bundle_copy
             .verification_key
             .verify(&enrollment_bundle_bytes, &self_signature)
             .is_ok()
@@ -184,7 +116,7 @@ fn protocol_step_3_1_journalist_enrollment() {
 
     // Test that wrong journalist signature bytes fail self-sig verification.
     assert!(
-        enrollment_bundle
+        enrollment_bundle_copy
             .verification_key
             .verify(&wrong_bundle_bytes, &self_signature)
             .is_err()
@@ -196,72 +128,80 @@ fn protocol_step_3_1_journalist_enrollment() {
 fn protocol_step_3_2_journalist_ephemeral_keys() {
     let mut rng = get_rng();
 
-    // Setup: FPF generates their keys (Step 1)
-    let fpf_keys = setup_fpf_key(&mut rng);
+    // Setup: FPF generates their keys (from step 1)
+    let fpf_keys = FPFKeyPair::new(&mut rng).expect("FPF key generation failed");
 
-    // Setup: Newsroom creates server session and generates setup request (Step 2)
-    let (mut server_session, vk_nr, sig) = setup_server(&mut rng, &fpf_keys);
+    // set up mock server with new key signed by fpf key
+    let (mut server_session, newsroom_vk, fpf_sig) = setup_server(get_rng(), &fpf_keys);
 
-    let (journalist, journalist_setup_request) =
-        setup_journalist(&mut rng, 10, &vk_nr, &fpf_keys.verifying_key(), &sig);
-
-    // Extract enrollment bundle for verification before moving the request
-    let enrollment_bundle = journalist_setup_request.enrollment.clone();
-
-    // Newsroom: Process journalist setup request and sign the enrollment bundle
-    let journalist_setup_response = server_session
-        .setup_journalist(journalist_setup_request)
-        .expect("Can setup journalist");
-
-    // Journalist: Verify newsroom signature on journalist signing pubkey.
-    let pubkey_bytes = enrollment_bundle.verification_key.into_bytes();
-    let newsroom_vk = server_session
-        .newsroom_verifying_key()
-        .expect("Newsroom keys should be available");
     assert!(
-        newsroom_vk
-            .verify(&pubkey_bytes, &journalist_setup_response.sig)
+        fpf_keys
+            .verifying_key()
+            .verify(&newsroom_vk.into_bytes(), &fpf_sig)
             .is_ok()
     );
 
-    // Journalist: Verify the journalist self-signature on pubkey enrollment bundle
-    let enrollment_bundle_bytes = enrollment_bundle.bundle.bundle_bytes();
-    let self_signature = enrollment_bundle.bundle.selfsig;
+    let mut j_rng = get_rng();
+    let journalist_keys = Journalist::new(&mut j_rng, 10);
+    let journalist_client = MockJournalistApp(MockApp::new(
+        newsroom_vk.clone(),
+        j_rng,
+        &mut server_session,
+    ));
 
-    let _ = server_session
-        .find_journalist_id(&enrollment_bundle.verification_key)
-        .expect("Journalist id should be available for enrolled signing key");
+    // Journalist create enrollment request
+    let enrollment_bundle = journalist_client
+        .prepare_enrollment(&journalist_keys)
+        .expect("Journalist can prepare enrollment bundle");
+    // Journalist enroll
+    let enrollment_bundle_copy = enrollment_bundle.enrollment.bundle.clone();
+    let enrollment_bundle_vk_copy = enrollment_bundle.enrollment.verification_key.clone();
+    let resp = journalist_client
+        .create_setup_request(enrollment_bundle)
+        .expect("Journalist can enroll at the server");
+
     assert!(
-        enrollment_bundle
-            .verification_key
-            .verify(&enrollment_bundle_bytes, &self_signature)
+        enrollment_bundle_vk_copy
+            .verify(
+                &enrollment_bundle_copy.bundle_bytes(),
+                &enrollment_bundle_copy.selfsig
+            )
             .is_ok()
     );
 
     // Step 3.2: Journalist generates ephemeral keys and signs them
     // Journalist creates ephemeral key request
-    let mut ms = Server::new();
-    let ephemeral_key_request = JournalistEphemeralKeyRequest {
-        verifying_key: journalist.signing_key().to_owned(),
-        bundles: journalist.signed_keybundles(),
-    };
 
-    let bundles = ephemeral_key_request.bundles.clone();
+    let keybundles = journalist_client
+        .prepare_keybundles(&journalist_keys)
+        .expect("Can prepare short-lived key bundles");
+    // Journalist Upload keyundles
+    let response = journalist_client
+        .create_ephemeral_key_request(keybundles)
+        .expect("Can replenish key bundles");
 
-    // Server: Process ephemeral key request, including verification
-    ms.journalist_short_lived_keys(ephemeral_key_request)
-        .expect("Can handle ephemeral key request");
-
-    // Test that server rejects ephemeral keys from unknown journalist
-    let unknown_journalist_request = JournalistEphemeralKeyRequest {
-        verifying_key: FPFKeyPair::new(&mut rng)
-            .expect("key generation failed")
-            .verifying_key(),
-        bundles: bundles,
-    };
+    // Non-enrolled journalist cannot upload short-lived keys
+    let unknown_journalist = Journalist::new(&mut get_rng(), 5);
+    let some_other_keys = journalist_client
+        .prepare_keybundles(&unknown_journalist)
+        .expect("even imposters can do local keygen");
 
     assert!(
-        ms.journalist_short_lived_keys(unknown_journalist_request)
+        journalist_client
+            .create_ephemeral_key_request(some_other_keys)
+            .is_err()
+    );
+
+    // Non-enrolled journalist key cannot enroll validly-signed ephemeral keys from other user
+    let unknown_journalist_request = JournalistEphemeralKeyRequest {
+        verifying_key: *unknown_journalist.signing_key(),
+        bundles: journalist_keys.signed_keybundles(),
+    };
+
+    // Test that server won't accept keys with unknown pubkey
+    assert!(
+        journalist_client
+            .create_ephemeral_key_request(unknown_journalist_request)
             .is_err()
     );
 }

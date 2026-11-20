@@ -7,8 +7,14 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore};
 use uuid::Uuid;
 
+// used to cheat a bit with connecting the mock app (stateless api, &self)
+// to the mock server (stateful, &mut self)
+use std::cell::RefCell;
+
 use securedrop_protocol_minimal::Envelope;
-use securedrop_protocol_minimal::api::{HasRng, ServerApiError, ServerContract};
+use securedrop_protocol_minimal::api::{
+    ClientApplicationData, HasRng, JournalistApplicationContract, ServerApiError, ServerContract,
+};
 use securedrop_protocol_minimal::keys::NewsroomKeyPair;
 use securedrop_protocol_minimal::schemes::challenge::MAX_MESSAGES;
 use securedrop_protocol_minimal::server::challenge::compute_fetch_challenges;
@@ -25,20 +31,27 @@ use securedrop_protocol_minimal::wire::setup::{
 };
 
 /// Server session for handling source requests
-#[derive(Default)]
-pub struct Server {
-    storage: ServerStorage,
+pub(crate) struct Server {
+    pub(crate) storage: ServerStorage,
     newsroom_keys: Option<NewsroomKeyPair>,
     /// Signature from FPF over the newsroom keys
     signature: Option<Signature<FpfOnNewsroom>>,
+    rng: ChaCha20Rng,
 }
 
 impl Server {
-    /// Create a new server session
-    ///
-    /// TODO: Load newsroom keys from storage if they exist.
-    pub fn new() -> Self {
-        Self::default()
+    pub(crate) fn new(
+        storage: ServerStorage,
+        newsroom_keys: Option<NewsroomKeyPair>,
+        signature: Option<Signature<FpfOnNewsroom>>,
+        rng: ChaCha20Rng,
+    ) -> Self {
+        Self {
+            storage,
+            newsroom_keys,
+            signature,
+            rng,
+        }
     }
 
     /// Generate a new newsroom setup request.
@@ -47,11 +60,8 @@ impl Server {
     /// and returns a setup request that can be sent to FPF for signing.
     ///
     /// TODO: The caller should persist these keys to disk.
-    pub fn create_newsroom_setup_request<R: RngCore + CryptoRng>(
-        &mut self,
-        rng: &mut R,
-    ) -> Result<NewsroomSetupRequest, Error> {
-        let newsroom_keys = NewsroomKeyPair::new(rng)?;
+    pub fn create_newsroom_setup_request(&mut self) -> Result<NewsroomSetupRequest, Error> {
+        let newsroom_keys = NewsroomKeyPair::new(&mut self.rng)?;
         let newsroom_vk = newsroom_keys.verifying_key();
 
         // Store the newsroom keys in the session for later use (e.g., signing journalist keys)
@@ -119,7 +129,7 @@ impl Server {
     pub fn handle_ephemeral_key_request(
         &mut self,
         request: JournalistEphemeralKeyRequest,
-    ) -> Result<usize, Error> {
+    ) -> Result<JournalistEphemeralKeyResponse, Error> {
         // Look up the journalist by their verifying key
         let journalist_id = self
             .storage
@@ -138,7 +148,9 @@ impl Server {
         self.storage
             .add_ephemeral_keys(journalist_id, request.bundles);
 
-        Ok(self.ephemeral_keys_count(journalist_id))
+        Ok(JournalistEphemeralKeyResponse {
+            stored: self.ephemeral_keys_count(journalist_id),
+        })
     }
 
     /// Returns the newsroom verifying key, if one has been generated.
@@ -228,13 +240,10 @@ impl Server {
     }
 
     /// Handle message submission (step 6 for sources, step 9 for journalists)
-    pub fn handle_message_submit<R: RngCore + CryptoRng>(
-        &mut self,
-        message: Envelope,
-        rng: &mut R,
-    ) -> Result<Uuid, Error> {
+    pub fn handle_message_submit(&mut self, message: Envelope) -> Result<Uuid, Error> {
         // Generate a random message ID
-        let message_id = self.storage.deterministic_uuid(rng);
+        let mut rng = self.rng.clone();
+        let message_id = self.storage.deterministic_uuid(&mut rng);
 
         // Store the message with the generated ID
         self.storage.add_message(message_id, message);
@@ -243,10 +252,9 @@ impl Server {
     }
 
     /// Compute "hints"/challenges for message id fetch request (step 7)
-    pub fn handle_request_challenges<R: RngCore + CryptoRng>(
-        &self,
+    pub fn handle_request_challenges(
+        &mut self,
         _request: MessageChallengeFetchRequest,
-        rng: &mut R,
     ) -> Result<MessageChallengeFetchResponse, Error> {
         let total_challenges: usize = MAX_MESSAGES;
         let entries: Vec<_> = self
@@ -256,7 +264,8 @@ impl Server {
             .take(total_challenges)
             .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
             .collect();
-        let chall = compute_fetch_challenges(rng, &entries, total_challenges);
+        let mut lrng = self.rng().clone();
+        let chall = compute_fetch_challenges(&mut lrng, &entries, total_challenges);
 
         Ok(MessageChallengeFetchResponse {
             count: total_challenges,
@@ -443,40 +452,36 @@ impl ServerStorage {
 /// the goal is to refactor all the calls to server methods to be behind this abstraction, then restrict their visibility.
 /// the demo server and test server impl should use the same trait to ensure they fulfill the same requirements.
 
-struct MockServer(Server, ChaCha20Rng);
-
-impl HasRng for MockServer {
+impl HasRng for Server {
     type Rng = ChaCha20Rng;
 
     fn rng(&mut self) -> &mut Self::Rng {
-        &mut self.1
+        &mut self.rng
     }
 }
 
-impl ServerContract for MockServer {
+impl ServerContract for Server {
     fn verifying_key(&self) -> Result<VerifyingKey, ServerApiError> {
-        self.0
-            .newsroom_verifying_key()
-            .ok_or(anyhow!("need nr key "))
+        self.newsroom_verifying_key().ok_or(anyhow!("need nr key "))
     }
 
     fn welcome(&self, req: WelcomeBundleRequest) -> Result<WelcomeBundle, ServerApiError> {
-        Ok(self.0.handle_welcome())
+        Ok(self.handle_welcome())
     }
 
     fn challenges(
         &mut self,
         req: MessageChallengeFetchRequest,
     ) -> Result<MessageChallengeFetchResponse, ServerApiError> {
-        self.0.handle_request_challenges(req, &mut self.1)
+        self.handle_request_challenges(req)
     }
 
     fn message_get(&self, req: MessageFetchRequest) -> Result<Option<Envelope>, ServerApiError> {
-        Ok(self.0.handle_message_fetch(req))
+        Ok(self.handle_message_fetch(req))
     }
 
     fn message_submit(&mut self, ct: Envelope) -> Result<(), ServerApiError> {
-        self.0.handle_message_submit(ct, &mut self.1);
+        self.handle_message_submit(ct);
         Ok(())
     }
 
@@ -484,7 +489,7 @@ impl ServerContract for MockServer {
         &mut self,
         req: JournalistSetupRequest,
     ) -> Result<JournalistSetupResponse, ServerApiError> {
-        self.0.setup_journalist(req)
+        self.setup_journalist(req)
     }
 
     fn journalist_short_lived_keys(
@@ -494,8 +499,8 @@ impl ServerContract for MockServer {
         securedrop_protocol_minimal::wire::setup::JournalistEphemeralKeyResponse,
         ServerApiError,
     > {
-        let stored = self.0.handle_ephemeral_key_request(req)?;
-        Ok(JournalistEphemeralKeyResponse { stored })
+        let stored = self.handle_ephemeral_key_request(req)?;
+        Ok(stored)
     }
 }
 
@@ -503,12 +508,22 @@ use securedrop_protocol_minimal::api::{
     Api, ApplicationCallback, ApplicationContract, DefaultProtocol, JournalistApi, NetworkError,
 };
 
-pub(crate) struct MockApp<'a>(VerifyingKey, ChaCha20Rng, &'a Server);
+// Mock application core that can be used for integration testing. It invokes the DefaultProtocol
+// implementation and a (pretend) network application.
+// Note that the application works with both source and journalist, and does not bind a user's
+// keys to the context or include any storge. User-specific impl goes in source-cli or journalist-cli.
+//
+// A real application wouldn't own a reference to the server, it would just implement the
+// network API. For testing purposes we make an app that immediately forwards results to a
+// mock server and returns the results, simulating networking.
+// the RefCell is a bit of cheating - the API is stateless (&self) but the Server is stateful
+// (&mut self) and for test purposes we make it work.
+pub(crate) struct MockApp<'a>(VerifyingKey, ChaCha20Rng, RefCell<&'a mut Server>);
 
-// the mock app has the lifetime of the mockserver for test purposes
+// The mock app has the lifetime of the mockserver for test purposes
 impl MockApp<'_> {
-    pub(crate) fn new(vk: VerifyingKey, c: ChaCha20Rng, s: &Server) -> MockApp<'_> {
-        MockApp(vk, c, s)
+    pub(crate) fn new(vk: VerifyingKey, c: ChaCha20Rng, s: &mut Server) -> MockApp<'_> {
+        MockApp(vk, c, RefCell::new(s))
     }
 }
 
@@ -523,9 +538,12 @@ impl HasRng for MockApp<'_> {
 pub struct StubGuiCallback;
 impl ApplicationCallback for StubGuiCallback {
     // Ignore gui callbacks for testing
-    fn on_result(data: ()) {}
+    fn on_result<T>(data: ClientApplicationData<T>) {}
 }
 
+// This is the entire application that downstream crates implement.
+// Provide a network API implementation, a GUI callbacks implementation, and rely on the
+// DefaultProtocol implementation.
 impl ApplicationContract for MockApp<'_> {
     type NetworkApi = Self;
 
@@ -539,6 +557,7 @@ impl ApplicationContract for MockApp<'_> {
     }
 
     fn set_newsroom_verifying_key(&mut self, key: securedrop_protocol_minimal::VerifyingKey) {
+        // ignore this, we initialize with a key for now for simplicity
         ()
     }
 
@@ -547,29 +566,13 @@ impl ApplicationContract for MockApp<'_> {
     }
 }
 
-impl JournalistApi for MockApp<'_> {
-    fn create_setup_request(
-        &self,
-        setup: securedrop_protocol_minimal::wire::setup::JournalistSetupRequest,
-    ) -> Result<(), anyhow::Error> {
-        Ok(())
-    }
-
-    fn create_ephemeral_key_request(
-        &self,
-        kr: securedrop_protocol_minimal::wire::setup::JournalistEphemeralKeyRequest,
-    ) -> Result<(), anyhow::Error> {
-        Ok(())
-    }
-}
-
-// Mock api.
+// "network" api impl that directly interacts with our mock server via the ServerContract api.
 impl Api for MockApp<'_> {
     fn request_keys(
         &self,
         req: securedrop_protocol_minimal::wire::core::WelcomeBundleRequest,
     ) -> Result<securedrop_protocol_minimal::wire::core::WelcomeBundle, NetworkError> {
-        todo!()
+        self.2.borrow().welcome(req)
     }
 
     fn fetch_challenges(
@@ -577,20 +580,89 @@ impl Api for MockApp<'_> {
         req: securedrop_protocol_minimal::wire::core::MessageChallengeFetchRequest,
     ) -> Result<securedrop_protocol_minimal::wire::core::MessageChallengeFetchResponse, NetworkError>
     {
-        todo!()
+        self.2.borrow_mut().challenges(req)
     }
 
     fn fetch_message(
         &self,
         req: securedrop_protocol_minimal::wire::core::MessageFetchRequest,
     ) -> Result<Option<securedrop_protocol_minimal::Envelope>, NetworkError> {
-        todo!()
+        Ok(self.2.borrow().handle_message_fetch(req))
     }
 
     fn submit_message(
         &self,
         req: securedrop_protocol_minimal::Envelope,
     ) -> Result<(), NetworkError> {
-        todo!()
+        self.2.borrow_mut().message_submit(req)
+    }
+}
+
+// Example journalist application
+pub(crate) struct MockJournalistApp<'b>(pub MockApp<'b>);
+impl<'b> MockJournalistApp<'b> {
+    pub(crate) fn core(&self) -> &MockApp<'b> {
+        &self.0
+    }
+}
+impl<'b> HasRng for MockJournalistApp<'b> {
+    type Rng = <MockApp<'b> as HasRng>::Rng;
+
+    fn rng(&mut self) -> &mut Self::Rng {
+        self.0.rng()
+    }
+}
+impl JournalistApplicationContract for MockJournalistApp<'_> {}
+impl<'c> ApplicationContract for MockJournalistApp<'c> {
+    type NetworkApi = <MockApp<'c> as ApplicationContract>::NetworkApi;
+    type Protocol = <MockApp<'c> as ApplicationContract>::Protocol;
+    type Callback = <MockApp<'c> as ApplicationContract>::Callback;
+
+    fn newsroom_verifying_key(&self) -> Option<&VerifyingKey> {
+        self.core().newsroom_verifying_key()
+    }
+
+    fn set_newsroom_verifying_key(&mut self, key: VerifyingKey) {
+        ()
+    }
+
+    fn api(&self) -> &Self::NetworkApi {
+        self.core().api()
+    }
+}
+
+impl Api for MockJournalistApp<'_> {
+    fn request_keys(&self, req: WelcomeBundleRequest) -> Result<WelcomeBundle, NetworkError> {
+        Api::request_keys(self.core(), req)
+    }
+
+    fn fetch_challenges(
+        &self,
+        req: MessageChallengeFetchRequest,
+    ) -> Result<MessageChallengeFetchResponse, NetworkError> {
+        Api::fetch_challenges(self.core(), req)
+    }
+
+    fn fetch_message(&self, req: MessageFetchRequest) -> Result<Option<Envelope>, NetworkError> {
+        Api::fetch_message(self.core(), req)
+    }
+
+    fn submit_message(&self, req: Envelope) -> Result<(), NetworkError> {
+        Api::submit_message(self.core(), req)
+    }
+}
+impl JournalistApi for MockJournalistApp<'_> {
+    fn create_setup_request(
+        &self,
+        setup: securedrop_protocol_minimal::wire::setup::JournalistSetupRequest,
+    ) -> Result<JournalistSetupResponse, anyhow::Error> {
+        self.core().2.borrow_mut().setup_journalist(setup)
+    }
+
+    fn create_ephemeral_key_request(
+        &self,
+        kr: securedrop_protocol_minimal::wire::setup::JournalistEphemeralKeyRequest,
+    ) -> Result<JournalistEphemeralKeyResponse, anyhow::Error> {
+        self.core().2.borrow_mut().handle_ephemeral_key_request(kr)
     }
 }
