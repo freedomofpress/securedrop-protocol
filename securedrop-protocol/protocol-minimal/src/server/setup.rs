@@ -77,7 +77,6 @@ impl JournalistEphemeralKeyRequest {
     /// # Errors
     ///
     /// Returns an error if any bundle signature fails verification.
-    #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
     pub fn verify(&self) -> Result<(), Error> {
         // TODO: more efficient way than verifying each signature!
         for i in 0..self.bundles.len() {
