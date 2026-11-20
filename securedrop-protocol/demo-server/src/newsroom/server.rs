@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
@@ -7,39 +6,15 @@ use axum::{
     Router,
     routing::{get, post},
 };
-use securedrop_protocol_minimal::keys::NewsroomKeyPair;
-use securedrop_protocol_minimal::server::storage::ServerMessageStore;
-use securedrop_protocol_minimal::{
-    Enrollment, FpfOnNewsroom, NewsroomOnJournalist, Signature, SignedKeyBundlePublic,
-};
+use securedrop_demo_server::Server;
 
 use super::handlers::*;
 use super::{load_fpf_sig, load_keypair};
 
-/// An enrolled journalist's long term enrollment together with the newsroom's
-/// signature over their verifying key - together so it can be served to sources.
-#[derive(Clone)]
-pub(crate) struct EnrolledJournalist {
-    pub(crate) enrollment: Enrollment,
-    pub(crate) nr_sig: Signature<NewsroomOnJournalist>,
-}
-
 /// In-memory newsroom state
 ///
 /// Note: demo only, in memory only, nothing yet persisted to disk
-#[derive(Clone)]
-pub(crate) struct AppState {
-    pub(crate) vk_hex: Arc<String>,
-    pub(crate) newsroom_kp: Arc<NewsroomKeyPair>,
-    /// FPF's signature over the newsroom verifying key
-    pub(crate) fpf_sig: Option<Signature<FpfOnNewsroom>>,
-    /// Enrolled journalists, keyed by long term verifying key
-    pub(crate) journalists: Arc<Mutex<HashMap<String, EnrolledJournalist>>>,
-    /// Stored ephemeral key bundles, keyed by journalist verifying key
-    pub(crate) ephemeral_keys: Arc<Mutex<HashMap<String, Vec<SignedKeyBundlePublic>>>>,
-    /// Submitted messages, keyed by server-assigned message ID
-    pub(crate) messages: Arc<Mutex<ServerMessageStore>>,
-}
+pub(crate) type AppState = Arc<Mutex<Server>>;
 
 pub(crate) fn start(port: u16) -> Result<()> {
     let rt = tokio::runtime::Runtime::new().context("starting tokio runtime")?;
@@ -58,14 +33,7 @@ async fn serve(port: u16) -> Result<()> {
         );
     }
 
-    let state = AppState {
-        vk_hex: Arc::new(hex::encode(kp.verifying_key().into_bytes())),
-        newsroom_kp: Arc::new(kp),
-        fpf_sig,
-        journalists: Arc::new(Mutex::new(HashMap::new())),
-        ephemeral_keys: Arc::new(Mutex::new(HashMap::new())),
-        messages: Arc::new(Mutex::new(ServerMessageStore::default())),
-    };
+    let state: AppState = Arc::new(Mutex::new(Server::with_newsroom_keys(kp, fpf_sig)));
 
     let app = Router::new()
         .route("/", get(|| async { "securedrop newsroom (demo)\n" }))
