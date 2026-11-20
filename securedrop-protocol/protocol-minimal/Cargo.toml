@@ -37,10 +37,7 @@ curve25519-dalek = { version = "5.0.0", default-features = false, features = [
 # Everything else:
 anyhow.workspace = true
 rand_core.workspace = true
-hashbrown = { workspace = true, features = ["raw"] }
-# TODO: getrandom/rand should be removed from the protocol-minimal crate's core dependencies, and a randomness
-# source should only be supplied by an architecture-specific consumer crate, but this is blocked by UUID in add_journalist
-uuid = { workspace = true, features = ["v4", "js"] }
+uuid.workspace = true
 bip39 = { workspace = true, features = ["alloc"] }
 hex = { workspace = true, features = ["alloc"] }
 serde = { workspace = true, features = ["derive", "alloc"] }
