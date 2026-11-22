@@ -5,6 +5,10 @@
 #![cfg_attr(not(hax), deny(clippy::disallowed_types, clippy::disallowed_methods))]
 #![cfg_attr(all(not(hax), test), allow(clippy::disallowed_types))]
 #![cfg_attr(all(not(hax), test), allow(clippy::disallowed_methods))]
+// Please don't use `unwrap()` outside tests - either propagate errors, or use `expect()` with a
+// message stating the invariant that we believe cannot be violated.
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 extern crate alloc;
 
 pub mod api;
