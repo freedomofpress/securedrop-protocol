@@ -185,7 +185,7 @@ pub fn compute_fetch_challenges_once(
     let store_entries: Vec<_> = store
         .iter()
         .take(total_responses)
-        .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+        .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope))
         .collect();
 
     compute_fetch_challenges(&mut rng, &store_entries, total_responses)

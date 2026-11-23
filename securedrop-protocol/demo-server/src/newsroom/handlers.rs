@@ -191,10 +191,12 @@ pub(crate) async fn get_challenges(
 ) -> Json<MessageChallengeFetchResponse> {
     let mut rng = rand::rng();
     let store = state.messages.lock().expect("messages mutex poisoned");
+    // Note that a real server would load these from a database rather than a
+    // map in memory
     let entries: Vec<_> = store
         .iter()
         .take(MAX_MESSAGES)
-        .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope.clone()))
+        .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope))
         .collect();
     let messages = compute_fetch_challenges(&mut rng, &entries, MAX_MESSAGES);
 
