@@ -318,7 +318,7 @@ When receiving a signed key bundle for a journalist at time `t`, the server MUST
 
 If these conditions hold, the server stores the signed key bundle for the given epoch $`e`$. Signatures MUST be checked before the bundle epoch to ensure the server never acts on unauthenticated data. Only one journalist bundle for each epoch must be stored; storing multiple without deletion serves no additional benefit on forward secrecy. The server does not need to subtract $`SKEW_{NR}`$ from the acceptable range's lower bound, since a bundle with an expired epoch will never be served. Servers MAY respond to journalists with a summary of which bundles were accepted.
 
-These keys are used by other participants to address messages to the journalist.
+These keys are used by other participants to address messages to the journalist. A journalist MUST retain a short-lived keypair while messages encrypted to the key may still be stored on the server. For a key valid in epoch `e`, this means deletion should occur when the current epoch `Epoch(t)` satisfies `Epoch(t) < e + MESSAGE_EXPIRY_MEAN + MESSAGE_EXPIRY_HALF_WIDTH` (see [config](config)).
 
 For each key bundle $i$:[^11]
 
