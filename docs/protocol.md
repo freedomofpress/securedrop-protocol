@@ -210,6 +210,24 @@ newsrooms, and newsrooms sign journalists.
 The server, the journalist client, and the source client SHOULD be built with
 FPF's verification key $vk_{FPF}^{sig}$ pinned.
 
+##### FPF key rotation
+
+Because the FPF verification key $vk_{FPF}^{sig}$ is pinned in software, it is
+rotated via software releases. Software MAY pin more than one FPF verification
+key, and MUST accept a newsroom signature $\sigma_{FPF}^{NR}$ if it verifies
+under any pinned key. A scheduled rotation proceeds as follows:
+
+1. FPF generates a new keypair and releases software that pins both the old and
+   the new verification keys.
+2. Once that release is deployed, FPF re-executes [step 2] for each
+   newsroom, signing $vk_{NR}^{sig}$ with the new key. Each newsroom replaces
+   $\sigma_{FPF}^{NR}$ in its [welcome bundle].
+3. Once all onboarded newsrooms serve the new signature, FPF releases software that pins
+   only the new verification key and destroys the old signing key.
+
+If $sk_{FPF}^{sig}$ is compromised, FPF MUST NOT wait for newsrooms to be re-signed
+before releasing software without the old verification key.
+
 #### Protocol Step 2: Newsroom signing setup
 
 Each newsroom that operates a SecureDrop instance generates its own signing
@@ -564,6 +582,9 @@ Given:
 | ------------------- | ---------------- |
 | Pinned in client    | $vk_{FPF}^{sig}$ |
 | Published by server | $vk_{NR}^{sig}$  |
+
+If more than one FPF verification key is pinned (see [FPF key rotation]), the
+check against $vk_{FPF}^{sig}$ below passes if it succeeds under any pinned key.
 
 Then at each party's current time `t`:
 
@@ -1019,6 +1040,7 @@ insertion order.
 [decrypted]: #protocol-step-7-receiver-fetches-and-decrypts-messages
 [draft-pki]: ./draft-pki.md
 [fetched]: #protocol-step-5-sender-fetches-keys-and-verifies-their-authenticity
+[fpf key rotation]: #fpf-key-rotation
 [glossary]: #glossary
 [hpke info parameter]: #hpke-info-parameter
 [introduction]: #introduction
@@ -1041,6 +1063,7 @@ insertion order.
 [SD-PKE]: #metadata-encryption-sd-pke
 [sequence diagram]: #sequence-diagram
 [signed key bundle]: #signed-key-bundle
+[step 2]: #protocol-step-2-newsroom-signing-setup
 [step 3.1]: #31-journalist-initial-key-setup
 [step 3.2]: #32-setup-and-periodic-replenishment-of-n-signed-key-bundles
 [step 4]: #protocol-step-4-source-key-setup
