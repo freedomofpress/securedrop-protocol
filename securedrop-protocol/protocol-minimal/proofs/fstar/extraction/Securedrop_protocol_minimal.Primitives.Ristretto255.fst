@@ -65,35 +65,59 @@ let impl_6: Core_models.Clone.t_Clone t_DHPrivateKey =
 let impl_DHPublicKey__LEN: usize = v_DH_PUBLIC_KEY_LEN
 
 /// Decode a group element from its 32 byte encoding, validating that it is a
-/// real ristretto255 element.
+/// canonical ristretto255 element and also not the identity.
 /// This must be used for any untrusted bytes (wire or storage) such that an
 /// invalid element cannot be instantiated.
 let impl_DHPublicKey__decode (bytes: t_Array u8 (mk_usize 32))
     : Core_models.Result.t_Result t_DHPublicKey Anyhow.t_Error =
-  Core_models.Option.impl__ok_or_else #t_DHPublicKey
-    #Anyhow.t_Error
-    #(Prims.unit -> Anyhow.t_Error)
-    (Core_models.Option.impl__map #Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.t_Point
-        #t_DHPublicKey
-        #(Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.t_Point -> t_DHPublicKey)
-        (Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.decode bytes
-          <:
-          Core_models.Option.t_Option
-          Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.t_Point)
-        DHPublicKey
+  match
+    Core_models.Option.impl__ok_or_else #t_DHPublicKey
+      #Anyhow.t_Error
+      #(Prims.unit -> Anyhow.t_Error)
+      (Core_models.Option.impl__map #Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.t_Point
+          #t_DHPublicKey
+          #(Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.t_Point -> t_DHPublicKey)
+          (Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.decode bytes
+            <:
+            Core_models.Option.t_Option
+            Securedrop_protocol_minimal.Primitives.Provider.Ristretto255.t_Point)
+          DHPublicKey
+        <:
+        Core_models.Option.t_Option t_DHPublicKey)
+      (fun temp_0_ ->
+          let _:Prims.unit = temp_0_ in
+          let error:Anyhow.t_Error =
+            Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
+                  (let list = ["invalid ristretto255 point encoding"] in
+                    FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                    Rust_primitives.Hax.array_of_list 1 list)
+                <:
+                Core_models.Fmt.t_Arguments)
+          in
+          Anyhow.__private.must_use error)
+    <:
+    Core_models.Result.t_Result t_DHPublicKey Anyhow.t_Error
+  with
+  | Core_models.Result.Result_Ok element ->
+    if bytes =. (Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) <: t_Array u8 (mk_usize 32))
+    then
+      let error:Anyhow.t_Error =
+        Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
+              (let list = ["ristretto255 identity element"] in
+                FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
+                Rust_primitives.Hax.array_of_list 1 list)
+            <:
+            Core_models.Fmt.t_Arguments)
+      in
+      Core_models.Result.Result_Err (Anyhow.__private.must_use error)
       <:
-      Core_models.Option.t_Option t_DHPublicKey)
-    (fun temp_0_ ->
-        let _:Prims.unit = temp_0_ in
-        let error:Anyhow.t_Error =
-          Anyhow.__private.format_err (Core_models.Fmt.Rt.impl_1__new_const (mk_usize 1)
-                (let list = ["invalid ristretto255 point encoding"] in
-                  FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 1);
-                  Rust_primitives.Hax.array_of_list 1 list)
-              <:
-              Core_models.Fmt.t_Arguments)
-        in
-        Anyhow.__private.must_use error)
+      Core_models.Result.t_Result t_DHPublicKey Anyhow.t_Error
+    else
+      Core_models.Result.Result_Ok element
+      <:
+      Core_models.Result.t_Result t_DHPublicKey Anyhow.t_Error
+  | Core_models.Result.Result_Err err ->
+    Core_models.Result.Result_Err err <: Core_models.Result.t_Result t_DHPublicKey Anyhow.t_Error
 
 /// The canonical 32-byte encoding of this element.
 let impl_DHPublicKey__into_bytes (self: t_DHPublicKey) : t_Array u8 (mk_usize 32) =

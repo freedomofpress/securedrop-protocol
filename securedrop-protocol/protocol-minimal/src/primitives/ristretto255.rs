@@ -33,14 +33,22 @@ impl DHPublicKey {
     pub const LEN: usize = DH_PUBLIC_KEY_LEN;
 
     /// Decode a group element from its 32 byte encoding, validating that it is a
-    /// real ristretto255 element.
+    /// canonical ristretto255 element and also not the identity.
     ///
     /// This must be used for any untrusted bytes (wire or storage) such that an
     /// invalid element cannot be instantiated.
     pub fn decode(bytes: [u8; DH_PUBLIC_KEY_LEN]) -> Result<Self, Error> {
-        provider::ristretto255::decode(&bytes)
+        let element = provider::ristretto255::decode(&bytes)
             .map(Self)
-            .ok_or_else(|| anyhow::anyhow!("invalid ristretto255 point encoding"))
+            .ok_or_else(|| anyhow::anyhow!("invalid ristretto255 point encoding"))?;
+
+        // The identity is all zeros
+        // (see first entry of https://www.rfc-editor.org/info/rfc9496/#appendix-A.1)
+        if bytes == [0u8; DH_PUBLIC_KEY_LEN] {
+            return Err(anyhow::anyhow!("ristretto255 identity element"));
+        }
+
+        Ok(element)
     }
 
     /// The canonical 32-byte encoding of this element.
@@ -167,6 +175,11 @@ mod tests {
             prop_assert_eq!(pk.into_bytes(), pk2.into_bytes());
             prop_assert_eq!(pk.into_bytes(), sk.public_key().into_bytes());
         });
+    }
+
+    #[test]
+    fn test_decode_rejects_identity() {
+        assert!(DHPublicKey::decode([0u8; DH_PUBLIC_KEY_LEN]).is_err());
     }
 
     #[test]
