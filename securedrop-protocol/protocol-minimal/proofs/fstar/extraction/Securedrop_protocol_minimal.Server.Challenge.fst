@@ -6,7 +6,6 @@ open Core_models
 let _ =
   (* This module has implicit dependencies, here we make them explicit. *)
   (* The implicit dependencies arise from typeclasses instances. *)
-  let open Anyhow.Error in
   let open Rand_core in
   ()
 
@@ -17,9 +16,6 @@ val sort_by_id': entries: t_Slice Securedrop_protocol_minimal.Wire.Core.t_FetchR
 unfold
 let sort_by_id = sort_by_id'
 
-#push-options "--admit_smt_queries true"
-
-/// Note this is marked lax temporaily due to the `.expect()` panic freedom requirement
 let make_response
       (#v_R: Type0)
       (#[FStar.Tactics.Typeclasses.tcresolve ()] i0: Rand_core.t_RngCore v_R)
@@ -28,7 +24,11 @@ let make_response
       (message_id: t_Array u8 (mk_usize 16))
       (mgdh mgdh_pubkey: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPublicKey)
       (nr_id: t_Slice u8)
-    : (v_R & Securedrop_protocol_minimal.Wire.Core.t_FetchResponse) =
+    : Prims.Pure (v_R & Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
+      (requires
+        (Core_models.Slice.impl__len #u8 nr_id <: usize) <=.
+        (cast (Core_models.Num.impl_u32__MAX <: u32) <: usize))
+      (fun _ -> Prims.l_True) =
   let (tmp0: v_R), (out: Securedrop_protocol_minimal.Primitives.Ristretto255.t_DHPrivateKey) =
     Securedrop_protocol_minimal.Primitives.Ristretto255.generate_random_scalar #v_R rng
   in
@@ -38,19 +38,10 @@ let make_response
     Securedrop_protocol_minimal.Primitives.Ristretto255.dh_shared_secret mgdh eph_sk
   in
   let key:t_Array u8 (mk_usize 32) =
-    Core_models.Result.impl__unwrap #(t_Array u8 (mk_usize 32))
-      #Anyhow.t_Error
-      (Securedrop_protocol_minimal.Schemes.Challenge.derive_challenge_key shared_secret nr_id
-        <:
-        Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error)
+    Securedrop_protocol_minimal.Schemes.Challenge.derive_challenge_key shared_secret nr_id
   in
   let enc_mid:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Core_models.Result.impl__unwrap #(Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-      #Anyhow.t_Error
-      (Securedrop_protocol_minimal.Schemes.Challenge.encrypt_message_id key
-          (message_id <: t_Slice u8)
-        <:
-        Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error)
+    Securedrop_protocol_minimal.Schemes.Challenge.encrypt_message_id key (message_id <: t_Slice u8)
   in
   let kmid:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
   let kmid:t_Array u8 (mk_usize 32) =
@@ -70,8 +61,6 @@ let make_response
     Securedrop_protocol_minimal.Wire.Core.t_FetchResponse
   in
   rng, hax_temp_output <: (v_R & Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
-
-#pop-options
 
 /// Given a set of ciphertext bundles (C, X, Z) and their associated uuid,
 /// compute a fixed-length set of "challenges" >= the number of SeverMessageStore entries.
@@ -164,7 +153,7 @@ let compute_fetch_challenges
                   entry._1
                   entry._2.Securedrop_protocol_minimal.Wire.Core.f_mgdh
                   entry._2.Securedrop_protocol_minimal.Wire.Core.f_mgdh_pubkey
-                  Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+                  (Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID <: t_Slice u8)
               in
               let rng:v_R = tmp0 in
               rng, out <: (v_R & Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)
@@ -175,7 +164,7 @@ let compute_fetch_challenges
                   (Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 16) <: t_Array u8 (mk_usize 16))
                   decoy_mgdh
                   decoy_mgdh_pubkey
-                  Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+                  (Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID <: t_Slice u8)
               in
               let rng:v_R = tmp0 in
               rng, out <: (v_R & Securedrop_protocol_minimal.Wire.Core.t_FetchResponse)

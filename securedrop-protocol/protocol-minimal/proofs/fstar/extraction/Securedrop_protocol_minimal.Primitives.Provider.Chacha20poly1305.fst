@@ -9,6 +9,7 @@ let v_NONCE_LEN: usize = Libcrux_chacha20poly1305.v_NONCE_LEN
 
 let v_TAG_LEN: usize = Libcrux_chacha20poly1305.v_TAG_LEN
 
+/// ChaCha20-Poly1305 encryption
 assume
 val encrypt':
     key: t_Array u8 (mk_usize 32) ->
@@ -18,14 +19,22 @@ val encrypt':
     nonce: t_Array u8 (mk_usize 12)
   -> Prims.Pure
       (t_Slice u8 & Core_models.Result.t_Result Prims.unit Libcrux_chacha20poly1305.t_AeadError)
-      Prims.l_True
+      (requires
+        (Core_models.Slice.impl__len #u8 plaintext <: usize) <=.
+        (cast (Core_models.Num.impl_u32__MAX <: u32) <: usize) &&
+        (Core_models.Slice.impl__len #u8 aad <: usize) <=.
+        (cast (Core_models.Num.impl_u32__MAX <: u32) <: usize) &&
+        (Core_models.Slice.impl__len #u8 ciphertext <: usize) >=. v_TAG_LEN &&
+        (Core_models.Slice.impl__len #u8 plaintext <: usize) <=.
+        ((Core_models.Slice.impl__len #u8 ciphertext <: usize) -! v_TAG_LEN <: usize))
       (ensures
         fun temp_0_ ->
           let
           (ciphertext_future: t_Slice u8),
-          (e_result: Core_models.Result.t_Result Prims.unit Libcrux_chacha20poly1305.t_AeadError) =
+          (result: Core_models.Result.t_Result Prims.unit Libcrux_chacha20poly1305.t_AeadError) =
             temp_0_
           in
+          Core_models.Result.impl__is_ok #Prims.unit #Libcrux_chacha20poly1305.t_AeadError result &&
           (Core_models.Slice.impl__len #u8 ciphertext_future <: usize) =.
           (Core_models.Slice.impl__len #u8 ciphertext <: usize))
 
