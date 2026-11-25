@@ -689,8 +689,6 @@ Then, for some message $m$, and $\mu = \text{MESSAGE\_EXPIRY\_MEAN}, w = \text{M
 |                                                                                                                                                                      |                                 | $`id \gets^{\$} \{0,1\}^{il}`$ for length $il$ |
 |                                                                                                                                                                      |                                 | $`r \gets^{\$} \{\mu - w, \dots, \mu + w\}`$   |
 |                                                                                                                                                                      |                                 | $`e_{exp} \gets \operatorname{Epoch}(t) + r`$  |
-|                                                                                                                                                                      |                                 | $`r \gets^{\$} \{\mu - w, \dots, \mu + w\}`$   |
-|                                                                                                                                                                      |                                 | $`e_{exp} \gets \operatorname{Epoch}(t) + r`$  |
 |                                                                                                                                                                      |                                 | Store $(id, C_S, X, Z, e_{exp})$ in $database$ |
 
 > [!NOTE]
@@ -885,9 +883,11 @@ The following values are part of the protocol configuration:
 | `SKEW_c`                    | `3600 sec` (1 hour)   | source, journalist         | The length, in seconds, of allowable clock skew between a sender and server when checking bundle validity.                                                                                                                                                                                                                                                                                  |
 | `MAX_MESSAGES`              | `500`                 | server                     | How many potential messages the server sends to each party when they try to fetch messages. This must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata.                                                                                                                                                   |
 | `MESSAGE_EXPIRY_MEAN`       | `37 epochs`           | server                     | The mean epoch offset added to the message submission epoch to obtain the expiry epoch. Deletion occurs after the expiry epoch ends.                                                                                                                                                                                                                                                        |
-| `MESSAGE_EXPIRY_HALF_WIDTH` | `1-5 epochs`          | server                     | A region-specific value ranging from 1 to 5 epochs. Used as the half-width of the uniform distribution around `MESSAGE_EXPIRY_MEAN` for the message's expiration epoch. Must be strictly less than `MESSAGE_EXPIRY_MEAN`. Configuration depends on the regional anonymity set size; it will be larger when anonymity sets are small to prevent traffic correlation with message expiration. |
+| `MESSAGE_EXPIRY_HALF_WIDTH` | `1-5 epochs`          | server, journalist         | A region-specific value ranging from 1 to 5 epochs. Used as the half-width of the uniform distribution around `MESSAGE_EXPIRY_MEAN` for the message's expiration epoch. Must be strictly less than `MESSAGE_EXPIRY_MEAN`. Configuration depends on the regional anonymity set size; it will be larger when anonymity sets are small to prevent traffic correlation with message expiration. |
 
 The value for `SKEW_c` is larger than the server's $`SKEW_{NR}`$ to handle source connections via Tor.
+
+<!-- TODO(#493): Determine configuration guidelines for MESSAGE_EXPIRY_HALF_WIDTH -->
 
 ## Known limitations
 
