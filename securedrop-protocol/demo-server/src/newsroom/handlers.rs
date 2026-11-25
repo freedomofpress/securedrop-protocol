@@ -1,12 +1,10 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use rand::{Rng, RngExt};
 use securedrop_protocol_minimal::Envelope;
-use securedrop_protocol_minimal::challenge::MAX_MESSAGES;
-use securedrop_protocol_minimal::server::challenge::compute_fetch_challenges;
 use securedrop_protocol_minimal::wire::core::{
-    JournalistEphemeralKeys, JournalistLongTermView, MessageChallengeFetchResponse, WelcomeBundle,
+    JournalistEphemeralKeys, MessageChallengeFetchRequest, MessageChallengeFetchResponse,
+    MessageFetchRequest, WelcomeBundle,
 };
 use securedrop_protocol_minimal::wire::setup::{
     JournalistEphemeralKeyRequest, JournalistEphemeralKeyResponse, JournalistSetupRequest,
@@ -15,7 +13,7 @@ use securedrop_protocol_minimal::wire::setup::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use super::server::{AppState, EnrolledJournalist};
+use super::server::AppState;
 
 #[derive(Serialize)]
 pub(crate) struct MessageSubmitResponse {
@@ -31,36 +29,19 @@ pub(crate) async fn post_enroll(
     State(state): State<AppState>,
     Json(req): Json<JournalistSetupRequest>,
 ) -> Result<Json<JournalistSetupResponse>, (StatusCode, String)> {
-    let vk_j = req.enrollment.verification_key;
-    vk_j.verify(
-        &req.enrollment.bundle.bundle_bytes(),
-        &req.enrollment.bundle.selfsig,
-    )
-    .map_err(|_| {
-        (
-            StatusCode::BAD_REQUEST,
-            "journalist self-signature does not verify".to_string(),
-        )
-    })?;
-
-    let sig = state.newsroom_kp.sign(&vk_j.into_bytes());
-
-    // Record the enrollment (with the newsroom signature) so this journalist can
+    // Records the enrollment (with the newsroom signature) so this journalist can
     // later replenish ephemeral keys and be served to sources.
-    let vk_hex = hex::encode(vk_j.into_bytes());
     state
-        .journalists
         .lock()
-        .expect("can get journalist mutex")
-        .insert(
-            vk_hex,
-            EnrolledJournalist {
-                enrollment: req.enrollment,
-                nr_sig: sig,
-            },
-        );
-
-    Ok(Json(JournalistSetupResponse { sig }))
+        .expect("server mutex poisoned")
+        .setup_journalist(req)
+        .map(Json)
+        .map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                "journalist self-signature does not verify".to_string(),
+            )
+        })
 }
 
 /// Ephemeral key replenishment
@@ -68,102 +49,52 @@ pub(crate) async fn post_replenish(
     State(state): State<AppState>,
     Json(req): Json<JournalistEphemeralKeyRequest>,
 ) -> Result<Json<JournalistEphemeralKeyResponse>, (StatusCode, String)> {
-    let vk_j = req.verifying_key;
-    let vk_hex = hex::encode(vk_j.into_bytes());
+    let mut server = state.lock().expect("server mutex poisoned");
 
     // Only enrolled journalists may upload ephemeral keys.
-    if !state
-        .journalists
-        .lock()
-        .expect("can get journalists mutex")
-        .contains_key(&vk_hex)
-    {
+    if !server.is_enrolled(&req.verifying_key) {
         return Err((
             StatusCode::FORBIDDEN,
             "journalist is not enrolled with this newsroom".to_string(),
         ));
     }
 
-    // Verify each bundle's self-signature against the journalist's verifying key.
-    for (bundle, selfsig) in &req.bundles {
-        vk_j.verify(&bundle.as_bytes(), selfsig).map_err(|_| {
-            (
-                StatusCode::BAD_REQUEST,
-                "ephemeral key bundle self-signature does not verify".to_string(),
-            )
-        })?;
-    }
+    // Verifies each bundle's self-signature against the journalist's verifying key.
+    let stored = server.handle_ephemeral_key_request(req).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            "ephemeral key bundle self-signature does not verify".to_string(),
+        )
+    })?;
 
-    let mut store = state
-        .ephemeral_keys
-        .lock()
-        .expect("ephemeral_keys mutex poisoned");
-    let stored = store.entry(vk_hex).or_default();
-    stored.extend(req.bundles);
-
-    Ok(Json(JournalistEphemeralKeyResponse {
-        stored: stored.len(),
-    }))
+    Ok(Json(JournalistEphemeralKeyResponse { stored }))
 }
 
 pub(crate) async fn get_welcome(
     State(state): State<AppState>,
 ) -> Result<Json<WelcomeBundle>, (StatusCode, String)> {
-    let fpf_sig = state.fpf_sig.ok_or((
-        StatusCode::SERVICE_UNAVAILABLE,
-        "newsroom has no FPF signature stored (run `newsroom set-fpf-sig`)".to_string(),
-    ))?;
-
-    let journalists = state
-        .journalists
+    state
         .lock()
-        .expect("journalists mutex poisoned")
-        .values()
-        .map(|enrolled| {
-            let e = &enrolled.enrollment;
-            JournalistLongTermView {
-                vk: e.verification_key,
-                signed_longterm_key_bundle: e.bundle.clone(),
-                nr_signature: enrolled.nr_sig,
-            }
+        .expect("server mutex poisoned")
+        .handle_welcome()
+        .map(Json)
+        .map_err(|_| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "newsroom has no FPF signature stored (run `newsroom set-fpf-sig`)".to_string(),
+            )
         })
-        .collect();
-
-    Ok(Json(WelcomeBundle {
-        newsroom_verifying_key: state.newsroom_kp.verifying_key(),
-        fpf_sig,
-        journalists,
-    }))
 }
 
 pub(crate) async fn get_journalist_ephemeral_keys(
     State(state): State<AppState>,
 ) -> Json<Vec<JournalistEphemeralKeys>> {
-    let journalists = state
-        .journalists
-        .lock()
-        .expect("journalists mutex poisoned");
-    let mut ephemeral_keys = state
-        .ephemeral_keys
-        .lock()
-        .expect("ephemeral_keys mutex poisoned");
-
-    let mut rng = rand::rng();
-    let mut responses = Vec::new();
-    for (vk_hex, enrolled) in journalists.iter() {
-        let Some(bundles) = ephemeral_keys.get_mut(vk_hex).filter(|b| !b.is_empty()) else {
-            continue;
-        };
-        let idx = rng.random_range(0..bundles.len());
-        let bundle = bundles.swap_remove(idx);
-
-        responses.push(JournalistEphemeralKeys {
-            vk: enrolled.enrollment.verification_key,
-            ephemeral: bundle,
-        });
-    }
-
-    Json(responses)
+    Json(
+        state
+            .lock()
+            .expect("server mutex poisoned")
+            .handle_journalist_ephemeral_keys(&mut rand::rng()),
+    )
 }
 
 /// Stores the source's envelope under a freshly generated message ID and returns the ID.
@@ -171,12 +102,10 @@ pub(crate) async fn post_message(
     State(state): State<AppState>,
     Json(envelope): Json<Envelope>,
 ) -> Json<MessageSubmitResponse> {
-    let message_id = Uuid::new_v4();
-    state
-        .messages
+    let message_id = state
         .lock()
-        .expect("can get messages mutex")
-        .insert(message_id, envelope);
+        .expect("server mutex poisoned")
+        .handle_message_submit(envelope, &mut rand::rng());
 
     Json(MessageSubmitResponse {
         message_id: message_id.to_string(),
@@ -189,21 +118,12 @@ pub(crate) async fn post_message(
 pub(crate) async fn get_challenges(
     State(state): State<AppState>,
 ) -> Json<MessageChallengeFetchResponse> {
-    let mut rng = rand::rng();
-    let store = state.messages.lock().expect("messages mutex poisoned");
-    // Note that a real server would load these from a database rather than a
-    // map in memory
-    let entries: Vec<_> = store
-        .iter()
-        .take(MAX_MESSAGES)
-        .map(|(uuid, envelope)| (*uuid.as_bytes(), envelope))
-        .collect();
-    let messages = compute_fetch_challenges(&mut rng, &entries, MAX_MESSAGES);
-
-    Json(MessageChallengeFetchResponse {
-        count: messages.len(),
-        messages,
-    })
+    Json(
+        state
+            .lock()
+            .expect("server mutex poisoned")
+            .handle_request_challenges(MessageChallengeFetchRequest {}, &mut rand::rng()),
+    )
 }
 
 /// Message download: the server returns the stored envelope for a
@@ -216,11 +136,9 @@ pub(crate) async fn get_message(
         .map_err(|_| (StatusCode::BAD_REQUEST, "invalid message ID".to_string()))?;
 
     state
-        .messages
         .lock()
-        .expect("messages mutex poisoned")
-        .get(&message_id)
-        .cloned()
+        .expect("server mutex poisoned")
+        .handle_message_fetch(MessageFetchRequest { message_id })
         .map(Json)
         .ok_or((StatusCode::NOT_FOUND, "no such message".to_string()))
 }

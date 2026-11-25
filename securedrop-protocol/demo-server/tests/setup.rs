@@ -4,6 +4,8 @@
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
+use securedrop_demo_server::Server;
+
 use securedrop_protocol_minimal::api::{Client, JournalistApi};
 use securedrop_protocol_minimal::keys::FPFKeyPair;
 use securedrop_protocol_minimal::sign::{FpfOnNewsroom, Signature};
@@ -13,7 +15,6 @@ use securedrop_protocol_minimal::wire::setup::{
 
 use securedrop_protocol_minimal::DHPublicKey;
 use securedrop_protocol_minimal::VerifyingKey;
-use securedrop_protocol_minimal::server::Server;
 use securedrop_protocol_minimal::{Journalist, Source, UserPublic, UserSecret};
 
 // Toy implementation purposes
@@ -169,9 +170,10 @@ fn protocol_step_3_1_journalist_enrollment() {
     let enrollment_bundle_bytes = enrollment_bundle.bundle.bundle_bytes();
     let self_signature = enrollment_bundle.bundle.selfsig;
 
-    let _ = server_session
-        .find_journalist_id(&enrollment_bundle.verification_key)
-        .expect("Journalist id should be available for enrolled signing key");
+    assert!(
+        server_session.is_enrolled(&enrollment_bundle.verification_key),
+        "Journalist should be enrolled under their signing key"
+    );
     assert!(
         enrollment_bundle
             .verification_key
@@ -225,9 +227,10 @@ fn protocol_step_3_2_journalist_ephemeral_keys() {
     let enrollment_bundle_bytes = enrollment_bundle.bundle.bundle_bytes();
     let self_signature = enrollment_bundle.bundle.selfsig;
 
-    let _ = server_session
-        .find_journalist_id(&enrollment_bundle.verification_key)
-        .expect("Journalist id should be available for enrolled signing key");
+    assert!(
+        server_session.is_enrolled(&enrollment_bundle.verification_key),
+        "Journalist should be enrolled under their signing key"
+    );
     assert!(
         enrollment_bundle
             .verification_key
