@@ -82,7 +82,7 @@ fn make_response<R: RngCore + CryptoRng>(
 
     // 3-party DH yields shared_secret used to encrypt message_id
     let shared_secret = dh_shared_secret(mgdh, &eph_sk);
-    let key = derive_challenge_key(&shared_secret, nr_id).unwrap();
+    let key = derive_challenge_key(&shared_secret, nr_id);
     let enc_mid = encrypt_message_id(&key, message_id).unwrap();
 
     // `copy_from_slice` rather than `try_into()`: Core_models has no

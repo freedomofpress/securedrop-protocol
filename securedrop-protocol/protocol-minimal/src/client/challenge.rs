@@ -17,7 +17,7 @@ pub fn solve_fetch_challenges<S: UserSecret>(
     for chall in challenges.iter() {
         // Compute 3-party DH on the pmgdh
         let maybe_kmid_secret = dh_shared_secret(&chall.pmgdh, recipient.fetch_keypair().0);
-        let challenge_key = derive_challenge_key(&maybe_kmid_secret, NR_ID).unwrap();
+        let challenge_key = derive_challenge_key(&maybe_kmid_secret, NR_ID);
 
         // Try decrypting the encrypted message id
         // Convert to UUID (v4) format and add to message ID list on success

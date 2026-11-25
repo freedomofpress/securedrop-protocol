@@ -13,16 +13,14 @@ use crate::primitives::ristretto255::DHPublicKey;
 pub const MAX_MESSAGES: usize = 10;
 
 /// Fixed, public salt for challenge id encryption.
-const CHALLENGE_SALT: &[u8] = b"securedrop-challenge-v1";
+const CHALLENGE_SALT: &[u8; 23] = b"securedrop-challenge-v1";
 
 /// Derive symmetric key used for ChaCha20-Poly1305 challenge encryption
 ///
 /// This is used in step 7 for encrypting message IDs with a shared secret
 ///
-pub fn derive_challenge_key(
-    shared_secret: &DHPublicKey,
-    newsroom_id: &[u8],
-) -> Result<[u8; KEY_LEN], Error> {
+#[cfg_attr(hax, hax_lib::requires(newsroom_id.len() <= u32::MAX as usize))]
+pub fn derive_challenge_key(shared_secret: &DHPublicKey, newsroom_id: &[u8]) -> [u8; KEY_LEN] {
     use crate::primitives::provider::hkdf;
 
     let mut challenge_key: [u8; KEY_LEN] = [0u8; KEY_LEN];
@@ -33,9 +31,11 @@ pub fn derive_challenge_key(
         &shared_secret.into_bytes(),
         newsroom_id,
     )
-    .map_err(|_| anyhow::anyhow!("HKDF challenge key derivation failed"))?;
+    .expect(
+        "HKDF-SHA256 should not fail as the output is 32 bytes and all inputs are < u32::MAX bytes",
+    );
 
-    Ok(challenge_key)
+    challenge_key
 }
 
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
