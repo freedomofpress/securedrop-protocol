@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use anyhow::Error;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::primitives::provider::{self, chacha20poly1305::KEY_LEN};
+use crate::primitives::provider::{self, chacha20poly1305::KEY_LEN, constants::LEN_MESSAGE_ID};
 
 use crate::primitives::ristretto255::DHPublicKey;
 
@@ -42,15 +42,8 @@ pub fn derive_challenge_key(shared_secret: &DHPublicKey, newsroom_id: &[u8]) -> 
 ///
 /// This is used in step 7 for encrypting message IDs with a shared secret
 ///
-#[cfg_attr(hax, hax_lib::requires(
-    message_id.len() <= u32::MAX as usize
-        && message_id.len()
-            <= usize::MAX
-                - provider::chacha20poly1305::NONCE_LEN
-                - provider::chacha20poly1305::TAG_LEN
-))]
 #[cfg_attr(hax, hax_lib::ensures(|result| result.len() == message_id.len() + provider::chacha20poly1305::TAG_LEN))]
-pub fn encrypt_message_id(key: &[u8; KEY_LEN], message_id: &[u8]) -> Vec<u8> {
+pub fn encrypt_message_id(key: &[u8; KEY_LEN], message_id: &[u8; LEN_MESSAGE_ID]) -> Vec<u8> {
     use provider::chacha20poly1305::{NONCE_LEN, TAG_LEN};
 
     // Use a zero-filled nonce
@@ -62,7 +55,7 @@ pub fn encrypt_message_id(key: &[u8; KEY_LEN], message_id: &[u8]) -> Vec<u8> {
 
     // Encrypt the message ID
     provider::chacha20poly1305::encrypt(key, message_id, &mut ciphertext, &[], &nonce).expect(
-        "encryption should not fail as the message ID is < u32::MAX bytes and the output buffer fits the ciphertext and tag",
+        "encryption should not fail as the message ID is a fixed LEN_MESSAGE_ID bytes and the output buffer fits the ciphertext and tag",
     );
     output.extend_from_slice(&ciphertext);
     output

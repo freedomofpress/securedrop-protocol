@@ -41,7 +41,7 @@ let make_response
     Securedrop_protocol_minimal.Schemes.Challenge.derive_challenge_key shared_secret nr_id
   in
   let enc_mid:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
-    Securedrop_protocol_minimal.Schemes.Challenge.encrypt_message_id key (message_id <: t_Slice u8)
+    Securedrop_protocol_minimal.Schemes.Challenge.encrypt_message_id key message_id
   in
   let kmid:t_Array u8 (mk_usize 32) = Rust_primitives.Hax.repeat (mk_u8 0) (mk_usize 32) in
   let kmid:t_Array u8 (mk_usize 32) =

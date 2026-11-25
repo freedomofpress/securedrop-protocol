@@ -62,24 +62,14 @@ let derive_challenge_key
 
 /// Symmetric encryption for message IDs using ChaCha20-Poly1305
 /// This is used in step 7 for encrypting message IDs with a shared secret
-let encrypt_message_id (key: t_Array u8 (mk_usize 32)) (message_id: t_Slice u8)
+let encrypt_message_id (key: t_Array u8 (mk_usize 32)) (message_id: t_Array u8 (mk_usize 16))
     : Prims.Pure (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
-      (requires
-        (Core_models.Slice.impl__len #u8 message_id <: usize) <=.
-        (cast (Core_models.Num.impl_u32__MAX <: u32) <: usize) &&
-        (Core_models.Slice.impl__len #u8 message_id <: usize) <=.
-        ((Core_models.Num.impl_usize__MAX -!
-            Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_NONCE_LEN
-            <:
-            usize) -!
-          Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_TAG_LEN
-          <:
-          usize))
+      Prims.l_True
       (ensures
         fun result ->
           let result:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global = result in
           (Alloc.Vec.impl_1__len #u8 #Alloc.Alloc.t_Global result <: usize) =.
-          ((Core_models.Slice.impl__len #u8 message_id <: usize) +!
+          ((Core_models.Slice.impl__len #u8 (message_id <: t_Slice u8) <: usize) +!
             Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_TAG_LEN
             <:
             usize)) =
@@ -88,7 +78,7 @@ let encrypt_message_id (key: t_Array u8 (mk_usize 32)) (message_id: t_Slice u8)
   let ciphertext:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
     Alloc.Vec.from_elem #u8
       (mk_u8 0)
-      ((Core_models.Slice.impl__len #u8 message_id <: usize) +!
+      ((Core_models.Slice.impl__len #u8 (message_id <: t_Slice u8) <: usize) +!
         Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.v_TAG_LEN
         <:
         usize)
@@ -97,7 +87,7 @@ let encrypt_message_id (key: t_Array u8 (mk_usize 32)) (message_id: t_Slice u8)
   (tmp0: t_Slice u8),
   (out: Core_models.Result.t_Result Prims.unit Libcrux_chacha20poly1305.t_AeadError) =
     Securedrop_protocol_minimal.Primitives.Provider.Chacha20poly1305.encrypt key
-      message_id
+      (message_id <: t_Slice u8)
       (Alloc.Vec.impl_1__as_slice ciphertext <: t_Slice u8)
       ((let list:Prims.list u8 = [] in
           FStar.Pervasives.assert_norm (Prims.eq2 (List.Tot.length list) 0);
@@ -111,7 +101,7 @@ let encrypt_message_id (key: t_Array u8 (mk_usize 32)) (message_id: t_Slice u8)
     Core_models.Result.impl__expect #Prims.unit
       #Libcrux_chacha20poly1305.t_AeadError
       out
-      "encryption should not fail as the message ID is < u32::MAX bytes and the output buffer fits the ciphertext and tag"
+      "encryption should not fail as the message ID is a fixed LEN_MESSAGE_ID bytes and the output buffer fits the ciphertext and tag"
 
   in
   let output:Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global =
