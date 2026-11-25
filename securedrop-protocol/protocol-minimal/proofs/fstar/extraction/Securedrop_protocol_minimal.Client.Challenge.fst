@@ -6,7 +6,6 @@ open Core_models
 let _ =
   (* This module has implicit dependencies, here we make them explicit. *)
   (* The implicit dependencies arise from typeclasses instances. *)
-  let open Anyhow.Error in
   let open Securedrop_protocol_minimal.Traits in
   ()
 
@@ -52,12 +51,8 @@ let solve_fetch_challenges
                 ._1
           in
           let challenge_key:t_Array u8 (mk_usize 32) =
-            Core_models.Result.impl__unwrap #(t_Array u8 (mk_usize 32))
-              #Anyhow.t_Error
-              (Securedrop_protocol_minimal.Schemes.Challenge.derive_challenge_key maybe_kmid_secret
-                  Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
-                <:
-                Core_models.Result.t_Result (t_Array u8 (mk_usize 32)) Anyhow.t_Error)
+            Securedrop_protocol_minimal.Schemes.Challenge.derive_challenge_key maybe_kmid_secret
+              (Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID <: t_Slice u8)
           in
           match
             Securedrop_protocol_minimal.Schemes.Challenge.decrypt_message_id challenge_key

@@ -163,7 +163,7 @@ let encrypt
             Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
         <:
         t_Slice u8)
-      Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+      (Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID <: t_Slice u8)
       pk_r_fetch
   in
   let rng:v_R = tmp0 in
@@ -396,7 +396,7 @@ let decrypt_with_sender
                     Securedrop_protocol_minimal.Schemes.Message.t_MessagePrivateKey)
                   sender_pk
                   envelope.Securedrop_protocol_minimal.Wire.Core.f_ct_apke
-                  Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID
+                  (Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID <: t_Slice u8)
                   pk_r_fetch
                 <:
                 Core_models.Result.t_Result (Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global) Anyhow.t_Error

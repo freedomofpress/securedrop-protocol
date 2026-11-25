@@ -208,7 +208,14 @@ pub mod chacha20poly1305 {
     // #[cfg_attr(hax, hax_lib::opaque)]
     // pub(crate) use libcrux_chacha20poly1305::{decrypt, encrypt};
 
-    #[cfg_attr(hax, hax_lib::ensures(|_result| future(ciphertext).len() == ciphertext.len()))]
+    /// ChaCha20-Poly1305 encryption
+    #[cfg_attr(hax, hax_lib::requires(
+        plaintext.len() <= u32::MAX as usize
+            && aad.len() <= u32::MAX as usize
+            && ciphertext.len() >= TAG_LEN
+            && plaintext.len() <= ciphertext.len() - TAG_LEN
+    ))]
+    #[cfg_attr(hax, hax_lib::ensures(|result| result.is_ok() && future(ciphertext).len() == ciphertext.len()))]
     #[cfg_attr(hax, hax_lib::opaque)]
     pub fn encrypt(
         key: &[u8; KEY_LEN],
@@ -256,7 +263,13 @@ pub mod hkdf {
 
     /// HKDF-SHA256
     #[cfg_attr(hax, hax_lib::opaque)]
-    #[cfg_attr(hax, hax_lib::ensures(|_| future(okm).len() == okm.len()))]
+    #[cfg_attr(hax, hax_lib::requires(
+        okm.len() <= 255 * 32
+            && salt.len() <= u32::MAX as usize
+            && ikm.len() <= u32::MAX as usize
+            && info.len() <= u32::MAX as usize
+    ))]
+    #[cfg_attr(hax, hax_lib::ensures(|result| result.is_ok() && future(okm).len() == okm.len()))]
     pub(crate) fn sha256(
         okm: &mut [u8],
         salt: &[u8],
