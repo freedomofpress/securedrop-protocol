@@ -15,7 +15,12 @@ let _ =
   let open Securedrop_protocol_minimal.Primitives.Xwing in
   ()
 
-let v_LEN_METADATA_CIPHERTEXT: usize = mk_usize 1232
+let v_LEN_METADATA_CIPHERTEXT: usize =
+  (Securedrop_protocol_minimal.Primitives.Dh_akem.impl_DhAkemPublicKey__LEN +!
+    Securedrop_protocol_minimal.Primitives.Mlkem.impl_MLKEM768PublicKey__LEN
+    <:
+    usize) +!
+  Securedrop_protocol_minimal.Primitives.Provider.Constants.v_LEN_AEAD_TAG
 
 /// The recipient's metadata public key (`pk_R^PKE` in the spec).
 type t_MetadataPublicKey =
@@ -95,6 +100,8 @@ let impl_6 = impl_6'
 
 let impl_7: Core_models.Clone.t_Clone t_MetadataCiphertext =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
+
+let impl_MetadataCiphertext__LEN: usize = v_LEN_METADATA_CIPHERTEXT
 
 /// Total byte length of the ciphertext: encapsulation `c` + AEAD ciphertext `c'`.
 let impl_MetadataCiphertext__len (self: t_MetadataCiphertext) : usize =

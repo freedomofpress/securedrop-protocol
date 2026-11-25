@@ -635,7 +635,7 @@ The PQ `psk` itself provides receiver authentication, but not sender authenticat
 The SD-APKE ciphertext carries a [structured plaintext message][message formats].
 Sources MUST include their long-term fetching and SD-PKE public keys in this plaintext in order to receive replies, since otherwise recipients cannot know all public key material required to reply to them.
 Since recipients always retrieve fresh public keys before responding to a journalist, long-term keys included by journalists inside the structured plaintext message are ignored by recipients during decryption, and journalists MAY therefore include placeholder values, particularly because a journalist does not have a "long-term" SD-PKE key.
-Journalists MUST always produce both the same size SD-APKE ciphertext and same size structured plaintext message as sources.
+Journalists MUST always produce both the same size SD-APKE ciphertext (see [ciphertext](#ciphertext)) and the same size structured plaintext message as sources.
 
 **One-time drop mode extension**: An extension implementation MAY omit the sender's fetching and SD-PKE keys from the plaintext message, offering improved deniability (no possibility for pending ciphertexts) but forgoing the sender's ability to receive replies.
 If this mode is implemented, the structured plaintext message length, or the ciphertext length, MUST NOT be shorter than a plaintext or ciphertext that includes reply keys.
@@ -805,19 +805,26 @@ Len: 64 + 32 + 1184 + 1216 + 4 = 2500 bytes
 
 <!-- FIXME: protocol versioning?; https://github.com/freedomofpress/securedrop-protocol/issues/228 -->
 
-`u32_le(len(content)) || content || 0x00...`
+`u32_be(len(content)) || content || 0x00...`
 
-where `content` is
+where `u32_be(len(content))` is the 4-byte unsigned big-endian length prefix. Allowable values range from 1248 to `PLAINTEXT_LEN - 4`, see below and [Encrypted envelope](#encrypted-envelope-message-payload).
+
+The `content` is structured as
 
 `SENDER_FETCH_PUBKEY_BYTES || SENDER_PKE_PUBKEY_BYTES || structured_message_bytes`
 
-Unpadded len: 32 bytes + 1216 bytes + len(structured_message)
+Content len: 32 bytes + 1216 bytes + len(structured_message)
 
 = structured message size + 1248.
 
-Messages are prefixed with a 4 byte length prefix and zero-padded to a fixed message size before encryption.
+With the value of `ENVELOPE_LEN = 100,000  bytes` from [config](#config) and the equality `PLAINTEXT_LEN = ENVELOPE_LEN - 3552` from [Encrypted envelope](#encrypted-envelope-message-payload), the maximum length of the structured message is `(ENVELOPE_LEN - 3552) - 4 - 1248 = 95,196 bytes`.
 
-<!-- TODO(#229): Specify a padding length -->
+After successful parsing and decryption of the [SD-APKE ciphertext](#ciphertext), the receipient MUST check that the messages are properly length prefixed and zero-padded:
+
+1. Check that the 4-byte length prefix is in the allowed range.
+2. Calculate the padding offset ($`4 + len(content)`$) and check that all subsequent values are zero.
+
+If either step fails, the recipient MUST discard the plaintext.
 
 ##### SD-PKE (metadata) plaintext
 
@@ -833,9 +840,9 @@ Encrypting the SD-APKE (message) plaintext yields a ciphertext and encapsulated 
 
 `CT_APKE` = `MLKEM768_CT_ENCAPS_SHARED_SECRET || DHAKEM_ENCAPS_SHARED_SECRET || CT_SD_APKE`
 
-Len: 1088 + 32 + ((fixed message size) + AEAD_TAG_LEN) = 1120 + (fixed message size + 16)
+Len: 1088 + 32 + ((SD-APKE_PT_LEN) + AEAD_TAG_LEN) = 1120 + (SD-APKE_PT_LEN + 16)
 
-= fixed message size + 1136
+= SD-APKE_PT_LEN + 1136
 
 Encrypting the SD-PKE (metadata) plaintext also yields a ciphertext and encapsulated shared secret ciphertext:
 
@@ -849,9 +856,11 @@ Len: XWING_SHARED_SECRET_ENCAPS_CT_LEN + (DHAKEM_PK_LEN + MLKEM768_PK_LEN + AEAD
 
 `encrypted_envelope` = `X || Z || CT_APKE || CT_PKE` = (ephemeral pk || dh(ephemeral pk, receiver fetch pk) || CT_APKE || CT_PKE)
 
-Len: 32 + 32 + (fixed message size + 1136) + 2352
+Len: 32 + 32 + (SD-APKE_PT_LEN + 1136) + 2352
 
-= fixed message size + 3552
+= SD-APKE_PT_LEN + 3552
+
+The length of the encrypted envelope is fixed to a size of `ENVELOPE_LEN` (see [config](#config)). With that value, `SD-APKE` plaintext size is `ENVELOPE_LEN - 3552`.
 
 #### Message storage on server
 
@@ -883,6 +892,7 @@ The following values are part of the protocol configuration:
 | $`SKEW_{NR}`$   | `300 sec` (5 minutes) | server                     | The length, in seconds, of allowable clock skew between server and journalist when accepting uploaded bundles.                                                                                                                            |
 | `SKEW_c`        | `3600 sec` (1 hour)   | source, journalist         | The length, in seconds, of allowable clock skew between a sender and server when checking bundle validity.                                                                                                                                |
 | `MAX_MESSAGES`  | `500`                 | server                     | How many potential messages the server sends to each party when they try to fetch messages. This must be more than the messages in the database, otherwise we need to develop a mechanism to group messages adding some bits of metadata. |
+| `ENVELOPE_LEN`  | `100,000 bytes`       | source, journalist, server | The fixed size of an encrypted envelope (message payload), holding the metadata and message ciphertext and fetch hints.                                                                                                                   |
 
 The value for `SKEW_c` is larger than the server's $`SKEW_{NR}`$ to handle source connections via Tor.
 

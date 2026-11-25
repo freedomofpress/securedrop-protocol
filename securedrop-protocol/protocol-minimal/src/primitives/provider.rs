@@ -281,12 +281,12 @@ pub mod hkdf {
 }
 
 pub mod hpke_rs {
-
     #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) use hpke_rs::{
-        Hpke, HpkePrivateKey, HpkePublicKey, Mode, hpke_types::AeadAlgorithm::ChaCha20Poly1305,
-        hpke_types::KdfAlgorithm::HkdfSha256, hpke_types::KemAlgorithm::DhKem25519,
-        hpke_types::KemAlgorithm::XWingDraft06, libcrux::HpkeLibcrux,
+        Hpke, HpkePrivateKey, HpkePublicKey, Mode, hpke_types::AeadAlgorithm,
+        hpke_types::AeadAlgorithm::ChaCha20Poly1305, hpke_types::KdfAlgorithm::HkdfSha256,
+        hpke_types::KemAlgorithm::DhKem25519, hpke_types::KemAlgorithm::XWingDraft06,
+        libcrux::HpkeLibcrux,
     };
 }
 
@@ -295,10 +295,12 @@ pub mod constants {
     // Message ID (uuid) and KMID
     #[cfg_attr(hax, hax_lib::opaque)]
     pub(crate) const LEN_MESSAGE_ID: usize = 16;
+    // Encryption uses ChaCha20-Poly1305 as its AEAD algorithm
+    #[cfg_attr(hax, hax_lib::opaque)]
+    pub(crate) const LEN_AEAD_TAG: usize = crate::primitives::provider::chacha20poly1305::TAG_LEN;
     // Encryption uses fixed nonce (not transported over the wire)
     #[cfg_attr(hax, hax_lib::opaque)]
-    pub(crate) const LEN_KMID: usize =
-        crate::primitives::provider::chacha20poly1305::TAG_LEN + LEN_MESSAGE_ID;
+    pub(crate) const LEN_KMID: usize = LEN_AEAD_TAG + LEN_MESSAGE_ID;
 }
 
 // A panic on use Rng used for decryption contexts

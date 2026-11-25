@@ -1,3 +1,4 @@
+use crate::Envelope;
 use crate::metadata::MetadataPublicKey;
 use crate::primitives::ristretto255::DHPublicKey;
 use alloc::vec::Vec;
@@ -15,7 +16,7 @@ pub struct Plaintext {
 }
 
 impl Plaintext {
-    pub const KEY_HEADER_LEN: usize = DHPublicKey::LEN + MetadataPublicKey::LEN;
+    const KEY_HEADER_LEN: usize = DHPublicKey::LEN + MetadataPublicKey::LEN;
 
     fn to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::new();
@@ -60,62 +61,60 @@ impl Plaintext {
 }
 
 /// Padded plaintext structure to retrieve encryptable bytes for a Plaintext.
-pub struct PaddedPlaintext(Plaintext);
+pub struct PaddedPlaintext(Vec<u8>);
 
 impl PaddedPlaintext {
     /// Length of a padded plaintext message.
-    /// TODO(#229): Choose a size based on real requirements
-    pub const LEN: usize = 100000;
+    pub const LEN: usize = Envelope::LEN - Envelope::OVERHEAD;
 
     const PREFIX_LEN: usize = 4;
     const MAX_CONTENT_LEN: usize = Self::LEN - Self::PREFIX_LEN;
 
+    /// Returns a padded plaintext [u32_le(len) || value || 00...]
     /// Returns an error if the value is too large to fit in the padded length.
-    pub fn new(plaintext: Plaintext) -> Result<Self, Error> {
+    pub fn pad(plaintext: Plaintext) -> Result<Self, Error> {
         if plaintext.len() > Self::MAX_CONTENT_LEN {
             return Err(anyhow::anyhow!("Plaintext too long for padding"));
         }
-        Ok(Self(plaintext))
-    }
-
-    /// Returns a padded plaintext [u32_le(len) || value || 00...]
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let content = self.0.to_bytes();
-        // Ensure that the length of the content matches Plaintext::len()
-        debug_assert_eq!(content.len(), self.0.len());
+        let content = plaintext.to_bytes();
 
         let mut out = Vec::with_capacity(Self::LEN);
-        out.extend_from_slice(&(content.len() as u32).to_le_bytes());
+        out.extend_from_slice(&(content.len() as u32).to_be_bytes());
         out.extend_from_slice(&content);
         out.resize(Self::LEN, 0);
-        out
+        Ok(Self(out))
+    }
+
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.0
     }
 
     /// Create a PaddedPlaintext from bytes. Returns an error if the length is not equal to the expected padded length.
-    pub fn from_bytes(bytes: Vec<u8>) -> Result<PaddedPlaintext, Error> {
+    pub(crate) fn from_bytes(bytes: Vec<u8>) -> Result<Self, Error> {
         if bytes.len() != Self::LEN {
             return Err(anyhow::anyhow!("Invalid padded length"));
         }
+        Ok(Self(bytes))
+    }
+
+    /// Returns a well-formed Plaintext or error if the length prefix is invalid or any padding bits are non-zero.
+    pub fn unpad(self) -> Result<Plaintext, Error> {
+        // All constructors guarantee a PaddedPlaintext has length LEN
         // Read the first 4 bytes as the length of the content.
-        let len_bytes: [u8; 4] = bytes[0..4].try_into().unwrap();
-        let len = u32::from_le_bytes(len_bytes) as usize;
+        let (len_bytes, payload) = self.0.split_at_checked(Self::PREFIX_LEN).unwrap();
+        let len = u32::from_be_bytes(len_bytes.try_into().unwrap()) as usize;
         if len > Self::MAX_CONTENT_LEN {
             return Err(anyhow::anyhow!("Content too large to unpad"));
         }
 
         // Check that the padding is all zeros after the content.
-        for &byte in &bytes[4 + len..] {
+        let (content, padding) = payload.split_at_checked(len).unwrap();
+        for &byte in padding {
             if byte != 0 {
                 return Err(anyhow::anyhow!("Invalid zero padding"));
             }
         }
-
-        let plaintext = Plaintext::from_bytes(&bytes[4..4 + len])?;
-        PaddedPlaintext::new(plaintext)
-    }
-
-    pub fn into_inner(self) -> Plaintext {
-        self.0
+        Plaintext::from_bytes(content)
     }
 }
 
@@ -190,15 +189,15 @@ mod tests {
             msg in prop::collection::vec(any::<u8>(), 0..=(PaddedPlaintext::MAX_CONTENT_LEN - Plaintext::KEY_HEADER_LEN))
         ) {
         let plaintext = make_plaintext(&msg);
-        let padded = PaddedPlaintext::new(plaintext.clone()).unwrap();
-        let bytes = padded.to_bytes();
+        let padded = PaddedPlaintext::pad(plaintext.clone()).unwrap();
+        let bytes = padded.as_bytes();
         prop_assert_eq!(bytes.len(), PaddedPlaintext::LEN);
         prop_assert_eq!(
-            u32::from_le_bytes(bytes[..4].try_into().unwrap()) as usize,
+            u32::from_be_bytes(bytes[..4].try_into().unwrap()) as usize,
             plaintext.len()
         );
 
-        let restored = PaddedPlaintext::from_bytes(bytes).unwrap().into_inner();
+        let restored = PaddedPlaintext::from_bytes(bytes.to_vec()).unwrap().unpad().unwrap();
         prop_assert_eq!(restored.msg, msg);
         prop_assert_eq!(
             restored.sender_fetch_key.into_bytes(),
@@ -216,21 +215,24 @@ mod tests {
         let message = "\0\0\0\0\0\0\0\0\0\0".as_bytes().to_vec();
 
         let plaintext = make_plaintext(&message);
-        let padded = PaddedPlaintext::new(plaintext).unwrap();
-        let bytes = padded.to_bytes();
-        let restored = PaddedPlaintext::from_bytes(bytes).unwrap();
-        assert_eq!(restored.into_inner().msg, message);
+        let padded = PaddedPlaintext::pad(plaintext).unwrap();
+        let bytes = padded.as_bytes();
+        let restored = PaddedPlaintext::from_bytes(bytes.to_vec()).unwrap();
+        assert_eq!(restored.unpad().unwrap().msg, message);
     }
 
     #[test]
     fn test_padded_is_fixed_length() {
         for message in [b"".as_slice(), b"\x00\xffbinary message".as_slice()] {
             let plaintext = make_plaintext(message);
-            let padded = PaddedPlaintext::new(plaintext).unwrap();
-            let bytes = padded.to_bytes();
+            let padded = PaddedPlaintext::pad(plaintext).unwrap();
+            let bytes = padded.as_bytes();
 
             assert_eq!(bytes.len(), PaddedPlaintext::LEN);
-            let restored = PaddedPlaintext::from_bytes(bytes).unwrap().into_inner();
+            let restored = PaddedPlaintext::from_bytes(bytes.to_vec())
+                .unwrap()
+                .unpad()
+                .unwrap();
             assert_eq!(restored.msg, message);
         }
     }
@@ -244,51 +246,55 @@ mod tests {
     fn test_roundtrip_empty_message() {
         let message = b"".to_vec();
         let plaintext = make_plaintext(&message);
-        let padded = PaddedPlaintext::new(plaintext).unwrap();
-        let bytes = padded.to_bytes();
-        let restored = PaddedPlaintext::from_bytes(bytes).unwrap();
-        assert_eq!(restored.into_inner().msg, message);
+        let padded = PaddedPlaintext::pad(plaintext).unwrap();
+        let bytes = padded.as_bytes();
+        let restored = PaddedPlaintext::from_bytes(bytes.to_vec()).unwrap();
+        assert_eq!(restored.unpad().unwrap().msg, message);
     }
 
     #[test]
     fn test_new_rejects_large_message() {
         let max = PaddedPlaintext::LEN - DHPublicKey::LEN - MetadataPublicKey::LEN - 4;
 
-        assert!(PaddedPlaintext::new(make_plaintext(&vec![0u8; max])).is_ok());
-        assert!(PaddedPlaintext::new(make_plaintext(&vec![0u8; max + 1])).is_err());
+        assert!(PaddedPlaintext::pad(make_plaintext(&vec![0u8; max])).is_ok());
+        assert!(PaddedPlaintext::pad(make_plaintext(&vec![0u8; max + 1])).is_err());
     }
 
     #[test]
     fn test_unpad_length_too_large() {
-        let padded = PaddedPlaintext::new(make_plaintext(b"hello")).unwrap();
-        let mut bytes = padded.to_bytes();
+        let padded = PaddedPlaintext::pad(make_plaintext(b"hello")).unwrap();
+        let mut bytes = padded.as_bytes().to_vec();
 
         // Corrupt the length prefix to be too large
         let too_large_len = (PaddedPlaintext::LEN - 4 + 1) as u32;
         bytes[0..4].copy_from_slice(&too_large_len.to_le_bytes());
 
-        assert!(PaddedPlaintext::from_bytes(bytes.to_vec()).is_err());
+        let from_bytes = PaddedPlaintext::from_bytes(bytes.to_vec()).unwrap();
+
+        assert!(from_bytes.unpad().is_err());
     }
 
     #[test]
     fn test_unpad_rejects_nonzero_padding() {
-        let padded = PaddedPlaintext::new(make_plaintext(b"hello")).unwrap();
-        let mut bytes = padded.to_bytes();
+        let padded = PaddedPlaintext::pad(make_plaintext(b"hello")).unwrap();
+        let mut bytes = padded.as_bytes().to_vec();
 
         // Corrupt the last padding byte
         *bytes.last_mut().unwrap() = 0x01;
+        let from_bytes = PaddedPlaintext::from_bytes(bytes.to_vec()).unwrap();
 
-        assert!(PaddedPlaintext::from_bytes(bytes).is_err());
+        assert!(from_bytes.unpad().is_err());
     }
 
     #[test]
     fn test_unpad_rejects_truncated_plaintext() {
-        let padded = PaddedPlaintext::new(make_plaintext(b"hello")).unwrap();
-        let mut bytes = padded.to_bytes();
+        let padded = PaddedPlaintext::pad(make_plaintext(b"hello")).unwrap();
+        let mut bytes = padded.as_bytes().to_vec();
 
         // Set prefix to 2 so that the content is only two bytes
         bytes[0..4].copy_from_slice(&(2u32).to_le_bytes());
+        let from_bytes = PaddedPlaintext::from_bytes(bytes.to_vec()).unwrap();
 
-        assert!(PaddedPlaintext::from_bytes(bytes).is_err());
+        assert!(from_bytes.unpad().is_err());
     }
 }

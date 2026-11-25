@@ -202,7 +202,7 @@ where
         P: UserPublic,
     {
         let plaintext = sender.build_message(message.to_vec());
-        let padded = PaddedPlaintext::new(plaintext)?;
+        let padded = PaddedPlaintext::pad(plaintext)?;
         encrypt(rng, sender, &padded, recipient).map_err(anyhow::Error::from)
     }
 

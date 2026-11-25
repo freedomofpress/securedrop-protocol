@@ -15,16 +15,21 @@
 //!     return m
 //! ```
 
+use crate::primitives::dh_akem::DhAkemPublicKey;
+use crate::primitives::mlkem::MLKEM768PublicKey;
 use crate::primitives::provider::NoRng;
+use crate::primitives::provider::constants;
+use crate::primitives::provider::hpke_rs;
 use crate::{
     message::MessagePublicKey,
     primitives::provider::hpke_rs::{
         ChaCha20Poly1305, HkdfSha256, Hpke, HpkeLibcrux, Mode, XWingDraft06,
     },
 };
+use ::hpke_rs::hpke_types::AeadAlgorithm;
+use ::hpke_rs::libcrux::HpkeLibcruxPrng;
 use alloc::string::String;
 use alloc::vec::Vec;
-use hpke_rs::libcrux::HpkeLibcruxPrng;
 use rand_core::{CryptoRng, RngCore};
 use serde::de::Error as _;
 
@@ -34,7 +39,8 @@ use crate::primitives::xwing::{
 
 // TODO: maybe needs a better location
 // DHAKEM_PKLEN + MLKEM768PK_LEN + AEAD_TAG_LEN = 32 + 1184 + 16
-pub(crate) const LEN_METADATA_CIPHERTEXT: usize = 1232;
+pub(crate) const LEN_METADATA_CIPHERTEXT: usize =
+    DhAkemPublicKey::LEN + MLKEM768PublicKey::LEN + constants::LEN_AEAD_TAG;
 
 /// The recipient's metadata public key (`pk_R^PKE` in the spec).
 #[derive(Debug, Clone)]
@@ -93,6 +99,9 @@ pub struct MetadataCiphertext {
 }
 
 impl MetadataCiphertext {
+    // Fixed length of a metadata ciphertext
+    pub const LEN: usize = LEN_METADATA_CIPHERTEXT;
+
     /// Total byte length of the ciphertext: encapsulation `c` + AEAD ciphertext `c'`.
     pub fn len(&self) -> usize {
         self.c.len() + self.cp.len()

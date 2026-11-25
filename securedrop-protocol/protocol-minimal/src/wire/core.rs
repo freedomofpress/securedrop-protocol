@@ -130,13 +130,14 @@ pub struct Envelope {
 }
 
 impl Envelope {
-    // Used for benchmarks - see wasm_bindgen
-    // Marked as lax to handle the variable size of cp in MessageCiphertext
-    // TODO(#229): This should be removed when cp has a fixed size
-    #[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
-    pub fn size_hint(&self) -> usize {
-        self.ct_apke.len() + self.ct_pke.len()
-    }
+    /// Fixed size for a message submission. `ENVELOPE_LEN` in protocol.md
+    pub const LEN: usize = 100_000;
+
+    /// Overhead of all the fixed size components of the envelope
+    /// (CT_APKE (minus the AEAD ciphertext body) || CT_PKE, X, Z)
+    pub(crate) const OVERHEAD: usize = MessageCiphertext::OVERHEAD  // CT_APKE c1 + c2 + cp tag
+        + MetadataCiphertext::LEN  // CT_PKE
+        + 2 * DHPublicKey::LEN; // X, Z
 
     pub fn cmessage_len(&self) -> usize {
         self.ct_apke.len()
@@ -154,6 +155,7 @@ mod tests {
     use crate::metadata::LEN_METADATA_CIPHERTEXT;
     use crate::primitives::dh_akem::DH_AKEM_ENCAPS_SECRET_LEN;
     use crate::primitives::mlkem::LEN_MLKEM_SHAREDSECRET_ENCAPS;
+    use crate::primitives::provider::constants::LEN_AEAD_TAG;
     use crate::primitives::ristretto255::random_dh_public_key;
     use crate::primitives::xwing::LEN_XWING_SHAREDSECRET_ENCAPS;
     use proptest::prelude::*;
@@ -172,7 +174,7 @@ mod tests {
         #[test]
         fn test_envelope_serde_roundtrip(
             c1 in prop::collection::vec(any::<u8>(), DH_AKEM_ENCAPS_SECRET_LEN),
-            cp_a in prop::collection::vec(any::<u8>(), 0..128),
+            cp_a in prop::collection::vec(any::<u8>(), LEN_AEAD_TAG..128),
             c2 in prop::collection::vec(any::<u8>(), LEN_MLKEM_SHAREDSECRET_ENCAPS),
             c in prop::collection::vec(any::<u8>(), LEN_XWING_SHAREDSECRET_ENCAPS),
             cp_b in prop::collection::vec(any::<u8>(), LEN_METADATA_CIPHERTEXT)

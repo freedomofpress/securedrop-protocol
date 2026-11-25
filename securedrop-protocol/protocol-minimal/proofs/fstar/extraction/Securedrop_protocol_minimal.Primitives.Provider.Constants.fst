@@ -10,6 +10,12 @@ unfold
 let v_LEN_MESSAGE_ID = v_LEN_MESSAGE_ID'
 
 assume
+val v_LEN_AEAD_TAG': usize
+
+unfold
+let v_LEN_AEAD_TAG = v_LEN_AEAD_TAG'
+
+assume
 val v_LEN_KMID': usize
 
 unfold

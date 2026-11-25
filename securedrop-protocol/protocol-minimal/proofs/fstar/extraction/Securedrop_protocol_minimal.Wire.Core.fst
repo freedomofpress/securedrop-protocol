@@ -92,16 +92,20 @@ let impl_4 = impl_4'
 let impl_5: Core_models.Clone.t_Clone t_Envelope =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
+/// Fixed size for a message submission. `ENVELOPE_LEN` in protocol.md
+let impl_Envelope__LEN: usize = mk_usize 100000
+
+/// Overhead of all the fixed size components of the envelope
+/// (CT_APKE (minus the AEAD ciphertext body) || CT_PKE, X, Z)
+let impl_Envelope__OVERHEAD: usize =
+  (Securedrop_protocol_minimal.Schemes.Message.impl_MessageCiphertext__OVERHEAD +!
+    Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataCiphertext__LEN
+    <:
+    usize) +!
+  (mk_usize 2 *! Securedrop_protocol_minimal.Primitives.Ristretto255.impl_DHPublicKey__LEN <: usize)
+
 let impl_Envelope__cmessage_len (self: t_Envelope) : usize =
   Securedrop_protocol_minimal.Schemes.Message.impl_MessageCiphertext__len self.f_ct_apke
 
 let impl_Envelope__cmetadata_len (self: t_Envelope) : usize =
   Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataCiphertext__len self.f_ct_pke
-
-#push-options "--admit_smt_queries true"
-
-let impl_Envelope__size_hint (self: t_Envelope) : usize =
-  (Securedrop_protocol_minimal.Schemes.Message.impl_MessageCiphertext__len self.f_ct_apke <: usize) +!
-  (Securedrop_protocol_minimal.Schemes.Metadata.impl_MetadataCiphertext__len self.f_ct_pke <: usize)
-
-#pop-options

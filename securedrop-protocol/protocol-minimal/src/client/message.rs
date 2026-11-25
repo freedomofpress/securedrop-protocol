@@ -95,7 +95,7 @@ where
         rng,
         keypair_s,
         pk_r,
-        &plaintext.to_bytes(),
+        &plaintext.as_bytes(),
         NR_ID,
         pk_r_fetch,
     )
@@ -164,10 +164,11 @@ pub fn decrypt_with_sender<U: UserSecret + ?Sized>(
     )
     .map_err(|_| DecryptError::AuthDecFailed)?;
 
-    let plaintext =
-        PaddedPlaintext::from_bytes(pt).map_err(|_| DecryptError::MalformedPlaintext)?;
+    let plaintext = PaddedPlaintext::from_bytes(pt)
+        .and_then(|padded| padded.unpad())
+        .map_err(|_| DecryptError::MalformedPlaintext)?;
 
-    Ok((plaintext.into_inner(), sender_pk))
+    Ok((plaintext, sender_pk))
 }
 
 /// Build plaintext message, including pubkeys (for replies).
@@ -210,7 +211,7 @@ mod tests {
         msg: Vec<u8>,
     ) {
         let pt = build_message(sender_public, msg);
-        let padded = PaddedPlaintext::new(pt.clone()).unwrap();
+        let padded = PaddedPlaintext::pad(pt.clone()).unwrap();
 
         let envelope = encrypt(rng, sender_secret, &padded, rcvr_public).unwrap();
         let decrypted = decrypt(rcvr_secret, &envelope).unwrap();
@@ -277,7 +278,7 @@ mod tests {
         let journalist_public = journalist.public(0);
 
         let submission = build_message(&source.public(), b"howdy".to_vec());
-        let padded = PaddedPlaintext::new(submission).unwrap();
+        let padded = PaddedPlaintext::pad(submission).unwrap();
         let envelope = encrypt(&mut rng, &source, &padded, &journalist_public).unwrap();
 
         // Journalist decrypts and recovers the source's reply keys.
@@ -291,7 +292,7 @@ mod tests {
         // Journalist encrypts a reply back to the source.
         let reply_text = b"thanks dawg".to_vec();
         let reply_pt = journalist.build_message(reply_text.clone());
-        let reply_padded = PaddedPlaintext::new(reply_pt).unwrap();
+        let reply_padded = PaddedPlaintext::pad(reply_pt).unwrap();
         let reply_envelope =
             encrypt(&mut rng, &journalist, &reply_padded, &reply_recipient).unwrap();
 
@@ -332,7 +333,7 @@ mod tests {
         let envelope = encrypt(
             &mut rng,
             &source,
-            &PaddedPlaintext::new(submission).unwrap(),
+            &PaddedPlaintext::pad(submission).unwrap(),
             &journalist_public,
         )
         .unwrap();
@@ -358,7 +359,7 @@ mod tests {
         let mut envelope = encrypt(
             &mut rng,
             &source,
-            &PaddedPlaintext::new(submission).unwrap(),
+            &PaddedPlaintext::pad(submission).unwrap(),
             &journalist_public,
         )
         .unwrap();
@@ -390,7 +391,7 @@ mod tests {
             sender_reply_pubkey_hybrid: zero_pk,
             msg: b"zero key msg".to_vec(),
         };
-        let padded = PaddedPlaintext::new(submission).unwrap();
+        let padded = PaddedPlaintext::pad(submission).unwrap();
         let envelope = encrypt(&mut rng, &source, &padded, &journalist_public).unwrap();
 
         // Journalist decrypts and recovers the source's reply keys.
@@ -404,7 +405,7 @@ mod tests {
         // Journalist encrypts a reply back to the source.
         let reply_text = b"thanks dawg".to_vec();
         let reply_pt = journalist.build_message(reply_text.clone());
-        let padded = PaddedPlaintext::new(reply_pt).unwrap();
+        let padded = PaddedPlaintext::pad(reply_pt).unwrap();
         assert_eq!(
             encrypt(&mut rng, &journalist, &padded, &reply_recipient).unwrap_err(),
             EncryptError::MetadataEncFailed

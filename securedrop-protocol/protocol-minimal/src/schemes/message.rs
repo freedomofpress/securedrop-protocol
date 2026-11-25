@@ -21,6 +21,7 @@
 //! ```
 
 use crate::primitives::provider::NoRng;
+use crate::primitives::provider::constants::LEN_AEAD_TAG;
 use crate::primitives::provider::hpke_rs::{
     ChaCha20Poly1305, DhKem25519, HkdfSha256, Hpke, HpkeLibcrux, HpkePrivateKey, HpkePublicKey,
     Mode,
@@ -161,7 +162,12 @@ pub struct MessageCiphertext {
 }
 
 impl MessageCiphertext {
+    // Fixed size overhead from the key material and AEAD tag length
+    pub const OVERHEAD: usize =
+        LEN_MLKEM_SHAREDSECRET_ENCAPS + DH_AKEM_ENCAPS_SECRET_LEN + LEN_AEAD_TAG;
+
     /// Total byte length: `c2 + c1 + cp`.
+    /// `cp` includes the AEAD tag length.
     pub fn len(&self) -> usize {
         self.c2.len() + self.c1.len() + self.cp.len()
     }
@@ -181,11 +187,10 @@ impl MessageCiphertext {
     ///
     /// Returns an error if the byte slice is shorter than the fixed-length prefix.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        const FIXED: usize = LEN_MLKEM_SHAREDSECRET_ENCAPS + DH_AKEM_ENCAPS_SECRET_LEN;
-        if bytes.len() < FIXED {
+        if bytes.len() < Self::OVERHEAD {
             return Err(anyhow::anyhow!(
                 "MessageCiphertext too short: expected at least {}, got {}",
-                FIXED,
+                Self::OVERHEAD,
                 bytes.len()
             ));
         }
@@ -402,7 +407,7 @@ mod tests {
         #[test]
         fn test_message_ciphertext_byte_roundtrip(
             c1 in prop::collection::vec(any::<u8>(), DH_AKEM_ENCAPS_SECRET_LEN),
-            cp in prop::collection::vec(any::<u8>(), 0..128),
+            cp in prop::collection::vec(any::<u8>(), LEN_AEAD_TAG..128),
             c2 in prop::collection::vec(any::<u8>(), LEN_MLKEM_SHAREDSECRET_ENCAPS),
         ) {
             let ct = message_ct(c1, cp, c2);

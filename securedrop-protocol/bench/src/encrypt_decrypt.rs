@@ -136,7 +136,7 @@ pub fn encrypt_once(
 
     // build plaintext object
     let plaintext = sender.inner.build_message(msg.to_vec());
-    let padded = PaddedPlaintext::new(plaintext).unwrap();
+    let padded = PaddedPlaintext::pad(plaintext).unwrap();
 
     let env = bench_encrypt(
         seed,

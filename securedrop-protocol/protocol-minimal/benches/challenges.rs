@@ -23,7 +23,7 @@ fn build_store(n: usize) -> Vec<([u8; 16], Envelope)> {
     let mut store = Vec::with_capacity(n);
     for j in 0..n {
         let pt = source.build_message(format!("benchmark message {j}").into_bytes());
-        let padded = PaddedPlaintext::new(pt).expect("Plaintext too long for padding");
+        let padded = PaddedPlaintext::pad(pt).expect("Plaintext too long for padding");
         let env = encrypt(
             &mut rng,
             &source,

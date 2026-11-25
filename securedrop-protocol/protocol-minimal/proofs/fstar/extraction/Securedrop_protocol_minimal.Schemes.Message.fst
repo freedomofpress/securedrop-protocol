@@ -208,7 +208,15 @@ let impl_7 = impl_7'
 let impl_8: Core_models.Clone.t_Clone t_MessageCiphertext =
   { f_clone = (fun x -> x); f_clone_pre = (fun _ -> True); f_clone_post = (fun _ _ -> True) }
 
+let impl_MessageCiphertext__OVERHEAD: usize =
+  (Securedrop_protocol_minimal.Primitives.Mlkem.v_LEN_MLKEM_SHAREDSECRET_ENCAPS +!
+    Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_ENCAPS_SECRET_LEN
+    <:
+    usize) +!
+  Securedrop_protocol_minimal.Primitives.Provider.Constants.v_LEN_AEAD_TAG
+
 /// Total byte length: `c2 + c1 + cp`.
+/// `cp` includes the AEAD tag length.
 let impl_MessageCiphertext__len (self: t_MessageCiphertext) : usize =
   ((Core_models.Slice.impl__len #u8 (self.f_c2 <: t_Slice u8) <: usize) +!
     (Core_models.Slice.impl__len #u8 (self.f_c1 <: t_Slice u8) <: usize)
@@ -236,21 +244,15 @@ let impl_MessageCiphertext__as_bytes (self: t_MessageCiphertext)
   in
   out
 
-let impl_MessageCiphertext__from_bytes__v_FIXED: usize =
-  Securedrop_protocol_minimal.Primitives.Mlkem.v_LEN_MLKEM_SHAREDSECRET_ENCAPS +!
-  Securedrop_protocol_minimal.Primitives.Dh_akem.v_DH_AKEM_ENCAPS_SECRET_LEN
-
 /// Deserialize from the `c2 || c1 || cp` wire encoding
 /// # Errors
 /// Returns an error if the byte slice is shorter than the fixed-length prefix.
 let impl_MessageCiphertext__from_bytes (bytes: t_Slice u8)
     : Core_models.Result.t_Result t_MessageCiphertext Anyhow.t_Error =
-  if (Core_models.Slice.impl__len #u8 bytes <: usize) <. impl_MessageCiphertext__from_bytes__v_FIXED
+  if (Core_models.Slice.impl__len #u8 bytes <: usize) <. impl_MessageCiphertext__OVERHEAD
   then
     let args:(usize & usize) =
-      impl_MessageCiphertext__from_bytes__v_FIXED, Core_models.Slice.impl__len #u8 bytes
-      <:
-      (usize & usize)
+      impl_MessageCiphertext__OVERHEAD, Core_models.Slice.impl__len #u8 bytes <: (usize & usize)
     in
     let args:t_Array Core_models.Fmt.Rt.t_Argument (mk_usize 2) =
       let list =

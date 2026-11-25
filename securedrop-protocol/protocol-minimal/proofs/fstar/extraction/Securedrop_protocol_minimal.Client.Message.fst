@@ -157,10 +157,7 @@ let encrypt
       rng
       keypair_s
       pk_r
-      (Alloc.Vec.impl_1__as_slice (Securedrop_protocol_minimal.Client.Plaintext.impl_PaddedPlaintext__to_bytes
-              plaintext
-            <:
-            Alloc.Vec.t_Vec u8 Alloc.Alloc.t_Global)
+      (Securedrop_protocol_minimal.Client.Plaintext.impl_PaddedPlaintext__as_bytes plaintext
         <:
         t_Slice u8)
       (Securedrop_protocol_minimal.Keys.Newsroom.v_NR_ID <: t_Slice u8)
@@ -409,26 +406,46 @@ let decrypt_with_sender
           with
           | Core_models.Result.Result_Ok pt ->
             (match
-                Core_models.Result.impl__map_err #Securedrop_protocol_minimal.Client.Plaintext.t_PaddedPlaintext
+                Core_models.Result.impl__map_err #Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
                   #Anyhow.t_Error
                   #t_DecryptError
                   #(Anyhow.t_Error -> t_DecryptError)
-                  (Securedrop_protocol_minimal.Client.Plaintext.impl_PaddedPlaintext__from_bytes pt
+                  (Core_models.Result.impl__and_then #Securedrop_protocol_minimal.Client.Plaintext.t_PaddedPlaintext
+                      #Anyhow.t_Error
+                      #Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+                      #(Securedrop_protocol_minimal.Client.Plaintext.t_PaddedPlaintext
+                          -> Core_models.Result.t_Result
+                              Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+                              Anyhow.t_Error)
+                      (Securedrop_protocol_minimal.Client.Plaintext.impl_PaddedPlaintext__from_bytes
+                          pt
+                        <:
+                        Core_models.Result.t_Result
+                          Securedrop_protocol_minimal.Client.Plaintext.t_PaddedPlaintext
+                          Anyhow.t_Error)
+                      (fun padded ->
+                          let padded:Securedrop_protocol_minimal.Client.Plaintext.t_PaddedPlaintext
+                          =
+                            padded
+                          in
+                          Securedrop_protocol_minimal.Client.Plaintext.impl_PaddedPlaintext__unpad padded
+
+                          <:
+                          Core_models.Result.t_Result
+                            Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext Anyhow.t_Error)
                     <:
                     Core_models.Result.t_Result
-                      Securedrop_protocol_minimal.Client.Plaintext.t_PaddedPlaintext Anyhow.t_Error)
+                      Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext Anyhow.t_Error)
                   (fun temp_0_ ->
                       let _:Anyhow.t_Error = temp_0_ in
                       DecryptError_MalformedPlaintext <: t_DecryptError)
                 <:
-                Core_models.Result.t_Result
-                  Securedrop_protocol_minimal.Client.Plaintext.t_PaddedPlaintext t_DecryptError
+                Core_models.Result.t_Result Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext
+                  t_DecryptError
               with
               | Core_models.Result.Result_Ok plaintext ->
                 Core_models.Result.Result_Ok
-                (Securedrop_protocol_minimal.Client.Plaintext.impl_PaddedPlaintext__into_inner plaintext
-                  ,
-                  sender_pk
+                (plaintext, sender_pk
                   <:
                   (Securedrop_protocol_minimal.Client.Plaintext.t_Plaintext &
                     Securedrop_protocol_minimal.Schemes.Message.t_MessagePublicKey))
