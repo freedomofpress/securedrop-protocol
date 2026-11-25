@@ -426,6 +426,8 @@ To check for messages, a recipient runs a challenge-based fetching protocol.
 | `Ristretto255`       | $`(sk, pk) \gets^{\$} \text{KGen}()`$                                              | Generate a ristretto255 Diffie–Hellman keypair by sampling $`x \gets^{\$} \mathbb{F}_\ell`$, the ristretto255 scalar field, and computing $`pk = x \cdot B`$, where $`B \in \mathbb{G}_{\mathrm{R255}}`$ is the basepoint |
 |                      | $`K \gets \text{DH}(sk, pk')`$                                                     | Perform a Diffie–Hellman agreement between two ristretto255 keys, where $`K = sk \cdot pk' = sk' \cdot pk \in \mathbb{G}_{\mathrm{R255}}`$                                                                                |
 
+All ristretto255 public keys and DH shares, including $pk^{fetch}$, $X$, $Z$, and $Q_k$, MUST be decoded per [RFC 9496], and the identity element MUST be rejected.
+
 ### Message encryption (SD-APKE)
 
 SD-APKE is message encryption using Hybrid Public Key Encryption with an authenticated KEM ($\text{AKEM}$), plus a post-quantum KEM ($`\text{KEM}_{PQ}`$) used to provide quantum-safe input into the key schedule.
@@ -654,6 +656,8 @@ ephemeral DH public key $X = g^x$ and a Diffie–Hellman share $Z =
 (pk_R^{fetch})^x$. This lets the recipient privately scan for their messages in
 step 7 without disclosing their identity to the server. The server stores the two
 ciphertexts and hint under a randomly generated message ID.
+
+The server MUST reject a submission if $X$ or $Z$ is the identity element: otherwise, any recipient could open the resulting challenge, allowing broadcast messages.
 
 The final message payload to the server includes: each ciphertext; the encapsulated shared secrets required to decrypt each of them; the encapsulated PQ secret; and the two components of the message delivery hint.
 
