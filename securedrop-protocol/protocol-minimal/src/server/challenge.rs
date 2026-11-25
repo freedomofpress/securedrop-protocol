@@ -68,8 +68,7 @@ pub fn compute_fetch_challenges<R: RngCore + CryptoRng>(
     responses
 }
 
-/// Note this is marked lax temporaily due to the `.expect()` panic freedom requirement
-#[cfg_attr(hax, hax_lib::fstar::verification_status(lax))]
+#[cfg_attr(hax, hax_lib::requires(nr_id.len() <= u32::MAX as usize))]
 fn make_response<R: RngCore + CryptoRng>(
     rng: &mut R,
     message_id: &[u8; LEN_MESSAGE_ID],
@@ -83,11 +82,11 @@ fn make_response<R: RngCore + CryptoRng>(
     // 3-party DH yields shared_secret used to encrypt message_id
     let shared_secret = dh_shared_secret(mgdh, &eph_sk);
     let key = derive_challenge_key(&shared_secret, nr_id);
-    let enc_mid = encrypt_message_id(&key, message_id).unwrap();
+    let enc_mid = encrypt_message_id(&key, message_id);
 
     // `copy_from_slice` rather than `try_into()`: Core_models has no
     // `TryInto<Vec<u8>, [u8; N]>` instance, and this is the codebase's
-    // Vec->array idiom. (Lengths must match; covered by `lax`.)
+    // Vec->array idiom. (Lengths must match)
     let mut kmid = [0u8; LEN_KMID];
     kmid.copy_from_slice(&enc_mid);
 

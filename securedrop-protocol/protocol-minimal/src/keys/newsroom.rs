@@ -4,7 +4,7 @@ use crate::sign::{DomainTag, MAX_PREIMAGE_OVERHEAD, Signature, SigningKey, Verif
 
 // Mock Newsroom ID
 // TODO(#409): Parametrize the NR_ID
-pub const NR_ID: &[u8] = b"MOCK_NEWSROOM_ID";
+pub const NR_ID: &[u8; 16] = b"MOCK_NEWSROOM_ID";
 
 /// Newsroom keypair used for signing.
 pub struct NewsroomKeyPair {

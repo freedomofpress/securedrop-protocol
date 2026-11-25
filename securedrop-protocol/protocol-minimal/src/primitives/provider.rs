@@ -208,7 +208,14 @@ pub mod chacha20poly1305 {
     // #[cfg_attr(hax, hax_lib::opaque)]
     // pub(crate) use libcrux_chacha20poly1305::{decrypt, encrypt};
 
-    #[cfg_attr(hax, hax_lib::ensures(|_result| future(ciphertext).len() == ciphertext.len()))]
+    /// ChaCha20-Poly1305 encryption
+    #[cfg_attr(hax, hax_lib::requires(
+        plaintext.len() <= u32::MAX as usize
+            && aad.len() <= u32::MAX as usize
+            && ciphertext.len() >= TAG_LEN
+            && plaintext.len() <= ciphertext.len() - TAG_LEN
+    ))]
+    #[cfg_attr(hax, hax_lib::ensures(|result| result.is_ok() && future(ciphertext).len() == ciphertext.len()))]
     #[cfg_attr(hax, hax_lib::opaque)]
     pub fn encrypt(
         key: &[u8; KEY_LEN],
