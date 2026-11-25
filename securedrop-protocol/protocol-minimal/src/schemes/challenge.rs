@@ -89,3 +89,42 @@ pub fn decrypt_message_id(key: &[u8; KEY_LEN], encrypted_data: &[u8]) -> Result<
 
     Ok(plaintext)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::primitives::ristretto255::random_dh_public_key;
+    use proptest::prelude::*;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    // `derive_challenge_key` and `encrypt_message_id` are infallible because we verified the
+    // underlying libcrux calls cannot fail for their inputs. These proptests guard against
+    // changes in libcrux
+    proptest! {
+        #[test]
+        fn test_derive_challenge_key_does_not_panic(
+            seed in any::<u64>(),
+            newsroom_id in prop::collection::vec(any::<u8>(), 0..1024),
+        ) {
+            let shared_secret = random_dh_public_key(&mut ChaCha20Rng::seed_from_u64(seed));
+
+            let _ = derive_challenge_key(&shared_secret, &newsroom_id);
+        }
+
+        #[test]
+        fn test_encrypt_message_id_round_trip(
+            key in any::<[u8; KEY_LEN]>(),
+            message_id in any::<[u8; LEN_MESSAGE_ID]>(),
+        ) {
+            let encrypted = encrypt_message_id(&key, &message_id);
+            prop_assert_eq!(
+                encrypted.len(),
+                LEN_MESSAGE_ID + provider::chacha20poly1305::TAG_LEN
+            );
+
+            let decrypted = decrypt_message_id(&key, &encrypted).expect("valid ciphertext");
+            prop_assert_eq!(decrypted, message_id.to_vec());
+        }
+    }
+}

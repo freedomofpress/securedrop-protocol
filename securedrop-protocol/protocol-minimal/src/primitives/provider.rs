@@ -340,6 +340,7 @@ mod tests {
     use ::hpke_rs::hpke_types::{AeadAlgorithm, KdfAlgorithm, KemAlgorithm};
     use ::hpke_rs::libcrux::HpkeLibcrux;
     use ::hpke_rs::{Hpke, HpkeError, Mode};
+    use proptest::prelude::*;
 
     #[test]
     fn test_norng_panic_on_seal() {
@@ -357,5 +358,43 @@ mod tests {
             matches!(result, Err(HpkeError::InsufficientRandomness)),
             "expected InsufficientRandomness, got {result:?}"
         );
+    }
+
+    /// Upper bound on the length of randomized variable-length test inputs - this is far
+    /// larger than any input we actually pass
+    const TEST_BYTE_RANGE: usize = 1024;
+
+    // The hax contracts on `hkdf::sha256` and `chacha20poly1305::encrypt` assume that the
+    // libcrux calls return `Ok` whenever the `requires` bounds hold
+    proptest! {
+        #[test]
+        fn test_hkdf_sha256_ok_within_bounds(
+            // HKDF can output at most 255 blocks of the hash length, which is 32 bytes for SHA-256
+            okm_len in 0usize..=255 * 32,
+            // The contract does allow `salt`, `ikm` and `info` to be up to `u32::MAX` bytes but here
+            // we use reasonable test ranges
+            salt in prop::collection::vec(any::<u8>(), 0..TEST_BYTE_RANGE),
+            ikm in prop::collection::vec(any::<u8>(), 0..TEST_BYTE_RANGE),
+            info in prop::collection::vec(any::<u8>(), 0..TEST_BYTE_RANGE)
+        ) {
+            let mut okm = alloc::vec![0u8; okm_len];
+            prop_assert!(hkdf::sha256(&mut okm, &salt, &ikm, &info).is_ok());
+        }
+
+        #[test]
+        fn test_chacha20poly1305_encrypt_ok_within_bounds(
+            key in any::<[u8; chacha20poly1305::KEY_LEN]>(),
+            nonce in any::<[u8; chacha20poly1305::NONCE_LEN]>(),
+            // The contract allows `plaintext` and `aad` up to `u32::MAX` bytes
+            // but we use reasonable test ranges
+            plaintext in prop::collection::vec(any::<u8>(), 0..2 * TEST_BYTE_RANGE),
+            aad in prop::collection::vec(any::<u8>(), 0..TEST_BYTE_RANGE)
+        ) {
+            let mut ciphertext =
+                alloc::vec![0u8; plaintext.len() + chacha20poly1305::TAG_LEN];
+            prop_assert!(
+                chacha20poly1305::encrypt(&key, &plaintext, &mut ciphertext, &aad, &nonce).is_ok()
+            );
+        }
     }
 }
